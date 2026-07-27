@@ -42,11 +42,18 @@ import {
   updateAccountAuth,
   updateAccountSettings,
 } from './accountStore.js';
+import { ausSpeicherOderHolen, schluessel, verwerfe, verwerfeKonto } from './cache.js';
 import { rememberAddresses, searchContacts } from './contactStore.js';
 import { clearFlow, getFlow, startOAuthFlow } from './oauthFlow.js';
 import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStore.js';
 import { installTokenRefresh } from './tokenRefresh.js';
-import { restartWatcher, setRegistryLogger, subscribe, syncWatchers } from './watcherRegistry.js';
+import {
+  meldeAktualisierung,
+  restartWatcher,
+  setRegistryLogger,
+  subscribe,
+  syncWatchers,
+} from './watcherRegistry.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Liegt sowohl von src/ (tsx) als auch von dist/ aus eine Ebene unter packages/server.
@@ -400,13 +407,50 @@ export async function buildServer() {
     }
     // Gepoolte Verbindung schließen, sonst bliebe sie bis zum Leerlauf-Timeout offen.
     closeConnection(request.params.id);
+    // Sonst blieben Kopfdaten eines entfernten Kontos auf der Platte liegen.
+    verwerfeKonto(request.params.id);
     syncWatchers();
     return { ok: true };
   });
 
+  /**
+   * Wie lange ein zwischengespeicherter Stand ohne Nachfrage gilt. Bewusst kurz: die
+   * Fristen bestimmen nicht, wie alt Angezeigtes sein darf, sondern nur, wie oft im
+   * Hintergrund nachgesehen wird. Veraltetes wird ohnehin sofort ersetzt, sobald die
+   * Auffrischung durch ist - und bei neuer Post verwirft der Watcher die Stände direkt.
+   */
+  const FRIST_ORDNER_MS = 20_000;
+  const FRIST_EINORDNUNG_MS = 120_000;
+  const FRIST_NACHRICHTEN_MS = 20_000;
+
+  /**
+   * Verwirft die zwischengespeicherten Stände nach einer Änderung durch die Anwendung
+   * selbst.
+   *
+   * Der Watcher erledigt das für Änderungen von außen, greift aber nur im Posteingang -
+   * und eine gerade gelöschte oder verschobene Nachricht darf beim nächsten Abruf nicht
+   * wieder auftauchen. Ordnerliste und Einordnung kommen mit, weil sich deren
+   * Ungelesen-Zähler mitverschieben.
+   */
+  function verwerfeStaende(accountId: string, ...ordner: (string | undefined)[]): void {
+    for (const eintrag of ordner) {
+      if (eintrag) verwerfe(`nachrichten:${accountId}:${eintrag}:`);
+    }
+    verwerfe(schluessel.ordner(accountId));
+    verwerfe(schluessel.einordnung(accountId));
+  }
+
   app.get<{ Params: { id: string } }>('/accounts/:id/folders', async (request) => {
     const account = requireAccount(request.params.id);
-    return listFolders(account);
+    const { wert } = await ausSpeicherOderHolen(
+      schluessel.ordner(account.id),
+      () => listFolders(account),
+      {
+        maxAlterMs: FRIST_ORDNER_MS,
+        beiAenderung: () => meldeAktualisierung({ type: 'data-updated', accountId: account.id, was: 'folders' }),
+      },
+    );
+    return wert;
   });
 
   /**
@@ -415,7 +459,19 @@ export async function buildServer() {
    */
   app.get<{ Params: { id: string } }>('/accounts/:id/categories', async (request) => {
     const account = requireAccount(request.params.id);
-    return listCategories(account);
+    // Der teuerste Abruf überhaupt: vier Suchläufe über den gesamten Posteingang, rund
+    // 1,2 Sekunden bei 30.000 Nachrichten. Ohne Zwischenspeicher lief er bei jedem Start
+    // und bei jedem Kontowechsel erneut.
+    const { wert } = await ausSpeicherOderHolen(
+      schluessel.einordnung(account.id),
+      () => listCategories(account),
+      {
+        maxAlterMs: FRIST_EINORDNUNG_MS,
+        beiAenderung: () =>
+          meldeAktualisierung({ type: 'data-updated', accountId: account.id, was: 'categories' }),
+      },
+    );
+    return wert;
   });
 
   /** Prüft den Wert aus der Anfrage gegen die bekannten Einordnungen. */
@@ -432,19 +488,46 @@ export async function buildServer() {
   }>('/accounts/:id/folders/:folder/messages', async (request) => {
     const account = requireAccount(request.params.id);
     const { beforeUid, pageSize, category } = request.query;
-    const result = await listMessages(account, decodeURIComponent(request.params.folder), {
-      beforeUid: beforeUid ? Number(beforeUid) : undefined,
-      pageSize: pageSize ? Number(pageSize) : undefined,
-      category: parseCategory(category),
-    });
+    const ordner = decodeURIComponent(request.params.folder);
+    const einordnung = parseCategory(category);
 
-    // Nebenbei Adressen einsammeln - daraus entstehen die Vorschläge beim Verfassen,
-    // ohne dass jemand ein Adressbuch pflegen muss.
-    for (const message of result.messages) {
-      rememberAddresses([...message.from, ...message.to, ...message.cc], message.date ?? undefined);
-    }
+    const holen = async () => {
+      const seite = await listMessages(account, ordner, {
+        beforeUid: beforeUid ? Number(beforeUid) : undefined,
+        pageSize: pageSize ? Number(pageSize) : undefined,
+        category: einordnung,
+      });
 
-    return result;
+      // Nebenbei Adressen einsammeln - daraus entstehen die Vorschläge beim Verfassen,
+      // ohne dass jemand ein Adressbuch pflegen muss. Bewusst hier drin: aus dem
+      // Zwischenspeicher beantwortete Anfragen sollen die Zähler nicht hochtreiben.
+      for (const message of seite.messages) {
+        rememberAddresses([...message.from, ...message.to, ...message.cc], message.date ?? undefined);
+      }
+      return seite;
+    };
+
+    // Nur die erste Seite kommt in den Zwischenspeicher. Nachgeladene ältere Seiten holt
+    // man einmal beim Blättern - dort wartet man ohnehin auf etwas Neues, und sie alle
+    // vorzuhalten würde den Speicher bei großen Postfächern vollaufen lassen.
+    if (beforeUid) return holen();
+
+    const { wert } = await ausSpeicherOderHolen(
+      schluessel.nachrichten(account.id, ordner, einordnung),
+      holen,
+      {
+        maxAlterMs: FRIST_NACHRICHTEN_MS,
+        beiAenderung: () =>
+          meldeAktualisierung({
+            type: 'data-updated',
+            accountId: account.id,
+            was: 'messages',
+            folder: ordner,
+            category: einordnung,
+          }),
+      },
+    );
+    return wert;
   });
 
   app.get<{ Params: { id: string; folder: string; uid: string } }>(
@@ -478,12 +561,9 @@ export async function buildServer() {
       if (typeof request.body?.seen !== 'boolean') {
         throw new HttpError(400, 'Feld "seen" (true/false) ist erforderlich');
       }
-      await setMessagesSeen(
-        account,
-        decodeURIComponent(request.params.folder),
-        parseUids(request.body.uids),
-        request.body.seen,
-      );
+      const ordner = decodeURIComponent(request.params.folder);
+      await setMessagesSeen(account, ordner, parseUids(request.body.uids), request.body.seen);
+      verwerfeStaende(account.id, ordner);
       return { ok: true };
     },
   );
@@ -521,12 +601,9 @@ export async function buildServer() {
     if (!request.body?.targetFolder) {
       throw new HttpError(400, 'Feld "targetFolder" ist erforderlich');
     }
-    await moveMessages(
-      account,
-      decodeURIComponent(request.params.folder),
-      parseUids(request.body.uids),
-      request.body.targetFolder,
-    );
+    const ordner = decodeURIComponent(request.params.folder);
+    await moveMessages(account, ordner, parseUids(request.body.uids), request.body.targetFolder);
+    verwerfeStaende(account.id, ordner, request.body.targetFolder);
     return { ok: true };
   });
 
@@ -534,11 +611,9 @@ export async function buildServer() {
     '/accounts/:id/folders/:folder/messages/delete',
     async (request) => {
       const account = requireAccount(request.params.id);
-      await deleteMessages(
-        account,
-        decodeURIComponent(request.params.folder),
-        parseUids(request.body?.uids),
-      );
+      const ordner = decodeURIComponent(request.params.folder);
+      await deleteMessages(account, ordner, parseUids(request.body?.uids));
+      verwerfeStaende(account.id, ordner);
       return { ok: true };
     },
   );
@@ -645,6 +720,10 @@ export async function buildServer() {
         [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])].map((address) => ({ address })),
       );
 
+      // Im Gesendet-Ordner liegt jetzt eine Nachricht mehr, im Entwürfe-Ordner eine
+      // weniger.
+      verwerfeStaende(account.id, result.sentFolder, draftFolder && decodeURIComponent(draftFolder));
+
       return { ok: true, ...result };
     } catch (err) {
       reply.code(502);
@@ -665,6 +744,7 @@ export async function buildServer() {
       { ...message, to: message.to ?? [], subject: message.subject ?? '', attachments },
       previousUid,
     );
+    verwerfeStaende(account.id, result.folder);
     return { ok: true, ...result };
   });
 
@@ -672,11 +752,9 @@ export async function buildServer() {
     '/accounts/:id/drafts/:folder/:uid',
     async (request) => {
       const account = requireAccount(request.params.id);
-      await discardDraft(
-        account,
-        decodeURIComponent(request.params.folder),
-        Number(request.params.uid),
-      );
+      const ordner = decodeURIComponent(request.params.folder);
+      await discardDraft(account, ordner, Number(request.params.uid));
+      verwerfeStaende(account.id, ordner);
       return { ok: true };
     },
   );

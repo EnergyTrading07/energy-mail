@@ -9,7 +9,20 @@ interface EventBase {
 export type MailEvent =
   | (EventBase & { type: 'new-mail'; count: number; prevCount: number })
   | (EventBase & { type: 'flags-changed'; uid?: number; seen: boolean })
-  | (EventBase & { type: 'messages-removed'; uid?: number });
+  | (EventBase & { type: 'messages-removed'; uid?: number })
+  /**
+   * Der Server hat im Hintergrund nachgesehen und einen neueren Stand gefunden als den,
+   * der gerade angezeigt wird. Kommt daher, dass Ordner, Einordnung und die erste Seite
+   * aus einem Zwischenspeicher beantwortet werden: erst das Vorhandene zeigen, dann
+   * stillschweigend nachziehen.
+   */
+  | {
+      type: 'data-updated';
+      accountId: string;
+      was: 'folders' | 'categories' | 'messages';
+      folder?: string;
+      category?: string;
+    };
 
 const INITIAL_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;

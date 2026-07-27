@@ -284,6 +284,23 @@ export default function App() {
   useMailEvents((event) => {
     const isVisible = event.accountId === selectedAccountId && event.folder === selectedFolder;
 
+    if (event.type === 'data-updated') {
+      // Der Server hat im Hintergrund nachgesehen und etwas Neueres gefunden als das,
+      // was aus dem Zwischenspeicher kam. Nur das betroffene Stück nachladen - der Abruf
+      // trifft jetzt auf den frischen Stand und kostet nichts mehr.
+      if (event.accountId !== selectedAccountId) return;
+      if (event.was === 'messages') {
+        const gleicheAnsicht =
+          event.folder === selectedFolder && (event.category ?? null) === selectedCategory;
+        // Nicht während einer Suche: sonst würde die Trefferliste ohne Zutun durch den
+        // gewöhnlichen Ordnerinhalt ersetzt.
+        if (gleicheAnsicht && !searchQuery) setReloadCounter((n) => n + 1);
+      } else {
+        setFolderReload((n) => n + 1);
+      }
+      return;
+    }
+
     if (event.type === 'new-mail') {
       if (isVisible) {
         setReloadCounter((n) => n + 1);
