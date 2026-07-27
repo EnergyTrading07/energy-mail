@@ -536,6 +536,78 @@ export function findDraftsFolder(config: AccountConfig): Promise<string | null> 
   return findSpecialFolder(config, '\\Drafts', ['drafts', 'entwürfe', 'entwuerfe']);
 }
 
+/**
+ * Legt einen Ordner an. Der Pfad enthält bei Unterordnern bereits das Trennzeichen des
+ * Servers - welches das ist, verrät listFolders.
+ */
+export async function createFolder(config: AccountConfig, path: string): Promise<void> {
+  await withClient(config, async (client) => {
+    const ergebnis = await client.mailboxCreate(path);
+    if (!ergebnis) throw new Error(`Ordner "${path}" konnte nicht angelegt werden.`);
+  });
+}
+
+/**
+ * Benennt einen Ordner um. Unterordner wandern beim Umbenennen mit - das erledigt der
+ * Server, nicht wir.
+ */
+export async function renameFolder(
+  config: AccountConfig,
+  path: string,
+  neuerPfad: string,
+): Promise<void> {
+  await withClient(config, async (client) => {
+    const ergebnis = await client.mailboxRename(path, neuerPfad);
+    if (!ergebnis) throw new Error(`Ordner "${path}" konnte nicht umbenannt werden.`);
+  });
+}
+
+/** Löscht einen Ordner samt Inhalt. */
+export async function deleteFolder(config: AccountConfig, path: string): Promise<void> {
+  await withClient(config, async (client) => {
+    const ergebnis = await client.mailboxDelete(path);
+    if (!ergebnis) throw new Error(`Ordner "${path}" konnte nicht gelöscht werden.`);
+  });
+}
+
+/**
+ * Löscht alle Nachrichten eines Ordners unwiderruflich - gedacht für Papierkorb und
+ * Spam. Liefert die Zahl der entfernten Nachrichten zurück.
+ */
+export async function emptyFolder(config: AccountConfig, folder: string): Promise<number> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const alle = (await client.search({ all: true }, { uid: true })) || [];
+      if (alle.length === 0) return 0;
+      const ergebnis = await client.messageDelete(alle, { uid: true });
+      if (!ergebnis) throw new Error('Leeren wurde vom Server abgelehnt.');
+      return alle.length;
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
+ * Markiert alle ungelesenen Nachrichten eines Ordners als gelesen. Liefert die Zahl der
+ * betroffenen Nachrichten - erst suchen, dann setzen, damit nicht der ganze Ordner
+ * angefasst wird, wenn dort ohnehin nichts Ungelesenes liegt.
+ */
+export async function markFolderSeen(config: AccountConfig, folder: string): Promise<number> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const ungelesen = (await client.search({ seen: false }, { uid: true })) || [];
+      if (ungelesen.length === 0) return 0;
+      await client.messageFlagsAdd(ungelesen, ['\\Seen'], { uid: true });
+      return ungelesen.length;
+    } finally {
+      lock.release();
+    }
+  });
+}
+
 /** Verschiebt Nachrichten in einen anderen Ordner (z.B. in den Papierkorb). */
 export async function moveMessages(
   config: AccountConfig,

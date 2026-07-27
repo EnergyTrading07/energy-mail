@@ -8,7 +8,12 @@ import {
   CATEGORY_UNSUPPORTED,
   GMAIL_CATEGORIES,
   closeConnection,
+  createFolder,
+  deleteFolder,
   deleteMessages,
+  emptyFolder,
+  markFolderSeen,
+  renameFolder,
   discardDraft,
   downloadAttachment,
   getMailScope,
@@ -464,6 +469,90 @@ export async function buildServer() {
     );
     return wert;
   });
+
+  /**
+   * Sonderordner dürfen weder umbenannt noch gelöscht werden.
+   *
+   * Die Server lehnen das zwar meist selbst ab, aber mit Meldungen, aus denen niemand
+   * schlau wird - und Gmail lässt manches sogar zu, mit Folgen bis in die Weboberfläche
+   * hinein. Die Rolle kommt vom Server selbst, es wird also nicht über Namen geraten.
+   */
+  async function pruefeVeraenderbar(account: AccountConfig, pfad: string): Promise<void> {
+    const ordner = (await listFolders(account)).find((f) => f.path === pfad);
+    if (!ordner) throw new HttpError(404, `Ordner "${pfad}" gibt es nicht.`);
+    if (ordner.specialUse) {
+      throw new HttpError(
+        400,
+        `"${ordner.name}" ist ein Sonderordner des Anbieters und lässt sich nicht ändern.`,
+      );
+    }
+  }
+
+  app.post<{ Params: { id: string }; Body: { path?: string } }>(
+    '/accounts/:id/folders',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const pfad = request.body?.path?.trim();
+      if (!pfad) throw new HttpError(400, 'Feld "path" ist erforderlich');
+      await createFolder(account, pfad);
+      verwerfe(schluessel.ordner(account.id));
+      return { ok: true, path: pfad };
+    },
+  );
+
+  app.patch<{ Params: { id: string; folder: string }; Body: { path?: string } }>(
+    '/accounts/:id/folders/:folder',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const alt = decodeURIComponent(request.params.folder);
+      const neu = request.body?.path?.trim();
+      if (!neu) throw new HttpError(400, 'Feld "path" ist erforderlich');
+      await pruefeVeraenderbar(account, alt);
+      await renameFolder(account, alt, neu);
+      // Der alte Pfad ist weg - alles, was darunter zwischengespeichert war, ebenso.
+      verwerfeStaende(account.id, alt);
+      verwirfNachrichten(`${account.id}:${alt}:`);
+      return { ok: true, path: neu };
+    },
+  );
+
+  app.delete<{ Params: { id: string; folder: string } }>(
+    '/accounts/:id/folders/:folder',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const pfad = decodeURIComponent(request.params.folder);
+      await pruefeVeraenderbar(account, pfad);
+      await deleteFolder(account, pfad);
+      verwerfeStaende(account.id, pfad);
+      verwirfNachrichten(`${account.id}:${pfad}:`);
+      return { ok: true };
+    },
+  );
+
+  /** Leert einen Ordner unwiderruflich - gedacht für Papierkorb und Spam. */
+  app.post<{ Params: { id: string; folder: string } }>(
+    '/accounts/:id/folders/:folder/empty',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const pfad = decodeURIComponent(request.params.folder);
+      const anzahl = await emptyFolder(account, pfad);
+      verwerfeStaende(account.id, pfad);
+      verwirfNachrichten(`${account.id}:${pfad}:`);
+      return { ok: true, geloescht: anzahl };
+    },
+  );
+
+  app.post<{ Params: { id: string; folder: string } }>(
+    '/accounts/:id/folders/:folder/mark-read',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const pfad = decodeURIComponent(request.params.folder);
+      const anzahl = await markFolderSeen(account, pfad);
+      verwerfeStaende(account.id, pfad);
+      verwirfNachrichten(`${account.id}:${pfad}:`);
+      return { ok: true, markiert: anzahl };
+    },
+  );
 
   /**
    * Gmails Einordnung des Posteingangs. Für alle anderen Anbieter eine leere Liste - die

@@ -121,6 +121,49 @@ export function fetchFolders(accountId: string): Promise<FolderInfo[]> {
   return request(`/accounts/${accountId}/folders`);
 }
 
+export function createFolder(accountId: string, path: string): Promise<{ path: string }> {
+  return request(`/accounts/${accountId}/folders`, {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  });
+}
+
+export function renameFolder(
+  accountId: string,
+  folder: string,
+  path: string,
+): Promise<{ path: string }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ path }),
+  });
+}
+
+export function deleteFolder(accountId: string, folder: string): Promise<{ ok: boolean }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}`, {
+    method: 'DELETE',
+  });
+}
+
+/** Löscht alle Nachrichten eines Ordners unwiderruflich. */
+export function emptyFolder(
+  accountId: string,
+  folder: string,
+): Promise<{ geloescht: number }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/empty`, {
+    method: 'POST',
+  });
+}
+
+export function markFolderRead(
+  accountId: string,
+  folder: string,
+): Promise<{ markiert: number }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/mark-read`, {
+    method: 'POST',
+  });
+}
+
 /** Gmails Einordnung des Posteingangs; bei anderen Anbietern eine leere Liste. */
 export function fetchCategories(accountId: string): Promise<CategoryInfo[]> {
   return request(`/accounts/${accountId}/categories`);

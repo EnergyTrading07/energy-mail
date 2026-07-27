@@ -9,7 +9,7 @@
     "url": "https://github.com/EnergyTrading07/energy-mail.git"
   },
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "main": "packages/desktop/dist/main.js",
   "//type": "Muss gesetzt sein, sonst startet die paketierte Anwendung nicht: Electron entscheidet anhand DIESER Datei, ob der Einstiegspunkt als ES-Modul oder als CommonJS geladen wird - nicht anhand der package.json daneben. Aus dem Quellbaum gestartet ist packages/desktop das Wurzelverzeichnis (dort steht type bereits), paketiert dagegen dieses hier. Ohne die Angabe scheitert der Start mit ERR_REQUIRE_ESM.",
   "type": "module",

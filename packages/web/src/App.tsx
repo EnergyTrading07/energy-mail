@@ -613,6 +613,50 @@ export default function App() {
     return treffer?.label ?? selectedFolder;
   })();
 
+  /**
+   * Ordnerverwaltung. Alles nach demselben Muster: ausführen, Ordnerliste neu laden,
+   * Fehler als Meldung zeigen. Die Rückfragen stellt die Seitenleiste - dort ist
+   * bekannt, um welchen Ordner es geht.
+   */
+  const ordnerAktion = async (was: string, tun: () => Promise<unknown>) => {
+    try {
+      await tun();
+      setFolderReload((n) => n + 1);
+    } catch (err) {
+      setError(`${was} fehlgeschlagen: ${(err as Error).message}`);
+    }
+  };
+
+  const ordnerAktionen = {
+    anlegen: (accountId: string, pfad: string) =>
+      void ordnerAktion('Ordner anlegen', () => api.createFolder(accountId, pfad)),
+
+    umbenennen: (accountId: string, folder: FolderInfo, neuerPfad: string) =>
+      void ordnerAktion('Umbenennen', async () => {
+        await api.renameFolder(accountId, folder.path, neuerPfad);
+        // Der angezeigte Ordner heißt jetzt anders - sonst zeigte die Liste ins Leere.
+        if (selectedFolder === folder.path) waehleOrdner(neuerPfad);
+      }),
+
+    loeschen: (accountId: string, folder: FolderInfo) =>
+      void ordnerAktion('Löschen', async () => {
+        await api.deleteFolder(accountId, folder.path);
+        if (selectedFolder === folder.path) setSelectedFolder(null);
+      }),
+
+    leeren: (accountId: string, folder: FolderInfo) =>
+      void ordnerAktion('Leeren', async () => {
+        await api.emptyFolder(accountId, folder.path);
+        if (selectedFolder === folder.path) setReloadCounter((n) => n + 1);
+      }),
+
+    alleGelesen: (accountId: string, folder: FolderInfo) =>
+      void ordnerAktion('Als gelesen markieren', async () => {
+        await api.markFolderRead(accountId, folder.path);
+        if (selectedFolder === folder.path) setReloadCounter((n) => n + 1);
+      }),
+  };
+
   /** Ordnerwechsel hebt eine aktive Einordnung auf - sie gilt nur für den Posteingang. */
   const waehleOrdner = (path: string) => {
     setSelectedFolder(path);
@@ -893,6 +937,7 @@ export default function App() {
           oauthBusy={oauthBusy}
           reauthBusy={reauthBusy}
           onReauth={(id) => void handleReauth(id)}
+          ordnerAktionen={ordnerAktionen}
           onSelectAccount={setSelectedAccountId}
           onSelectFolder={waehleOrdner}
           onSelectCategory={waehleKategorie}

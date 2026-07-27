@@ -161,6 +161,50 @@ body {
   color: inherit;
 }
 
+/* Kontextmenü der Ordnerzeilen. Liegt über allem, folgt aber der Gestaltung der
+   übrigen Menüs: heller Grund, feine Trennung, klare Hervorhebung des Unumkehrbaren. */
+.kontextmenue {
+  position: fixed;
+  z-index: 100;
+  min-width: 216px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+}
+
+.kontextmenue-eintrag {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  font-size: 13px;
+  font-family: inherit;
+  color: #222;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kontextmenue-eintrag:hover:not(:disabled) {
+  background: #eef1f5;
+}
+
+.kontextmenue-eintrag:disabled {
+  color: #a8b0b8;
+  cursor: default;
+}
+
+.kontextmenue-eintrag.gefaehrlich:not(:disabled) {
+  color: #b3261e;
+}
+
+.kontextmenue-eintrag.gefaehrlich:hover:not(:disabled) {
+  background: #fdeceb;
+}
+
 /* Abgelaufene Anmeldung: bewusst warnend statt in der Kontofarbe - hier ist etwas
    kaputt, das der Nutzer selbst beheben muss. */
 .auth-warn {

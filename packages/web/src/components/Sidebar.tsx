@@ -5,6 +5,7 @@ import { buildFolderView, type AnzeigeOrdner } from '../folderTree.js';
 import { categoryDescription, categoryLabel, visibleCategories } from '../gmailCategories.js';
 import { providerTheme } from '../providerTheme.js';
 import { FolderIcon } from './FolderIcon.js';
+import { FolderMenu, type MenuEintrag } from './FolderMenu.js';
 
 interface Props {
   accounts: Account[];
@@ -22,6 +23,14 @@ interface Props {
   /** Kennung des Kontos, dessen Neuanmeldung gerade läuft. */
   reauthBusy: string | null;
   onReauth: (accountId: string) => void;
+  /** Ordnerverwaltung. Die Rückfragen stellt die Seitenleiste, ausgeführt wird oben. */
+  ordnerAktionen: {
+    anlegen: (accountId: string, pfad: string) => void;
+    umbenennen: (accountId: string, folder: FolderInfo, neuerPfad: string) => void;
+    loeschen: (accountId: string, folder: FolderInfo) => void;
+    leeren: (accountId: string, folder: FolderInfo) => void;
+    alleGelesen: (accountId: string, folder: FolderInfo) => void;
+  };
   onSelectAccount: (id: string) => void;
   onSelectFolder: (path: string) => void;
   onSelectCategory: (folder: string, category: GmailCategory) => void;
@@ -42,10 +51,12 @@ function FolderRow({
   eintrag,
   active,
   onSelect,
+  onContextMenu,
 }: {
   eintrag: AnzeigeOrdner;
   active: boolean;
   onSelect: (path: string) => void;
+  onContextMenu?: (e: React.MouseEvent, folder: FolderInfo) => void;
 }) {
   const { folder, tiefe, label } = eintrag;
   // "Alle Nachrichten" spiegelt bei Gmail den gesamten Bestand; sein Zähler wiederholte
@@ -66,6 +77,7 @@ function FolderRow({
       className={`folder-row${active ? ' active' : ''}`}
       style={{ paddingLeft: 10 + tiefe * 14 }}
       onClick={() => onSelect(folder.path)}
+      onContextMenu={(e) => onContextMenu?.(e, folder)}
       title={folder.path}
     >
       <FolderIcon role={folder.specialUse} />
@@ -118,6 +130,7 @@ export function Sidebar({
   oauthBusy,
   reauthBusy,
   onReauth,
+  ordnerAktionen,
   onSelectAccount,
   onSelectFolder,
   onSelectCategory,
@@ -130,12 +143,110 @@ export function Sidebar({
 }: Props) {
   const [formOffen, setFormOffen] = useState(false);
   const [alleOrdner, setAlleOrdner] = useState(false);
+  const [menue, setMenue] = useState<{
+    x: number;
+    y: number;
+    accountId: string;
+    folder: FolderInfo;
+    delimiter: string;
+  } | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fehler, setFehler] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const formSichtbar = formOffen || accounts.length === 0;
+
+  /**
+   * Fragt einen Ordnernamen ab. Verweigert das Trennzeichen des Servers: damit würde
+   * unbeabsichtigt eine Ebene angelegt, und der Ordner erschiene nicht dort, wo man ihn
+   * erwartet.
+   */
+  const frageName = (titel: string, vorgabe: string, delimiter: string): string | null => {
+    const eingabe = prompt(titel, vorgabe)?.trim();
+    if (!eingabe) return null;
+    if (eingabe.includes(delimiter)) {
+      alert(`Ein Ordnername darf kein "${delimiter}" enthalten - das trennt beim Anbieter die Ebenen.`);
+      return null;
+    }
+    return eingabe;
+  };
+
+  const menueEintraege = (): MenuEintrag[] => {
+    if (!menue) return [];
+    const { accountId, folder, delimiter } = menue;
+    const istSonderordner = Boolean(folder.specialUse);
+    const istPapierkorbOderSpam =
+      folder.specialUse === '\\Trash' || folder.specialUse === '\\Junk';
+
+    return [
+      {
+        label: 'Unterordner anlegen…',
+        onClick: folder.selectable
+          ? () => {
+              const name = frageName(`Unterordner in "${folder.name}" anlegen:`, '', delimiter);
+              if (name) ordnerAktionen.anlegen(accountId, `${folder.path}${delimiter}${name}`);
+            }
+          : undefined,
+        grund: folder.selectable ? undefined : 'Dieser Eintrag ist nur eine Überschrift.',
+      },
+      {
+        label: 'Umbenennen…',
+        onClick: istSonderordner
+          ? undefined
+          : () => {
+              const name = frageName('Neuer Name:', folder.name, delimiter);
+              if (!name) return;
+              // Nur den letzten Teil ersetzen, damit der Ordner an seinem Platz bleibt.
+              const teile = folder.path.split(delimiter);
+              teile[teile.length - 1] = name;
+              ordnerAktionen.umbenennen(accountId, folder, teile.join(delimiter));
+            },
+        grund: istSonderordner ? 'Sonderordner des Anbieters lassen sich nicht umbenennen.' : undefined,
+      },
+      {
+        label: 'Alle als gelesen markieren',
+        onClick: folder.unseen
+          ? () => ordnerAktionen.alleGelesen(accountId, folder)
+          : undefined,
+        grund: folder.unseen ? undefined : 'Hier ist nichts ungelesen.',
+      },
+      {
+        label: 'Ordner leeren…',
+        gefaehrlich: true,
+        onClick: istPapierkorbOderSpam
+          ? () => {
+              if (
+                confirm(
+                  `Alle Nachrichten in "${folder.name}" endgültig löschen?\n\n` +
+                    'Das lässt sich nicht rückgängig machen.',
+                )
+              ) {
+                ordnerAktionen.leeren(accountId, folder);
+              }
+            }
+          : undefined,
+        grund: istPapierkorbOderSpam ? undefined : 'Nur für Papierkorb und Spam vorgesehen.',
+      },
+      {
+        label: 'Ordner löschen…',
+        gefaehrlich: true,
+        onClick: istSonderordner
+          ? undefined
+          : () => {
+              if (
+                confirm(
+                  `Ordner "${folder.name}" mit allen darin enthaltenen Nachrichten löschen?\n\n` +
+                    'Das lässt sich nicht rückgängig machen.',
+                )
+              ) {
+                ordnerAktionen.loeschen(accountId, folder);
+              }
+            },
+        grund: istSonderordner ? 'Sonderordner des Anbieters lassen sich nicht löschen.' : undefined,
+      },
+    ];
+  };
 
   const hinzufuegen = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,6 +266,14 @@ export function Sidebar({
 
   return (
     <div className="sidebar">
+      {menue && (
+        <FolderMenu
+          x={menue.x}
+          y={menue.y}
+          eintraege={menueEintraege()}
+          onClose={() => setMenue(null)}
+        />
+      )}
       <div className="sidebar-head">
         <button className="btn compose-btn" onClick={onCompose} disabled={!selectedAccountId}>
           ✎ Neue Nachricht
@@ -253,6 +372,16 @@ export function Sidebar({
                           !(selectedCategory && eintrag.folder.specialUse === '\\Inbox')
                         }
                         onSelect={onSelectFolder}
+                        onContextMenu={(e, folder) => {
+                          e.preventDefault();
+                          setMenue({
+                            x: e.clientX,
+                            y: e.clientY,
+                            accountId: account.id,
+                            folder,
+                            delimiter: folder.delimiter,
+                          });
+                        }}
                       />
                       {eintrag.folder.specialUse === '\\Inbox' &&
                         visibleCategories(categories).map((info) => (
@@ -277,8 +406,29 @@ export function Sidebar({
                       eintrag={eintrag}
                       active={eintrag.folder.path === selectedFolder}
                       onSelect={onSelectFolder}
+                      onContextMenu={(e, folder) => {
+                        e.preventDefault();
+                        setMenue({
+                          x: e.clientX,
+                          y: e.clientY,
+                          accountId: account.id,
+                          folder,
+                          delimiter: folder.delimiter,
+                        });
+                      }}
                     />
                   ))}
+                  <button
+                    className="link-btn folder-toggle"
+                    onClick={() => {
+                      const delimiter = ordner[0]?.delimiter ?? '/';
+                      const name = frageName('Name des neuen Ordners:', '', delimiter);
+                      if (name) ordnerAktionen.anlegen(account.id, name);
+                    }}
+                    title="Weitere Aktionen erreichst du mit einem Rechtsklick auf einen Ordner"
+                  >
+                    + Ordner anlegen
+                  </button>
                   {(ansicht.ausgeblendet > 0 || alleOrdner) && (
                     <button className="link-btn folder-toggle" onClick={() => setAlleOrdner((v) => !v)}>
                       {alleOrdner
