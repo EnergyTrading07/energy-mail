@@ -19,6 +19,9 @@ directories:
 # die ausgelieferte Anwendung selbst, wo sie nachschauen muss.
 publish:
   provider: github
+  # Ohne diese Zeile legt electron-builder einen Entwurf an - und Entwürfe sind für die
+  # Selbstaktualisierung unsichtbar, die Anwendung fände nie etwas.
+  releaseType: release
 
 # Die Electron-Hülle liegt nicht in node_modules, sondern als Arbeitsbereich im Baum -
 # deshalb hier ausdrücklich.
