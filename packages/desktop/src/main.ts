@@ -3,6 +3,7 @@ import { buildServer } from '@energy-mail/server/app';
 import { getDataDir, setDataDir } from '@energy-mail/server/paths';
 import { setKeyProvider } from '@energy-mail/server/secrets';
 import { starteAktualisierungspruefung } from './autoUpdate.js';
+import { starteBenachrichtigungen } from './notifications.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 
 // Gleicher Port wie der Standalone-Server (siehe packages/server), damit der ohne
@@ -31,6 +32,12 @@ async function startLocalServer() {
   return server;
 }
 
+/**
+ * Das Hauptfenster - die Benachrichtigungen brauchen es, um es bei einem Klick nach
+ * vorn zu holen und die gemeldete Nachricht zu öffnen.
+ */
+let hauptfenster: BrowserWindow | null = null;
+
 function createWindow(url: string) {
   const win = new BrowserWindow({
     width: 1280,
@@ -54,11 +61,24 @@ function createWindow(url: string) {
     return { action: 'deny' };
   });
 
+  win.on('closed', () => {
+    if (hauptfenster === win) hauptfenster = null;
+  });
+
   win.loadURL(url);
+  hauptfenster = win;
 }
 
 // Muss vor app.whenReady() stehen - danach ist der Benutzerordner bereits festgelegt.
 app.setName(USER_DATA_NAME);
+
+/**
+ * Anwendungskennung für Windows. Ohne sie ordnet Windows Meldungen keiner Anwendung zu
+ * und zeigt sie unter Umständen gar nicht an; außerdem gruppiert es die Fenster in der
+ * Taskleiste nicht richtig. Muss mit der appId aus electron-builder.yml übereinstimmen,
+ * damit paketiert dieselbe Kennung gilt wie die der Verknüpfung.
+ */
+app.setAppUserModelId('de.energymail.desktop');
 
 app.whenReady().then(async () => {
   // Der lokale Server liefert auch das gebaute Frontend aus, daher wird die UI über
@@ -96,6 +116,8 @@ app.whenReady().then(async () => {
     info: (msg) => console.log(msg),
     warn: (msg) => console.warn(msg),
   });
+
+  starteBenachrichtigungen(() => hauptfenster);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(url);

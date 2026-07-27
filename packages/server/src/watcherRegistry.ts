@@ -1,4 +1,10 @@
-import { watchMailbox, type NewMailEvent } from '@energy-mail/mail-core';
+import {
+  listMessages,
+  watchMailbox,
+  type AccountConfig,
+  type MessageSummary,
+  type NewMailEvent,
+} from '@energy-mail/mail-core';
 import { listAccounts } from './accountStore.js';
 import { verwerfe } from './cache.js';
 import { aktualisiereGelesen, nachrichtenSchluessel, verwirfNachrichten } from './messageCache.js';
@@ -10,7 +16,17 @@ interface EventBase {
 }
 
 export type MailEvent =
-  | (EventBase & { type: 'new-mail'; count: number; prevCount: number })
+  | (EventBase & {
+      type: 'new-mail';
+      count: number;
+      prevCount: number;
+      /**
+       * Kopfdaten der neu eingetroffenen Nachrichten - Grundlage für die Meldung des
+       * Betriebssystems, die ohne Absender und Betreff nichts wert wäre. Leer, wenn der
+       * Abruf nicht geklappt hat; die Meldung entfällt dann, der Rest arbeitet weiter.
+       */
+      neue: MessageSummary[];
+    })
   /** Status anderswo geändert (Handy, Weboberfläche). uid fehlt, wenn der Server sie
    *  nicht mitliefert - dann muss der Client die Liste neu laden. */
   | (EventBase & { type: 'flags-changed'; uid?: number; seen: boolean })
@@ -68,6 +84,29 @@ function emit(event: MailEvent): void {
   }
 }
 
+/**
+ * Höchstzahl der Nachrichten, deren Kopfdaten nach einem Eingang geholt werden.
+ *
+ * Nach einem Verbindungsabbruch - Standby, Netzwechsel - meldet der Server unter
+ * Umständen den Zuwachs von Stunden auf einmal. Ohne Deckel würde daraus ein Abruf über
+ * hunderte Nachrichten und eine Flut von Meldungen.
+ */
+const MAX_NEUE = 5;
+
+async function holeNeue(config: AccountConfig, event: NewMailEvent): Promise<MessageSummary[]> {
+  const zuwachs = Math.max(0, event.count - event.prevCount);
+  if (zuwachs === 0) return [];
+  try {
+    const seite = await listMessages(config, event.folder, {
+      pageSize: Math.min(zuwachs, MAX_NEUE),
+    });
+    return seite.messages;
+  } catch (err) {
+    log.warn(`Kopfdaten der neuen Nachricht nicht abrufbar: ${(err as Error).message}`);
+    return [];
+  }
+}
+
 /** Meldet der Oberfläche, dass ein zwischengespeicherter Stand überholt ist. */
 export function meldeAktualisierung(event: Extract<MailEvent, { type: 'data-updated' }>): void {
   emit(event);
@@ -120,13 +159,19 @@ export function syncWatchers(): void {
       onNewMail: (event: NewMailEvent) => {
         log.info(`Neue Mail für ${account.email} in ${event.folder} (${event.count})`);
         verwerfeStaende(account.id, event.folder);
-        emit({
-          ...base,
-          type: 'new-mail',
-          folder: event.folder,
-          count: event.count,
-          prevCount: event.prevCount,
-        });
+        // Kopfdaten nachholen, bevor gemeldet wird: die Verzögerung von ein paar
+        // hundert Millisekunden merkt niemand, dafür weiß die Meldung, von wem die
+        // Nachricht ist.
+        void (async () => {
+          emit({
+            ...base,
+            type: 'new-mail',
+            folder: event.folder,
+            count: event.count,
+            prevCount: event.prevCount,
+            neue: await holeNeue(account, event),
+          });
+        })();
       },
       onFlagsChanged: (event) => {
         log.info(

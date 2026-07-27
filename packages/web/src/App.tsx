@@ -52,6 +52,13 @@ export default function App() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<GmailCategory | null>(null);
 
+  /** Aus einer angeklickten Benachrichtigung: was geöffnet werden soll, sobald es geht. */
+  const [zuOeffnen, setZuOeffnen] = useState<{
+    accountId: string;
+    folder: string;
+    uid: number;
+  } | null>(null);
+
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   /**
    * Die Auswahl merkt sich, zu welcher Ansicht sie gehört (Konto + Ordner).
@@ -356,6 +363,45 @@ export default function App() {
     // applySeen hängt an denselben Werten und wird bewusst nicht als Abhängigkeit geführt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccountId, selectedFolder, selectedUid]);
+
+  /**
+   * Nimmt entgegen, worauf in einer Benachrichtigung geklickt wurde.
+   *
+   * Die Desktop-Hülle löst dafür ein gewöhnliches Browser-Ereignis im Fenster aus - so
+   * bleibt die Oberfläche eine normale Webanwendung ohne Sonderrechte, und im Browser
+   * betrieben passiert schlicht nichts.
+   */
+  useEffect(() => {
+    const bearbeite = (e: Event) =>
+      setZuOeffnen(
+        (e as CustomEvent<{ accountId: string; folder: string; uid: number }>).detail,
+      );
+    window.addEventListener('energy-mail:oeffne', bearbeite);
+    return () => window.removeEventListener('energy-mail:oeffne', bearbeite);
+  }, []);
+
+  /**
+   * Stellt Konto, Ordner und Auswahl nacheinander um.
+   *
+   * Nicht in einem Zug: der Wechsel des Kontos verwirft die Ordnerwahl, der Wechsel des
+   * Ordners die Nachrichtenauswahl - beides zu Recht, aber eine sofort gesetzte Auswahl
+   * wäre damit gleich wieder weg. Jeder Durchlauf erledigt deshalb einen Schritt und
+   * wartet, bis er angekommen ist.
+   */
+  useEffect(() => {
+    if (!zuOeffnen) return;
+    if (selectedAccountId !== zuOeffnen.accountId) {
+      setSelectedAccountId(zuOeffnen.accountId);
+      return;
+    }
+    if (selectedFolder !== zuOeffnen.folder) {
+      setSelectedFolder(zuOeffnen.folder);
+      setSelectedCategory(null);
+      return;
+    }
+    setSelection({ view: viewKey, uid: zuOeffnen.uid });
+    setZuOeffnen(null);
+  }, [zuOeffnen, selectedAccountId, selectedFolder, viewKey]);
 
   /**
    * Lädt die nächste Nachricht der Liste im Hintergrund, während die aktuelle gelesen
