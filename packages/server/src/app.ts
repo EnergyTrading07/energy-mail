@@ -423,6 +423,9 @@ export async function buildServer() {
   const FRIST_EINORDNUNG_MS = 120_000;
   const FRIST_NACHRICHTEN_MS = 20_000;
 
+  /** Muss zu mail-core passen; steht hier, damit der Schlüssel des Speichers eindeutig ist. */
+  const DEFAULT_SEITENGROESSE = 25;
+
   /**
    * Verwirft die zwischengespeicherten Stände nach einer Änderung durch die Anwendung
    * selbst.
@@ -491,10 +494,12 @@ export async function buildServer() {
     const ordner = decodeURIComponent(request.params.folder);
     const einordnung = parseCategory(category);
 
+    const groesse = pageSize ? Number(pageSize) : DEFAULT_SEITENGROESSE;
+
     const holen = async () => {
       const seite = await listMessages(account, ordner, {
         beforeUid: beforeUid ? Number(beforeUid) : undefined,
-        pageSize: pageSize ? Number(pageSize) : undefined,
+        pageSize: groesse,
         category: einordnung,
       });
 
@@ -513,7 +518,7 @@ export async function buildServer() {
     if (beforeUid) return holen();
 
     const { wert } = await ausSpeicherOderHolen(
-      schluessel.nachrichten(account.id, ordner, einordnung),
+      schluessel.nachrichten(account.id, ordner, einordnung, groesse),
       holen,
       {
         maxAlterMs: FRIST_NACHRICHTEN_MS,

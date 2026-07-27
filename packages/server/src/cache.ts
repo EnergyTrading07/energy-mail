@@ -101,8 +101,13 @@ export function verwerfe(praefix: string): void {
 export const schluessel = {
   ordner: (accountId: string) => `ordner:${accountId}`,
   einordnung: (accountId: string) => `einordnung:${accountId}`,
-  nachrichten: (accountId: string, ordner: string, kategorie?: string) =>
-    `nachrichten:${accountId}:${ordner}:${kategorie ?? ''}`,
+  /**
+   * Die Seitengröße gehört in den Schlüssel: sie bestimmt mit, was in der Antwort steht.
+   * Ohne sie bekam eine Anfrage nach 25 Nachrichten die zuvor abgelegten 5 - der Abruf
+   * beantwortete also eine andere Frage als die gestellte.
+   */
+  nachrichten: (accountId: string, ordner: string, kategorie: string | undefined, seitenGroesse: number) =>
+    `nachrichten:${accountId}:${ordner}:${kategorie ?? ''}:${seitenGroesse}`,
 };
 
 /** Verwirft alles, was zu einem Konto gehört. */
