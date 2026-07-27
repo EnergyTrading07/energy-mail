@@ -152,6 +152,45 @@ export interface CategoryInfo {
   unseen: number;
 }
 
+/**
+ * Einschränkungen einer Suche. Alles, was gesetzt ist, muss zutreffen - der Server
+ * verknüpft die Bedingungen mit UND.
+ */
+export interface SearchCriteria {
+  /** Freitext; trifft in Betreff, Absender, Empfänger oder Inhalt. */
+  text?: string;
+  from?: string;
+  subject?: string;
+  /** Tagesdatum (JJJJ-MM-TT); Nachrichten ab diesem Tag. */
+  since?: string;
+  /** Tagesdatum (JJJJ-MM-TT); Nachrichten vor diesem Tag. */
+  before?: string;
+  unreadOnly?: boolean;
+  /**
+   * Nur Nachrichten mit Anhang. Bei Gmail über dessen eigene Suche und damit genau; bei
+   * anderen Anbietern kennt IMAP kein solches Kriterium, dort wird über den Nachrichtentyp
+   * angenähert (siehe imapClient).
+   */
+  withAttachment?: boolean;
+  category?: GmailCategory;
+}
+
+/** Ein Suchtreffer weiß, wo er liegt - eine UID gilt nur innerhalb ihres Ordners. */
+export interface SearchHit extends MessageSummary {
+  folder: string;
+  /** Nur bei kontoübergreifender Suche gesetzt. */
+  accountId?: string;
+  email?: string;
+}
+
+export interface SearchResult {
+  hits: SearchHit[];
+  /** Zahl aller Treffer, auch der nicht mitgelieferten. */
+  total: number;
+  /** Ob mehr Treffer vorliegen, als zurückgegeben wurden. */
+  hasMore: boolean;
+}
+
 export interface ListMessagesOptions {
   /**
    * Nur Nachrichten mit kleinerer UID liefern - das ist die Marke für "die nächste,

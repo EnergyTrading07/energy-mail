@@ -265,17 +265,61 @@ export function deleteMessages(
   });
 }
 
+/** Was der Server des Kontos kann - bestimmt, welche Einschränkungen angeboten werden. */
+export function fetchCapabilities(accountId: string): Promise<{ gmailSearch: boolean }> {
+  return request(`/accounts/${accountId}/capabilities`);
+}
+
+export interface SucheParameter {
+  text: string;
+  from: string;
+  subject: string;
+  since: string;
+  before: string;
+  unreadOnly: boolean;
+  withAttachment: boolean;
+}
+
+/** Übersetzt die Eingabe in Abfrageparameter - an einer Stelle für alle drei Bereiche. */
+function suchParameter(eingabe: SucheParameter): URLSearchParams {
+  const params = new URLSearchParams({ pageSize: String(PAGE_SIZE) });
+  if (eingabe.text.trim()) params.set('q', eingabe.text.trim());
+  if (eingabe.from.trim()) params.set('from', eingabe.from.trim());
+  if (eingabe.subject.trim()) params.set('subject', eingabe.subject.trim());
+  if (eingabe.since) params.set('since', eingabe.since);
+  if (eingabe.before) params.set('before', eingabe.before);
+  if (eingabe.unreadOnly) params.set('unread', '1');
+  if (eingabe.withAttachment) params.set('attachment', '1');
+  return params;
+}
+
 export function searchMessages(
   accountId: string,
   folder: string,
-  query: string,
-  beforeUid?: number,
-  category?: GmailCategory | null,
+  eingabe: SucheParameter,
+  optionen: { beforeUid?: number | null; category?: GmailCategory | null } = {},
 ): Promise<MessagePage> {
-  const params = new URLSearchParams({ q: query, pageSize: String(PAGE_SIZE) });
-  if (beforeUid !== undefined) params.set('beforeUid', String(beforeUid));
-  if (category) params.set('category', category);
+  const params = suchParameter(eingabe);
+  if (optionen.beforeUid != null) params.set('beforeUid', String(optionen.beforeUid));
+  if (optionen.category) params.set('category', optionen.category);
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/search?${params}`);
+}
+
+/** Ein Treffer weiß, wo er liegt - eine UID gilt nur innerhalb ihres Ordners. */
+export interface SucheErgebnis {
+  hits: (MessageSummary & { folder: string; accountId?: string; email?: string })[];
+  total: number;
+  hasMore: boolean;
+}
+
+/** Suche über alle Ordner eines Kontos. */
+export function searchAccount(accountId: string, eingabe: SucheParameter): Promise<SucheErgebnis> {
+  return request(`/accounts/${accountId}/search?${suchParameter(eingabe)}`);
+}
+
+/** Suche über alle Konten. */
+export function searchAll(eingabe: SucheParameter): Promise<SucheErgebnis> {
+  return request(`/search?${suchParameter(eingabe)}`);
 }
 
 /** Im Browser gibt es kein Buffer - Anhänge gehen base64-kodiert über die Leitung. */

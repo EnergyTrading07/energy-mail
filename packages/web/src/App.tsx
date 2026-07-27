@@ -10,11 +10,12 @@ import * as api from './api.js';
 import type { Account } from './api.js';
 import { BulkActionBar } from './components/BulkActionBar.js';
 import { ComposeModal } from './components/ComposeModal.js';
-import { MessageList } from './components/MessageList.js';
+import { MessageList, type Listeneintrag } from './components/MessageList.js';
 import { Sidebar } from './components/Sidebar.js';
 import { MessageView } from './components/MessageView.js';
 import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
+import type { SucheEingabe } from './components/SearchBar.js';
 import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
 import { archiveTarget } from './folderTargets.js';
 import { buildFolderView } from './folderTree.js';
@@ -30,7 +31,7 @@ interface DraftLocation {
 }
 
 /** Fügt neue Treffer zu vorhandenen hinzu, ersetzt gleiche UIDs und sortiert nach Datum. */
-function mergeMessages(existing: MessageSummary[], incoming: MessageSummary[]): MessageSummary[] {
+function mergeMessages(existing: Listeneintrag[], incoming: Listeneintrag[]): Listeneintrag[] {
   const byUid = new Map(existing.map((m) => [m.uid, m]));
   for (const message of incoming) byUid.set(message.uid, message);
   return [...byUid.values()].sort(
@@ -53,6 +54,14 @@ export default function App() {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<GmailCategory | null>(null);
 
+  /**
+   * Was der Server des aktiven Kontos kann. Bestimmt, welche Sucheinschränkungen
+   * überhaupt angeboten werden - nach Anhängen kann nur Gmail suchen.
+   */
+  const [faehigkeiten, setFaehigkeiten] = useState<{ gmailSearch: boolean }>({
+    gmailSearch: false,
+  });
+
   /** Aus einer angeklickten Benachrichtigung: was geöffnet werden soll, sobald es geht. */
   const [zuOeffnen, setZuOeffnen] = useState<{
     accountId: string;
@@ -60,7 +69,7 @@ export default function App() {
     uid: number;
   } | null>(null);
 
-  const [messages, setMessages] = useState<MessageSummary[]>([]);
+  const [messages, setMessages] = useState<Listeneintrag[]>([]);
   /**
    * Die Auswahl merkt sich, zu welcher Ansicht sie gehört (Konto + Ordner).
    *
@@ -104,8 +113,8 @@ export default function App() {
   const [hasMore, setHasMore] = useState(false);
   const [totalMessages, setTotalMessages] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  /** Gesetzt, solange Suchergebnisse angezeigt werden - dann gilt die Suchmarke. */
-  const [searchQuery, setSearchQuery] = useState<string | null>(null);
+  /** Gesetzt, solange Suchergebnisse angezeigt werden. */
+  const [suche, setSuche] = useState<SucheEingabe | null>(null);
   const [searchFolder, setSearchFolder] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,6 +159,26 @@ export default function App() {
    * Anbieter ohne Gmails Suchsprache antworten mit einer leeren Liste - die Zeilen
    * erscheinen dann gar nicht.
    */
+  useEffect(() => {
+    if (!selectedAccountId) {
+      setFaehigkeiten({ gmailSearch: false });
+      return;
+    }
+    let abgebrochen = false;
+    api
+      .fetchCapabilities(selectedAccountId)
+      .then((f) => {
+        if (!abgebrochen) setFaehigkeiten(f);
+      })
+      .catch(() => {
+        // Im Zweifel nichts anbieten, was vielleicht nicht geht.
+        if (!abgebrochen) setFaehigkeiten({ gmailSearch: false });
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [selectedAccountId]);
+
   useEffect(() => {
     if (!selectedAccountId) {
       setCategories([]);
@@ -240,7 +269,7 @@ export default function App() {
     setCursor(null);
     setHasMore(false);
     setTotalMessages(0);
-    setSearchQuery(null);
+    setSuche(null);
     setSearchFolder(null);
   }, [selectedAccountId, selectedFolder, selectedCategory]);
 
@@ -270,13 +299,16 @@ export default function App() {
    */
   const loadMore = async () => {
     if (!selectedAccountId || loadingMore || cursor === null) return;
-    const ordner = searchQuery ? searchFolder : selectedFolder;
+    const ordner = suche ? searchFolder : selectedFolder;
     if (!ordner) return;
 
     setLoadingMore(true);
     try {
-      const res = searchQuery
-        ? await api.searchMessages(selectedAccountId, ordner, searchQuery, cursor, selectedCategory)
+      const res = suche
+        ? await api.searchMessages(selectedAccountId, ordner, suche, {
+            beforeUid: cursor,
+            category: selectedCategory,
+          })
         : await api.fetchMessages(selectedAccountId, ordner, cursor, selectedCategory);
       setTotalMessages(res.total);
       setCursor(res.nextCursor);
@@ -302,7 +334,7 @@ export default function App() {
           event.folder === selectedFolder && (event.category ?? null) === selectedCategory;
         // Nicht während einer Suche: sonst würde die Trefferliste ohne Zutun durch den
         // gewöhnlichen Ordnerinhalt ersetzt.
-        if (gleicheAnsicht && !searchQuery) setReloadCounter((n) => n + 1);
+        if (gleicheAnsicht && !suche) setReloadCounter((n) => n + 1);
       } else {
         setFolderReload((n) => n + 1);
       }
@@ -677,38 +709,15 @@ export default function App() {
     await handleMove(uids, archivZiel.path);
   };
 
-  const handleSearch = async (query: string, alleOrdnerDurchsuchen = false) => {
+  /** Beendet die Suche und lädt den Ordner wieder normal. */
+  const handleSearchClear = async () => {
     if (!selectedAccountId || !selectedFolder) return;
     setLoadingMessages(true);
     setCheckedUids(new Set());
     try {
-      if (!query.trim()) {
-        // Zurück zur normalen Ansicht: erste Seite frisch laden.
-        const res = await api.fetchMessages(
-          selectedAccountId,
-          selectedFolder,
-          undefined,
-          selectedCategory,
-        );
-        setMessages(res.messages);
-        setTotalMessages(res.total);
-        setCursor(res.nextCursor);
-        setHasMore(res.hasMore);
-        setSearchQuery(null);
-        setSearchFolder(null);
-        return;
-      }
-
-      // Bei Gmail liegt jede Nachricht zusätzlich in "Alle Nachrichten" - das ist der
-      // richtige Ort für eine Suche über den gesamten Bestand. Bei anderen Anbietern
-      // gibt es keinen solchen Ordner, dann bleibt es beim aktuellen.
-      const ordner = alleOrdnerDurchsuchen && allMailFolder ? allMailFolder.path : selectedFolder;
-      // Eine aktive Einordnung bleibt Bedingung der Suche: wer in "Werbung" sucht, will
-      // nicht plötzlich Treffer aus dem ganzen Postfach sehen.
-      const res = await api.searchMessages(
+      const res = await api.fetchMessages(
         selectedAccountId,
-        ordner,
-        query,
+        selectedFolder,
         undefined,
         selectedCategory,
       );
@@ -716,8 +725,52 @@ export default function App() {
       setTotalMessages(res.total);
       setCursor(res.nextCursor);
       setHasMore(res.hasMore);
-      setSearchQuery(query);
-      setSearchFolder(ordner);
+      setSuche(null);
+      setSearchFolder(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  /**
+   * Sucht im gewählten Bereich.
+   *
+   * Nur die Suche im aktuellen Ordner kann nachladen - dort gibt es eine durchgehende
+   * Reihenfolge über die UIDs. Über mehrere Ordner hinweg fehlt die: dort werden die
+   * jüngsten Treffer je Ordner zusammengeführt und nach Datum sortiert, weiter blättern
+   * wäre nur mit vollständigem Abruf aller Treffer möglich.
+   */
+  const handleSearch = async (eingabe: SucheEingabe) => {
+    if (!selectedAccountId || !selectedFolder) return;
+    setLoadingMessages(true);
+    setCheckedUids(new Set());
+    setSelection(null);
+    try {
+      if (eingabe.bereich === 'ordner') {
+        // Eine aktive Einordnung bleibt Bedingung: wer in "Werbung" sucht, will nicht
+        // plötzlich Treffer aus dem ganzen Posteingang sehen.
+        const res = await api.searchMessages(selectedAccountId, selectedFolder, eingabe, {
+          category: selectedCategory,
+        });
+        setMessages(res.messages);
+        setTotalMessages(res.total);
+        setCursor(res.nextCursor);
+        setHasMore(res.hasMore);
+        setSearchFolder(selectedFolder);
+      } else {
+        const res =
+          eingabe.bereich === 'konto'
+            ? await api.searchAccount(selectedAccountId, eingabe)
+            : await api.searchAll(eingabe);
+        setMessages(res.hits);
+        setTotalMessages(res.total);
+        setCursor(null);
+        setHasMore(false);
+        setSearchFolder(null);
+      }
+      setSuche(eingabe);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -834,7 +887,7 @@ export default function App() {
       }
       case 'abbrechen':
         setError(null);
-        if (searchQuery) void handleSearch('');
+        if (suche) void handleSearchClear();
         return;
     }
   };
@@ -956,11 +1009,25 @@ export default function App() {
           total={totalMessages}
           hasMore={hasMore && cursor !== null}
           loadingMore={loadingMore}
-          searchScope={allMailFolder ? 'allen Nachrichten' : null}
-          searchActive={searchQuery !== null}
+          searchActive={suche !== null}
+          anhangSuchbar={faehigkeiten.gmailSearch}
+          mehrereKonten={accounts.length > 1}
+          zeigeHerkunft={suche !== null && suche.bereich !== 'ordner'}
           folderLabel={aktuellerOrdnerName}
           onLoadMore={() => void loadMore()}
-          onSelect={setSelectedUid}
+          onSelect={(eintrag) => {
+            // Ein Treffer aus einem anderen Ordner oder Konto: dorthin wechseln und ihn
+            // öffnen - über denselben Weg wie eine angeklickte Benachrichtigung.
+            if (eintrag.folder && eintrag.folder !== selectedFolder) {
+              setZuOeffnen({
+                accountId: eintrag.accountId ?? selectedAccountId!,
+                folder: eintrag.folder,
+                uid: eintrag.uid,
+              });
+            } else {
+              setSelectedUid(eintrag.uid);
+            }
+          }}
           onToggleChecked={(uid, checked) =>
             setCheckedUids((prev) => {
               const next = new Set(prev);
@@ -973,6 +1040,7 @@ export default function App() {
             setCheckedUids(checked ? new Set(messages.map((m) => m.uid)) : new Set())
           }
           onSearch={handleSearch}
+          onClear={() => void handleSearchClear()}
         />
         <div className="reader-pane">
           <BulkActionBar

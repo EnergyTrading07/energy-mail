@@ -12,6 +12,9 @@ import {
   type ListMessagesOptions,
   type MessagePage,
   type MessageSummary,
+  type SearchCriteria,
+  type SearchHit,
+  type SearchResult,
 } from './types.js';
 
 
@@ -294,6 +297,19 @@ function seitenAnteil(
  * auszuwerten; dieselbe Art der Unterscheidung nutzt auch describeImapError.
  */
 export const CATEGORY_UNSUPPORTED = 'CATEGORY_UNSUPPORTED';
+
+/** Kennzeichen für "dieser Anbieter kann nicht nach Anhängen suchen". */
+export const ATTACHMENT_SEARCH_UNSUPPORTED = 'ATTACHMENT_SEARCH_UNSUPPORTED';
+
+/**
+ * Was der Server des Kontos kann. Wird gebraucht, damit die Oberfläche nur anbietet, was
+ * auch geht - statt es zu versuchen und hinterher eine Fehlermeldung zu zeigen.
+ */
+export async function getCapabilities(
+  config: AccountConfig,
+): Promise<{ gmailSearch: boolean }> {
+  return withClient(config, async (client) => ({ gmailSearch: supportsCategories(client) }));
+}
 
 /**
  * Stellt sicher, dass eine angeforderte Einordnung überhaupt möglich ist. Ohne diese
@@ -655,6 +671,113 @@ export async function deleteMessages(
 }
 
 /**
+ * Übersetzt die Einschränkungen in eine IMAP-Suchbedingung.
+ *
+ * Die Schlüssel eines Suchobjekts verknüpft ImapFlow mit UND. Gmails Rohsuche kann
+ * dabei nur einmal vorkommen, deshalb werden deren Bestandteile zu einer Zeichenkette
+ * zusammengesetzt.
+ */
+function baueSuchbedingung(
+  kriterien: SearchCriteria,
+  gmailVerfuegbar: boolean,
+): Record<string, unknown> {
+  const bedingung: Record<string, unknown> = {};
+  const gmail: string[] = [];
+
+  if (kriterien.text) {
+    bedingung.or = [
+      { subject: kriterien.text },
+      { from: kriterien.text },
+      { to: kriterien.text },
+      { body: kriterien.text },
+    ];
+  }
+  if (kriterien.from) bedingung.from = kriterien.from;
+  if (kriterien.subject) bedingung.subject = kriterien.subject;
+  if (kriterien.since) bedingung.since = new Date(kriterien.since);
+  // "before" meint den Tag einschließlich, IMAP schneidet aber davor ab - deshalb einen
+  // Tag weiter, sonst fehlte in "bis 31.07." der 31. Juli selbst.
+  if (kriterien.before) {
+    const bis = new Date(kriterien.before);
+    bis.setDate(bis.getDate() + 1);
+    bedingung.before = bis;
+  }
+  if (kriterien.unreadOnly) bedingung.seen = false;
+
+  if (kriterien.withAttachment) {
+    if (!gmailVerfuegbar) {
+      // IMAP kennt kein Kriterium für Anhänge, und die naheliegende Annäherung über die
+      // Kopfzeile "Content-Type: multipart/mixed" ist unbrauchbar: GMX antwortet darauf
+      // mit null Treffern, obwohl die betreffenden Nachrichten nachweislich diesen Typ
+      // tragen. Ein Filter, der still nichts findet, ist schlechter als keiner - deshalb
+      // lieber ein klarer Abbruch, und die Oberfläche bietet ihn gar nicht erst an.
+      const err = new Error(
+        'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein ' +
+          'Kriterium, und nur Gmail bietet eine eigene Suche dafür.',
+      ) as Error & { code?: string };
+      err.code = ATTACHMENT_SEARCH_UNSUPPORTED;
+      throw err;
+    }
+    gmail.push('has:attachment');
+  }
+  if (kriterien.category) gmail.push(`category:${kriterien.category}`);
+
+  if (gmail.length > 0) bedingung.gmraw = gmail.join(' ');
+  // Ohne jede Bedingung würde ImapFlow nichts finden - dann ist alles gemeint.
+  if (Object.keys(bedingung).length === 0) bedingung.all = true;
+  return bedingung;
+}
+
+/**
+ * Sucht in mehreren Ordnern und führt die Treffer zusammen.
+ *
+ * Alles auf einer Verbindung: pro Ordner die Trefferzahl und die jüngsten UIDs holen,
+ * dann nur für diese die Kopfdaten. Ein Postfach mit dreißig Ordnern erzeugt so dreißig
+ * Suchbefehle, aber nur einen Abruf von Kopfdaten in der Größe einer Seite.
+ *
+ * Die Auswahl je Ordner erfolgt über die höchsten UIDs - innerhalb eines Ordners sind das
+ * die jüngsten Nachrichten. Über Ordner hinweg sind UIDs nicht vergleichbar, deshalb wird
+ * am Ende nach Datum sortiert.
+ */
+export async function searchFolders(
+  config: AccountConfig,
+  ordner: string[],
+  kriterien: SearchCriteria,
+  limit = DEFAULT_PAGE_SIZE,
+): Promise<SearchResult> {
+  return withClient(config, async (client) => {
+    const bedingung = baueSuchbedingung(kriterien, supportsCategories(client));
+    const treffer: SearchHit[] = [];
+    let gesamt = 0;
+
+    for (const pfad of ordner) {
+      let lock;
+      try {
+        lock = await client.getMailboxLock(pfad);
+      } catch {
+        // Ein Ordner, der sich nicht öffnen lässt, darf die übrige Suche nicht abbrechen.
+        continue;
+      }
+      try {
+        const uids = (await client.search(bedingung, { uid: true })) || [];
+        gesamt += uids.length;
+        if (uids.length === 0) continue;
+
+        const juengste = uids.slice(-limit);
+        for (const zusammenfassung of await fetchSummaries(client, juengste)) {
+          treffer.push({ ...zusammenfassung, folder: pfad });
+        }
+      } finally {
+        lock.release();
+      }
+    }
+
+    treffer.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+    return { hits: treffer.slice(0, limit), total: gesamt, hasMore: gesamt > limit };
+  });
+}
+
+/**
  * Sucht serverseitig und liefert seitenweise Treffer.
  *
  * Die Begrenzung ist hier wesentlich: eine Volltextsuche nach einem häufigen Wort trifft
@@ -665,7 +788,7 @@ export async function deleteMessages(
 export async function searchMessages(
   config: AccountConfig,
   folder: string,
-  query: string,
+  kriterien: SearchCriteria,
   options: ListMessagesOptions = {},
 ): Promise<MessagePage> {
   const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
@@ -673,15 +796,14 @@ export async function searchMessages(
   return withClient(config, async (client) => {
     const lock = await client.getMailboxLock(folder);
     try {
-      const volltext = {
-        or: [{ subject: query }, { from: query }, { to: query }, { body: query }],
-      };
       // Bei aktiver Einordnung müssen beide Bedingungen zutreffen - sonst würde eine
       // Suche in "Werbung" plötzlich den ganzen Posteingang durchsuchen.
-      if (options.category) requireCategorySupport(client, options.category);
-      const bedingung = options.category
-        ? { ...volltext, ...categoryQuery(options.category) }
-        : volltext;
+      const category = kriterien.category ?? options.category;
+      if (category) requireCategorySupport(client, category);
+      const bedingung = baueSuchbedingung(
+        { ...kriterien, category },
+        supportsCategories(client),
+      );
 
       const treffer = (await client.search(bedingung, { uid: true })) || [];
 

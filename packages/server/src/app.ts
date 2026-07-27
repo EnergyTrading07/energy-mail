@@ -5,6 +5,7 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocketPlugin from '@fastify/websocket';
 import {
+  ATTACHMENT_SEARCH_UNSUPPORTED,
   CATEGORY_UNSUPPORTED,
   GMAIL_CATEGORIES,
   closeConnection,
@@ -16,6 +17,7 @@ import {
   renameFolder,
   discardDraft,
   downloadAttachment,
+  getCapabilities,
   getMailScope,
   getMessage,
   getProviderId,
@@ -26,6 +28,7 @@ import {
   listMessages,
   moveMessages,
   saveDraft,
+  searchFolders,
   searchMessages,
   sendMessage,
   setMessagesSeen,
@@ -35,6 +38,7 @@ import {
   type GmailCategory,
   type OAuthProviderId,
   type OutgoingMessage,
+  type SearchCriteria,
 } from '@energy-mail/mail-core';
 import Fastify from 'fastify';
 import {
@@ -126,7 +130,10 @@ export async function buildServer() {
     }
     // Eine Einordnung bei einem Anbieter zu verlangen, der sie nicht kennt, ist eine
     // unpassende Anfrage - kein Serverfehler.
-    if ((err as { code?: string }).code === CATEGORY_UNSUPPORTED) {
+    if (
+      (err as { code?: string }).code === CATEGORY_UNSUPPORTED ||
+      (err as { code?: string }).code === ATTACHMENT_SEARCH_UNSUPPORTED
+    ) {
       reply.code(400).send({ error: (err as Error).message });
       return;
     }
@@ -575,6 +582,20 @@ export async function buildServer() {
     return wert;
   });
 
+  /**
+   * Was der Server des Kontos kann. Lange Frist im Zwischenspeicher: die Fähigkeiten
+   * eines Servers ändern sich allenfalls bei einem Umbau beim Anbieter.
+   */
+  app.get<{ Params: { id: string } }>('/accounts/:id/capabilities', async (request) => {
+    const account = requireAccount(request.params.id);
+    const { wert } = await ausSpeicherOderHolen(
+      `faehigkeiten:${account.id}`,
+      () => getCapabilities(account),
+      { maxAlterMs: 24 * 60 * 60_000 },
+    );
+    return wert;
+  });
+
   /** Prüft den Wert aus der Anfrage gegen die bekannten Einordnungen. */
   function parseCategory(value: string | undefined): GmailCategory | undefined {
     if (!value) return undefined;
@@ -777,18 +798,99 @@ export async function buildServer() {
     },
   );
 
+  /** Liest die Sucheinschränkungen aus der Anfrage. */
+  function parseKriterien(q: Record<string, string | undefined>): SearchCriteria {
+    return {
+      text: q.q?.trim() || undefined,
+      from: q.from?.trim() || undefined,
+      subject: q.subject?.trim() || undefined,
+      since: q.since || undefined,
+      before: q.before || undefined,
+      unreadOnly: q.unread === '1',
+      withAttachment: q.attachment === '1',
+      category: parseCategory(q.category),
+    };
+  }
+
+  const hatEinschraenkung = (k: SearchCriteria) =>
+    Boolean(k.text || k.from || k.subject || k.since || k.before || k.unreadOnly || k.withAttachment);
+
   app.get<{
     Params: { id: string; folder: string };
-    Querystring: { q?: string; beforeUid?: string; pageSize?: string; category?: string };
+    Querystring: Record<string, string | undefined>;
   }>('/accounts/:id/folders/:folder/search', async (request) => {
     const account = requireAccount(request.params.id);
-    const { q, beforeUid, pageSize, category } = request.query;
-    if (!q) return { messages: [], total: 0, nextCursor: null, hasMore: false };
-    return searchMessages(account, decodeURIComponent(request.params.folder), q, {
+    const kriterien = parseKriterien(request.query);
+    if (!hatEinschraenkung(kriterien)) {
+      return { messages: [], total: 0, nextCursor: null, hasMore: false };
+    }
+    const { beforeUid, pageSize } = request.query;
+    return searchMessages(account, decodeURIComponent(request.params.folder), kriterien, {
       beforeUid: beforeUid ? Number(beforeUid) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
-      category: parseCategory(category),
     });
+  });
+
+  /**
+   * Welche Ordner eines Kontos durchsucht werden.
+   *
+   * Gmail führt jede Nachricht zusätzlich in "Alle Nachrichten" - dort genügt ein
+   * einziger Suchlauf statt acht. Bei anderen Anbietern wird über die Ordner gegangen,
+   * ohne Papierkorb und Spam: wer sucht, meint in aller Regel nicht das Weggeworfene.
+   */
+  async function suchOrdner(account: AccountConfig): Promise<string[]> {
+    const alle = await listFolders(account);
+    const alleNachrichten = alle.find((f) => f.isAllMail && f.selectable);
+    if (alleNachrichten) return [alleNachrichten.path];
+    return alle
+      .filter((f) => f.selectable && f.specialUse !== '\\Trash' && f.specialUse !== '\\Junk')
+      .map((f) => f.path);
+  }
+
+  /** Suche über alle Ordner eines Kontos. */
+  app.get<{ Params: { id: string }; Querystring: Record<string, string | undefined> }>(
+    '/accounts/:id/search',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const kriterien = parseKriterien(request.query);
+      if (!hatEinschraenkung(kriterien)) return { hits: [], total: 0, hasMore: false };
+
+      const grenze = request.query.pageSize ? Number(request.query.pageSize) : DEFAULT_SEITENGROESSE;
+      const ergebnis = await searchFolders(account, await suchOrdner(account), kriterien, grenze);
+      return {
+        ...ergebnis,
+        hits: ergebnis.hits.map((h) => ({ ...h, accountId: account.id, email: account.email })),
+      };
+    },
+  );
+
+  /**
+   * Suche über alle Konten. Nacheinander statt gleichzeitig - die Anbieter reagieren
+   * empfindlich auf Verbindungssalven, und ein Konto, das gerade nicht erreichbar ist,
+   * soll die Treffer der übrigen nicht verhindern.
+   */
+  app.get<{ Querystring: Record<string, string | undefined> }>('/search', async (request) => {
+    const kriterien = parseKriterien(request.query);
+    if (!hatEinschraenkung(kriterien)) return { hits: [], total: 0, hasMore: false };
+
+    const grenze = request.query.pageSize ? Number(request.query.pageSize) : DEFAULT_SEITENGROESSE;
+    const treffer = [];
+    let gesamt = 0;
+
+    for (const account of listAccounts()) {
+      try {
+        const ergebnis = await searchFolders(account, await suchOrdner(account), kriterien, grenze);
+        gesamt += ergebnis.total;
+        treffer.push(
+          ...ergebnis.hits.map((h) => ({ ...h, accountId: account.id, email: account.email })),
+        );
+      } catch (err) {
+        app.log.warn(`Suche in ${account.email} fehlgeschlagen: ${(err as Error).message}`);
+      }
+    }
+
+    treffer.sort((a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime());
+    return { hits: treffer.slice(0, grenze), total: gesamt, hasMore: gesamt > grenze };
   });
 
   /** Anhänge kommen über JSON, daher base64-kodiert - hier zurück in Rohbytes. */

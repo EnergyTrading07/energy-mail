@@ -1,23 +1,37 @@
-import { useState } from 'react';
 import type { MessageSummary } from '@energy-mail/mail-core';
+import { SearchBar, type SucheEingabe } from './SearchBar.js';
+
+/**
+ * Eine Zeile der Liste. Bei einer Suche über mehrere Ordner oder Konten steht dabei, wo
+ * der Treffer liegt - ohne das wäre eine Trefferliste aus fünf Ordnern nicht deutbar.
+ */
+export type Listeneintrag = MessageSummary & {
+  folder?: string;
+  accountId?: string;
+  email?: string;
+};
 
 interface Props {
-  messages: MessageSummary[];
+  messages: Listeneintrag[];
   selectedUid: number | null;
   loading: boolean;
   checkedUids: Set<number>;
   total: number;
   hasMore: boolean;
   loadingMore: boolean;
-  /** Name des Bereichs für eine Suche über alles; null, wenn der Anbieter keinen hat. */
-  searchScope: string | null;
   searchActive: boolean;
+  /** Ob der Anbieter nach Anhängen suchen kann - nur Gmail beherrscht das. */
+  anhangSuchbar: boolean;
+  mehrereKonten: boolean;
+  /** Zeigt bei Treffern die Herkunft an - nur sinnvoll, wenn sie sich unterscheiden kann. */
+  zeigeHerkunft: boolean;
   folderLabel: string;
   onLoadMore: () => void;
-  onSelect: (uid: number) => void;
+  onSelect: (eintrag: Listeneintrag) => void;
   onToggleChecked: (uid: number, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
-  onSearch: (query: string, alleOrdner?: boolean) => void;
+  onSearch: (eingabe: SucheEingabe) => void;
+  onClear: () => void;
 }
 
 function absender(message: MessageSummary): string {
@@ -54,17 +68,18 @@ export function MessageList({
   total,
   hasMore,
   loadingMore,
-  searchScope,
   searchActive,
+  anhangSuchbar,
+  mehrereKonten,
+  zeigeHerkunft,
   folderLabel,
   onLoadMore,
   onSelect,
   onToggleChecked,
   onToggleAll,
   onSearch,
+  onClear,
 }: Props) {
-  const [query, setQuery] = useState('');
-  const [alleOrdner, setAlleOrdner] = useState(false);
   const alleAngekreuzt = messages.length > 0 && messages.every((m) => checkedUids.has(m.uid));
 
   return (
@@ -86,47 +101,13 @@ export function MessageList({
         )}
       </div>
 
-      <form
-        className="search-bar"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearch(query, alleOrdner);
-        }}
-      >
-        <input
-          type="search"
-          placeholder="Suchen…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <div className="search-options">
-          {searchScope && (
-            <label className="search-scope">
-              <input
-                type="checkbox"
-                checked={alleOrdner}
-                onChange={(e) => {
-                  setAlleOrdner(e.target.checked);
-                  if (query.trim()) onSearch(query, e.target.checked);
-                }}
-              />
-              in {searchScope}
-            </label>
-          )}
-          {searchActive && (
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => {
-                setQuery('');
-                onSearch('');
-              }}
-            >
-              Suche aufheben
-            </button>
-          )}
-        </div>
-      </form>
+      <SearchBar
+        searchActive={searchActive}
+        anhangSuchbar={anhangSuchbar}
+        mehrereKonten={mehrereKonten}
+        onSearch={onSearch}
+        onClear={onClear}
+      />
 
       <div className="message-scroll">
         {loading && <div className="empty-state">Lade Nachrichten…</div>}
@@ -141,7 +122,7 @@ export function MessageList({
                 (message.seen ? '' : ' unread') +
                 (checkedUids.has(message.uid) ? ' checked' : '')
               }
-              onClick={() => onSelect(message.uid)}
+              onClick={() => onSelect(message)}
             >
               <input
                 type="checkbox"
@@ -163,6 +144,12 @@ export function MessageList({
                   <span className="row-date">{kurzesDatum(message.date)}</span>
                 </div>
                 <div className="row-subject">{message.subject}</div>
+                {zeigeHerkunft && message.folder && (
+                  <div className="row-herkunft">
+                    {message.folder}
+                    {message.email ? ` · ${message.email}` : ''}
+                  </div>
+                )}
               </div>
             </div>
           ))}
