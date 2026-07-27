@@ -15,6 +15,7 @@ import { Sidebar } from './components/Sidebar.js';
 import { MessageView } from './components/MessageView.js';
 import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
+import { CleanupModal } from './components/CleanupModal.js';
 import { RulesModal } from './components/RulesModal.js';
 import type { SucheEingabe } from './components/SearchBar.js';
 import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
@@ -90,6 +91,10 @@ export default function App() {
   const [settingsFor, setSettingsFor] = useState<api.Account | null>(null);
   /** Konto, dessen Regeln gerade verwaltet werden. */
   const [rulesFor, setRulesFor] = useState<api.Account | null>(null);
+  /** Vorbelegung, wenn die Regel aus dem Aufraeumen heraus angelegt wird. */
+  const [regelVorgabe, setRegelVorgabe] = useState<{ von: string; name: string } | undefined>();
+  /** Konto, dessen Postfach gerade aufgeraeumt wird. */
+  const [cleanupFor, setCleanupFor] = useState<api.Account | null>(null);
   const [oauthClients, setOauthClients] = useState<api.OAuthClients | null>(null);
   const [oauthBusy, setOauthBusy] = useState<api.OAuthProvider | null>(null);
   /** Kennung des Kontos, dessen Neuanmeldung gerade läuft. */
@@ -869,7 +874,13 @@ export default function App() {
         else if (selectedUid !== null) void handleDelete([selectedUid]);
         return;
       case 'regeln':
-        if (selectedAccount) setRulesFor(selectedAccount);
+        if (selectedAccount) {
+          setRegelVorgabe(undefined);
+          setRulesFor(selectedAccount);
+        }
+        return;
+      case 'aufraeumen':
+        if (selectedAccount) setCleanupFor(selectedAccount);
         return;
       case 'suchen':
         // Über den Baum statt über eine durchgereichte Referenz: das Suchfeld liegt zwei
@@ -1119,11 +1130,31 @@ export default function App() {
             onSave={handleSaveSettings}
           />
         )}
+        {cleanupFor && (
+          <CleanupModal
+            account={cleanupFor}
+            onClose={() => setCleanupFor(null)}
+            onRegelAnlegen={(von, name) => {
+              // Der Absender steht fest - die Regel schliesst sich unmittelbar an.
+              setRegelVorgabe({ von, name });
+              setCleanupFor(null);
+              setRulesFor(cleanupFor);
+            }}
+            onGeaendert={() => {
+              setReloadCounter((n) => n + 1);
+              setFolderReload((n) => n + 1);
+            }}
+          />
+        )}
         {rulesFor && (
           <RulesModal
             account={rulesFor}
             folders={foldersByAccount[rulesFor.id] ?? []}
-            onClose={() => setRulesFor(null)}
+            vorgabe={regelVorgabe}
+            onClose={() => {
+              setRulesFor(null);
+              setRegelVorgabe(undefined);
+            }}
             onGeaendert={() => {
               setReloadCounter((n) => n + 1);
               setFolderReload((n) => n + 1);

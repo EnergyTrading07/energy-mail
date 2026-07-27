@@ -17,16 +17,22 @@ import {
   renameFolder,
   discardDraft,
   downloadAttachment,
+  bestimmeAbmeldung,
+  findSpecialFolder,
   getCapabilities,
   getMailScope,
   getMessage,
   getProviderId,
   hasMailScope,
   isReauthRequired,
+  leseAbmeldeWege,
   listCategories,
   listFolders,
   listMessages,
   moveMessages,
+  sendeEinKlickAbmeldung,
+  senderUebersicht,
+  verschiebeVonAbsender,
   saveDraft,
   searchFolders,
   searchMessages,
@@ -487,6 +493,104 @@ export async function buildServer() {
       },
     );
     return wert;
+  });
+
+  // --- Postfach aufräumen ---
+
+  /**
+   * Wer den Ordner vollmacht. Länger im Zwischenspeicher als die übrigen Stände: die
+   * Erhebung braucht rund zwei Dutzend Suchläufe, und die Rangfolge der Absender ändert
+   * sich nicht im Minutentakt.
+   */
+  app.get<{ Params: { id: string }; Querystring: { folder?: string; sample?: string } }>(
+    '/accounts/:id/senders',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const ordner = request.query.folder ? decodeURIComponent(request.query.folder) : 'INBOX';
+      const stichprobe = Math.min(Number(request.query.sample ?? 500), 2000);
+
+      const { wert } = await ausSpeicherOderHolen(
+        `absender:${account.id}:${ordner}:${stichprobe}`,
+        () => senderUebersicht(account, ordner, stichprobe),
+        { maxAlterMs: 10 * 60_000 },
+      );
+      return wert;
+    },
+  );
+
+  /**
+   * Meldet von einem Verteiler ab.
+   *
+   * Der Weg richtet sich danach, was der Absender selbst angibt. Die Ein-Klick-Abmeldung
+   * schickt der Server; eine Abmelde-Mail geht über das Konto hinaus; bleibt nur eine
+   * Webseite, kann die niemand außer dem Nutzer bedienen - dann kommt die Adresse zurück
+   * und die Oberfläche öffnet sie.
+   */
+  app.post<{ Params: { id: string; folder: string }; Body: { uid?: number } }>(
+    '/accounts/:id/folders/:folder/unsubscribe',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const ordner = decodeURIComponent(request.params.folder);
+      const uid = Number(request.body?.uid);
+      if (!Number.isInteger(uid) || uid <= 0) throw new HttpError(400, 'Feld "uid" ist erforderlich');
+
+      const nachricht = await getMessage(account, ordner, uid);
+      if (!nachricht.listUnsubscribe) {
+        throw new HttpError(400, 'Diese Nachricht nennt keinen Abmeldeweg.');
+      }
+
+      const wege = leseAbmeldeWege(nachricht.listUnsubscribe, Boolean(nachricht.einKlickAbmeldung));
+      const weg = bestimmeAbmeldung(wege);
+      if (!weg) {
+        throw new HttpError(
+          400,
+          'Der Absender gibt zwar eine Abmeldezeile an, darin steht aber keine brauchbare Adresse.',
+        );
+      }
+
+      if (weg.art === 'ein-klick') {
+        try {
+          const { status } = await sendeEinKlickAbmeldung(weg.ziel);
+          return { art: 'ein-klick', ziel: weg.ziel, status, erfolg: status < 400 };
+        } catch (err) {
+          throw new HttpError(502, `Abmeldung fehlgeschlagen: ${(err as Error).message}`);
+        }
+      }
+
+      if (weg.art === 'mail') {
+        await sendMessage(account, {
+          to: [weg.adresse],
+          subject: weg.betreff ?? 'unsubscribe',
+          text: weg.text ?? 'unsubscribe',
+        });
+        return { art: 'mail', adresse: weg.adresse, erfolg: true };
+      }
+
+      // Nur eine Seite mit Bestätigung - die muss der Nutzer selbst aufrufen.
+      return { art: 'im-browser', ziel: weg.ziel, erfolg: false };
+    },
+  );
+
+  /** Verschiebt alles von einem Absender in den Papierkorb. */
+  app.post<{
+    Params: { id: string; folder: string };
+    Body: { from?: string; targetFolder?: string };
+  }>('/accounts/:id/folders/:folder/from-sender/move', async (request) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const absender = request.body?.from?.trim();
+    if (!absender) throw new HttpError(400, 'Feld "from" ist erforderlich');
+
+    const ziel =
+      request.body?.targetFolder ??
+      (await findSpecialFolder(account, '\\Trash', ['trash', 'papierkorb', 'gelöscht', 'deleted']));
+    if (!ziel) throw new HttpError(400, 'Für dieses Konto gibt es keinen Papierkorb.');
+
+    const anzahl = await verschiebeVonAbsender(account, ordner, absender, ziel);
+    verwerfeStaende(account.id, ordner, ziel);
+    verwirfNachrichten(`${account.id}:${ordner}:`);
+    verwerfe(`absender:${account.id}:`);
+    return { verschoben: anzahl, ziel };
   });
 
   // --- Regeln ---

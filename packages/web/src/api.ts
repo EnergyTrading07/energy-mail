@@ -267,6 +267,61 @@ export function deleteMessages(
   });
 }
 
+// --- Postfach aufräumen ---
+
+export interface AbsenderEintrag {
+  adresse: string;
+  name?: string;
+  gesamt: number;
+  ungelesen: number;
+  beispielUid?: number;
+  beispielBetreff?: string;
+  listUnsubscribe?: string;
+  einKlickAbmeldung?: boolean;
+}
+
+export interface AbsenderUebersicht {
+  eintraege: AbsenderEintrag[];
+  stichprobe: number;
+  imOrdner: number;
+}
+
+export function fetchSenders(accountId: string, folder = 'INBOX'): Promise<AbsenderUebersicht> {
+  return request(`/accounts/${accountId}/senders?folder=${encodeURIComponent(folder)}`);
+}
+
+export interface AbmeldeAntwort {
+  art: 'ein-klick' | 'mail' | 'im-browser';
+  erfolg: boolean;
+  ziel?: string;
+  adresse?: string;
+  status?: number;
+}
+
+export function unsubscribe(
+  accountId: string,
+  folder: string,
+  uid: number,
+): Promise<AbmeldeAntwort> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/unsubscribe`, {
+    method: 'POST',
+    body: JSON.stringify({ uid }),
+  });
+}
+
+/** Verschiebt alles von einem Absender - ohne Ziel in den Papierkorb. */
+export function moveFromSender(
+  accountId: string,
+  folder: string,
+  from: string,
+  targetFolder?: string,
+): Promise<{ verschoben: number; ziel: string }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/from-sender/move`, {
+    method: 'POST',
+    body: JSON.stringify({ from, targetFolder }),
+  });
+}
+
 // --- Regeln ---
 
 export interface RegelVorschau {

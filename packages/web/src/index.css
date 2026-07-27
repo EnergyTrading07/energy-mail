@@ -161,6 +161,54 @@ body {
   color: inherit;
 }
 
+/* Absender-Übersicht beim Aufräumen. Tabelle statt Liste: hier werden Zahlen
+   verglichen, und dafür müssen sie untereinander stehen. */
+.absender-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.absender-tabelle th {
+  padding: 6px 8px;
+  border-bottom: 1px solid #dde1e6;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b939c;
+  text-align: left;
+}
+
+.absender-tabelle td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #eef1f4;
+  vertical-align: top;
+}
+
+.absender-tabelle .zahl {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.absender-name {
+  font-weight: 600;
+  color: #222;
+}
+
+.absender-adresse {
+  font-size: 11px;
+  color: #8b939c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.absender-aktionen {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
 /* Regeln. Eine Regel ist ein Satz ("Wenn …, dann …"), deshalb steht sie auch als
    Satz da - eine Tabelle aus Feldern wäre schwerer zu überfliegen. */
 .regel-zeile {
@@ -195,6 +243,19 @@ body {
 
 .link-btn.gefaehrlich {
   color: #b3261e;
+}
+
+/* Ein gesperrter Knopf muss auch gesperrt aussehen. Ohne das war er von einem
+   anklickbaren nicht zu unterscheiden - der Zeiger blieb eine Hand, die Farbe die
+   der Anwendung, und erst der Klick zeigte, dass nichts geschieht. */
+.link-btn:disabled {
+  color: #adb4bb;
+  cursor: default;
+  text-decoration: none;
+}
+
+.link-btn:disabled:hover {
+  text-decoration: none;
 }
 
 .regel-form {

@@ -26,7 +26,8 @@ type Befehl =
   | 'suchen'
   | 'neuLaden'
   | 'kontoWeiter'
-  | 'regeln';
+  | 'regeln'
+  | 'aufraeumen';
 
 function sende(befehl: Befehl): void {
   const fenster = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -94,7 +95,10 @@ export function setzeMenue(): void {
     },
     {
       label: '&Extras',
-      submenu: [eintrag('Regeln…', 'regeln')],
+      submenu: [
+        eintrag('Postfach aufräumen…', 'aufraeumen'),
+        eintrag('Regeln…', 'regeln'),
+      ],
     },
     {
       label: '&Hilfe',

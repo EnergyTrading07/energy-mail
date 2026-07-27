@@ -17,6 +17,11 @@ interface Props {
   onClose: () => void;
   /** Nach dem Anwenden auf einen Ordner: Liste und Zähler auffrischen. */
   onGeaendert: () => void;
+  /**
+   * Vorbelegung aus dem Aufräumen: dort steht der Absender bereits fest, und die Regel
+   * soll sich mit einem Klick anschließen lassen.
+   */
+  vorgabe?: { von: string; name: string };
 }
 
 const LEER: Omit<Regel, 'id'> = {
@@ -26,9 +31,17 @@ const LEER: Omit<Regel, 'id'> = {
   aktionen: {},
 };
 
-export function RulesModal({ account, folders, onClose, onGeaendert }: Props) {
+export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: Props) {
   const [regeln, setRegeln] = useState<Regel[]>([]);
-  const [entwurf, setEntwurf] = useState<(Omit<Regel, 'id'> & { id?: string }) | null>(null);
+  const [entwurf, setEntwurf] = useState<(Omit<Regel, 'id'> & { id?: string }) | null>(
+    vorgabe
+      ? {
+          ...LEER,
+          name: `${vorgabe.name} einsortieren`,
+          bedingungen: { von: vorgabe.von },
+        }
+      : null,
+  );
   const [vorschau, setVorschau] = useState<api.RegelVorschau | null>(null);
   const [busy, setBusy] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);

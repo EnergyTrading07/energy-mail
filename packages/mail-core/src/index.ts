@@ -8,3 +8,4 @@ export * from './sendMail.js';
 export * from './drafts.js';
 export * from './oauth/provider.js';
 export * from './oauth/tokenAccess.js';
+export * from './unsubscribe.js';

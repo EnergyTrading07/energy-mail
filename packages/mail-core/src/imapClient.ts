@@ -811,6 +811,129 @@ function baueSuchbedingung(
   return bedingung;
 }
 
+export interface AbsenderEintrag {
+  adresse: string;
+  name?: string;
+  /** Nachrichten dieses Absenders im Ordner - exakt, nicht hochgerechnet. */
+  gesamt: number;
+  ungelesen: number;
+  /** Jüngste Nachricht des Absenders in der Stichprobe - Anker zum Abmelden. */
+  beispielUid?: number;
+  beispielBetreff?: string;
+  /** Abmeldeweg, sofern der Absender einen angibt. */
+  listUnsubscribe?: string;
+  einKlickAbmeldung?: boolean;
+}
+
+export interface AbsenderUebersicht {
+  eintraege: AbsenderEintrag[];
+  /** Wie viele Nachrichten für die Ermittlung angesehen wurden. */
+  stichprobe: number;
+  /** Nachrichten im Ordner insgesamt. */
+  imOrdner: number;
+}
+
+/**
+ * Ermittelt, wer den Ordner vollmacht.
+ *
+ * Zweistufig, weil beides für sich nicht reicht: Wer die häufigsten Absender sind, ließe
+ * sich nur durch Ansehen aller Kopfdaten sicher sagen - bei 30.000 Nachrichten dauert das
+ * Minuten. Eine Stichprobe der jüngsten Nachrichten findet sie dagegen zuverlässig, denn
+ * wer regelmäßig schreibt, taucht darin auf.
+ *
+ * Die *Zahlen* dürfen aber nicht geschätzt sein - danach wird gelöscht. Deshalb wird für
+ * jeden gefundenen Absender einzeln gesucht: der Server liefert dabei nur Zahlen zurück,
+ * das ist auch über den gesamten Bestand schnell.
+ */
+export async function senderUebersicht(
+  config: AccountConfig,
+  folder: string,
+  stichprobe = 500,
+  maxAbsender = 12,
+): Promise<AbsenderUebersicht> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const alle = (await client.search({ all: true }, { uid: true })) || [];
+      const juengste = alle.slice(-stichprobe);
+      if (juengste.length === 0) {
+        return { eintraege: [], stichprobe: 0, imOrdner: alle.length };
+      }
+
+      const gesehen = new Map<string, AbsenderEintrag & { inStichprobe: number }>();
+      for (const nachricht of await fetchSummaries(client, juengste)) {
+        const von = nachricht.from[0];
+        if (!von?.address) continue;
+        const schluessel = von.address.toLowerCase();
+        const vorhanden = gesehen.get(schluessel);
+        if (vorhanden) {
+          vorhanden.inStichprobe++;
+          continue;
+        }
+        gesehen.set(schluessel, {
+          adresse: von.address,
+          name: von.name,
+          gesamt: 0,
+          ungelesen: 0,
+          inStichprobe: 1,
+          // Die jüngste Nachricht steht in fetchSummaries vorn - sie trägt den
+          // aktuellsten Abmeldeweg, ältere können veraltete Adressen nennen.
+          beispielUid: nachricht.uid,
+          beispielBetreff: nachricht.subject,
+          listUnsubscribe: nachricht.listUnsubscribe,
+          einKlickAbmeldung: nachricht.einKlickAbmeldung,
+        });
+      }
+
+      const haeufigste = [...gesehen.values()]
+        .sort((a, b) => b.inStichprobe - a.inStichprobe)
+        .slice(0, maxAbsender);
+
+      for (const eintrag of haeufigste) {
+        const treffer = (await client.search({ from: eintrag.adresse }, { uid: true })) || [];
+        eintrag.gesamt = treffer.length;
+        const offen =
+          (await client.search({ from: eintrag.adresse, seen: false }, { uid: true })) || [];
+        eintrag.ungelesen = offen.length;
+      }
+
+      return {
+        eintraege: haeufigste
+          .map(({ inStichprobe: _, ...rest }) => rest)
+          .sort((a, b) => b.gesamt - a.gesamt),
+        stichprobe: juengste.length,
+        imOrdner: alle.length,
+      };
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
+ * Verschiebt alle Nachrichten eines Absenders in einen Ordner - typischerweise in den
+ * Papierkorb. Liefert die Zahl der bewegten Nachrichten.
+ */
+export async function verschiebeVonAbsender(
+  config: AccountConfig,
+  folder: string,
+  absender: string,
+  ziel: string,
+): Promise<number> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const uids = (await client.search({ from: absender }, { uid: true })) || [];
+      if (uids.length === 0) return 0;
+      const ergebnis = await client.messageMove(uids, ziel, { uid: true });
+      if (!ergebnis) throw new Error(`Verschieben nach "${ziel}" wurde vom Server abgelehnt.`);
+      return uids.length;
+    } finally {
+      lock.release();
+    }
+  });
+}
+
 /**
  * Sucht in mehreren Ordnern und führt die Treffer zusammen.
  *
