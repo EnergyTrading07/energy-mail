@@ -47,10 +47,91 @@ export type MailEvent =
 type Listener = (event: MailEvent) => void;
 
 const listeners = new Set<Listener>();
+
+/** Laufende Überwachungen, Schlüssel ist Konto + Ordner. */
 const watchers = new Map<string, () => void>();
 
-/** Welcher Ordner je Konto überwacht wird. */
-const WATCHED_FOLDER = 'INBOX';
+/**
+ * Der Ordner, der immer überwacht wird. Nur für ihn gibt es Benachrichtigungen - sonst
+ * meldete jede selbst versendete Nachricht ihre Kopie im Gesendet-Ordner.
+ */
+export const POSTEINGANG = 'INBOX';
+
+/**
+ * Zusätzlich überwachte Ordner je Konto, mit dem Zeitpunkt der letzten Ansicht.
+ *
+ * Jede überwachte Mailbox kostet eine dauerhaft offene IMAP-Verbindung, und die Anbieter
+ * begrenzen deren Zahl - Gmail lässt fünfzehn gleichzeitig zu. Alle Ordner zu überwachen
+ * wäre bei zwei Konten mit je acht Ordnern schon nah daran und liefe bei einem dritten
+ * Konto ins Leere. Überwacht wird deshalb, was man sich gerade ansieht: das deckt den
+ * Zweck ab, ohne die Grenze zu berühren.
+ */
+const zusatzOrdner = new Map<string, Map<string, number>>();
+
+/** Höchstzahl zusätzlicher Ordner je Konto - macht mit dem Posteingang drei. */
+const MAX_ZUSATZ = 2;
+
+/** Nach dieser Zeit ohne Ansicht wird die zusätzliche Überwachung wieder beendet. */
+const ZUSATZ_LEBENSDAUER_MS = 5 * 60_000;
+
+/**
+ * Trennzeichen zwischen Konto und Ordner. Ein senkrechter Strich kann in einer
+ * Konto-Kennung (UUID aus Hexziffern und Bindestrichen) nicht vorkommen, die Zerlegung
+ * ist damit eindeutig - auch wenn ein Ordnername selbst einen enthält.
+ */
+const TRENNER = '|';
+
+const watcherSchluessel = (accountId: string, folder: string) =>
+  `${accountId}${TRENNER}${folder}`;
+
+/** Welche Ordner eines Kontos derzeit überwacht werden sollen. */
+function gewuenschteOrdner(accountId: string): string[] {
+  const zusatz = zusatzOrdner.get(accountId);
+  return [POSTEINGANG, ...(zusatz ? [...zusatz.keys()] : [])];
+}
+
+/**
+ * Nimmt entgegen, welchen Ordner sich jemand gerade ansieht, und nimmt ihn in die
+ * Überwachung auf. Wird beim Abruf der ersten Seite eines Ordners gerufen - also genau
+ * dann, wenn er in der Oberfläche geöffnet wird.
+ */
+export function meldeAnsicht(accountId: string, folder: string): void {
+  if (folder === POSTEINGANG) return;
+
+  const bisher = zusatzOrdner.get(accountId) ?? new Map<string, number>();
+  const schonDa = bisher.has(folder);
+  bisher.set(folder, Date.now());
+
+  // Ältesten herauswerfen, sobald es zu viele werden.
+  while (bisher.size > MAX_ZUSATZ) {
+    const [aeltester] = [...bisher.entries()].sort((a, b) => a[1] - b[1]);
+    bisher.delete(aeltester[0]);
+  }
+  zusatzOrdner.set(accountId, bisher);
+
+  // Nur abgleichen, wenn wirklich ein Ordner hinzugekommen ist - sonst würde jeder
+  // Klick in denselben Ordner einen Durchlauf auslösen.
+  if (!schonDa) syncWatchers();
+}
+
+/** Beendet Überwachungen von Ordnern, die längere Zeit niemand angesehen hat. */
+function raeumeZusatzAuf(): void {
+  const grenze = Date.now() - ZUSATZ_LEBENSDAUER_MS;
+  let etwasEntfernt = false;
+  for (const [accountId, ordner] of zusatzOrdner) {
+    for (const [folder, zuletzt] of ordner) {
+      if (zuletzt < grenze) {
+        ordner.delete(folder);
+        etwasEntfernt = true;
+      }
+    }
+    if (ordner.size === 0) zusatzOrdner.delete(accountId);
+  }
+  if (etwasEntfernt) syncWatchers();
+}
+
+const aufraeumer = setInterval(raeumeZusatzAuf, 60_000);
+aufraeumer.unref?.();
 
 export interface RegistryLogger {
   info: (msg: string) => void;
@@ -126,8 +207,9 @@ function verwerfeStaende(accountId: string, folder: string): void {
 }
 
 /**
- * Gleicht die laufenden Watcher mit den gespeicherten Konten ab: startet fehlende,
- * stoppt die von entfernten Konten. Nach jedem Anlegen/Löschen eines Kontos aufrufen.
+ * Gleicht die laufenden Überwachungen mit dem Soll ab: startet fehlende, stoppt
+ * überflüssige. Nach jedem Anlegen oder Löschen eines Kontos aufrufen, und immer dann,
+ * wenn sich die Menge der angesehenen Ordner ändert.
  */
 export function syncWatchers(): void {
   let accounts;
@@ -140,22 +222,33 @@ export function syncWatchers(): void {
     return;
   }
 
-  const activeIds = new Set(accounts.map((a) => a.id));
-
-  for (const [accountId, stop] of watchers) {
-    if (!activeIds.has(accountId)) {
-      stop();
-      watchers.delete(accountId);
-      log.info(`Watcher für Konto ${accountId} gestoppt`);
+  const soll = new Map<string, { account: (typeof accounts)[number]; folder: string }>();
+  for (const account of accounts) {
+    for (const folder of gewuenschteOrdner(account.id)) {
+      soll.set(watcherSchluessel(account.id, folder), { account, folder });
     }
   }
 
-  for (const account of accounts) {
-    if (watchers.has(account.id)) continue;
+  for (const [key, stop] of watchers) {
+    if (!soll.has(key)) {
+      stop();
+      watchers.delete(key);
+      log.info(`Überwachung beendet: ${key}`);
+    }
+  }
 
+  for (const [key, { account, folder }] of soll) {
+    if (watchers.has(key)) continue;
+    watchers.set(key, starteWatcher(account, folder));
+  }
+}
+
+/** Startet die Überwachung eines einzelnen Ordners und liefert die Stoppfunktion. */
+function starteWatcher(account: AccountConfig, ordner: string): () => void {
+  {
     const base = { accountId: account.id, email: account.email };
 
-    const stop = watchMailbox(account, WATCHED_FOLDER, {
+    const stop = watchMailbox(account, ordner, {
       onNewMail: (event: NewMailEvent) => {
         log.info(`Neue Mail für ${account.email} in ${event.folder} (${event.count})`);
         verwerfeStaende(account.id, event.folder);
@@ -199,24 +292,25 @@ export function syncWatchers(): void {
         );
         emit({ ...base, type: 'messages-removed', folder: event.folder, uid: event.uid });
       },
-      onError: (err) => log.warn(`Watcher ${account.email}: ${err.message}`),
+      onError: (err) => log.warn(`Überwachung ${account.email} (${ordner}): ${err.message}`),
     });
 
-    watchers.set(account.id, stop);
-    log.info(`Watcher für ${account.email} (${WATCHED_FOLDER}) gestartet`);
+    log.info(`Überwachung gestartet: ${account.email} (${ordner})`);
+    return stop;
   }
 }
 
 /**
- * Startet die Überwachung eines Kontos neu. Nötig nach einer erneuten Anmeldung: der
- * bestehende Watcher hängt an der abgelehnten Anmeldung und käme von allein nicht
- * zurück - syncWatchers() allein genügt nicht, weil dort schon ein Eintrag steht.
+ * Startet die Überwachungen eines Kontos neu. Nötig nach einer erneuten Anmeldung: die
+ * bestehenden hängen an der abgelehnten Anmeldung und kämen von allein nicht zurück -
+ * syncWatchers() allein genügt nicht, weil dort schon Einträge stehen.
  */
 export function restartWatcher(accountId: string): void {
-  const stop = watchers.get(accountId);
-  if (stop) {
-    stop();
-    watchers.delete(accountId);
+  for (const [key, stop] of watchers) {
+    if (key.startsWith(`${accountId}${TRENNER}`)) {
+      stop();
+      watchers.delete(key);
+    }
   }
   syncWatchers();
 }

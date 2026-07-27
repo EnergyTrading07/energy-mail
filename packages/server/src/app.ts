@@ -56,6 +56,7 @@ import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStor
 import { installTokenRefresh } from './tokenRefresh.js';
 import {
   meldeAktualisierung,
+  meldeAnsicht,
   restartWatcher,
   setRegistryLogger,
   subscribe,
@@ -524,6 +525,11 @@ export async function buildServer() {
     // man einmal beim Blättern - dort wartet man ohnehin auf etwas Neues, und sie alle
     // vorzuhalten würde den Speicher bei großen Postfächern vollaufen lassen.
     if (beforeUid) return holen();
+
+    // Der Abruf der ersten Seite heißt: dieser Ordner wird gerade angesehen. Er kommt
+    // damit in die Überwachung, sodass Änderungen dort ebenso sofort ankommen wie im
+    // Posteingang.
+    meldeAnsicht(account.id, ordner);
 
     const { wert } = await ausSpeicherOderHolen(
       schluessel.nachrichten(account.id, ordner, einordnung, groesse),

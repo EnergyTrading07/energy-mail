@@ -1,5 +1,5 @@
 import { BrowserWindow, Notification } from 'electron';
-import { subscribe, type MailEvent } from '@energy-mail/server/events';
+import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/events';
 
 /**
  * Meldungen des Betriebssystems bei neuer Post.
@@ -51,6 +51,10 @@ export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | nul
 
   return subscribe((event: MailEvent) => {
     if (event.type !== 'new-mail') return;
+    // Seit auch angesehene Ordner überwacht werden, treffen hier Eingänge aus Gesendet
+    // oder Entwürfe ein. Eine Meldung über die eigene, gerade abgeschickte Nachricht
+    // wäre unsinnig - gemeldet wird nur, was tatsächlich ankommt.
+    if (event.folder !== POSTEINGANG) return;
     if (event.neue.length === 0) {
       console.log('Benachrichtigung entfällt: keine Kopfdaten zur neuen Nachricht.');
       return;
