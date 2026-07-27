@@ -21,6 +21,7 @@ import { buildFolderView } from './folderTree.js';
 import { categoryLabel } from './gmailCategories.js';
 import { providerTheme } from './providerTheme.js';
 import { textToHtml } from './htmlText.js';
+import { useBefehle, type Befehl } from './useBefehle.js';
 import { useMailEvents } from './useMailEvents.js';
 
 interface DraftLocation {
@@ -723,6 +724,78 @@ export default function App() {
       attachOriginal: originalAttachments(message, selectedFolder),
     });
   };
+
+  /**
+   * Führt einen Befehl aus - gleichgültig, ob er aus dem Menü, per Tastenkürzel oder per
+   * Mausklick kommt. Alles läuft über dieselben Behandlungen wie die Schaltflächen, es
+   * gibt also keinen zweiten Weg, der auseinanderlaufen könnte.
+   */
+  const fuehreAus = (befehl: Befehl) => {
+    // Solange das Verfassen-Fenster offen ist, gehört die Tastatur ihm. Auch Esc: das
+    // Fenster behandelt es selbst, mit Rückfrage und Angebot, als Entwurf zu sichern.
+    if (composeInitial !== null) return;
+
+    const stelle = messages.findIndex((m) => m.uid === selectedUid);
+
+    switch (befehl) {
+      case 'verfassen':
+        handleCompose();
+        return;
+      case 'antworten':
+      case 'allenAntworten':
+        if (selectedMessage) handleReply(selectedMessage, befehl === 'allenAntworten');
+        return;
+      case 'weiterleiten':
+        if (selectedMessage) handleForward(selectedMessage);
+        return;
+      case 'gelesenUmschalten':
+        if (selectedMessage) void applySeen([selectedMessage.uid], !selectedMessage.seen);
+        return;
+      case 'archivieren':
+        if (selectedMessage && archivZiel) void handleArchive([selectedMessage.uid]);
+        return;
+      case 'loeschen':
+        // Angekreuzte Nachrichten haben Vorrang - sonst würde eine Sammelauswahl
+        // stillschweigend übergangen.
+        if (checkedUids.size > 0) void handleDelete([...checkedUids]);
+        else if (selectedUid !== null) void handleDelete([selectedUid]);
+        return;
+      case 'suchen':
+        // Über den Baum statt über eine durchgereichte Referenz: das Suchfeld liegt zwei
+        // Ebenen tiefer, und der Fokus ist das Einzige, was von hier daran gebraucht wird.
+        document.querySelector<HTMLInputElement>('.search-bar input')?.focus();
+        return;
+      case 'neuLaden':
+        setReloadCounter((n) => n + 1);
+        setFolderReload((n) => n + 1);
+        return;
+      case 'kontoWeiter': {
+        if (accounts.length < 2) return;
+        const jetzt = accounts.findIndex((a) => a.id === selectedAccountId);
+        setSelectedAccountId(accounts[(jetzt + 1) % accounts.length].id);
+        return;
+      }
+      case 'weiter':
+      case 'zurueck': {
+        if (messages.length === 0) return;
+        // Ohne Auswahl beginnt "weiter" oben, "zurück" unten.
+        const ziel =
+          stelle === -1
+            ? befehl === 'weiter'
+              ? 0
+              : messages.length - 1
+            : Math.min(Math.max(stelle + (befehl === 'weiter' ? 1 : -1), 0), messages.length - 1);
+        setSelectedUid(messages[ziel].uid);
+        return;
+      }
+      case 'abbrechen':
+        setError(null);
+        if (searchQuery) void handleSearch('');
+        return;
+    }
+  };
+
+  useBefehle(fuehreAus);
 
   /**
    * Öffnet eine Nachricht aus dem Entwürfe-Ordner zum Weiterschreiben. Anhänge bleiben

@@ -3,6 +3,7 @@ import { buildServer } from '@energy-mail/server/app';
 import { getDataDir, setDataDir } from '@energy-mail/server/paths';
 import { setKeyProvider } from '@energy-mail/server/secrets';
 import { starteAktualisierungspruefung } from './autoUpdate.js';
+import { setzeMenue } from './menu.js';
 import { starteBenachrichtigungen } from './notifications.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 
@@ -107,6 +108,9 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
+
+  // Vor dem Fenster: sonst blitzt kurz Electrons englisches Standardmenü auf.
+  setzeMenue();
 
   createWindow(url);
 

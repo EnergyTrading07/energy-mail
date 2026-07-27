@@ -183,6 +183,20 @@ export function ComposeModal({
     if (await speichern()) onClose();
   };
 
+  /**
+   * Esc schließt das Fenster - über denselben Weg wie der Klick daneben, also mit
+   * Rückfrage und Angebot, als Entwurf zu sichern. Bewusst hier und nicht in der
+   * allgemeinen Tastaturbehandlung: nur an dieser Stelle ist bekannt, ob überhaupt
+   * etwas geschrieben wurde, das verlorengehen könnte.
+   */
+  useEffect(() => {
+    const beiTaste = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') void schliessen();
+    };
+    window.addEventListener('keydown', beiTaste);
+    return () => window.removeEventListener('keydown', beiTaste);
+  });
+
   const verwerfen = async () => {
     if (!confirm('Entwurf verwerfen? Der Inhalt geht verloren.')) return;
     if (location.current?.uid && onDiscardDraft) {
