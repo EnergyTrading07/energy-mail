@@ -358,6 +358,34 @@ export default function App() {
   }, [selectedAccountId, selectedFolder, selectedUid]);
 
   /**
+   * Lädt die nächste Nachricht der Liste im Hintergrund, während die aktuelle gelesen
+   * wird.
+   *
+   * Der Server hält geöffnete Nachrichten vor; ein Abruf hier bedeutet also, dass der
+   * nächste Klick sofort etwas anzuzeigen hat statt der üblichen halben Sekunde. Nur die
+   * unmittelbar folgende - beim Lesen geht man der Reihe nach vor, und jede weitere wäre
+   * geraten und würde den Anbieter unnötig belasten.
+   */
+  useEffect(() => {
+    if (!selectedAccountId || !selectedFolder || selectedUid === null) return;
+    const stelle = messages.findIndex((m) => m.uid === selectedUid);
+    const naechste = stelle >= 0 ? messages[stelle + 1] : undefined;
+    if (!naechste) return;
+
+    const abbruch = new AbortController();
+    // Kurz warten: wer schnell durchklickt, soll nicht für jede übersprungene Nachricht
+    // einen Abruf auslösen.
+    const timer = setTimeout(() => {
+      void api.prefetchMessage(selectedAccountId, selectedFolder, naechste.uid, abbruch.signal);
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      abbruch.abort();
+    };
+  }, [selectedAccountId, selectedFolder, selectedUid, messages]);
+
+  /**
    * Setzt den Gelesen-Status. Die Anzeige wird sofort umgestellt und bei einem Fehler
    * zurückgenommen, damit sich das Anklicken nicht verzögert anfühlt.
    */

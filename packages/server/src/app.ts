@@ -44,6 +44,13 @@ import {
 } from './accountStore.js';
 import { ausSpeicherOderHolen, schluessel, verwerfe, verwerfeKonto } from './cache.js';
 import { rememberAddresses, searchContacts } from './contactStore.js';
+import {
+  aktualisiereGelesen,
+  liesNachricht,
+  merkeNachricht,
+  nachrichtenSchluessel,
+  verwirfNachrichten,
+} from './messageCache.js';
 import { clearFlow, getFlow, startOAuthFlow } from './oauthFlow.js';
 import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStore.js';
 import { installTokenRefresh } from './tokenRefresh.js';
@@ -409,6 +416,7 @@ export async function buildServer() {
     closeConnection(request.params.id);
     // Sonst blieben Kopfdaten eines entfernten Kontos auf der Platte liegen.
     verwerfeKonto(request.params.id);
+    verwirfNachrichten(`${request.params.id}:`);
     syncWatchers();
     return { ok: true };
   });
@@ -535,11 +543,53 @@ export async function buildServer() {
     return wert;
   });
 
+  /**
+   * Ersetzt "cid:"-Verweise auf eingebettete Bilder durch abrufbare Adressen.
+   *
+   * Ohne das packt der Parser die Bilddaten selbst in den HTML-Text - bei einer
+   * Nachricht mit sechs Bildern 197 von 215 KB. So holt der Browser sie einzeln über
+   * den vorhandenen Anhang-Abruf, und zwar erst, wenn er sie wirklich anzeigt.
+   */
+  function mitAbrufbarenBildern(
+    nachricht: Awaited<ReturnType<typeof getMessage>>,
+    accountId: string,
+    ordner: string,
+    uid: number,
+  ) {
+    if (typeof nachricht.html !== 'string') return nachricht;
+
+    let html = nachricht.html;
+    for (const anhang of nachricht.attachments) {
+      if (!anhang.contentId || !anhang.partId) continue;
+      const adresse =
+        `/accounts/${accountId}/folders/${encodeURIComponent(ordner)}` +
+        `/messages/${uid}/attachments/${encodeURIComponent(anhang.partId)}`;
+      // Über split/join statt regulärem Ausdruck: eine Content-ID darf Zeichen
+      // enthalten, die dort eine Sonderbedeutung hätten.
+      html = html.split(`cid:${anhang.contentId}`).join(adresse);
+    }
+    return { ...nachricht, html };
+  }
+
   app.get<{ Params: { id: string; folder: string; uid: string } }>(
     '/accounts/:id/folders/:folder/messages/:uid',
     async (request) => {
       const account = requireAccount(request.params.id);
-      return getMessage(account, decodeURIComponent(request.params.folder), Number(request.params.uid));
+      const ordner = decodeURIComponent(request.params.folder);
+      const uid = Number(request.params.uid);
+      const key = nachrichtenSchluessel(account.id, ordner, uid);
+
+      const vorhanden = liesNachricht(key);
+      if (vorhanden) return vorhanden;
+
+      const nachricht = mitAbrufbarenBildern(
+        await getMessage(account, ordner, uid),
+        account.id,
+        ordner,
+        uid,
+      );
+      merkeNachricht(key, nachricht);
+      return nachricht;
     },
   );
 
@@ -567,8 +617,12 @@ export async function buildServer() {
         throw new HttpError(400, 'Feld "seen" (true/false) ist erforderlich');
       }
       const ordner = decodeURIComponent(request.params.folder);
-      await setMessagesSeen(account, ordner, parseUids(request.body.uids), request.body.seen);
+      const uids = parseUids(request.body.uids);
+      await setMessagesSeen(account, ordner, uids, request.body.seen);
       verwerfeStaende(account.id, ordner);
+      // Nachziehen statt verwerfen: das Öffnen einer Nachricht markiert sie als gelesen,
+      // und die vorgehaltene Fassung soll deswegen nicht verlorengehen.
+      aktualisiereGelesen(account.id, ordner, uids, request.body.seen);
       return { ok: true };
     },
   );
@@ -607,8 +661,11 @@ export async function buildServer() {
       throw new HttpError(400, 'Feld "targetFolder" ist erforderlich');
     }
     const ordner = decodeURIComponent(request.params.folder);
-    await moveMessages(account, ordner, parseUids(request.body.uids), request.body.targetFolder);
+    const uids = parseUids(request.body.uids);
+    await moveMessages(account, ordner, uids, request.body.targetFolder);
     verwerfeStaende(account.id, ordner, request.body.targetFolder);
+    // Im Quellordner gibt es diese UIDs nicht mehr; im Zielordner haben sie andere.
+    for (const uid of uids) verwirfNachrichten(nachrichtenSchluessel(account.id, ordner, uid));
     return { ok: true };
   });
 
@@ -617,8 +674,10 @@ export async function buildServer() {
     async (request) => {
       const account = requireAccount(request.params.id);
       const ordner = decodeURIComponent(request.params.folder);
-      await deleteMessages(account, ordner, parseUids(request.body?.uids));
+      const uids = parseUids(request.body?.uids);
+      await deleteMessages(account, ordner, uids);
       verwerfeStaende(account.id, ordner);
+      for (const uid of uids) verwirfNachrichten(nachrichtenSchluessel(account.id, ordner, uid));
       return { ok: true };
     },
   );

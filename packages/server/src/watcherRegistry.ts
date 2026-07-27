@@ -1,6 +1,7 @@
 import { watchMailbox, type NewMailEvent } from '@energy-mail/mail-core';
 import { listAccounts } from './accountStore.js';
 import { verwerfe } from './cache.js';
+import { aktualisiereGelesen, nachrichtenSchluessel, verwirfNachrichten } from './messageCache.js';
 
 interface EventBase {
   accountId: string;
@@ -133,11 +134,24 @@ export function syncWatchers(): void {
             `${event.uid ? ` (uid ${event.uid})` : ''}: seen=${event.seen}`,
         );
         verwerfeStaende(account.id, event.folder);
+        // Von außen geänderter Status (Handy, Weboberfläche): die vorgehaltene Fassung
+        // nachziehen, wenn die Nachricht benannt ist - sonst bleibt nichts anderes, als
+        // den Ordner zu verwerfen.
+        if (event.uid !== undefined) {
+          aktualisiereGelesen(account.id, event.folder, [event.uid], event.seen);
+        } else {
+          verwirfNachrichten(`${account.id}:${event.folder}:`);
+        }
         emit({ ...base, type: 'flags-changed', folder: event.folder, uid: event.uid, seen: event.seen });
       },
       onMessagesRemoved: (event) => {
         log.info(`Nachricht entfernt für ${account.email} in ${event.folder}`);
         verwerfeStaende(account.id, event.folder);
+        verwirfNachrichten(
+          event.uid !== undefined
+            ? nachrichtenSchluessel(account.id, event.folder, event.uid)
+            : `${account.id}:${event.folder}:`,
+        );
         emit({ ...base, type: 'messages-removed', folder: event.folder, uid: event.uid });
       },
       onError: (err) => log.warn(`Watcher ${account.email}: ${err.message}`),

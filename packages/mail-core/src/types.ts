@@ -94,6 +94,13 @@ export interface AttachmentInfo {
   filename?: string;
   contentType: string;
   size: number;
+  /**
+   * Content-ID eines eingebetteten Teils - der Wert, auf den der HTML-Text mit
+   * "cid:..." verweist. Nur bei Bildern im Fließtext gesetzt; darüber wird der Verweis
+   * auf eine abrufbare Adresse umgeschrieben, statt die Bilddaten in die Antwort zu
+   * packen.
+   */
+  contentId?: string;
 }
 
 export interface FullMessage extends MessageSummary {

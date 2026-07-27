@@ -153,6 +153,27 @@ export function fetchMessage(accountId: string, folder: string, uid: number): Pr
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}`);
 }
 
+/**
+ * Holt eine Nachricht, ohne sie zu verwenden - der Server hält sie danach vor, sodass
+ * das Öffnen sofort geht. Fehler bleiben bewusst folgenlos: es ist eine Vorleistung,
+ * kein Auftrag, und ein Fehlschlag darf nirgends auftauchen.
+ */
+export async function prefetchMessage(
+  accountId: string,
+  folder: string,
+  uid: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await fetch(
+      `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}`,
+      { signal },
+    );
+  } catch {
+    // Abgebrochen oder fehlgeschlagen - beides ohne Belang.
+  }
+}
+
 export function setMessagesSeen(
   accountId: string,
   folder: string,

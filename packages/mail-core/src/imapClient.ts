@@ -23,6 +23,8 @@ interface StructureNode {
   disposition?: string;
   dispositionParameters?: Record<string, string>;
   parameters?: Record<string, string>;
+  /** Content-ID, in spitzen Klammern - Anker für "cid:"-Verweise im HTML-Text. */
+  id?: string;
   childNodes?: StructureNode[];
 }
 
@@ -64,6 +66,8 @@ function collectAttachments(node: unknown, into: AttachmentInfo[] = []): Attachm
       filename,
       contentType: current.type ?? 'application/octet-stream',
       size: decodedSize(current),
+      // Server liefern die Content-ID mit spitzen Klammern; im HTML steht sie ohne.
+      contentId: current.id?.replace(/^<|>$/g, '') || undefined,
     });
   }
 
@@ -360,7 +364,11 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       if (!summary) throw new Error(`Nachricht ${uid} nicht gefunden in ${folder}`);
 
       const { content } = await client.download(String(uid), undefined, { uid: true });
-      const parsed = await simpleParser(content);
+      // keepCidLinks: sonst ersetzt mailparser jeden "cid:"-Verweis durch die
+      // Bilddaten selbst. Bei einer Nachricht mit sechs eingebetteten Bildern machte
+      // das 197 von 215 KB der Antwort aus - Daten, die der Browser ohnehin einzeln
+      // und bei Bedarf laden kann.
+      const parsed = await simpleParser(content, { keepCidLinks: true });
 
       // References kann als einzelner Wert oder als Liste kommen - vereinheitlichen.
       const references = Array.isArray(parsed.references)
