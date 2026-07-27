@@ -8,6 +8,7 @@ import {
 import { listAccounts } from './accountStore.js';
 import { verwerfe } from './cache.js';
 import { aktualisiereGelesen, nachrichtenSchluessel, verwirfNachrichten } from './messageCache.js';
+import { passt, regelnFuer, wendeRegelnAn } from './rules.js';
 
 interface EventBase {
   accountId: string;
@@ -256,13 +257,30 @@ function starteWatcher(account: AccountConfig, ordner: string): () => void {
         // hundert Millisekunden merkt niemand, dafür weiß die Meldung, von wem die
         // Nachricht ist.
         void (async () => {
+          const neue = await holeNeue(account, event);
+
+          // Regeln vor der Meldung anwenden - sonst käme erst eine Benachrichtigung
+          // über eine Nachricht, die gleich darauf wegsortiert wird. Fehler dabei
+          // dürfen weder die Meldung noch die Überwachung aufhalten.
+          let uebrig = neue;
+          try {
+            const ergebnis = await wendeRegelnAn(account, event.folder, neue, (m) => log.info(m));
+            if (ergebnis.betroffen > 0) {
+              const regeln = regelnFuer(account.id).filter((r) => r.aktiv);
+              uebrig = neue.filter((n) => !regeln.some((r) => passt(r, n)));
+              verwerfeStaende(account.id, event.folder);
+            }
+          } catch (err) {
+            log.warn(`Regeln konnten nicht angewendet werden: ${(err as Error).message}`);
+          }
+
           emit({
             ...base,
             type: 'new-mail',
             folder: event.folder,
             count: event.count,
             prevCount: event.prevCount,
-            neue: await holeNeue(account, event),
+            neue: uebrig,
           });
         })();
       },

@@ -15,6 +15,7 @@ import { Sidebar } from './components/Sidebar.js';
 import { MessageView } from './components/MessageView.js';
 import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
+import { RulesModal } from './components/RulesModal.js';
 import type { SucheEingabe } from './components/SearchBar.js';
 import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
 import { archiveTarget } from './folderTargets.js';
@@ -87,6 +88,8 @@ export default function App() {
   const [composeTitle, setComposeTitle] = useState('Neue Nachricht');
   const [draftLocation, setDraftLocation] = useState<DraftLocation | undefined>(undefined);
   const [settingsFor, setSettingsFor] = useState<api.Account | null>(null);
+  /** Konto, dessen Regeln gerade verwaltet werden. */
+  const [rulesFor, setRulesFor] = useState<api.Account | null>(null);
   const [oauthClients, setOauthClients] = useState<api.OAuthClients | null>(null);
   const [oauthBusy, setOauthBusy] = useState<api.OAuthProvider | null>(null);
   /** Kennung des Kontos, dessen Neuanmeldung gerade läuft. */
@@ -865,6 +868,9 @@ export default function App() {
         if (checkedUids.size > 0) void handleDelete([...checkedUids]);
         else if (selectedUid !== null) void handleDelete([selectedUid]);
         return;
+      case 'regeln':
+        if (selectedAccount) setRulesFor(selectedAccount);
+        return;
       case 'suchen':
         // Über den Baum statt über eine durchgereichte Referenz: das Suchfeld liegt zwei
         // Ebenen tiefer, und der Fokus ist das Einzige, was von hier daran gebraucht wird.
@@ -1111,6 +1117,17 @@ export default function App() {
             account={settingsFor}
             onClose={() => setSettingsFor(null)}
             onSave={handleSaveSettings}
+          />
+        )}
+        {rulesFor && (
+          <RulesModal
+            account={rulesFor}
+            folders={foldersByAccount[rulesFor.id] ?? []}
+            onClose={() => setRulesFor(null)}
+            onGeaendert={() => {
+              setReloadCounter((n) => n + 1);
+              setFolderReload((n) => n + 1);
+            }}
           />
         )}
         {showOAuthSetup && (

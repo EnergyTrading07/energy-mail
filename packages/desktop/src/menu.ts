@@ -25,7 +25,8 @@ type Befehl =
   | 'loeschen'
   | 'suchen'
   | 'neuLaden'
-  | 'kontoWeiter';
+  | 'kontoWeiter'
+  | 'regeln';
 
 function sende(befehl: Befehl): void {
   const fenster = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -90,6 +91,10 @@ export function setzeMenue(): void {
         { label: 'Vollbild', role: 'togglefullscreen' },
         { label: 'Entwicklerwerkzeuge', role: 'toggleDevTools' },
       ],
+    },
+    {
+      label: '&Extras',
+      submenu: [eintrag('Regeln…', 'regeln')],
     },
     {
       label: '&Hilfe',

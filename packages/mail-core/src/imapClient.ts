@@ -86,8 +86,38 @@ function toAddresses(list: { name?: string; address?: string }[] | undefined) {
     .filter((a) => a.address);
 }
 
+/**
+ * Liest die Kopfzeilen, die für Abmeldung und Regeln gebraucht werden.
+ *
+ * IMAP liefert sie als rohen Textblock; ein vollständiger Parser wäre hier überzogen -
+ * gesucht sind drei Zeilen mit bekanntem Namen. Fortsetzungszeilen (eingerückt) gehören
+ * zur vorigen Zeile und werden angehängt, sonst brächen lange Abmelde-Adressen ab.
+ */
+function leseKopfzeilen(roh: Buffer | undefined): Record<string, string> {
+  if (!roh) return {};
+  const zeilen = roh.toString('utf-8').split(/\r?\n/);
+  const ergebnis: Record<string, string> = {};
+  let zuletzt: string | null = null;
+
+  for (const zeile of zeilen) {
+    if (/^[ \t]/.test(zeile) && zuletzt) {
+      ergebnis[zuletzt] += ' ' + zeile.trim();
+      continue;
+    }
+    const treffer = zeile.match(/^([A-Za-z-]+):\s*(.*)$/);
+    if (!treffer) {
+      zuletzt = null;
+      continue;
+    }
+    zuletzt = treffer[1].toLowerCase();
+    ergebnis[zuletzt] = treffer[2].trim();
+  }
+  return ergebnis;
+}
+
 function summarizeMessage(msg: FetchMessageObject): MessageSummary {
   const flags = msg.flags ? Array.from(msg.flags) : [];
+  const kopf = leseKopfzeilen(msg.headers);
   return {
     uid: msg.uid,
     subject: msg.envelope?.subject ?? '(kein Betreff)',
@@ -104,6 +134,11 @@ function summarizeMessage(msg: FetchMessageObject): MessageSummary {
     threadId: msg.threadId || undefined,
     messageId: msg.envelope?.messageId || undefined,
     inReplyTo: msg.envelope?.inReplyTo || undefined,
+    listUnsubscribe: kopf['list-unsubscribe'] || undefined,
+    // Der Absender kündigt damit an, eine schlichte Anfrage zu akzeptieren - kein
+    // Umweg über eine Webseite, kein Bestätigungsklick.
+    einKlickAbmeldung: kopf['list-unsubscribe-post'] ? true : undefined,
+    listId: kopf['list-id'] || undefined,
   };
 }
 
@@ -254,6 +289,31 @@ export async function setMessagesSeen(
   });
 }
 
+/**
+ * Setzt oder entfernt das \Flagged-Flag ("markiert", in vielen Programmen ein Stern).
+ * Wie beim Gelesen-Status alle UIDs in einem Befehl.
+ */
+export async function setMessagesFlagged(
+  config: AccountConfig,
+  folder: string,
+  uids: number[],
+  flagged: boolean,
+): Promise<void> {
+  if (uids.length === 0) return;
+  await withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      if (flagged) {
+        await client.messageFlagsAdd(uids, ['\\Flagged'], { uid: true });
+      } else {
+        await client.messageFlagsRemove(uids, ['\\Flagged'], { uid: true });
+      }
+    } finally {
+      lock.release();
+    }
+  });
+}
+
 const DEFAULT_PAGE_SIZE = 25;
 
 /**
@@ -271,7 +331,16 @@ async function fetchSummaries(
   const messages: MessageSummary[] = [];
   for await (const msg of client.fetch(
     uids,
-    { envelope: true, flags: true, uid: true, bodyStructure: true, threadId: true },
+    {
+      envelope: true,
+      flags: true,
+      uid: true,
+      bodyStructure: true,
+      threadId: true,
+      // Nur diese drei Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg und
+      // Verteilerkennung und sind Grundlage fuer Abmeldung wie Regeln.
+      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id'],
+    },
     { uid: true },
   )) {
     messages.push(summarizeMessage(msg));
@@ -376,7 +445,16 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       let structure: unknown = null;
       for await (const msg of client.fetch(
         String(uid),
-        { envelope: true, flags: true, uid: true, bodyStructure: true, threadId: true },
+        {
+      envelope: true,
+      flags: true,
+      uid: true,
+      bodyStructure: true,
+      threadId: true,
+      // Nur diese drei Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg und
+      // Verteilerkennung und sind Grundlage fuer Abmeldung wie Regeln.
+      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id'],
+    },
         { uid: true },
       )) {
         summary = summarizeMessage(msg);

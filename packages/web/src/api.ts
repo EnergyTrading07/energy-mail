@@ -6,6 +6,8 @@ import type {
   MessageSummary,
   OutgoingMessage,
   ProviderId,
+  Regel,
+  RegelBedingung,
 } from '@energy-mail/mail-core';
 
 // Leerer Default: UI und API laufen normalerweise auf derselben Origin (der Server
@@ -262,6 +264,54 @@ export function deleteMessages(
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/delete`, {
     method: 'POST',
     body: JSON.stringify({ uids }),
+  });
+}
+
+// --- Regeln ---
+
+export interface RegelVorschau {
+  geprueft: number;
+  treffer: number;
+  imOrdner: number;
+  beispiele: { subject: string; from?: string }[];
+}
+
+export function fetchRules(accountId: string): Promise<Regel[]> {
+  return request(`/accounts/${accountId}/rules`);
+}
+
+export function saveRule(
+  accountId: string,
+  regel: Omit<Regel, 'id'> & { id?: string },
+): Promise<Regel> {
+  return request(`/accounts/${accountId}/rules`, {
+    method: 'PUT',
+    body: JSON.stringify(regel),
+  });
+}
+
+export function deleteRule(accountId: string, regelId: string): Promise<{ ok: boolean }> {
+  return request(`/accounts/${accountId}/rules/${regelId}`, { method: 'DELETE' });
+}
+
+/** Zeigt vorab, wie viele Nachrichten eine Bedingung träfe - ohne etwas zu verändern. */
+export function previewRule(
+  accountId: string,
+  bedingungen: RegelBedingung,
+  folder = 'INBOX',
+): Promise<RegelVorschau> {
+  return request(`/accounts/${accountId}/rules/preview`, {
+    method: 'POST',
+    body: JSON.stringify({ bedingungen, folder }),
+  });
+}
+
+export function applyRules(
+  accountId: string,
+  folder: string,
+): Promise<{ betroffen: number; geprueft: number; schritte: string[] }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/apply-rules`, {
+    method: 'POST',
   });
 }
 

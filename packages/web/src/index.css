@@ -161,6 +161,110 @@ body {
   color: inherit;
 }
 
+/* Regeln. Eine Regel ist ein Satz ("Wenn …, dann …"), deshalb steht sie auch als
+   Satz da - eine Tabelle aus Feldern wäre schwerer zu überfliegen. */
+.regel-zeile {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid #eef1f4;
+  font-size: 13px;
+}
+
+.regel-zeile.inaktiv {
+  opacity: 0.5;
+}
+
+.regel-schalter {
+  padding-top: 2px;
+}
+
+.regel-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.regel-text span {
+  font-size: 12px;
+  color: #6b7480;
+}
+
+.link-btn.gefaehrlich {
+  color: #b3261e;
+}
+
+.regel-form {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e4e8ec;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.regel-block {
+  margin: 10px 0;
+}
+
+.regel-block > strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #444;
+}
+
+.regel-block label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  color: #555;
+}
+
+.regel-block label > span {
+  flex: 0 0 82px;
+}
+
+.regel-block input[type='text'],
+.regel-block select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid #d8dde2;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-family: inherit;
+}
+
+.regel-block label.regel-kasten > input {
+  flex: 0 0 auto;
+}
+
+.regel-vorschau {
+  margin: 10px 0;
+  padding: 9px 11px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--accent) 7%, #fff);
+  font-size: 12px;
+  color: #444;
+}
+
+.regel-vorschau strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.regel-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Gespräche. Die Kopfzeile trägt ein Dreieck zum Aufklappen statt eines Kästchens -
    ein Gespräch als Ganzes anzukreuzen wäre missverständlich, weil Sammelaktionen auf
    einzelne Nachrichten wirken. */

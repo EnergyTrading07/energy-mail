@@ -38,6 +38,8 @@ import {
   type GmailCategory,
   type OAuthProviderId,
   type OutgoingMessage,
+  type Regel,
+  type RegelBedingung,
   type SearchCriteria,
 } from '@energy-mail/mail-core';
 import Fastify from 'fastify';
@@ -52,6 +54,15 @@ import {
   updateAccountSettings,
 } from './accountStore.js';
 import { ausSpeicherOderHolen, schluessel, verwerfe, verwerfeKonto } from './cache.js';
+import {
+  istBrauchbar,
+  passt,
+  regelLoeschen,
+  regelSpeichern,
+  regelnFuer,
+  regelnVerwerfen,
+  wendeRegelnAn,
+} from './rules.js';
 import { rememberAddresses, searchContacts } from './contactStore.js';
 import {
   aktualisiereGelesen,
@@ -430,6 +441,7 @@ export async function buildServer() {
     // Sonst blieben Kopfdaten eines entfernten Kontos auf der Platte liegen.
     verwerfeKonto(request.params.id);
     verwirfNachrichten(`${request.params.id}:`);
+    regelnVerwerfen(request.params.id);
     syncWatchers();
     return { ok: true };
   });
@@ -476,6 +488,100 @@ export async function buildServer() {
     );
     return wert;
   });
+
+  // --- Regeln ---
+
+  app.get<{ Params: { id: string } }>('/accounts/:id/rules', async (request) => {
+    requireAccount(request.params.id);
+    return regelnFuer(request.params.id);
+  });
+
+  app.put<{ Params: { id: string }; Body: Partial<Regel> }>(
+    '/accounts/:id/rules',
+    async (request) => {
+      requireAccount(request.params.id);
+      const { name, aktiv, bedingungen, aktionen, id } = request.body ?? {};
+      if (!name?.trim()) throw new HttpError(400, 'Die Regel braucht einen Namen.');
+
+      const regel = {
+        id,
+        name: name.trim(),
+        aktiv: aktiv !== false,
+        bedingungen: bedingungen ?? {},
+        aktionen: aktionen ?? {},
+      };
+      // Eine Regel ohne Bedingung träfe auf jede Nachricht zu und würde beim nächsten
+      // Eingang das Postfach leerräumen - das darf gar nicht erst gespeichert werden.
+      if (!istBrauchbar(regel)) {
+        throw new HttpError(
+          400,
+          'Die Regel braucht mindestens eine Bedingung und eine Aktion - sonst würde sie auf alles zutreffen.',
+        );
+      }
+      return regelSpeichern(request.params.id, regel);
+    },
+  );
+
+  app.delete<{ Params: { id: string; regelId: string } }>(
+    '/accounts/:id/rules/:regelId',
+    async (request) => {
+      requireAccount(request.params.id);
+      if (!regelLoeschen(request.params.id, request.params.regelId)) {
+        throw new HttpError(404, 'Regel nicht gefunden');
+      }
+      return { ok: true };
+    },
+  );
+
+  /**
+   * Zeigt vorab, wie viele Nachrichten eines Ordners eine Regel treffen würde - ohne
+   * etwas zu verändern. Wer eine Regel anlegt, die 8.000 Nachrichten verschiebt, soll
+   * das vorher wissen und nicht hinterher.
+   */
+  app.post<{
+    Params: { id: string };
+    Body: { bedingungen?: RegelBedingung; folder?: string; pageSize?: number };
+  }>('/accounts/:id/rules/preview', async (request) => {
+    const account = requireAccount(request.params.id);
+    const bedingungen = request.body?.bedingungen ?? {};
+    const ordner = request.body?.folder ?? 'INBOX';
+    if (!istBrauchbar({ bedingungen, aktionen: { alsGelesen: true } })) {
+      throw new HttpError(400, 'Ohne Bedingung lässt sich nichts vorführen.');
+    }
+
+    // Über eine begrenzte Menge: die Vorschau soll eine Größenordnung zeigen, nicht den
+    // gesamten Ordner durchmustern.
+    const stichprobe = Math.min(Number(request.body?.pageSize ?? 200), 500);
+    const seite = await listMessages(account, ordner, { pageSize: stichprobe });
+    const probe = { id: 'vorschau', name: 'Vorschau', aktiv: true, bedingungen, aktionen: {} };
+    const treffer = seite.messages.filter((m) => passt(probe as Regel, m));
+
+    return {
+      geprueft: seite.messages.length,
+      treffer: treffer.length,
+      imOrdner: seite.total,
+      beispiele: treffer.slice(0, 5).map((m) => ({
+        subject: m.subject,
+        from: m.from[0]?.name || m.from[0]?.address,
+      })),
+    };
+  });
+
+  /** Wendet die Regeln auf einen bestehenden Ordner an - zum Aufräumen. */
+  app.post<{ Params: { id: string; folder: string }; Querystring: { pageSize?: string } }>(
+    '/accounts/:id/folders/:folder/apply-rules',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const ordner = decodeURIComponent(request.params.folder);
+      const menge = Math.min(Number(request.query.pageSize ?? 200), 500);
+
+      const seite = await listMessages(account, ordner, { pageSize: menge });
+      const ergebnis = await wendeRegelnAn(account, ordner, seite.messages, (m) => app.log.info(m));
+      verwerfeStaende(account.id, ordner);
+      verwirfNachrichten(`${account.id}:${ordner}:`);
+      return { ...ergebnis, geprueft: seite.messages.length };
+    },
+  );
 
   /**
    * Sonderordner dürfen weder umbenannt noch gelöscht werden.

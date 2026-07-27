@@ -15,6 +15,7 @@ export type Befehl =
   | 'suchen'
   | 'neuLaden'
   | 'kontoWeiter'
+  | 'regeln'
   /** In der Nachrichtenliste eine Zeile nach unten bzw. oben. */
   | 'weiter'
   | 'zurueck'
