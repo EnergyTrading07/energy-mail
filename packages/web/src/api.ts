@@ -267,6 +267,19 @@ export function deleteMessages(
   });
 }
 
+/** Stellt eine Nachricht bis zum genannten Zeitpunkt zurück. */
+export function snoozeMessage(
+  accountId: string,
+  folder: string,
+  uid: number,
+  faellig: string,
+): Promise<{ ok: boolean; faellig: number }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/snooze`, {
+    method: 'POST',
+    body: JSON.stringify({ uid, faellig }),
+  });
+}
+
 // --- Postfach aufräumen ---
 
 export interface AbsenderEintrag {
@@ -454,13 +467,36 @@ export type Draft = Omit<OutgoingMessage, 'attachments'> & {
 
 export interface SendResponse {
   ok: boolean;
-  savedToSent: boolean;
+  savedToSent?: boolean;
   sentFolder?: string;
   saveError?: string;
+  /** Gesetzt, wenn die Nachricht vorgemerkt statt sofort gesendet wurde. */
+  geplant?: boolean;
+  id?: string;
+  faellig?: number;
 }
 
-export function sendMessage(accountId: string, draft: Draft): Promise<SendResponse> {
-  return request(`/accounts/${accountId}/send`, { method: 'POST', body: JSON.stringify(draft) });
+/**
+ * Sendet oder merkt vor. `sendenIn` gibt die Bedenkzeit in Sekunden, `sendenAm` einen
+ * festen Zeitpunkt - beides läuft über dieselbe Warteschlange im Server.
+ */
+export function sendMessage(
+  accountId: string,
+  draft: Draft,
+  optionen: { sendenIn?: number; sendenAm?: string } = {},
+): Promise<SendResponse> {
+  return request(`/accounts/${accountId}/send`, {
+    method: 'POST',
+    body: JSON.stringify({ ...draft, ...optionen }),
+  });
+}
+
+/** Holt eine vorgemerkte Nachricht zurück; der Inhalt kommt zum Weiterbearbeiten mit. */
+export function cancelSend(
+  accountId: string,
+  sendungId: string,
+): Promise<{ ok: boolean; koerper: Draft }> {
+  return request(`/accounts/${accountId}/send/${sendungId}`, { method: 'DELETE' });
 }
 
 export interface DraftLocation {

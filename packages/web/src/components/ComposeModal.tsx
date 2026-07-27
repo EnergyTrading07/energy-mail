@@ -3,6 +3,12 @@ import type { Draft, DraftAttachment } from '../api.js';
 import { htmlToText } from '../htmlText.js';
 import { AddressInput } from './AddressInput.js';
 import { RichTextEditor } from './RichTextEditor.js';
+import {
+  bausteinLoeschen,
+  bausteinSichern,
+  ladeBausteine,
+  type Textbaustein,
+} from '../textbausteine.js';
 
 interface Props {
   initial?: Partial<Draft>;
@@ -10,7 +16,7 @@ interface Props {
   /** Ort einer bereits gespeicherten Fassung - wird beim Speichern ersetzt. */
   draftLocation?: { folder: string; uid: number | null };
   onClose: () => void;
-  onSend: (draft: Draft) => Promise<void>;
+  onSend: (draft: Draft, sendenAm?: string) => Promise<void>;
   onSaveDraft: (draft: Draft) => Promise<{ folder: string; uid: number | null }>;
   onDiscardDraft?: () => Promise<void>;
 }
@@ -23,6 +29,52 @@ function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
+}
+
+/**
+ * Fragt einen Sendezeitpunkt ab.
+ *
+ * Bewusst mit Vorschlägen statt eines freien Datumsfeldes: "morgen früh" ist der
+ * überwiegende Fall, und ein Zeitpunkt, den man aus Ziffern zusammensetzt, wird leicht
+ * zum falschen Tag. Liefert null, wenn abgebrochen wurde.
+ */
+function frageZeitpunkt(): string | null {
+  const jetzt = new Date();
+  const morgenFrueh = new Date(jetzt);
+  morgenFrueh.setDate(morgenFrueh.getDate() + 1);
+  morgenFrueh.setHours(8, 0, 0, 0);
+
+  const eingabe = prompt(
+    'Wann soll die Nachricht raus?\n\n' +
+      '1 = in einer Stunde\n' +
+      '2 = heute Abend (18:00)\n' +
+      '3 = morgen früh (08:00)\n\n' +
+      'Oder ein Zeitpunkt als JJJJ-MM-TT HH:MM',
+    '3',
+  );
+  if (!eingabe) return null;
+
+  const wahl = eingabe.trim();
+  if (wahl === '1') return new Date(jetzt.getTime() + 60 * 60_000).toISOString();
+  if (wahl === '2') {
+    const abends = new Date(jetzt);
+    abends.setHours(18, 0, 0, 0);
+    // Ist es schon nach sechs, war offensichtlich der morgige Abend gemeint.
+    if (abends <= jetzt) abends.setDate(abends.getDate() + 1);
+    return abends.toISOString();
+  }
+  if (wahl === '3') return morgenFrueh.toISOString();
+
+  const eigen = new Date(wahl.replace(' ', 'T'));
+  if (Number.isNaN(eigen.getTime())) {
+    alert(`"${wahl}" ist kein Zeitpunkt, den ich lesen kann.`);
+    return null;
+  }
+  if (eigen <= jetzt) {
+    alert('Dieser Zeitpunkt liegt in der Vergangenheit.');
+    return null;
+  }
+  return eigen.toISOString();
 }
 
 function parseAddresses(value: string): string[] {
@@ -71,6 +123,7 @@ export function ComposeModal({
     Boolean(initial?.cc?.length || initial?.bcc?.length),
   );
 
+  const [bausteine, setBausteine] = useState<Textbaustein[]>(() => ladeBausteine());
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const location = useRef(draftLocation);
@@ -145,17 +198,20 @@ export function ComposeModal({
     }
   };
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent, sendenAm?: string) => {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      await onSend({
-        ...buildDraft(),
-        // Nach dem Versand entfernt der Server den zugehörigen Entwurf.
-        draftFolder: location.current?.folder,
-        draftUid: location.current?.uid ?? undefined,
-      });
+      await onSend(
+        {
+          ...buildDraft(),
+          // Nach dem Versand entfernt der Server den zugehörigen Entwurf.
+          draftFolder: location.current?.folder,
+          draftUid: location.current?.uid ?? undefined,
+        },
+        sendenAm,
+      );
       onClose();
     } catch (err) {
       setError((err as Error).message);
@@ -365,6 +421,62 @@ export function ComposeModal({
               </button>
               <button type="button" className="btn secondary" onClick={() => void schliessen()} disabled={busy}>
                 Schließen
+              </button>
+              <select
+                className="baustein-wahl"
+                value=""
+                disabled={busy}
+                title="Textbaustein einfügen oder verwalten"
+                onChange={(e) => {
+                  const wert = e.target.value;
+                  if (!wert) return;
+                  if (wert === '__sichern') {
+                    const name = prompt('Unter welchem Namen soll der Text gesichert werden?');
+                    if (name?.trim()) {
+                      setBausteine(bausteinSichern(name, html));
+                    }
+                    return;
+                  }
+                  if (wert === '__loeschen') {
+                    const name = prompt(
+                      ['Welchen Baustein löschen?', '', ...bausteine.map((b) => b.name)].join('\n'),
+                    );
+                    const treffer = bausteine.find(
+                      (b) => b.name.toLowerCase() === name?.trim().toLowerCase(),
+                    );
+                    if (treffer) setBausteine(bausteinLoeschen(treffer.id));
+                    else if (name) alert(`"${name}" gibt es nicht.`);
+                    return;
+                  }
+                  const baustein = bausteine.find((b) => b.id === wert);
+                  if (baustein) {
+                    // Anhängen statt ersetzen: der Baustein ergaenzt das Geschriebene,
+                    // er tritt nicht an seine Stelle.
+                    setHtml((vorher) => vorher + baustein.html);
+                    markDirty();
+                  }
+                }}
+              >
+                <option value="">Baustein…</option>
+                {bausteine.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+                <option value="__sichern">— Text als Baustein sichern</option>
+                {bausteine.length > 0 && <option value="__loeschen">— Baustein löschen</option>}
+              </select>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={busy}
+                title="Zu einem späteren Zeitpunkt senden"
+                onClick={(e) => {
+                  const zeitpunkt = frageZeitpunkt();
+                  if (zeitpunkt) void submit(e, zeitpunkt);
+                }}
+              >
+                Später…
               </button>
               <button type="submit" className="btn" disabled={busy}>
                 {busy ? 'Sende…' : 'Senden'}

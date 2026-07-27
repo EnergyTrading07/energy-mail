@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, shell } from 'electron';
 import { buildServer } from '@energy-mail/server/app';
 import { getDataDir, setDataDir } from '@energy-mail/server/paths';
 import { setKeyProvider } from '@energy-mail/server/secrets';
+import { sendeAusstehendeSofort } from '@energy-mail/server/sendqueue';
 import { starteAktualisierungspruefung } from './autoUpdate.js';
 import { setzeMenue } from './menu.js';
 import { starteBenachrichtigungen } from './notifications.js';
@@ -126,6 +127,27 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(url);
   });
+});
+
+/**
+ * Beim Beenden noch abschicken, was in der Bedenkzeit steht.
+ *
+ * Wer auf "Senden" gedrückt und nichts widerrufen hat, will die Nachricht draußen haben -
+ * sie beim Schließen verfallen zu lassen wäre die schlechteste aller Möglichkeiten. Weit
+ * in der Zukunft geplante Nachrichten bleiben dagegen liegen und gehen beim nächsten
+ * Start hinaus.
+ */
+let beendenLaeuft = false;
+app.on('before-quit', (event) => {
+  if (beendenLaeuft) return;
+  event.preventDefault();
+  beendenLaeuft = true;
+  void sendeAusstehendeSofort()
+    .then((anzahl) => {
+      if (anzahl > 0) console.log(`${anzahl} wartende Nachricht(en) vor dem Beenden versendet.`);
+    })
+    .catch((err) => console.warn(`Beim Beenden nicht versendet: ${(err as Error).message}`))
+    .finally(() => app.quit());
 });
 
 app.on('window-all-closed', () => {

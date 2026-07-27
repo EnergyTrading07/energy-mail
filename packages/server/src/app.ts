@@ -61,6 +61,21 @@ import {
 } from './accountStore.js';
 import { ausSpeicherOderHolen, schluessel, verwerfe, verwerfeKonto } from './cache.js';
 import {
+  WIEDERVORLAGE_ORDNER,
+  ladeWiedervorlagen,
+  listeWiedervorlagen,
+  setWiedervorlageUmgebung,
+  sofortZurueck,
+  stelleZurueck,
+} from './snooze.js';
+import {
+  ladeGeplanteSendungen,
+  listeGeplanteSendungen,
+  planeSendung,
+  setSendeVerfahren,
+  storniereSendung,
+} from './sendQueue.js';
+import {
   istBrauchbar,
   passt,
   regelLoeschen,
@@ -494,6 +509,57 @@ export async function buildServer() {
     );
     return wert;
   });
+
+  // --- Wiedervorlage ---
+
+  setWiedervorlageUmgebung(
+    (accountId) => getAccount(accountId),
+    (msg) => app.log.info(msg),
+    (accountId, ordner) => {
+      // Die Nachricht ist zurück - Zwischenspeicher verwerfen und die Oberfläche
+      // nachladen lassen, sonst bliebe sie bis zum nächsten Klick unsichtbar.
+      verwerfeStaende(accountId, ordner);
+      meldeAktualisierung({ type: 'data-updated', accountId, was: 'messages', folder: ordner });
+    },
+  );
+  ladeWiedervorlagen();
+
+  app.post<{
+    Params: { id: string; folder: string };
+    Body: { uid?: number; faellig?: string };
+  }>('/accounts/:id/folders/:folder/snooze', async (request) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const uid = Number(request.body?.uid);
+    const faellig = new Date(String(request.body?.faellig)).getTime();
+
+    if (!Number.isInteger(uid) || uid <= 0) throw new HttpError(400, 'Feld "uid" ist erforderlich');
+    if (!Number.isFinite(faellig)) throw new HttpError(400, 'Unbrauchbarer Zeitpunkt.');
+    if (faellig <= Date.now()) throw new HttpError(400, 'Der Zeitpunkt liegt in der Vergangenheit.');
+
+    const nachricht = await getMessage(account, ordner, uid);
+    const eintrag = await stelleZurueck(account, ordner, uid, nachricht.subject, faellig);
+
+    verwerfeStaende(account.id, ordner, WIEDERVORLAGE_ORDNER);
+    verwirfNachrichten(nachrichtenSchluessel(account.id, ordner, uid));
+    return { ok: true, ...eintrag };
+  });
+
+  app.get<{ Params: { id: string } }>('/accounts/:id/snoozed', async (request) => {
+    requireAccount(request.params.id);
+    return listeWiedervorlagen(request.params.id);
+  });
+
+  app.post<{ Params: { id: string; snoozeId: string } }>(
+    '/accounts/:id/snoozed/:snoozeId/return',
+    async (request) => {
+      requireAccount(request.params.id);
+      if (!(await sofortZurueck(request.params.snoozeId))) {
+        throw new HttpError(404, 'Diese Wiedervorlage gibt es nicht mehr.');
+      }
+      return { ok: true };
+    },
+  );
 
   // --- Postfach aufräumen ---
 
@@ -1165,41 +1231,94 @@ export async function buildServer() {
     return attachments;
   }
 
+  /**
+   * Der eigentliche Versand - von der Sofort-Route wie von der Warteschlange benutzt.
+   *
+   * Bewusst eine gemeinsame Stelle: sonst liefen zwei Wege auseinander, und eine
+   * verzögert gesendete Nachricht landete etwa nicht im Gesendet-Ordner oder ließe
+   * ihren Entwurf stehen.
+   */
+  async function fuehreVersandAus(
+    account: AccountConfig,
+    koerper: SendBody & { draftFolder?: string; draftUid?: number },
+  ) {
+    const { attachOriginal, attachments: wire, draftFolder, draftUid, ...message } = koerper;
+    const attachments = await collectAttachments(account, wire, attachOriginal);
+    const result = await sendMessage(account, { ...message, attachments });
+
+    // Nach erfolgreichem Versand hat der Entwurf ausgedient.
+    if (draftFolder && draftUid) {
+      try {
+        await discardDraft(account, decodeURIComponent(draftFolder), draftUid);
+      } catch (err) {
+        app.log.warn(`Entwurf konnte nicht entfernt werden: ${(err as Error).message}`);
+      }
+    }
+
+    rememberAddresses(
+      [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])].map((address) => ({ address })),
+    );
+
+    // Im Gesendet-Ordner liegt jetzt eine Nachricht mehr, im Entwürfe-Ordner eine weniger.
+    verwerfeStaende(account.id, result.sentFolder, draftFolder && decodeURIComponent(draftFolder));
+    return result;
+  }
+
+  setSendeVerfahren(async (sendung) => {
+    const account = getAccount(sendung.accountId);
+    if (!account) throw new Error('Das Konto gibt es nicht mehr.');
+    await fuehreVersandAus(account, sendung.koerper as SendBody);
+  }, (msg) => app.log.info(msg));
+
+  ladeGeplanteSendungen();
+
   app.post<{
     Params: { id: string };
     Body: SendBody & { draftFolder?: string; draftUid?: number };
   }>('/accounts/:id/send', async (request, reply) => {
     const account = requireAccount(request.params.id);
     const { attachOriginal, attachments: wire, draftFolder, draftUid, ...message } = request.body;
-    const attachments = await collectAttachments(account, wire, attachOriginal);
+
+    // Mit Verzögerung: nicht senden, sondern vormerken. Der Körper wandert unverändert
+    // in die Warteschlange - Anhänge werden erst beim tatsächlichen Versand aus dem
+    // Postfach geholt, sonst läge eine 20-MB-Datei in der Warteschlangendatei.
+    const verzoegerung = Number((request.body as { sendenIn?: number }).sendenIn ?? 0);
+    const zeitpunkt = (request.body as { sendenAm?: string }).sendenAm;
+    if (verzoegerung > 0 || zeitpunkt) {
+      const faellig = zeitpunkt ? new Date(zeitpunkt).getTime() : Date.now() + verzoegerung * 1000;
+      if (!Number.isFinite(faellig)) throw new HttpError(400, 'Unbrauchbarer Zeitpunkt.');
+      const sendung = planeSendung(account.id, request.body as Record<string, unknown>, faellig);
+      return { ok: true, geplant: true, id: sendung.id, faellig: sendung.faellig };
+    }
 
     try {
-      // Das Ergebnis enthält auch, ob die Kopie im Gesendet-Ordner abgelegt werden
-      // konnte - die Oberfläche weist darauf hin, ohne den Versand infrage zu stellen.
-      const result = await sendMessage(account, { ...message, attachments });
-
-      // Nach erfolgreichem Versand hat der Entwurf ausgedient.
-      if (draftFolder && draftUid) {
-        try {
-          await discardDraft(account, decodeURIComponent(draftFolder), draftUid);
-        } catch (err) {
-          app.log.warn(`Entwurf konnte nicht entfernt werden: ${(err as Error).message}`);
-        }
-      }
-
-      rememberAddresses(
-        [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])].map((address) => ({ address })),
-      );
-
-      // Im Gesendet-Ordner liegt jetzt eine Nachricht mehr, im Entwürfe-Ordner eine
-      // weniger.
-      verwerfeStaende(account.id, result.sentFolder, draftFolder && decodeURIComponent(draftFolder));
-
-      return { ok: true, ...result };
+      return { ok: true, ...(await fuehreVersandAus(account, request.body)) };
     } catch (err) {
       reply.code(502);
       return { error: (err as Error).message };
     }
+  });
+
+  /** Holt eine vorgemerkte Nachricht zurück und gibt sie zum Weiterbearbeiten heraus. */
+  app.delete<{ Params: { id: string; sendungId: string } }>(
+    '/accounts/:id/send/:sendungId',
+    async (request) => {
+      requireAccount(request.params.id);
+      const sendung = storniereSendung(request.params.sendungId);
+      if (!sendung) throw new HttpError(404, 'Diese Nachricht ist bereits unterwegs.');
+      return { ok: true, koerper: sendung.koerper };
+    },
+  );
+
+  /** Was noch aussteht - für eine Übersicht der geplanten Nachrichten. */
+  app.get<{ Params: { id: string } }>('/accounts/:id/send/pending', async (request) => {
+    requireAccount(request.params.id);
+    return listeGeplanteSendungen(request.params.id).map((s) => ({
+      id: s.id,
+      faellig: s.faellig,
+      betreff: s.betreff,
+      empfaenger: s.empfaenger,
+    }));
   });
 
   app.post<{

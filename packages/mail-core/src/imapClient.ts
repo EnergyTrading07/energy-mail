@@ -733,6 +733,35 @@ export async function moveMessages(
   });
 }
 
+/**
+ * Verschiebt Nachrichten und meldet zurück, welche Kennung sie am Ziel bekommen haben.
+ *
+ * UIDs gelten nur innerhalb eines Ordners; nach dem Verschieben ist die alte wertlos.
+ * Server mit der Erweiterung UIDPLUS teilen die neue mit - ohne sie lässt sich eine
+ * verschobene Nachricht nicht mehr sicher wiederfinden, und der Aufrufer muss damit
+ * umgehen. Deshalb steht die Zuordnung hier ausdrücklich im Ergebnis statt verworfen zu
+ * werden wie bei moveMessages.
+ */
+export async function verschiebeMitKennung(
+  config: AccountConfig,
+  folder: string,
+  uids: number[],
+  targetFolder: string,
+): Promise<{ neueUids: Map<number, number> }> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const ergebnis = await client.messageMove(uids, targetFolder, { uid: true });
+      if (!ergebnis) {
+        throw new Error(`Verschieben nach "${targetFolder}" wurde vom Server abgelehnt.`);
+      }
+      return { neueUids: ergebnis.uidMap ?? new Map<number, number>() };
+    } finally {
+      lock.release();
+    }
+  });
+}
+
 /** Löscht Nachrichten unwiderruflich (\Deleted + EXPUNGE). */
 export async function deleteMessages(
   config: AccountConfig,

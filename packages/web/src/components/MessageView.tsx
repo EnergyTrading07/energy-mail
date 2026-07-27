@@ -28,6 +28,8 @@ interface Props {
   archiveLabel: string | null;
   onArchive: (uid: number) => void;
   onSetSeen: (uid: number, seen: boolean) => void;
+  /** Stellt die Nachricht zurueck; null bedeutet abgebrochen. */
+  onSnooze: (uid: number) => void;
   onDelete: (uid: number) => void;
   onMove: (uid: number, targetFolder: string) => void;
 }
@@ -84,6 +86,7 @@ export function MessageView({
   archiveLabel,
   onArchive,
   onSetSeen,
+  onSnooze,
   onDelete,
   onMove,
 }: Props) {
@@ -141,6 +144,13 @@ export function MessageView({
         )}
         <button className="btn secondary" onClick={() => onSetSeen(message.uid, !message.seen)}>
           {message.seen ? 'Als ungelesen' : 'Als gelesen'}
+        </button>
+        <button
+          className="btn secondary"
+          title="Aus dem Posteingang nehmen und spaeter wieder vorlegen"
+          onClick={() => onSnooze(message.uid)}
+        >
+          Wiedervorlage
         </button>
         <button className="btn danger" onClick={() => onDelete(message.uid)}>
           {isInTrash ? 'Endgültig löschen' : 'Löschen'}

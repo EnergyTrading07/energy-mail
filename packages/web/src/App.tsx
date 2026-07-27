@@ -17,6 +17,7 @@ import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { RulesModal } from './components/RulesModal.js';
+import { SendeMeldung } from './components/SendeMeldung.js';
 import type { SucheEingabe } from './components/SearchBar.js';
 import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
 import { archiveTarget } from './folderTargets.js';
@@ -95,6 +96,14 @@ export default function App() {
   const [regelVorgabe, setRegelVorgabe] = useState<{ von: string; name: string } | undefined>();
   /** Konto, dessen Postfach gerade aufgeraeumt wird. */
   const [cleanupFor, setCleanupFor] = useState<api.Account | null>(null);
+  /** Vorgemerkte Nachricht - waehrend der Bedenkzeit oder bis zum geplanten Zeitpunkt. */
+  const [geplant, setGeplant] = useState<{
+    id: string;
+    faellig: number;
+    betreff: string;
+    draft: api.Draft;
+    spaeter: boolean;
+  } | null>(null);
   const [oauthClients, setOauthClients] = useState<api.OAuthClients | null>(null);
   const [oauthBusy, setOauthBusy] = useState<api.OAuthProvider | null>(null);
   /** Kennung des Kontos, dessen Neuanmeldung gerade läuft. */
@@ -720,6 +729,65 @@ export default function App() {
   // sonst nichts - dann entfällt der Knopf.
   const archivZiel = archiveTarget(folders, selectedFolder);
 
+  /**
+   * Nimmt eine Nachricht aus dem Posteingang und legt sie später wieder vor.
+   *
+   * Dieselben Vorschläge wie beim späteren Senden, aus demselben Grund: es geht um
+   * "nachher", nicht um einen bestimmten Zeitstempel.
+   */
+  const handleSnooze = async (uid: number) => {
+    if (!selectedAccountId || !selectedFolder) return;
+    const eingabe = prompt(
+      'Wann soll die Nachricht wieder auftauchen?\n\n' +
+        '1 = in drei Stunden\n' +
+        '2 = heute Abend (18:00)\n' +
+        '3 = morgen früh (08:00)\n' +
+        '4 = nächste Woche (Montag 08:00)\n\n' +
+        'Oder ein Zeitpunkt als JJJJ-MM-TT HH:MM',
+      '3',
+    );
+    if (!eingabe) return;
+
+    const jetzt = new Date();
+    const ziel = new Date(jetzt);
+    switch (eingabe.trim()) {
+      case '1':
+        ziel.setHours(ziel.getHours() + 3);
+        break;
+      case '2':
+        ziel.setHours(18, 0, 0, 0);
+        if (ziel <= jetzt) ziel.setDate(ziel.getDate() + 1);
+        break;
+      case '3':
+        ziel.setDate(ziel.getDate() + 1);
+        ziel.setHours(8, 0, 0, 0);
+        break;
+      case '4': {
+        // Bis zum nächsten Montag: getDay() liefert 0 für Sonntag.
+        const tageBisMontag = (8 - ziel.getDay()) % 7 || 7;
+        ziel.setDate(ziel.getDate() + tageBisMontag);
+        ziel.setHours(8, 0, 0, 0);
+        break;
+      }
+      default: {
+        const eigen = new Date(eingabe.trim().replace(' ', 'T'));
+        if (Number.isNaN(eigen.getTime()) || eigen <= jetzt) {
+          setError(`"${eingabe.trim()}" ist kein brauchbarer Zeitpunkt in der Zukunft.`);
+          return;
+        }
+        ziel.setTime(eigen.getTime());
+      }
+    }
+
+    try {
+      await api.snoozeMessage(selectedAccountId, selectedFolder, uid, ziel.toISOString());
+      removeFromView([uid]);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   const handleArchive = async (uids: number[]) => {
     if (!archivZiel) return;
     await handleMove(uids, archivZiel.path);
@@ -938,9 +1006,32 @@ export default function App() {
     );
   };
 
-  const handleSend = async (draft: api.Draft) => {
+  /**
+   * Bedenkzeit nach dem Absenden. Acht Sekunden reichen, um den vergessenen Anhang oder
+   * den falschen Empfänger zu bemerken, und halten niemanden auf - länger würde man beim
+   * Schließen der Anwendung spüren, weil dann alles Wartende noch hinausgeht.
+   */
+  const BEDENKZEIT_SEKUNDEN = 8;
+
+  const handleSend = async (draft: api.Draft, sendenAm?: string) => {
     if (!selectedAccountId) throw new Error('Kein Konto ausgewählt');
-    const result = await api.sendMessage(selectedAccountId, draft);
+
+    const result = await api.sendMessage(
+      selectedAccountId,
+      draft,
+      sendenAm ? { sendenAm } : { sendenIn: BEDENKZEIT_SEKUNDEN },
+    );
+
+    if (result.geplant && result.id && result.faellig) {
+      setGeplant({
+        id: result.id,
+        faellig: result.faellig,
+        betreff: draft.subject ?? '',
+        draft,
+        spaeter: Boolean(sendenAm),
+      });
+      return;
+    }
 
     // Die Mail ist raus - nur die Ablage im Gesendet-Ordner hat nicht geklappt. Als
     // Hinweis anzeigen, aber nicht als Fehlschlag: sonst würde man erneut senden.
@@ -995,6 +1086,30 @@ export default function App() {
             ×
           </button>
         </div>
+      )}
+      {/* Bedenkzeit nach dem Absenden. Für "später senden" gibt es keine Meldung mit
+          Rücklauf - dort wartet man Stunden, nicht Sekunden. */}
+      {geplant && !geplant.spaeter && (
+        <SendeMeldung
+          betreff={geplant.betreff}
+          faellig={geplant.faellig}
+          onFertig={() => {
+            setGeplant(null);
+            setReloadCounter((n) => n + 1);
+            setFolderReload((n) => n + 1);
+          }}
+          onRueckgaengig={() => {
+            const laufend = geplant;
+            setGeplant(null);
+            void api
+              .cancelSend(selectedAccountId!, laufend.id)
+              .then(({ koerper }) => {
+                // Zurück ins Verfassen-Fenster, mit allem was drinstand.
+                oeffneVerfassen('Nachricht weiterbearbeiten', koerper);
+              })
+              .catch((err) => setError((err as Error).message));
+          }}
+        />
       )}
       {/* Akzentfarbe des aktiven Kontos gilt für die ganze Ansicht: Verfassen-Knopf,
           aktive Zeile, Balken. So ist beim Schreiben sichtbar, aus welcher Adresse. */}
@@ -1105,6 +1220,7 @@ export default function App() {
             archiveLabel={archivZiel ? `Verschiebt nach "${archivZiel.name}"` : null}
             onArchive={(uid) => void handleArchive([uid])}
             onSetSeen={(uid, seen) => void applySeen([uid], seen)}
+            onSnooze={(uid) => void handleSnooze(uid)}
             onDelete={(uid) => void handleDelete([uid])}
             onMove={(uid, target) => void handleMove([uid], target)}
           />

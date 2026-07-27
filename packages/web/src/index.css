@@ -161,6 +161,37 @@ body {
   color: inherit;
 }
 
+/* Meldung mit Bedenkzeit nach dem Absenden. Unten mittig statt oben rechts: dort
+   liegt der Blick nach dem Klick auf "Senden", und sie verdeckt nichts. */
+.sende-meldung {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 16px;
+  border-radius: 9px;
+  background: #29313a;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+}
+
+.sende-meldung .btn.secondary {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: transparent;
+  color: #fff;
+  padding: 3px 12px;
+  font-size: 12px;
+}
+
+.sende-meldung .btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 /* Absender-Übersicht beim Aufräumen. Tabelle statt Liste: hier werden Zahlen
    verglichen, und dafür müssen sie untereinander stehen. */
 .absender-tabelle {

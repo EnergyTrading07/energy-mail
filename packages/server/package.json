@@ -9,7 +9,8 @@
     "./app": "./dist/app.js",
     "./secrets": "./dist/secretCrypto.js",
     "./paths": "./dist/paths.js",
-    "./events": "./dist/watcherRegistry.js"
+    "./events": "./dist/watcherRegistry.js",
+    "./sendqueue": "./dist/sendQueue.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
