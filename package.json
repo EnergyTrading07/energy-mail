@@ -3,10 +3,10 @@
   "productName": "Energy Mail",
   "description": "E-Mail-Programm für beliebige IMAP/SMTP-Anbieter",
   "author": "Hendrik Zeuch",
-  "//repository": "Aus diesem Eintrag ermittelt electron-builder, wohin veroeffentlicht wird und wo die Anwendung nach Aktualisierungen sucht. DEIN-GITHUB-NAME muss durch den echten Kontonamen ersetzt werden - 'npm run publish' bricht sonst mit einem Hinweis ab.",
+  "//repository": "Aus diesem Eintrag ermittelt electron-builder, wohin veroeffentlicht wird und wo die ausgelieferte Anwendung nach Aktualisierungen sucht (er landet als app-update.yml im Paket). Wird die Adresse geaendert, muessen bereits installierte Fassungen einmal von Hand ersetzt werden - sie suchen sonst weiter an der alten Stelle.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DEIN-GITHUB-NAME/energy-mail.git"
+    "url": "https://github.com/EnergyTrading07/energy-mail.git"
   },
   "private": true,
   "version": "0.1.0",
