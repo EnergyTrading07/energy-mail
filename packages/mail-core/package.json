@@ -1,0 +1,22 @@
+{
+  "name": "@energy-mail/mail-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "imapflow": "^1.0.185",
+    "mailparser": "^3.7.2",
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.5",
+    "@types/nodemailer": "^6.4.16",
+    "typescript": "^5.6.3"
+  }
+}

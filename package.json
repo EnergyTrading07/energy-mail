@@ -1,0 +1,40 @@
+{
+  "name": "energy-mail",
+  "productName": "Energy Mail",
+  "description": "E-Mail-Programm für beliebige IMAP/SMTP-Anbieter",
+  "author": "Hendrik Zeuch",
+  "//repository": "Aus diesem Eintrag ermittelt electron-builder, wohin veroeffentlicht wird und wo die Anwendung nach Aktualisierungen sucht. DEIN-GITHUB-NAME muss durch den echten Kontonamen ersetzt werden - 'npm run publish' bricht sonst mit einem Hinweis ab.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DEIN-GITHUB-NAME/energy-mail.git"
+  },
+  "private": true,
+  "version": "0.1.0",
+  "main": "packages/desktop/dist/main.js",
+  "//type": "Muss gesetzt sein, sonst startet die paketierte Anwendung nicht: Electron entscheidet anhand DIESER Datei, ob der Einstiegspunkt als ES-Modul oder als CommonJS geladen wird - nicht anhand der package.json daneben. Aus dem Quellbaum gestartet ist packages/desktop das Wurzelverzeichnis (dort steht type bereits), paketiert dagegen dieses hier. Ohne die Angabe scheitert der Start mit ERR_REQUIRE_ESM.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "npm run build && npm run start --workspace packages/desktop",
+    "test": "tsx packages/mail-core/src/oauth/provider.test.mts && tsx packages/web/src/composeHelpers.test.mts",
+    "build": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run build -w packages/web && npm run build -w packages/desktop",
+    "typecheck": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run typecheck --workspaces --if-present",
+    "dist": "npm run build && electron-builder",
+    "publish": "node scripts/pruefe-veroeffentlichung.mjs && npm run build && electron-builder --publish always",
+    "dev:server": "npm run dev --workspace packages/server",
+    "dev:web": "npm run dev --workspace packages/web",
+    "dev:desktop": "npm run dev --workspace packages/desktop"
+  },
+  "dependencies": {
+    "@energy-mail/server": "*",
+    "@energy-mail/web": "*",
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.6.3"
+  }
+}

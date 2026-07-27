@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "declaration": false,
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  // Tests laufen über tsx mit Node-Umgebung und haben eigene Typen (tsconfig.test.json);
+  // hier ausgenommen, damit Node-Globals nicht im Browser-Code verfügbar werden.
+  "exclude": ["src/**/*.test.mts"]
+}

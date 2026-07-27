@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "noEmit": true,
+    "declaration": false,
+    // api.ts wird nur wegen seiner Typen mitgeprüft und nutzt import.meta.env von Vite.
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src/**/*.test.mts", "src/composeHelpers.ts", "src/htmlText.ts", "src/api.ts"]
+}

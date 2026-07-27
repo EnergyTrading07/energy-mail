@@ -1,0 +1,59 @@
+# Paketierung der Desktop-Anwendung.
+#
+# Gebaut wird aus dem Wurzelverzeichnis, weil die Anwendung aus vier Arbeitsbereichen
+# besteht: die Electron-Hülle (desktop), der eingebettete Server, die Kernlogik und das
+# Frontend. Die Abhängigkeiten in der Wurzel-package.json ("@energy-mail/server" und
+# "@energy-mail/web") sind genau dafür da - electron-builder ermittelt daraus, was ins
+# Paket gehört, und lässt Bauwerkzeuge wie TypeScript, Vite und Electron selbst draußen.
+appId: de.energymail.desktop
+productName: Energy Mail
+copyright: Hendrik Zeuch
+
+directories:
+  output: release
+  buildResources: build
+
+# Woher die Anwendung ihre Aktualisierungen bezieht. Kontoname und Repository ermittelt
+# electron-builder aus dem "repository"-Eintrag der package.json - deshalb steht das
+# nicht doppelt hier. Beim Bauen entsteht daraus app-update.yml im Paket; danach weiß
+# die ausgelieferte Anwendung selbst, wo sie nachschauen muss.
+publish:
+  provider: github
+
+# Die Electron-Hülle liegt nicht in node_modules, sondern als Arbeitsbereich im Baum -
+# deshalb hier ausdrücklich.
+#
+# Die Ausschlüsse gelten bewusst nur für die eigenen Pakete. Ein pauschales
+# "!**/src/**" nimmt auch Fremdpaketen ihren Quellordner weg - und manche bestehen
+# genau daraus: encoding-japanese verweist mit "main" auf src/index.js, wodurch die
+# gepackte Anwendung beim Start abbrach, noch bevor ein Fenster erschien.
+files:
+  - packages/desktop/dist/**/*
+  - packages/desktop/package.json
+  # Quellkarten braucht zur Laufzeit niemand, sie werden nie nachgeladen.
+  - '!**/*.map'
+  # TypeScript-Quellen der eigenen Pakete - gebaut liegt alles in dist/.
+  - '!packages/*/src/**'
+  - '!packages/*/tsconfig*.json'
+  - '!node_modules/@energy-mail/*/src/**'
+  - '!node_modules/@energy-mail/*/tsconfig*.json'
+
+win:
+  target:
+    - nsis
+    - portable
+  icon: build/icon.png
+
+nsis:
+  # Kein Ein-Klick-Installer: der Nutzer soll sehen, wohin installiert wird, und die
+  # Anwendung später normal über die Systemsteuerung wieder entfernen können.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Energy Mail
+  artifactName: ${productName} Setup ${version}.${ext}
+
+portable:
+  artifactName: ${productName} ${version} portabel.${ext}

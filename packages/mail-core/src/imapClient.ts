@@ -1,0 +1,619 @@
+import { type FetchMessageObject } from 'imapflow';
+import { simpleParser } from 'mailparser';
+import { withClient, withThrowawayClient } from './connectionPool.js';
+import {
+  GMAIL_CATEGORIES,
+  type AccountConfig,
+  type AttachmentInfo,
+  type CategoryInfo,
+  type FolderInfo,
+  type FullMessage,
+  type GmailCategory,
+  type ListMessagesOptions,
+  type MessagePage,
+  type MessageSummary,
+} from './types.js';
+
+
+interface StructureNode {
+  part?: string;
+  type?: string;
+  size?: number;
+  encoding?: string;
+  disposition?: string;
+  dispositionParameters?: Record<string, string>;
+  parameters?: Record<string, string>;
+  childNodes?: StructureNode[];
+}
+
+/**
+ * bodyStructure meldet die Größe im übertragenen (kodierten) Zustand. Bei base64 sind
+ * das rund ein Drittel mehr als die eigentliche Datei - ohne Umrechnung zeigt die
+ * Oberfläche durchweg zu große Werte an.
+ */
+function decodedSize(node: StructureNode): number {
+  const size = node.size ?? 0;
+  if (node.encoding?.toLowerCase() === 'base64') {
+    return Math.floor((size * 3) / 4);
+  }
+  return size;
+}
+
+function attachmentFilename(node: StructureNode): string | undefined {
+  return node.dispositionParameters?.filename ?? node.parameters?.name;
+}
+
+/**
+ * Sammelt Anhänge aus der Nachrichtenstruktur - ohne die Inhalte zu laden; die Struktur
+ * allein nennt Dateiname, Typ, Größe und Part-ID.
+ *
+ * Neben echten Anhängen (disposition "attachment") werden auch eingebettete Teile mit
+ * Dateinamen aufgenommen (disposition "inline"), etwa Bilder im HTML-Text. Die sind für
+ * den Empfänger genauso Dateien, und gängige Mailprogramme zeigen sie ebenfalls an.
+ */
+function collectAttachments(node: unknown, into: AttachmentInfo[] = []): AttachmentInfo[] {
+  if (!node || typeof node !== 'object') return into;
+  const current = node as StructureNode;
+
+  const filename = attachmentFilename(current);
+  const isAttachment = current.disposition === 'attachment' || (Boolean(filename) && !current.childNodes);
+
+  if (isAttachment && current.part) {
+    into.push({
+      partId: current.part,
+      filename,
+      contentType: current.type ?? 'application/octet-stream',
+      size: decodedSize(current),
+    });
+  }
+
+  for (const child of current.childNodes ?? []) {
+    collectAttachments(child, into);
+  }
+  return into;
+}
+
+function toAddresses(list: { name?: string; address?: string }[] | undefined) {
+  return (list ?? [])
+    .map((a) => ({ name: a.name || undefined, address: a.address ?? '' }))
+    .filter((a) => a.address);
+}
+
+function summarizeMessage(msg: FetchMessageObject): MessageSummary {
+  const flags = msg.flags ? Array.from(msg.flags) : [];
+  return {
+    uid: msg.uid,
+    subject: msg.envelope?.subject ?? '(kein Betreff)',
+    from: toAddresses(msg.envelope?.from),
+    to: toAddresses(msg.envelope?.to),
+    cc: toAddresses(msg.envelope?.cc),
+    date: msg.envelope?.date ?? null,
+    flags,
+    seen: flags.includes('\\Seen'),
+    // Gleiche Erkennung wie in der Leseansicht, damit Liste und Detail übereinstimmen.
+    hasAttachments: collectAttachments(msg.bodyStructure).length > 0,
+  };
+}
+
+/**
+ * ImapFlow wirft für Login- wie Netzwerkfehler gleichermaßen "Command failed"; die
+ * verwertbare Information steckt in responseText bzw. im Node-Fehlercode.
+ */
+function describeImapError(err: unknown): string {
+  const e = err as {
+    responseText?: string;
+    authenticationFailed?: boolean;
+    code?: string;
+    message?: string;
+  };
+  if (e.authenticationFailed) {
+    return e.responseText ?? 'Anmeldung abgelehnt – E-Mail oder Passwort falsch.';
+  }
+  if (e.responseText) return e.responseText;
+  switch (e.code) {
+    case 'ENOTFOUND':
+      return 'Server nicht gefunden – stimmt die Adresse?';
+    case 'ECONNREFUSED':
+      return 'Verbindung abgelehnt – falscher Port?';
+    case 'ETIMEDOUT':
+    case 'ECONNRESET':
+      return 'Zeitüberschreitung – Server nicht erreichbar.';
+    default:
+      return e.message ?? 'Unbekannter Verbindungsfehler';
+  }
+}
+
+/**
+ * Baut eine IMAP-Verbindung auf und meldet sich sofort wieder ab. Wirft bei falschen
+ * Zugangsdaten oder unerreichbarem Host - dient dem Prüfen eines Kontos beim Anlegen,
+ * damit der Nutzer sofort Rückmeldung bekommt statt eines Folgefehlers beim Abruf.
+ */
+export async function verifyImapConnection(config: AccountConfig): Promise<void> {
+  try {
+    // Absichtlich ohne Pool: hier werden noch nicht gespeicherte Zugangsdaten geprüft,
+    // eine dauerhafte Verbindung wäre unerwünscht und würde bei Fehleingaben im Pool
+    // hängen bleiben.
+    await withThrowawayClient(config, async () => undefined);
+  } catch (err) {
+    throw new Error(describeImapError(err));
+  }
+}
+
+export async function listFolders(config: AccountConfig): Promise<FolderInfo[]> {
+  return withClient(config, async (client) => {
+    // statusQuery holt die Ungelesen-Zähler in derselben Abfrage - sonst bräuchte es
+    // einen zusätzlichen STATUS-Aufruf pro Ordner.
+    const list = await client.list({ statusQuery: { unseen: true } });
+    return list.map((box) => {
+      const flags = box.flags ? Array.from(box.flags) : [];
+      // \Noselect bzw. \NonExistent kennzeichnen Container ohne eigene Nachrichten.
+      const selectable = !flags.some((flag) => /^\\(Noselect|NonExistent)$/i.test(flag));
+      return {
+        path: box.path,
+        name: box.name,
+        specialUse: box.specialUse || undefined,
+        flags,
+        delimiter: box.delimiter || '/',
+        unseen: box.status?.unseen,
+        selectable,
+        isAllMail: box.specialUse === '\\All',
+      };
+    });
+  });
+}
+
+/** Der von withClient bereitgestellte ImapFlow-Client. */
+type Client = Parameters<Parameters<typeof withClient>[1]>[0];
+
+/** Ordner, in dem Gmail seine Einordnung vornimmt - sie gilt nur für den Posteingang. */
+export const CATEGORY_FOLDER = 'INBOX';
+
+/**
+ * Ob der Server Gmails Suchsprache beherrscht. Wird an der IMAP-Erweiterung erkannt, die
+ * der Server selbst ankündigt - nicht am Anbieternamen oder der Adresse. Ein
+ * Firmenpostfach hinter Google Workspace wird damit genauso erkannt wie gmail.com.
+ */
+function supportsCategories(client: Client): boolean {
+  return client.capabilities.has('X-GM-EXT-1');
+}
+
+/** Suchbedingung für eine Einordnung, als Gmail-Rohsuche. */
+function categoryQuery(category: GmailCategory): { gmraw: string } {
+  return { gmraw: `category:${category}` };
+}
+
+/**
+ * Zählt die Nachrichten je Einordnung des Posteingangs, jeweils gesamt und ungelesen.
+ * Meldet der Server die Gmail-Erweiterung nicht, kommt eine leere Liste zurück - die
+ * Oberfläche zeigt dann gar keine Einordnungen.
+ *
+ * Die Ungelesen-Zahl wird nicht je Einordnung erfragt, sondern aus einer einzigen Suche
+ * nach ungelesenen Nachrichten und einem Abgleich der UID-Mengen gebildet: das sind vier
+ * Serverabfragen weniger. Übertragen werden dabei nur Zahlen, keine Kopfdaten.
+ */
+export async function listCategories(config: AccountConfig): Promise<CategoryInfo[]> {
+  return withClient(config, async (client) => {
+    if (!supportsCategories(client)) return [];
+
+    const lock = await client.getMailboxLock(CATEGORY_FOLDER);
+    try {
+      const ungelesen = new Set((await client.search({ seen: false }, { uid: true })) || []);
+
+      const ergebnis: CategoryInfo[] = [];
+      for (const category of GMAIL_CATEGORIES) {
+        const uids = (await client.search(categoryQuery(category), { uid: true })) || [];
+        ergebnis.push({
+          id: category,
+          total: uids.length,
+          unseen: uids.reduce((summe, uid) => summe + (ungelesen.has(uid) ? 1 : 0), 0),
+        });
+      }
+      return ergebnis;
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
+ * Setzt oder entfernt das \Seen-Flag. ImapFlow ruft Nachrichteninhalte grundsätzlich
+ * mit BODY.PEEK ab, das Lesen allein ändert den Status also nicht - er wird bewusst
+ * hier gesetzt.
+ */
+export async function setMessagesSeen(
+  config: AccountConfig,
+  folder: string,
+  uids: number[],
+  seen: boolean,
+): Promise<void> {
+  if (uids.length === 0) return;
+  await withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      // Alle UIDs in einem einzigen STORE-Befehl - nicht pro Nachricht einzeln.
+      if (seen) {
+        await client.messageFlagsAdd(uids, ['\\Seen'], { uid: true });
+      } else {
+        await client.messageFlagsRemove(uids, ['\\Seen'], { uid: true });
+      }
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+
+/**
+ * Holt die Kopfdaten zu einer Menge von UIDs, neueste zuerst.
+ *
+ * Bewusst getrennt von der UID-Ermittlung: die UID-Liste kann sehr lang sein (bei einer
+ * breiten Suche zehntausende Treffer), abgerufen wird aber nur der aktuelle Seitenanteil.
+ * Vorher lud die Suche die Kopfdaten *aller* Treffer in einem Zug.
+ */
+async function fetchSummaries(
+  client: Parameters<Parameters<typeof withClient>[1]>[0],
+  uids: number[],
+): Promise<MessageSummary[]> {
+  if (uids.length === 0) return [];
+  const messages: MessageSummary[] = [];
+  for await (const msg of client.fetch(
+    uids,
+    { envelope: true, flags: true, uid: true, bodyStructure: true },
+    { uid: true },
+  )) {
+    messages.push(summarizeMessage(msg));
+  }
+  messages.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+  return messages;
+}
+
+/** Schneidet aus aufsteigenden UIDs die nächste Seite heraus (höchste = neueste). */
+function seitenAnteil(
+  aufsteigend: number[],
+  beforeUid: number | undefined,
+  pageSize: number,
+): { uids: number[]; nextCursor: number | null; hasMore: boolean } {
+  const kandidaten = beforeUid ? aufsteigend.filter((uid) => uid < beforeUid) : aufsteigend;
+  const uids = kandidaten.slice(-pageSize);
+  const hasMore = kandidaten.length > uids.length;
+  return {
+    uids,
+    nextCursor: uids.length > 0 ? Math.min(...uids) : null,
+    hasMore,
+  };
+}
+
+/**
+ * Kennzeichen für "der Server kann das nicht" - das ist eine unpassende Anfrage, kein
+ * Serverfehler. Über den Code kann der Aufrufer das unterscheiden, ohne die Meldung
+ * auszuwerten; dieselbe Art der Unterscheidung nutzt auch describeImapError.
+ */
+export const CATEGORY_UNSUPPORTED = 'CATEGORY_UNSUPPORTED';
+
+/**
+ * Stellt sicher, dass eine angeforderte Einordnung überhaupt möglich ist. Ohne diese
+ * Prüfung würde ImapFlow den Befehl gar nicht erst senden und einen technischen Fehler
+ * melden, der nicht erklärt, woran es liegt.
+ */
+function requireCategorySupport(client: Client, category: GmailCategory): void {
+  if (!supportsCategories(client)) {
+    const err = new Error(
+      `Dieser Server kennt Gmails Einordnung "${category}" nicht ` +
+        '(IMAP-Erweiterung X-GM-EXT-1 fehlt).',
+    ) as Error & { code?: string };
+    err.code = CATEGORY_UNSUPPORTED;
+    throw err;
+  }
+}
+
+export async function listMessages(
+  config: AccountConfig,
+  folder: string,
+  options: ListMessagesOptions = {},
+): Promise<MessagePage> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const mailbox = client.mailbox;
+      const imOrdner = mailbox && typeof mailbox !== 'boolean' ? mailbox.exists : 0;
+      if (imOrdner === 0) return { messages: [], total: 0, nextCursor: null, hasMore: false };
+
+      // Der Server liefert nur Zahlen zurück - auch bei 30.000 Nachrichten ein
+      // Bruchteil der Datenmenge, die ein Abruf der Kopfdaten bedeuten würde.
+      let treffer: number[];
+      if (options.category) {
+        requireCategorySupport(client, options.category);
+        treffer = (await client.search(categoryQuery(options.category), { uid: true })) || [];
+      } else {
+        treffer = (await client.search({ all: true }, { uid: true })) || [];
+      }
+
+      // Bei einer Einordnung zählt deren Umfang, nicht der des Ordners - sonst stünde in
+      // der Liste "25 von 31.700" statt "25 von 8.868".
+      const total = options.category ? treffer.length : imOrdner;
+      const { uids, nextCursor, hasMore } = seitenAnteil(treffer, options.beforeUid, pageSize);
+
+      return { messages: await fetchSummaries(client, uids), total, nextCursor, hasMore };
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+export async function getMessage(config: AccountConfig, folder: string, uid: number): Promise<FullMessage> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      let summary: MessageSummary | null = null;
+      let structure: unknown = null;
+      for await (const msg of client.fetch(
+        String(uid),
+        { envelope: true, flags: true, uid: true, bodyStructure: true },
+        { uid: true },
+      )) {
+        summary = summarizeMessage(msg);
+        structure = msg.bodyStructure;
+      }
+      if (!summary) throw new Error(`Nachricht ${uid} nicht gefunden in ${folder}`);
+
+      const { content } = await client.download(String(uid), undefined, { uid: true });
+      const parsed = await simpleParser(content);
+
+      // References kann als einzelner Wert oder als Liste kommen - vereinheitlichen.
+      const references = Array.isArray(parsed.references)
+        ? parsed.references
+        : parsed.references
+          ? [parsed.references]
+          : undefined;
+
+      const replyTo = parsed.replyTo?.value?.map((a) => ({
+        name: a.name || undefined,
+        address: a.address ?? '',
+      }));
+
+      return {
+        ...summary,
+        text: typeof parsed.text === 'string' ? parsed.text : undefined,
+        html: parsed.html,
+        // Aus der Struktur statt aus parsed.attachments - so gehen keine Anhangsbytes
+        // mit in die Antwort.
+        attachments: collectAttachments(structure),
+        messageId: parsed.messageId,
+        references,
+        inReplyTo: parsed.inReplyTo,
+        replyTo: replyTo?.filter((a) => a.address),
+      };
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+export interface DownloadedAttachment {
+  filename: string;
+  contentType: string;
+  size: number;
+  content: Buffer;
+}
+
+/**
+ * Lädt genau einen Anhang über seine Part-ID. Damit wird nur dieser Teil der Nachricht
+ * vom Server geholt, nicht die vollständige Mail.
+ */
+export async function downloadAttachment(
+  config: AccountConfig,
+  folder: string,
+  uid: number,
+  partId: string,
+): Promise<DownloadedAttachment> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      // Struktur vorab lesen: liefert Dateiname und Reihenfolge für den Rückfallweg.
+      let attachments: AttachmentInfo[] = [];
+      for await (const msg of client.fetch(
+        String(uid),
+        { uid: true, bodyStructure: true },
+        { uid: true },
+      )) {
+        attachments = collectAttachments(msg.bodyStructure);
+      }
+      const meta = attachments.find((a) => a.partId === partId);
+
+      // Regulärer Weg: nur diesen einen Teil vom Server holen.
+      const result = await client.download(String(uid), partId, { uid: true });
+      if (result?.content) {
+        const chunks: Buffer[] = [];
+        for await (const chunk of result.content) {
+          chunks.push(Buffer.from(chunk));
+        }
+        const content = Buffer.concat(chunks);
+        return {
+          filename: result.meta?.filename || meta?.filename || `anhang-${partId}`,
+          contentType: result.meta?.contentType || meta?.contentType || 'application/octet-stream',
+          size: content.length,
+          content,
+        };
+      }
+
+      // Rückfallweg für kleine Anhänge:
+      // Antwortet der Server einen Teil als kurze Zeichenkette statt als Literal (das
+      // tun IMAP-Server bei wenigen hundert Bytes), ordnet ImapFlow ihn intern falsch
+      // zu und download() liefert nichts zurück. Nachweisbar an zwei Anhängen derselben
+      // Nachricht: 12 Bytes schlagen fehl, 12 kB gelingen. Dann wird die vollständige
+      // Nachricht geladen und der Anhang daraus entnommen - langsamer, aber korrekt.
+      const whole = await client.download(String(uid), undefined, { uid: true });
+      if (!whole?.content) {
+        throw new Error(`Anhang ${partId} konnte nicht geladen werden.`);
+      }
+      const parsed = await simpleParser(whole.content);
+      const candidates = parsed.attachments ?? [];
+
+      // Zuordnung über den Dateinamen; bei mehreren gleichnamigen über die Position.
+      const sameName = attachments.filter((a) => a.filename === meta?.filename);
+      const occurrence = Math.max(0, sameName.findIndex((a) => a.partId === partId));
+      const matching = candidates.filter((a) => a.filename === meta?.filename);
+      const picked =
+        matching[occurrence] ??
+        matching[0] ??
+        candidates[Math.max(0, attachments.findIndex((a) => a.partId === partId))];
+
+      if (!picked) {
+        throw new Error(`Anhang ${partId} nicht in der Nachricht gefunden.`);
+      }
+
+      return {
+        filename: picked.filename || meta?.filename || `anhang-${partId}`,
+        contentType: picked.contentType || meta?.contentType || 'application/octet-stream',
+        size: picked.content.length,
+        content: picked.content,
+      };
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
+ * Legt eine fertige Nachricht in einem Ordner ab (IMAP APPEND). Wird gebraucht, weil
+ * SMTP nur verschickt - eine Kopie im Gesendet-Ordner muss der Client selbst anlegen.
+ */
+export async function appendMessage(
+  config: AccountConfig,
+  folder: string,
+  raw: Buffer,
+  flags: string[] = ['\\Seen'],
+): Promise<number | null> {
+  return withClient(config, async (client) => {
+    const result = await client.append(folder, raw, flags, new Date());
+    if (!result) {
+      throw new Error(`Ablegen in "${folder}" wurde vom Server abgelehnt.`);
+    }
+    // Nicht jeder Server meldet die vergebene UID zurück (UIDPLUS-Erweiterung).
+    return result.uid ?? null;
+  });
+}
+
+/**
+ * Sucht einen Sonderordner. Bevorzugt wird die SPECIAL-USE-Kennzeichnung des Servers;
+ * meldet der Anbieter keine, wird über bekannte Ordnernamen gesucht.
+ */
+export async function findSpecialFolder(
+  config: AccountConfig,
+  specialUse: string,
+  fallbackNames: string[],
+): Promise<string | null> {
+  const folders = await listFolders(config);
+  const bySpecialUse = folders.find((folder) => folder.specialUse === specialUse);
+  if (bySpecialUse) return bySpecialUse.path;
+
+  const byName = folders.find((folder) => fallbackNames.includes(folder.name.toLowerCase()));
+  return byName?.path ?? null;
+}
+
+export function findSentFolder(config: AccountConfig): Promise<string | null> {
+  return findSpecialFolder(config, '\\Sent', [
+    'sent',
+    'gesendet',
+    'sent items',
+    'gesendete elemente',
+    'gesendete objekte',
+  ]);
+}
+
+export function findDraftsFolder(config: AccountConfig): Promise<string | null> {
+  return findSpecialFolder(config, '\\Drafts', ['drafts', 'entwürfe', 'entwuerfe']);
+}
+
+/** Verschiebt Nachrichten in einen anderen Ordner (z.B. in den Papierkorb). */
+export async function moveMessages(
+  config: AccountConfig,
+  folder: string,
+  uids: number[],
+  targetFolder: string,
+): Promise<void> {
+  if (uids.length === 0) return;
+  if (folder === targetFolder) {
+    throw new Error('Quell- und Zielordner sind identisch.');
+  }
+  await withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      // ImapFlow nutzt den MOVE-Befehl und weicht auf COPY + \Deleted + EXPUNGE aus,
+      // wenn der Server MOVE nicht unterstützt.
+      const result = await client.messageMove(uids, targetFolder, { uid: true });
+      if (!result) {
+        throw new Error(`Verschieben nach "${targetFolder}" wurde vom Server abgelehnt.`);
+      }
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/** Löscht Nachrichten unwiderruflich (\Deleted + EXPUNGE). */
+export async function deleteMessages(
+  config: AccountConfig,
+  folder: string,
+  uids: number[],
+): Promise<void> {
+  if (uids.length === 0) return;
+  await withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const result = await client.messageDelete(uids, { uid: true });
+      if (!result) {
+        throw new Error('Löschen wurde vom Server abgelehnt.');
+      }
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
+ * Sucht serverseitig und liefert seitenweise Treffer.
+ *
+ * Die Begrenzung ist hier wesentlich: eine Volltextsuche nach einem häufigen Wort trifft
+ * in einem großen Postfach zehntausende Nachrichten. Vorher wurden die Kopfdaten aller
+ * Treffer in einem Durchgang geladen - bei 30.000 Nachrichten hätte das die Anwendung
+ * minutenlang blockiert.
+ */
+export async function searchMessages(
+  config: AccountConfig,
+  folder: string,
+  query: string,
+  options: ListMessagesOptions = {},
+): Promise<MessagePage> {
+  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const volltext = {
+        or: [{ subject: query }, { from: query }, { to: query }, { body: query }],
+      };
+      // Bei aktiver Einordnung müssen beide Bedingungen zutreffen - sonst würde eine
+      // Suche in "Werbung" plötzlich den ganzen Posteingang durchsuchen.
+      if (options.category) requireCategorySupport(client, options.category);
+      const bedingung = options.category
+        ? { ...volltext, ...categoryQuery(options.category) }
+        : volltext;
+
+      const treffer = (await client.search(bedingung, { uid: true })) || [];
+
+      const { uids, nextCursor, hasMore } = seitenAnteil(treffer, options.beforeUid, pageSize);
+      return {
+        messages: await fetchSummaries(client, uids),
+        total: treffer.length,
+        nextCursor,
+        hasMore,
+      };
+    } finally {
+      lock.release();
+    }
+  });
+}
