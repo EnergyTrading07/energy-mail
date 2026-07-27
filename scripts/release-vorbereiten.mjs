@@ -16,7 +16,8 @@ const wurzel = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(wurzel, 'package.json'), 'utf-8'));
 const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN;
 
-const [, , besitzer, repo] = pkg.repository.url.match(/github\.com\/([^/]+)\/([^/.]+)/) ?? [];
+// match() liefert an Stelle 0 den gesamten Treffer, danach erst die Klammergruppen.
+const [, besitzer, repo] = pkg.repository.url.match(/github\.com\/([^/]+)\/([^/.]+)/) ?? [];
 if (!besitzer || !repo) {
   console.error('Aus dem repository-Eintrag lassen sich Konto und Repository nicht ablesen.');
   process.exit(1);
