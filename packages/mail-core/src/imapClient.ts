@@ -99,6 +99,11 @@ function summarizeMessage(msg: FetchMessageObject): MessageSummary {
     seen: flags.includes('\\Seen'),
     // Gleiche Erkennung wie in der Leseansicht, damit Liste und Detail übereinstimmen.
     hasAttachments: collectAttachments(msg.bodyStructure).length > 0,
+    // Grundlage für die Gruppierung zu Gesprächen. threadId führt nur, wer sie kennt
+    // (Gmail); sonst wird aus messageId und inReplyTo abgeleitet.
+    threadId: msg.threadId || undefined,
+    messageId: msg.envelope?.messageId || undefined,
+    inReplyTo: msg.envelope?.inReplyTo || undefined,
   };
 }
 
@@ -266,7 +271,7 @@ async function fetchSummaries(
   const messages: MessageSummary[] = [];
   for await (const msg of client.fetch(
     uids,
-    { envelope: true, flags: true, uid: true, bodyStructure: true },
+    { envelope: true, flags: true, uid: true, bodyStructure: true, threadId: true },
     { uid: true },
   )) {
     messages.push(summarizeMessage(msg));
@@ -371,7 +376,7 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       let structure: unknown = null;
       for await (const msg of client.fetch(
         String(uid),
-        { envelope: true, flags: true, uid: true, bodyStructure: true },
+        { envelope: true, flags: true, uid: true, bodyStructure: true, threadId: true },
         { uid: true },
       )) {
         summary = summarizeMessage(msg);

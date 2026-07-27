@@ -115,6 +115,14 @@ export default function App() {
   const [loadingMore, setLoadingMore] = useState(false);
   /** Gesetzt, solange Suchergebnisse angezeigt werden. */
   const [suche, setSuche] = useState<SucheEingabe | null>(null);
+  /**
+   * Ob zusammengehörige Nachrichten als ein Eintrag erscheinen. Bleibt über Neustarts
+   * hinweg erhalten - an der Gruppierung scheiden sich die Geister, und wer sie abstellt,
+   * will sie nicht beim nächsten Start wieder vorfinden.
+   */
+  const [konversationen, setKonversationen] = useState<boolean>(
+    () => localStorage.getItem('energy-mail:konversationen') !== 'aus',
+  );
   const [searchFolder, setSearchFolder] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1013,6 +1021,11 @@ export default function App() {
           anhangSuchbar={faehigkeiten.gmailSearch}
           mehrereKonten={accounts.length > 1}
           zeigeHerkunft={suche !== null && suche.bereich !== 'ordner'}
+          konversationen={konversationen}
+          onToggleKonversationen={(an) => {
+            setKonversationen(an);
+            localStorage.setItem('energy-mail:konversationen', an ? 'an' : 'aus');
+          }}
           folderLabel={aktuellerOrdnerName}
           onLoadMore={() => void loadMore()}
           onSelect={(eintrag) => {

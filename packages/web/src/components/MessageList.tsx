@@ -1,15 +1,11 @@
-import type { MessageSummary } from '@energy-mail/mail-core';
+import { useState } from 'react';
+import { gruppiere, type Konversation } from '../konversationen.js';
+import type { Listeneintrag } from '../listenTypen.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
 
-/**
- * Eine Zeile der Liste. Bei einer Suche über mehrere Ordner oder Konten steht dabei, wo
- * der Treffer liegt - ohne das wäre eine Trefferliste aus fünf Ordnern nicht deutbar.
- */
-export type Listeneintrag = MessageSummary & {
-  folder?: string;
-  accountId?: string;
-  email?: string;
-};
+// Weitergereicht, damit Aufrufer den Typ nicht aus zwei Modulen holen müssen.
+export type { Listeneintrag };
+
 
 interface Props {
   messages: Listeneintrag[];
@@ -25,6 +21,9 @@ interface Props {
   mehrereKonten: boolean;
   /** Zeigt bei Treffern die Herkunft an - nur sinnvoll, wenn sie sich unterscheiden kann. */
   zeigeHerkunft: boolean;
+  /** Ob zusammengehörige Nachrichten als ein Eintrag erscheinen. */
+  konversationen: boolean;
+  onToggleKonversationen: (an: boolean) => void;
   folderLabel: string;
   onLoadMore: () => void;
   onSelect: (eintrag: Listeneintrag) => void;
@@ -34,7 +33,7 @@ interface Props {
   onClear: () => void;
 }
 
-function absender(message: MessageSummary): string {
+function absender(message: Listeneintrag): string {
   const from = message.from[0];
   if (!from) return '(unbekannt)';
   return from.name || from.address;
@@ -72,6 +71,8 @@ export function MessageList({
   anhangSuchbar,
   mehrereKonten,
   zeigeHerkunft,
+  konversationen,
+  onToggleKonversationen,
   folderLabel,
   onLoadMore,
   onSelect,
@@ -81,6 +82,106 @@ export function MessageList({
   onClear,
 }: Props) {
   const alleAngekreuzt = messages.length > 0 && messages.every((m) => checkedUids.has(m.uid));
+
+  /** Aufgeklappte Gespräche - beim Wechsel der Ansicht ohne Bedeutung, daher lokal. */
+  const [offen, setOffen] = useState<Set<string>>(new Set());
+  const gruppen = konversationen ? gruppiere(messages) : null;
+
+  const umschalten = (id: string) =>
+    setOffen((vorher) => {
+      const naechste = new Set(vorher);
+      if (naechste.has(id)) naechste.delete(id);
+      else naechste.add(id);
+      return naechste;
+    });
+
+  /** Eine einzelne Nachrichtenzeile - in beiden Ansichten dieselbe Darstellung. */
+  const zeile = (message: Listeneintrag, eingerueckt = false) => (
+    <div
+      key={`${message.folder ?? ''}:${message.uid}`}
+      className={
+        `message-row` +
+        (message.uid === selectedUid ? ' active' : '') +
+        (message.seen ? '' : ' unread') +
+        (checkedUids.has(message.uid) ? ' checked' : '') +
+        (eingerueckt ? ' im-gespraech' : '')
+      }
+      onClick={() => onSelect(message)}
+    >
+      <input
+        type="checkbox"
+        className="row-check"
+        checked={checkedUids.has(message.uid)}
+        // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
+        // Nachricht öffnen und als gelesen markieren.
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
+      />
+      <div className="row-body">
+        <div className="row-top">
+          <span className="row-sender">{absender(message)}</span>
+          {message.hasAttachments && (
+            <span className="row-clip" title="Enthält Anhänge">
+              📎
+            </span>
+          )}
+          <span className="row-date">{kurzesDatum(message.date)}</span>
+        </div>
+        <div className="row-subject">{message.subject}</div>
+        {zeigeHerkunft && message.folder && (
+          <div className="row-herkunft">
+            {message.folder}
+            {message.email ? ` · ${message.email}` : ''}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  /** Kopfzeile eines Gesprächs mit mehreren Nachrichten. */
+  const gespraechsZeile = (gruppe: Konversation) => {
+    const aufgeklappt = offen.has(gruppe.id);
+    const enthaeltAuswahl = gruppe.nachrichten.some((m) => m.uid === selectedUid);
+    return (
+      <div key={gruppe.id}>
+        <div
+          className={
+            `message-row gespraech` +
+            (enthaeltAuswahl && !aufgeklappt ? ' active' : '') +
+            (gruppe.ungelesen ? ' unread' : '')
+          }
+          onClick={() => onSelect(gruppe.neueste)}
+        >
+          <button
+            className="gespraech-schalter"
+            title={aufgeklappt ? 'Gespräch zuklappen' : 'Alle Nachrichten des Gesprächs zeigen'}
+            onClick={(e) => {
+              e.stopPropagation();
+              umschalten(gruppe.id);
+            }}
+          >
+            {aufgeklappt ? '▾' : '▸'}
+          </button>
+          <div className="row-body">
+            <div className="row-top">
+              <span className="row-sender">{gruppe.beteiligte.join(', ')}</span>
+              <span className="gespraech-anzahl" title={`${gruppe.nachrichten.length} Nachrichten`}>
+                {gruppe.nachrichten.length}
+              </span>
+              {gruppe.mitAnhang && (
+                <span className="row-clip" title="Enthält Anhänge">
+                  📎
+                </span>
+              )}
+              <span className="row-date">{kurzesDatum(gruppe.neueste.date)}</span>
+            </div>
+            <div className="row-subject">{gruppe.neueste.subject}</div>
+          </div>
+        </div>
+        {aufgeklappt && gruppe.nachrichten.map((m) => zeile(m, true))}
+      </div>
+    );
+  };
 
   return (
     <div className="message-pane">
@@ -94,6 +195,17 @@ export function MessageList({
           />
         </label>
         <span className="list-title">{searchActive ? 'Suchergebnisse' : folderLabel}</span>
+        <button
+          className={`gruppieren-schalter${konversationen ? ' an' : ''}`}
+          title={
+            konversationen
+              ? 'Gespräche gruppieren: an – zusammengehörige Nachrichten stehen als ein Eintrag'
+              : 'Gespräche gruppieren: aus – jede Nachricht steht für sich'
+          }
+          onClick={() => onToggleKonversationen(!konversationen)}
+        >
+          Gespräche
+        </button>
         {total > 0 && (
           <span className="list-count">
             {messages.length} von {total.toLocaleString('de-DE')}
@@ -113,46 +225,11 @@ export function MessageList({
         {loading && <div className="empty-state">Lade Nachrichten…</div>}
         {!loading && messages.length === 0 && <div className="empty-state">Keine Nachrichten</div>}
         {!loading &&
-          messages.map((message) => (
-            <div
-              key={message.uid}
-              className={
-                `message-row` +
-                (message.uid === selectedUid ? ' active' : '') +
-                (message.seen ? '' : ' unread') +
-                (checkedUids.has(message.uid) ? ' checked' : '')
-              }
-              onClick={() => onSelect(message)}
-            >
-              <input
-                type="checkbox"
-                className="row-check"
-                checked={checkedUids.has(message.uid)}
-                // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
-                // Nachricht öffnen und als gelesen markieren.
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
-              />
-              <div className="row-body">
-                <div className="row-top">
-                  <span className="row-sender">{absender(message)}</span>
-                  {message.hasAttachments && (
-                    <span className="row-clip" title="Enthält Anhänge">
-                      📎
-                    </span>
-                  )}
-                  <span className="row-date">{kurzesDatum(message.date)}</span>
-                </div>
-                <div className="row-subject">{message.subject}</div>
-                {zeigeHerkunft && message.folder && (
-                  <div className="row-herkunft">
-                    {message.folder}
-                    {message.email ? ` · ${message.email}` : ''}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+          (gruppen
+            ? gruppen.map((gruppe) =>
+                gruppe.nachrichten.length > 1 ? gespraechsZeile(gruppe) : zeile(gruppe.neueste),
+              )
+            : messages.map((message) => zeile(message)))}
         {!loading && hasMore && (
           <button className="load-more" disabled={loadingMore} onClick={onLoadMore}>
             {loadingMore ? 'Lade…' : `Weitere ${(total - messages.length).toLocaleString('de-DE')} laden`}

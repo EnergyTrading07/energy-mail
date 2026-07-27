@@ -81,6 +81,15 @@ export interface MessageSummary {
   /** Abgeleitet aus dem IMAP-Flag \Seen - gelesen oder nicht. */
   seen: boolean;
   hasAttachments: boolean;
+  /**
+   * Kennung des Gesprächs, sofern der Server eine führt (Gmail über X-GM-THRID).
+   * Dann ist die Gruppierung eindeutig und muss nicht abgeleitet werden.
+   */
+  threadId?: string;
+  /** Eigene Kennung der Nachricht - Anker für abgeleitete Gespräche. */
+  messageId?: string;
+  /** Kennung der Nachricht, auf die geantwortet wurde. */
+  inReplyTo?: string;
 }
 
 /**
