@@ -165,6 +165,10 @@ body {
 .wartend-hinweis {
   display: block;
   margin-bottom: 6px;
+}
+
+/* Nur hervorgehoben, wenn tatsaechlich etwas aussteht - sonst stumpft es ab. */
+.wartend-hinweis.meldet {
   font-weight: 600;
 }
 
@@ -197,6 +201,46 @@ body {
 .wartend-text span {
   font-size: 11.5px;
   color: #6b7480;
+}
+
+/* Zwischenüberschrift unterhalb von .wartend-titel - trennt die beiden Arten von
+   Liegengebliebenem, ohne wie eine zweite Hauptüberschrift zu wirken. */
+.wartend-untertitel {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a5560;
+}
+
+/* Der Betreff ist anklickbar und soll trotzdem wie Text aussehen - sonst traegt jede
+   Zeile zwei hervorgehobene Elemente und zerfaellt optisch in lauter Verweise. Der
+   Klassenname steht doppelt, damit die Regel gegen .link-btn gewinnt. */
+.wartend-betreff.wartend-betreff {
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #26313c;
+  text-decoration: none;
+}
+
+.wartend-betreff.wartend-betreff:hover {
+  text-decoration: underline;
+}
+
+/* Die Uebersicht kann lang werden - sie soll das Fenster nicht sprengen. */
+.modal .wartend-zeile:last-of-type {
+  border-bottom: none;
+}
+
+.wartend-schalter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 6px;
+  font-size: 12px;
+  color: #6b7480;
+  cursor: pointer;
 }
 
 /* Meldung mit Bedenkzeit nach dem Absenden. Unten mittig statt oben rechts: dort

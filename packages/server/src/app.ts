@@ -31,6 +31,7 @@ import {
   listMessages,
   moveMessages,
   sendeEinKlickAbmeldung,
+  offeneVorgaenge,
   senderUebersicht,
   verschiebeVonAbsender,
   saveDraft,
@@ -495,6 +496,8 @@ export async function buildServer() {
     }
     verwerfe(schluessel.ordner(accountId));
     verwerfe(schluessel.einordnung(accountId));
+    // Wer gerade geantwortet hat, soll die Nachricht nicht weiter als offen vorfinden.
+    verwerfe(`offen:${accountId}:`);
   }
 
   app.get<{ Params: { id: string } }>('/accounts/:id/folders', async (request) => {
@@ -560,6 +563,32 @@ export async function buildServer() {
       return { ok: true };
     },
   );
+
+  // --- Liegengebliebenes ---
+
+  /**
+   * Was noch offen ist: worauf eine Antwort aussteht und wem man selbst eine schuldet.
+   *
+   * Lange im Zwischenspeicher, weil dafür beide Ordner über Monate abgefragt werden -
+   * das dauert. Was sich daran ändert, ändert sich ohnehin im Tages-, nicht im
+   * Minutentakt.
+   */
+  app.get<{
+    Params: { id: string };
+    Querystring: { minDays?: string; maxDays?: string; all?: string };
+  }>('/accounts/:id/offen', async (request) => {
+    const account = requireAccount(request.params.id);
+    const mindestTage = Math.max(0, Number(request.query.minDays ?? 3));
+    const hoechstTage = Math.min(Number(request.query.maxDays ?? 90), 365);
+    const auchUnbekannte = request.query.all === '1';
+
+    const { wert } = await ausSpeicherOderHolen(
+      `offen:${account.id}:${mindestTage}:${hoechstTage}:${auchUnbekannte ? 'alle' : 'eng'}`,
+      () => offeneVorgaenge(account, { mindestTage, hoechstTage, auchUnbekannte }),
+      { maxAlterMs: 15 * 60_000 },
+    );
+    return wert;
+  });
 
   // --- Postfach aufräumen ---
 

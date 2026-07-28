@@ -91,6 +91,18 @@ export interface MessageSummary {
   /** Kennung der Nachricht, auf die geantwortet wurde. */
   inReplyTo?: string;
   /**
+   * Alle Kennungen des Gesprächsfadens aus der Kopfzeile "References". Manche Programme
+   * antworten auf eine ältere Nachricht des Gesprächs statt auf die letzte - dann führt
+   * inReplyTo allein in die Irre, und erst diese Liste stellt den Bezug her.
+   */
+  references?: string[];
+  /**
+   * Der Absender kennzeichnet die Nachricht selbst als maschinell erzeugt, über
+   * "Precedence: bulk" oder "Auto-Submitted" (RFC 3834). Eine Antwort erwartet dort
+   * niemand - Versandbestätigungen und Rechnungen tragen es.
+   */
+  maschinell?: boolean;
+  /**
    * Inhalt der Kopfzeile "List-Unsubscribe", sofern vorhanden - der vom Absender selbst
    * angegebene Weg, den Verteiler zu verlassen. In einer Stichprobe trugen 72 % der
    * eingehenden Nachrichten diese Zeile.

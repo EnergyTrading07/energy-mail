@@ -20,7 +20,13 @@ import { RulesModal } from './components/RulesModal.js';
 import { WartendModal } from './components/WartendModal.js';
 import { SendeMeldung } from './components/SendeMeldung.js';
 import type { SucheEingabe } from './components/SearchBar.js';
-import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
+import {
+  buildFollowUpSubject,
+  buildForward,
+  buildReply,
+  hasMultipleRecipients,
+  withSignature,
+} from './composeHelpers.js';
 import { archiveTarget } from './folderTargets.js';
 import { buildFolderView } from './folderTree.js';
 import { categoryLabel } from './gmailCategories.js';
@@ -1292,6 +1298,16 @@ export default function App() {
             }}
             onWeiterbearbeiten={(entwurf) =>
               oeffneVerfassen('Nachricht weiterbearbeiten', entwurf)
+            }
+            onOeffnen={(ordner, uid) =>
+              setZuOeffnen({ accountId: wartendFor.id, folder: ordner, uid })
+            }
+            onNachfassen={(an, betreff) =>
+              oeffneVerfassen('Nachfassen', {
+                to: an.map((a) => a.address),
+                subject: buildFollowUpSubject(betreff),
+                html: withSignature('', wartendFor.signature),
+              })
             }
           />
         )}

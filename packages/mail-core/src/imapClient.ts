@@ -1,6 +1,7 @@
 import { type FetchMessageObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { withClient, withThrowawayClient } from './connectionPool.js';
+import { findeOffeneVorgaenge, type OffenerVorgang } from './nachfassen.js';
 import {
   GMAIL_CATEGORIES,
   type AccountConfig,
@@ -134,11 +135,21 @@ function summarizeMessage(msg: FetchMessageObject): MessageSummary {
     threadId: msg.threadId || undefined,
     messageId: msg.envelope?.messageId || undefined,
     inReplyTo: msg.envelope?.inReplyTo || undefined,
+    // Der ganze Faden, nicht nur der unmittelbare Vorgänger: manche Programme antworten
+    // auf eine ältere Nachricht des Gesprächs, dann führt inReplyTo allein in die Irre.
+    references: kopf['references']?.split(/\s+/).filter(Boolean),
     listUnsubscribe: kopf['list-unsubscribe'] || undefined,
     // Der Absender kündigt damit an, eine schlichte Anfrage zu akzeptieren - kein
     // Umweg über eine Webseite, kein Bestätigungsklick.
     einKlickAbmeldung: kopf['list-unsubscribe-post'] ? true : undefined,
     listId: kopf['list-id'] || undefined,
+    // Beide sagen dasselbe: hier hat eine Maschine geschrieben, keine Person.
+    // "Precedence: bulk" ist der alte Weg, "Auto-Submitted" der von RFC 3834.
+    maschinell:
+      /^bulk|list|junk$/i.test(kopf['precedence'] ?? '') ||
+      /^auto-/i.test(kopf['auto-submitted'] ?? '')
+        ? true
+        : undefined,
   };
 }
 
@@ -337,9 +348,10 @@ async function fetchSummaries(
       uid: true,
       bodyStructure: true,
       threadId: true,
-      // Nur diese drei Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg und
-      // Verteilerkennung und sind Grundlage fuer Abmeldung wie Regeln.
-      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id'],
+      // Nur diese wenigen Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg,
+      // Verteilerkennung und Gespraechsfaden - Grundlage fuer Abmeldung, Regeln und
+      // die Suche nach Liegengebliebenem.
+      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id', 'references', 'precedence', 'auto-submitted'],
     },
     { uid: true },
   )) {
@@ -451,9 +463,10 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       uid: true,
       bodyStructure: true,
       threadId: true,
-      // Nur diese drei Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg und
-      // Verteilerkennung und sind Grundlage fuer Abmeldung wie Regeln.
-      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id'],
+      // Nur diese wenigen Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg,
+      // Verteilerkennung und Gespraechsfaden - Grundlage fuer Abmeldung, Regeln und
+      // die Suche nach Liegengebliebenem.
+      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id', 'references', 'precedence', 'auto-submitted'],
     },
         { uid: true },
       )) {
@@ -633,6 +646,53 @@ export function findSentFolder(config: AccountConfig): Promise<string | null> {
 
 export function findDraftsFolder(config: AccountConfig): Promise<string | null> {
   return findSpecialFolder(config, '\\Drafts', ['drafts', 'entwürfe', 'entwuerfe']);
+}
+
+/**
+ * Sucht, was liegengeblieben ist: worauf noch eine Antwort aussteht und wem man selbst
+ * noch eine schuldet.
+ *
+ * Beide Ordner werden über einen Zeitraum abgefragt statt über eine feste Anzahl. Eine
+ * Anzahl wäre bei stark genutzten Postfächern zu kurz und bei ruhigen unnötig lang; der
+ * Zeitraum trifft in beiden Fällen genau das, was überhaupt als offen gelten kann.
+ */
+export async function offeneVorgaenge(
+  config: AccountConfig,
+  optionen: { mindestTage?: number; hoechstTage?: number; auchUnbekannte?: boolean } = {},
+): Promise<OffenerVorgang[]> {
+  const hoechstTage = optionen.hoechstTage ?? 90;
+  const gesendetOrdner = await findSentFolder(config);
+  // Einen Tag Zuschlag, damit an der Grenze nichts durchfällt: IMAP sucht auf den Tag
+  // genau, die Auswertung rechnet dagegen mit vollen Tagen ab dem Zeitpunkt.
+  const seit = new Date(Date.now() - (hoechstTage + 1) * 86_400_000);
+
+  return withClient(config, async (client) => {
+    const holen = async (ordner: string): Promise<MessageSummary[]> => {
+      const lock = await client.getMailboxLock(ordner);
+      try {
+        const uids = (await client.search({ since: seit }, { uid: true })) || [];
+        // Deckel gegen Vielschreiber: mehr als das braucht kein Überblick, und der
+        // Abruf soll nicht minutenlang laufen.
+        return await fetchSummaries(client, uids.slice(-1500));
+      } finally {
+        lock.release();
+      }
+    };
+
+    const posteingang = await holen('INBOX');
+    // Ohne Gesendet-Ordner fehlt die halbe Wahrheit - dann bleibt nur, was ich schulde.
+    const gesendet = gesendetOrdner ? await holen(gesendetOrdner) : [];
+
+    return findeOffeneVorgaenge(
+      { posteingang, gesendet, gesendetOrdner: gesendetOrdner ?? '', posteingangOrdner: 'INBOX' },
+      {
+        eigeneAdressen: [config.email],
+        mindestTage: optionen.mindestTage,
+        hoechstTage,
+        auchUnbekannte: optionen.auchUnbekannte,
+      },
+    );
+  });
 }
 
 /**

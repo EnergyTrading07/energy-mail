@@ -283,6 +283,33 @@ export interface Wiedervorlage {
   uidImOrdner?: number;
 }
 
+/**
+ * Ein Gespräch, in dem etwas offen ist. Die Felder werden bewusst hier noch einmal
+ * beschrieben statt aus mail-core geholt: ein Wert-Import von dort zöge die gesamte
+ * IMAP-Schicht in das Bündel für den Browser.
+ */
+export interface OffenerVorgang {
+  art: 'wartetAufAntwort' | 'nichtBeantwortet';
+  uid: number;
+  ordner: string;
+  betreff: string;
+  gegenueber: { name?: string; address: string }[];
+  datum: string | null;
+  tageOffen: number;
+  umfang: number;
+}
+
+export function fetchOffeneVorgaenge(
+  accountId: string,
+  optionen: { mindestTage?: number; auchUnbekannte?: boolean } = {},
+): Promise<OffenerVorgang[]> {
+  const p = new URLSearchParams();
+  if (optionen.mindestTage !== undefined) p.set('minDays', String(optionen.mindestTage));
+  if (optionen.auchUnbekannte) p.set('all', '1');
+  const anhang = p.toString();
+  return request(`/accounts/${accountId}/offen${anhang ? `?${anhang}` : ''}`);
+}
+
 export function fetchPendingSends(accountId: string): Promise<GeplanteSendung[]> {
   return request(`/accounts/${accountId}/send/pending`);
 }

@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
+import {
+  buildFollowUpSubject,
+  buildForward,
+  buildReply,
+  hasMultipleRecipients,
+  withSignature,
+} from './composeHelpers.js';
 
 const ME = 'ich@gmx.de';
 const addr = (address: string, name?: string) => ({ address, name });
@@ -153,6 +159,27 @@ pruefe('ja bei mehreren Beteiligten', () => {
 pruefe('nein bei reiner Eins-zu-eins-Nachricht', () => {
   const m = nachricht({ from: [addr('anna@firma.de')], to: [addr(ME)], cc: [] });
   assert.equal(hasMultipleRecipients(m, ME), false);
+});
+
+pruefe('Nachfassen bekommt "Nachfrage:" statt "Re:"', () => {
+  // Man antwortet nicht auf sich selbst - es ist eine Erinnerung an die eigene Nachricht.
+  assert.equal(buildFollowUpSubject('Angebot'), 'Nachfrage: Angebot');
+  assert.equal(buildFollowUpSubject('Re: Angebot'), 'Nachfrage: Angebot');
+  assert.equal(buildFollowUpSubject('AW: Angebot'), 'Nachfrage: Angebot');
+});
+
+pruefe('ohne Betreff steht dort kein Platzhalter', () => {
+  // "(kein Betreff)" ist Anzeige, kein Inhalt - so ginge es sonst wortwoertlich hinaus.
+  assert.equal(buildFollowUpSubject('(kein Betreff)'), 'Nachfrage');
+  assert.equal(buildFollowUpSubject(''), 'Nachfrage');
+  assert.equal(buildFollowUpSubject('Re: '), 'Nachfrage');
+});
+
+pruefe('Nachfassen staffelt sich nicht', () => {
+  assert.equal(buildFollowUpSubject('Nachfrage: Angebot'), 'Nachfrage: Angebot');
+  // Auch mehrfach vorangestellte Kuerzel fallen weg, sonst stuende am Ende
+  // "Nachfrage: Re: AW: Angebot" in der Betreffzeile.
+  assert.equal(buildFollowUpSubject('AW: Re: AW: Angebot'), 'Nachfrage: Angebot');
 });
 
 console.log(`\n${ok} von ${gesamt} Prüfungen bestanden`);

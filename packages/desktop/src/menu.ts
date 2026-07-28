@@ -97,7 +97,7 @@ export function setzeMenue(): void {
     {
       label: '&Extras',
       submenu: [
-        eintrag('Wartet (geplant & zurückgestellt)…', 'wartet'),
+        eintrag('Offen (Liegengebliebenes & Geplantes)…', 'wartet'),
         eintrag('Postfach aufräumen…', 'aufraeumen'),
         eintrag('Regeln…', 'regeln'),
       ],

@@ -20,13 +20,29 @@ function cleanRecipients(addresses: EmailAddress[], ownEmail: string): string[] 
   return result;
 }
 
-function withPrefix(subject: string, prefix: 'Re' | 'Fwd'): string {
+function withPrefix(subject: string, prefix: 'Re' | 'Fwd' | 'Nachfrage'): string {
   // Kein zweites "Re:" anhängen, wenn schon eins davorsteht (auch "AW:" von Outlook).
   const alreadyPrefixed =
     prefix === 'Re'
       ? /^\s*(re|aw|antw)\s*:/i.test(subject)
-      : /^\s*(fwd?|wg)\s*:/i.test(subject);
+      : prefix === 'Fwd'
+        ? /^\s*(fwd?|wg)\s*:/i.test(subject)
+        : /^\s*nachfrage\s*:/i.test(subject);
   return alreadyPrefixed ? subject : `${prefix}: ${subject}`;
+}
+
+/**
+ * Betreff für ein Nachfassen zur eigenen, unbeantwortet gebliebenen Nachricht.
+ *
+ * Bewusst nicht "Re:" - man antwortet nicht auf sich selbst. Ein vorhandenes "Re:" oder
+ * "AW:" fällt weg, sonst stünde am Ende "Nachfrage: Re: AW: Angebot" in der Betreffzeile.
+ */
+export function buildFollowUpSubject(subject: string): string {
+  const ohneKuerzel = subject.replace(/^\s*((re|aw|antw|fwd?|wg)\s*:\s*)+/i, '').trim();
+  // "(kein Betreff)" ist ein Platzhalter der Anzeige, kein Inhalt - er darf nicht in der
+  // Betreffzeile der hinausgehenden Nachricht landen.
+  if (!ohneKuerzel || ohneKuerzel === '(kein Betreff)') return 'Nachfrage';
+  return withPrefix(ohneKuerzel, 'Nachfrage');
 }
 
 function formatAddressList(addresses: EmailAddress[]): string {

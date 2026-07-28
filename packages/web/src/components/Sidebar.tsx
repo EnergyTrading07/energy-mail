@@ -449,13 +449,18 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-foot">
-        {/* Nur wenn wirklich etwas aussteht - eine dauerhaft sichtbare Null waere
-            Rauschen, und genau dann uebersieht man den Hinweis, wenn er zaehlt. */}
-        {wartendAnzahl > 0 && (
-          <button className="link-btn wartend-hinweis" onClick={onOpenWartend}>
-            {wartendAnzahl} {wartendAnzahl === 1 ? 'Nachricht wartet' : 'Nachrichten warten'}
-          </button>
-        )}
+        {/* Immer sichtbar, weil dahinter auch das Liegengebliebene steckt - das gibt es
+            gerade dann, wenn nichts geplant ist. Die Zahl steht nur dabei, wenn sie
+            etwas meldet: eine dauerhafte Null waere Rauschen, und genau dann uebersieht
+            man den Hinweis, wenn er zaehlt. */}
+        <button
+          className={`link-btn wartend-hinweis${wartendAnzahl > 0 ? ' meldet' : ''}`}
+          onClick={onOpenWartend}
+        >
+          {wartendAnzahl > 0
+            ? `Offen · ${wartendAnzahl} ${wartendAnzahl === 1 ? 'wartet' : 'warten'}`
+            : 'Was ist offen?'}
+        </button>
         <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
           {formSichtbar ? '× Konto hinzufügen abbrechen' : '+ Konto hinzufügen'}
         </button>
