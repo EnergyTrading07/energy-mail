@@ -17,6 +17,7 @@ export type Befehl =
   | 'kontoWeiter'
   | 'regeln'
   | 'aufraeumen'
+  | 'wartet'
   /** In der Nachrichtenliste eine Zeile nach unten bzw. oben. */
   | 'weiter'
   | 'zurueck'

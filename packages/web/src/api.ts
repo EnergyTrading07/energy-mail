@@ -267,6 +267,35 @@ export function deleteMessages(
   });
 }
 
+export interface GeplanteSendung {
+  id: string;
+  faellig: number;
+  betreff: string;
+  empfaenger: string[];
+}
+
+export interface Wiedervorlage {
+  id: string;
+  ursprung: string;
+  betreff: string;
+  faellig: number;
+  /** Fehlt, wenn der Server beim Verschieben keine Kennung mitgeteilt hat. */
+  uidImOrdner?: number;
+}
+
+export function fetchPendingSends(accountId: string): Promise<GeplanteSendung[]> {
+  return request(`/accounts/${accountId}/send/pending`);
+}
+
+export function fetchSnoozed(accountId: string): Promise<Wiedervorlage[]> {
+  return request(`/accounts/${accountId}/snoozed`);
+}
+
+/** Holt eine zurückgestellte Nachricht sofort zurück, statt auf den Zeitpunkt zu warten. */
+export function returnSnoozed(accountId: string, snoozeId: string): Promise<{ ok: boolean }> {
+  return request(`/accounts/${accountId}/snoozed/${snoozeId}/return`, { method: 'POST' });
+}
+
 /** Stellt eine Nachricht bis zum genannten Zeitpunkt zurück. */
 export function snoozeMessage(
   accountId: string,

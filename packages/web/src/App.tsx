@@ -17,6 +17,7 @@ import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { RulesModal } from './components/RulesModal.js';
+import { WartendModal } from './components/WartendModal.js';
 import { SendeMeldung } from './components/SendeMeldung.js';
 import type { SucheEingabe } from './components/SearchBar.js';
 import { buildForward, buildReply, hasMultipleRecipients, withSignature } from './composeHelpers.js';
@@ -96,6 +97,10 @@ export default function App() {
   const [regelVorgabe, setRegelVorgabe] = useState<{ von: string; name: string } | undefined>();
   /** Konto, dessen Postfach gerade aufgeraeumt wird. */
   const [cleanupFor, setCleanupFor] = useState<api.Account | null>(null);
+  /** Konto, dessen ausstehende Sendungen und Wiedervorlagen gezeigt werden. */
+  const [wartendFor, setWartendFor] = useState<api.Account | null>(null);
+  /** Wie viel aussteht - fuer den Hinweis in der Seitenleiste. */
+  const [wartendAnzahl, setWartendAnzahl] = useState(0);
   /** Vorgemerkte Nachricht - waehrend der Bedenkzeit oder bis zum geplanten Zeitpunkt. */
   const [geplant, setGeplant] = useState<{
     id: string;
@@ -184,6 +189,32 @@ export default function App() {
    * Anbieter ohne Gmails Suchsprache antworten mit einer leeren Liste - die Zeilen
    * erscheinen dann gar nicht.
    */
+  /**
+   * Wie viel aussteht. Ohne diesen Zaehler bliebe eine geplante Nachricht unsichtbar,
+   * bis sie von selbst hinausgeht - und eine zurueckgestellte, bis sie zurueckkommt.
+   * Beides sind lokale Abfragen, sie kosten nichts.
+   */
+  useEffect(() => {
+    if (!selectedAccountId) {
+      setWartendAnzahl(0);
+      return;
+    }
+    let abgebrochen = false;
+    void Promise.all([
+      api.fetchPendingSends(selectedAccountId),
+      api.fetchSnoozed(selectedAccountId),
+    ])
+      .then(([s, w]) => {
+        if (!abgebrochen) setWartendAnzahl(s.length + w.length);
+      })
+      .catch(() => {
+        if (!abgebrochen) setWartendAnzahl(0);
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [selectedAccountId, folderReload, wartendFor, geplant]);
+
   useEffect(() => {
     if (!selectedAccountId) {
       setFaehigkeiten({ gmailSearch: false });
@@ -950,6 +981,9 @@ export default function App() {
       case 'aufraeumen':
         if (selectedAccount) setCleanupFor(selectedAccount);
         return;
+      case 'wartet':
+        if (selectedAccount) setWartendFor(selectedAccount);
+        return;
       case 'suchen':
         // Über den Baum statt über eine durchgereichte Referenz: das Suchfeld liegt zwei
         // Ebenen tiefer, und der Fokus ist das Einzige, was von hier daran gebraucht wird.
@@ -1131,6 +1165,8 @@ export default function App() {
           reauthBusy={reauthBusy}
           onReauth={(id) => void handleReauth(id)}
           ordnerAktionen={ordnerAktionen}
+          wartendAnzahl={wartendAnzahl}
+          onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onSelectAccount={setSelectedAccountId}
           onSelectFolder={waehleOrdner}
           onSelectCategory={waehleKategorie}
@@ -1244,6 +1280,19 @@ export default function App() {
             account={settingsFor}
             onClose={() => setSettingsFor(null)}
             onSave={handleSaveSettings}
+          />
+        )}
+        {wartendFor && (
+          <WartendModal
+            account={wartendFor}
+            onClose={() => setWartendFor(null)}
+            onGeaendert={() => {
+              setReloadCounter((n) => n + 1);
+              setFolderReload((n) => n + 1);
+            }}
+            onWeiterbearbeiten={(entwurf) =>
+              oeffneVerfassen('Nachricht weiterbearbeiten', entwurf)
+            }
           />
         )}
         {cleanupFor && (

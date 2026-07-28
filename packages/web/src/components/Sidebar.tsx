@@ -23,6 +23,9 @@ interface Props {
   /** Kennung des Kontos, dessen Neuanmeldung gerade läuft. */
   reauthBusy: string | null;
   onReauth: (accountId: string) => void;
+  /** Wie viele Nachrichten geplant oder zurueckgestellt sind. */
+  wartendAnzahl: number;
+  onOpenWartend: () => void;
   /** Ordnerverwaltung. Die Rückfragen stellt die Seitenleiste, ausgeführt wird oben. */
   ordnerAktionen: {
     anlegen: (accountId: string, pfad: string) => void;
@@ -130,6 +133,8 @@ export function Sidebar({
   oauthBusy,
   reauthBusy,
   onReauth,
+  wartendAnzahl,
+  onOpenWartend,
   ordnerAktionen,
   onSelectAccount,
   onSelectFolder,
@@ -444,6 +449,13 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-foot">
+        {/* Nur wenn wirklich etwas aussteht - eine dauerhaft sichtbare Null waere
+            Rauschen, und genau dann uebersieht man den Hinweis, wenn er zaehlt. */}
+        {wartendAnzahl > 0 && (
+          <button className="link-btn wartend-hinweis" onClick={onOpenWartend}>
+            {wartendAnzahl} {wartendAnzahl === 1 ? 'Nachricht wartet' : 'Nachrichten warten'}
+          </button>
+        )}
         <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
           {formSichtbar ? '× Konto hinzufügen abbrechen' : '+ Konto hinzufügen'}
         </button>

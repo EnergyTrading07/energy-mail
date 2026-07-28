@@ -27,7 +27,8 @@ type Befehl =
   | 'neuLaden'
   | 'kontoWeiter'
   | 'regeln'
-  | 'aufraeumen';
+  | 'aufraeumen'
+  | 'wartet';
 
 function sende(befehl: Befehl): void {
   const fenster = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -96,6 +97,7 @@ export function setzeMenue(): void {
     {
       label: '&Extras',
       submenu: [
+        eintrag('Wartet (geplant & zurückgestellt)…', 'wartet'),
         eintrag('Postfach aufräumen…', 'aufraeumen'),
         eintrag('Regeln…', 'regeln'),
       ],
