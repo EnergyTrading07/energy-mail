@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, shell } from 'electron';
 import { buildServer } from '@energy-mail/server/app';
 import { getDataDir, setDataDir } from '@energy-mail/server/paths';
 import { setKeyProvider } from '@energy-mail/server/secrets';
+import { speichereKontakteSofort } from '@energy-mail/server/kontakte';
 import { sendeAusstehendeSofort } from '@energy-mail/server/sendqueue';
 import { starteAktualisierungspruefung } from './autoUpdate.js';
 import { setzeMenue } from './menu.js';
@@ -142,6 +143,8 @@ app.on('before-quit', (event) => {
   if (beendenLaeuft) return;
   event.preventDefault();
   beendenLaeuft = true;
+  // Adressen werden gebündelt geschrieben - die letzten Sekunden sonst verloren.
+  speichereKontakteSofort();
   void sendeAusstehendeSofort()
     .then((anzahl) => {
       if (anzahl > 0) console.log(`${anzahl} wartende Nachricht(en) vor dem Beenden versendet.`);

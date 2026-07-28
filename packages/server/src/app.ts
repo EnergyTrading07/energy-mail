@@ -84,7 +84,7 @@ import {
   regelnVerwerfen,
   wendeRegelnAn,
 } from './rules.js';
-import { rememberAddresses, searchContacts } from './contactStore.js';
+import { merkeAusListe, rememberAddresses, searchContacts } from './contactStore.js';
 import {
   aktualisiereGelesen,
   liesNachricht,
@@ -901,9 +901,7 @@ export async function buildServer() {
       // Nebenbei Adressen einsammeln - daraus entstehen die Vorschläge beim Verfassen,
       // ohne dass jemand ein Adressbuch pflegen muss. Bewusst hier drin: aus dem
       // Zwischenspeicher beantwortete Anfragen sollen die Zähler nicht hochtreiben.
-      for (const message of seite.messages) {
-        rememberAddresses([...message.from, ...message.to, ...message.cc], message.date ?? undefined);
-      }
+      merkeAusListe(account.id, ordner, seite.messages);
       return seite;
     };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { gruppiere, type Konversation } from '../konversationen.js';
 import type { Listeneintrag } from '../listenTypen.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
@@ -59,6 +59,78 @@ function kurzesDatum(date: Date | null): string {
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
+/**
+ * Eine Zeile der Liste, gemerkt.
+ *
+ * Ohne das Merken zeichnete jede Auswahl die gesamte Liste neu - gemessen wuchs die Zeit
+ * vom Klick bis zur Anzeige linear mit der Zeilenzahl (10 ms bei 25 Zeilen, 41 ms bei
+ * 225, hochgerechnet rund 160 ms bei tausend). Das war kein Problem der DOM-Größe, denn
+ * das Scrollen blieb durchweg schnell; es lag am Neuzeichnen. Jetzt ändern sich beim
+ * Auswählen nur die zwei betroffenen Zeilen.
+ *
+ * Bewusst kein Virtualisieren: das hätte die sichtbaren Zeilen begrenzt, aber die Höhen
+ * sind nicht gleich (Suchtreffer tragen eine Zeile mehr, Gespräche klappen auf), und ein
+ * springender Bildlauf wäre schlimmer als der Gewinn.
+ */
+const MessageRow = memo(function MessageRow({
+  message,
+  aktiv,
+  angekreuzt,
+  eingerueckt,
+  zeigeHerkunft,
+  onSelect,
+  onToggleChecked,
+}: {
+  message: Listeneintrag;
+  aktiv: boolean;
+  angekreuzt: boolean;
+  eingerueckt: boolean;
+  zeigeHerkunft: boolean;
+  onSelect: (message: Listeneintrag) => void;
+  onToggleChecked: (uid: number, checked: boolean) => void;
+}) {
+  return (
+    <div
+      className={
+        `message-row` +
+        (aktiv ? ' active' : '') +
+        (message.seen ? '' : ' unread') +
+        (angekreuzt ? ' checked' : '') +
+        (eingerueckt ? ' im-gespraech' : '')
+      }
+      onClick={() => onSelect(message)}
+    >
+      <input
+        type="checkbox"
+        className="row-check"
+        checked={angekreuzt}
+        // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
+        // Nachricht öffnen und als gelesen markieren.
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
+      />
+      <div className="row-body">
+        <div className="row-top">
+          <span className="row-sender">{absender(message)}</span>
+          {message.hasAttachments && (
+            <span className="row-clip" title="Enthält Anhänge">
+              📎
+            </span>
+          )}
+          <span className="row-date">{kurzesDatum(message.date)}</span>
+        </div>
+        <div className="row-subject">{message.subject}</div>
+        {zeigeHerkunft && message.folder && (
+          <div className="row-herkunft">
+            {message.folder}
+            {message.email ? ` · ${message.email}` : ''}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 export function MessageList({
   messages,
   selectedUid,
@@ -95,47 +167,33 @@ export function MessageList({
       return naechste;
     });
 
+  /**
+   * Die Behandlungen kommen bei jedem Zeichnen als neue Funktionen herein. Über eine
+   * Referenz weitergereicht bleiben sie für die Zeilen dieselben - erst dadurch greift
+   * das Merken unten überhaupt.
+   */
+  const behandlungen = useRef({ onSelect, onToggleChecked });
+  behandlungen.current = { onSelect, onToggleChecked };
+  const stabil = useMemo(
+    () => ({
+      auswaehlen: (m: Listeneintrag) => behandlungen.current.onSelect(m),
+      ankreuzen: (uid: number, an: boolean) => behandlungen.current.onToggleChecked(uid, an),
+    }),
+    [],
+  );
+
   /** Eine einzelne Nachrichtenzeile - in beiden Ansichten dieselbe Darstellung. */
   const zeile = (message: Listeneintrag, eingerueckt = false) => (
-    <div
+    <MessageRow
       key={`${message.folder ?? ''}:${message.uid}`}
-      className={
-        `message-row` +
-        (message.uid === selectedUid ? ' active' : '') +
-        (message.seen ? '' : ' unread') +
-        (checkedUids.has(message.uid) ? ' checked' : '') +
-        (eingerueckt ? ' im-gespraech' : '')
-      }
-      onClick={() => onSelect(message)}
-    >
-      <input
-        type="checkbox"
-        className="row-check"
-        checked={checkedUids.has(message.uid)}
-        // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
-        // Nachricht öffnen und als gelesen markieren.
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
-      />
-      <div className="row-body">
-        <div className="row-top">
-          <span className="row-sender">{absender(message)}</span>
-          {message.hasAttachments && (
-            <span className="row-clip" title="Enthält Anhänge">
-              📎
-            </span>
-          )}
-          <span className="row-date">{kurzesDatum(message.date)}</span>
-        </div>
-        <div className="row-subject">{message.subject}</div>
-        {zeigeHerkunft && message.folder && (
-          <div className="row-herkunft">
-            {message.folder}
-            {message.email ? ` · ${message.email}` : ''}
-          </div>
-        )}
-      </div>
-    </div>
+      message={message}
+      aktiv={message.uid === selectedUid}
+      angekreuzt={checkedUids.has(message.uid)}
+      eingerueckt={eingerueckt}
+      zeigeHerkunft={zeigeHerkunft}
+      onSelect={stabil.auswaehlen}
+      onToggleChecked={stabil.ankreuzen}
+    />
   );
 
   /** Kopfzeile eines Gesprächs mit mehreren Nachrichten. */
