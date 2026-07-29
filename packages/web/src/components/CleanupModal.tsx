@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api.js';
 import type { Account } from '../api.js';
+import { bestaetige } from '../dialoge.js';
 
 /**
  * Postfach aufräumen.
@@ -42,16 +43,17 @@ export function CleanupModal({ account, onClose, onRegelAnlegen, onGeaendert }: 
 
   const abmelden = async (eintrag: api.AbsenderEintrag) => {
     if (!eintrag.beispielUid) return;
-    if (
-      !confirm(
-        `Von „${eintrag.name || eintrag.adresse}“ abmelden?\n\n` +
-          'Dabei erfährt der Absender, dass diese Adresse gelesen wird. Bei seriösen ' +
-          'Verteilern ist das unproblematisch - bei unerwünschter Werbung von unbekannten ' +
-          'Absendern ist Löschen der bessere Weg.',
-      )
-    ) {
-      return;
-    }
+    const ja = await bestaetige({
+      titel: `Von „${eintrag.name || eintrag.adresse}“ abmelden?`,
+      text:
+        'Dabei erfährt der Absender, dass diese Adresse gelesen wird. Bei seriösen ' +
+        'Verteilern ist das unproblematisch – bei unerwünschter Werbung von unbekannten ' +
+        'Absendern ist Löschen der bessere Weg.',
+      stil: 'warnung',
+      ok: 'Abmelden',
+    });
+    if (!ja) return;
+
     setBusy(eintrag.adresse);
     setFehler(null);
     try {
@@ -77,15 +79,16 @@ export function CleanupModal({ account, onClose, onRegelAnlegen, onGeaendert }: 
   };
 
   const wegraeumen = async (eintrag: api.AbsenderEintrag) => {
-    if (
-      !confirm(
-        `Alle ${eintrag.gesamt} Nachrichten von „${eintrag.name || eintrag.adresse}“ ` +
-          'in den Papierkorb verschieben?\n\nVon dort lassen sie sich zurückholen, bis der ' +
-          'Papierkorb geleert wird.',
-      )
-    ) {
-      return;
-    }
+    const ja = await bestaetige({
+      titel: `${eintrag.gesamt} Nachrichten in den Papierkorb?`,
+      text:
+        `Alles von „${eintrag.name || eintrag.adresse}“ wandert in den Papierkorb. ` +
+        'Von dort lässt es sich zurückholen, bis der Papierkorb geleert wird.',
+      stil: 'warnung',
+      ok: 'In den Papierkorb',
+    });
+    if (!ja) return;
+
     setBusy(eintrag.adresse);
     setFehler(null);
     try {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { FolderInfo, FullMessage } from '@energy-mail/mail-core';
 import { moveTargets } from '../folderTargets.js';
+import { LeererKorb } from './Symbole.js';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -44,6 +45,43 @@ function formatAddresses(addresses: { name?: string; address: string }[]): strin
  * werden können. "allow-same-origin" erlaubt nur das Auslesen der Höhe fürs Auto-Resize,
  * nicht aber Skriptausführung (kein "allow-scripts").
  */
+/**
+ * Grundgestaltung für den Inhalt einer fremden Nachricht.
+ *
+ * Steht vor dem Mail-HTML, damit alles, was die Nachricht selbst festlegt, gewinnt -
+ * hier steht nur, was gilt, wenn sie nichts sagt. Und das ist der häufigste Fall: sehr
+ * viele Mails bestehen aus ein paar Absätzen ohne jede Angabe zu Schrift und Farbe. Ohne
+ * diese Zeilen erscheinen sie in der Standardschrift des Browsers - einer Serifenschrift
+ * in 16 Punkt, die neben dem übrigen Fenster wie ein Fremdkörper aussieht.
+ *
+ * Der Grund bleibt hell, auch wenn die Anwendung dunkel läuft. Das ist eine bewusste
+ * Entscheidung und keine Nachlässigkeit: Mail-HTML ist praktisch ausnahmslos für hellen
+ * Grund geschrieben. Eine Nachricht, die nur "color:#000000" mitbringt und den Grund dem
+ * Anzeigeprogramm überlässt, wäre auf unserer dunklen Fläche schwarz auf fast schwarz -
+ * also unlesbar, und zwar ohne dass man den Grund ansähe. Der helle Bogen ist deshalb
+ * abgesetzt gerahmt: er ist erkennbar der Inhalt der Nachricht und nicht ein Stück
+ * Oberfläche, das dunkel zu sein vergessen hat.
+ */
+const GRUNDSTIL = `<style>
+  :root { color-scheme: light; }
+  html, body { background: #ffffff; color: #1c2430; }
+  body {
+    margin: 0; padding: 18px 20px;
+    font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.62; overflow-wrap: break-word;
+  }
+  /* Breite Bilder und Tabellen sprengen sonst den Rahmen und erzeugen einen
+     waagerechten Bildlauf über die ganze Leseansicht. */
+  img { max-width: 100%; height: auto; }
+  table { max-width: 100%; }
+  pre { white-space: pre-wrap; overflow-wrap: break-word; }
+  a { color: #2f5fd8; }
+  blockquote {
+    margin: 10px 0 10px 2px; padding-left: 12px;
+    border-left: 2px solid #c2d2fb; color: #4d5867;
+  }
+</style>`;
+
 function HtmlMailBody({ html }: { html: string }) {
   const ref = useRef<HTMLIFrameElement>(null);
 
@@ -53,7 +91,7 @@ function HtmlMailBody({ html }: { html: string }) {
     const resize = () => {
       const doc = iframe.contentDocument;
       if (doc?.body) {
-        iframe.style.height = `${doc.body.scrollHeight + 20}px`;
+        iframe.style.height = `${doc.body.scrollHeight + 4}px`;
       }
     };
     iframe.addEventListener('load', resize);
@@ -63,10 +101,10 @@ function HtmlMailBody({ html }: { html: string }) {
   return (
     <iframe
       ref={ref}
+      className="mail-bogen"
       title="Nachrichteninhalt"
-      srcDoc={html}
+      srcDoc={GRUNDSTIL + html}
       sandbox="allow-same-origin"
-      style={{ width: '100%', border: 'none' }}
     />
   );
 }
@@ -94,7 +132,12 @@ export function MessageView({
     return <div className="reader empty-state">Lade Nachricht…</div>;
   }
   if (!message) {
-    return <div className="reader empty-state">Keine Nachricht ausgewählt</div>;
+    return (
+      <div className="reader empty-state">
+        <LeererKorb />
+        <span>Keine Nachricht ausgewählt</span>
+      </div>
+    );
   }
 
   const absender = message.from[0];
@@ -173,7 +216,9 @@ export function MessageView({
       {message.html ? (
         <HtmlMailBody html={message.html} />
       ) : (
-        <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{message.text}</pre>
+        // Reiner Text stammt nicht aus fremdem Markup und darf deshalb auf der Fläche
+        // der Anwendung stehen - er nimmt die gewählte Ansicht ohne Weiteres an.
+        <pre className="mail-text">{message.text}</pre>
       )}
       {message.attachments.length > 0 && (
         <div className="attachments">

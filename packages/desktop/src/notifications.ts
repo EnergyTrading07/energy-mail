@@ -1,4 +1,5 @@
-import { BrowserWindow, Notification } from 'electron';
+import { join } from 'node:path';
+import { BrowserWindow, Notification, app } from 'electron';
 import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/events';
 
 /**
@@ -16,6 +17,20 @@ import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/even
  * Bildschirm zuzustellen.
  */
 const MAX_MELDUNGEN = 3;
+
+/**
+ * Das Programmsymbol für die Meldungen.
+ *
+ * Ohne Angabe nimmt Windows das Symbol der Verknüpfung - was meistens klappt, aber
+ * nicht, wenn die Anwendung ohne Installation läuft (portable Fassung) oder die
+ * Verknüpfung fehlt. Dann steht dort das leere Standardsymbol, und die Meldung sieht
+ * aus, als käme sie von irgendwoher.
+ *
+ * Die Datei liegt im Paket (siehe files in electron-builder.yml). Aus dem Quellbaum
+ * gestartet zeigt derselbe Pfad ebenfalls auf sie - build/ liegt in beiden Fällen
+ * unmittelbar unter dem Wurzelverzeichnis der Anwendung.
+ */
+const SYMBOL = join(app.getAppPath(), 'build', 'icon.png');
 
 function absenderName(nachricht: { from: { name?: string; address: string }[] }): string {
   const erster = nachricht.from[0];
@@ -84,6 +99,7 @@ export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | nul
         body: nachricht.subject || '(kein Betreff)',
         // Bei mehreren Konten muss erkennbar sein, welches gemeint ist.
         subtitle: event.email,
+        icon: SYMBOL,
         silent: false,
       });
       meldung.on('click', () => {
@@ -104,6 +120,7 @@ export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | nul
       new Notification({
         title: event.email,
         body: `und ${weitere} weitere neue ${weitere === 1 ? 'Nachricht' : 'Nachrichten'}`,
+        icon: SYMBOL,
       }).show();
     }
   });

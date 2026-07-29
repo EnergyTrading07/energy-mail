@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CategoryInfo, FolderInfo, GmailCategory } from '@energy-mail/mail-core';
 import type { Account, OAuthClients, OAuthProvider } from '../api.js';
+import { bestaetige, frage } from '../dialoge.js';
 import { buildFolderView, type AnzeigeOrdner } from '../folderTree.js';
 import { categoryDescription, categoryLabel, visibleCategories } from '../gmailCategories.js';
 import { providerTheme } from '../providerTheme.js';
@@ -166,16 +167,21 @@ export function Sidebar({
    * Fragt einen Ordnernamen ab. Verweigert das Trennzeichen des Servers: damit würde
    * unbeabsichtigt eine Ebene angelegt, und der Ordner erschiene nicht dort, wo man ihn
    * erwartet.
+   *
+   * Die Beanstandung erscheint jetzt am Feld selbst, sodass der eingetippte Name stehen
+   * bleibt und nur die eine Stelle geändert werden muss - vorher wurde er mitsamt dem
+   * Fenster verworfen, und man fing von vorn an.
    */
-  const frageName = (titel: string, vorgabe: string, delimiter: string): string | null => {
-    const eingabe = prompt(titel, vorgabe)?.trim();
-    if (!eingabe) return null;
-    if (eingabe.includes(delimiter)) {
-      alert(`Ein Ordnername darf kein "${delimiter}" enthalten - das trennt beim Anbieter die Ebenen.`);
-      return null;
-    }
-    return eingabe;
-  };
+  const frageName = (titel: string, vorgabe: string, delimiter: string): Promise<string | null> =>
+    frage({
+      titel,
+      vorgabe,
+      ok: 'Übernehmen',
+      pruefe: (name) =>
+        name.includes(delimiter)
+          ? `Ein Ordnername darf kein "${delimiter}" enthalten – das trennt beim Anbieter die Ebenen.`
+          : null,
+    });
 
   const menueEintraege = (): MenuEintrag[] => {
     if (!menue) return [];
@@ -188,10 +194,11 @@ export function Sidebar({
       {
         label: 'Unterordner anlegen…',
         onClick: folder.selectable
-          ? () => {
-              const name = frageName(`Unterordner in "${folder.name}" anlegen:`, '', delimiter);
-              if (name) ordnerAktionen.anlegen(accountId, `${folder.path}${delimiter}${name}`);
-            }
+          ? () =>
+              void frageName(`Unterordner in "${folder.name}" anlegen`, '', delimiter).then(
+                (name) =>
+                  name && ordnerAktionen.anlegen(accountId, `${folder.path}${delimiter}${name}`),
+              )
           : undefined,
         grund: folder.selectable ? undefined : 'Dieser Eintrag ist nur eine Überschrift.',
       },
@@ -199,14 +206,14 @@ export function Sidebar({
         label: 'Umbenennen…',
         onClick: istSonderordner
           ? undefined
-          : () => {
-              const name = frageName('Neuer Name:', folder.name, delimiter);
-              if (!name) return;
-              // Nur den letzten Teil ersetzen, damit der Ordner an seinem Platz bleibt.
-              const teile = folder.path.split(delimiter);
-              teile[teile.length - 1] = name;
-              ordnerAktionen.umbenennen(accountId, folder, teile.join(delimiter));
-            },
+          : () =>
+              void frageName('Neuer Name', folder.name, delimiter).then((name) => {
+                if (!name) return;
+                // Nur den letzten Teil ersetzen, damit der Ordner an seinem Platz bleibt.
+                const teile = folder.path.split(delimiter);
+                teile[teile.length - 1] = name;
+                ordnerAktionen.umbenennen(accountId, folder, teile.join(delimiter));
+              }),
         grund: istSonderordner ? 'Sonderordner des Anbieters lassen sich nicht umbenennen.' : undefined,
       },
       {
@@ -220,16 +227,13 @@ export function Sidebar({
         label: 'Ordner leeren…',
         gefaehrlich: true,
         onClick: istPapierkorbOderSpam
-          ? () => {
-              if (
-                confirm(
-                  `Alle Nachrichten in "${folder.name}" endgültig löschen?\n\n` +
-                    'Das lässt sich nicht rückgängig machen.',
-                )
-              ) {
-                ordnerAktionen.leeren(accountId, folder);
-              }
-            }
+          ? () =>
+              void bestaetige({
+                titel: `"${folder.name}" leeren?`,
+                text: `Alle Nachrichten darin werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.`,
+                stil: 'gefahr',
+                ok: 'Endgültig löschen',
+              }).then((ja) => ja && ordnerAktionen.leeren(accountId, folder))
           : undefined,
         grund: istPapierkorbOderSpam ? undefined : 'Nur für Papierkorb und Spam vorgesehen.',
       },
@@ -238,16 +242,13 @@ export function Sidebar({
         gefaehrlich: true,
         onClick: istSonderordner
           ? undefined
-          : () => {
-              if (
-                confirm(
-                  `Ordner "${folder.name}" mit allen darin enthaltenen Nachrichten löschen?\n\n` +
-                    'Das lässt sich nicht rückgängig machen.',
-                )
-              ) {
-                ordnerAktionen.loeschen(accountId, folder);
-              }
-            },
+          : () =>
+              void bestaetige({
+                titel: `Ordner "${folder.name}" löschen?`,
+                text: 'Alle darin enthaltenen Nachrichten werden mitgelöscht. Das lässt sich nicht rückgängig machen.',
+                stil: 'gefahr',
+                ok: 'Ordner löschen',
+              }).then((ja) => ja && ordnerAktionen.loeschen(accountId, folder)),
         grund: istSonderordner ? 'Sonderordner des Anbieters lassen sich nicht löschen.' : undefined,
       },
     ];
@@ -338,7 +339,12 @@ export function Sidebar({
                   title="Konto entfernen"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`Konto ${account.email} entfernen?`)) void onDeleteAccount(account.id);
+                    void bestaetige({
+                      titel: 'Konto entfernen?',
+                      text: `${account.email} wird aus Energy Mail entfernt. Beim Anbieter bleibt alles unverändert – die Nachrichten liegen weiterhin dort.`,
+                      stil: 'warnung',
+                      ok: 'Konto entfernen',
+                    }).then((ja) => ja && void onDeleteAccount(account.id));
                   }}
                 >
                   ×
@@ -427,8 +433,9 @@ export function Sidebar({
                     className="link-btn folder-toggle"
                     onClick={() => {
                       const delimiter = ordner[0]?.delimiter ?? '/';
-                      const name = frageName('Name des neuen Ordners:', '', delimiter);
-                      if (name) ordnerAktionen.anlegen(account.id, name);
+                      void frageName('Name des neuen Ordners', '', delimiter).then(
+                        (name) => name && ordnerAktionen.anlegen(account.id, name),
+                      );
                     }}
                     title="Weitere Aktionen erreichst du mit einem Rechtsklick auf einen Ordner"
                   >

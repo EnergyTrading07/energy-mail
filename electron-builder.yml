@@ -33,8 +33,16 @@ publish:
 files:
   - packages/desktop/dist/**/*
   - packages/desktop/package.json
+  # Das Programmsymbol wird zur Laufzeit gebraucht, nicht nur beim Verpacken: die
+  # Meldungen bei neuer Post geben es ausdrücklich an. Ohne die Angabe nimmt Windows
+  # das Symbol der Verknüpfung - was fehlt, wenn die portable Fassung ohne Installation
+  # läuft; dann steht dort ein leeres Standardsymbol.
+  - build/icon.png
   # Quellkarten braucht zur Laufzeit niemand, sie werden nie nachgeladen.
   - '!**/*.map'
+  # Typangaben ebenso wenig. electron-builder wirft *.d.ts von sich aus hinaus, die
+  # CommonJS-Entsprechung des Vorschaltskripts (*.d.cts) kennt es dagegen nicht.
+  - '!**/*.d.cts'
   # TypeScript-Quellen der eigenen Pakete - gebaut liegt alles in dist/.
   - '!packages/*/src/**'
   - '!packages/*/tsconfig*.json'
@@ -57,6 +65,28 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Energy Mail
   artifactName: ${productName} Setup ${version}.${ext}
+
+  # Deutsch. Ohne diese Angabe erscheint das Installationsprogramm auf Englisch ("Choose
+  # Install Location", "Next >") - vor einer Anwendung, die durchgehend deutsch ist.
+  # 1031 ist die Kennung, die Windows dafür vergibt.
+  language: '1031'
+
+  # Eigene Bilder statt der Weltkugel, die NSIS mitbringt. Erzeugt von
+  # scripts/installer-grafiken.mjs; nach einer Änderung an der Marke einmal neu
+  # ausführen. Das Symbol des Installationsprogramms leitet electron-builder von
+  # build/icon.png ab, dafür braucht es hier keinen Eintrag.
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
+  installerHeader: build/installerHeader.bmp
+
+  # Begrüßungsseite mit einem Wort darüber, was da installiert wird - siehe die Datei.
+  # Ohne sie beginnt die Installation unmittelbar mit der Frage nach dem Zielordner.
+  include: build/installer.nsh
+
+  # Beim Entfernen nichts löschen, was der Nutzer selbst angelegt hat: Konten,
+  # Signaturen und Textbausteine bleiben. Wer neu installiert, findet alles wieder vor.
+  # (Ist die Vorgabe - hier ausgeschrieben, weil es eine bewusste Entscheidung ist.)
+  deleteAppDataOnUninstall: false
 
 portable:
   artifactName: ${productName} ${version} portabel.${ext}

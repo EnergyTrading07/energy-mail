@@ -18,6 +18,8 @@ export type Befehl =
   | 'regeln'
   | 'aufraeumen'
   | 'wartet'
+  /** Zwischen heller und dunkler Ansicht wechseln. */
+  | 'ansichtUmschalten'
   /** In der Nachrichtenliste eine Zeile nach unten bzw. oben. */
   | 'weiter'
   | 'zurueck'

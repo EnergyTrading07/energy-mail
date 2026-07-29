@@ -8,10 +8,12 @@ import type {
 } from '@energy-mail/mail-core';
 import * as api from './api.js';
 import type { Account } from './api.js';
+import { Aktualisierung } from './components/Aktualisierung.js';
 import { BulkActionBar } from './components/BulkActionBar.js';
 import { ComposeModal } from './components/ComposeModal.js';
 import { MessageList, type Listeneintrag } from './components/MessageList.js';
 import { Sidebar } from './components/Sidebar.js';
+import { Titelleiste } from './components/Titelleiste.js';
 import { MessageView } from './components/MessageView.js';
 import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
@@ -27,11 +29,16 @@ import {
   hasMultipleRecipients,
   withSignature,
 } from './composeHelpers.js';
+import { zeichneAbzeichen } from './design/abzeichen.js';
+import { useThema } from './design/thema.js';
+import { bestaetige, waehleZeitpunkt, wiedervorlageVorschlaege } from './dialoge.js';
 import { archiveTarget } from './folderTargets.js';
 import { buildFolderView } from './folderTree.js';
 import { categoryLabel } from './gmailCategories.js';
+import { meldeFehler, meldeWarnung } from './meldungen.js';
 import { providerTheme } from './providerTheme.js';
 import { textToHtml } from './htmlText.js';
+import { useAktualisierung } from './useAktualisierung.js';
 import { useBefehle, type Befehl } from './useBefehle.js';
 import { useMailEvents } from './useMailEvents.js';
 
@@ -153,6 +160,10 @@ export default function App() {
   );
   const [searchFolder, setSearchFolder] = useState<string | null>(null);
 
+  /** Helle oder dunkle Ansicht; Aktualisierungsablauf der Desktop-Hülle. */
+  const thema = useThema();
+  const aktualisierung = useAktualisierung();
+
   useEffect(() => {
     api
       .fetchAccounts()
@@ -167,15 +178,22 @@ export default function App() {
   }, []);
 
   /**
-   * Nach einem Fehler den Kontostand nachladen.
+   * Einen aufgetretenen Fehler melden und den Kontostand nachladen.
    *
    * Dass eine Anmeldung abgelaufen ist, stellt sich erst beim fehlgeschlagenen Abruf
    * heraus - der Server hält es dann fest. Ohne dieses Nachladen bliebe die Seitenleiste
    * bis zum Neustart ahnungslos, und der Knopf zum Neuanmelden erschiene nie.
+   *
+   * Der Wert wird gleich wieder geleert: die Meldung führt jetzt ein Eigenleben (sie
+   * kann weggeklickt werden und stapelt sich mit anderen), und ohne das Leeren würde
+   * derselbe Fehler beim zweiten Auftreten stillschweigend verschluckt, weil sich der
+   * Zustand nicht geändert hätte.
    */
   useEffect(() => {
     if (!error) return;
+    meldeFehler(error);
     api.fetchAccounts().then(setAccounts).catch(() => {});
+    setError(null);
   }, [error]);
 
   // Beim Kontowechsel die Ordnerauswahl verwerfen, damit unten wieder der Posteingang
@@ -672,9 +690,13 @@ export default function App() {
           : 'Diese Nachrichten liegen bereits im Papierkorb.'
         : 'Für dieses Konto gibt es keinen Papierkorb-Ordner.';
       const what = uids.length === 1 ? 'Nachricht' : `${uids.length} Nachrichten`;
-      if (!confirm(`${reason}\n\n${what} endgültig löschen? Das lässt sich nicht rückgängig machen.`)) {
-        return;
-      }
+      const ja = await bestaetige({
+        titel: `${what} endgültig löschen?`,
+        text: `${reason}\n\nDas lässt sich nicht rückgängig machen.`,
+        stil: 'gefahr',
+        ok: 'Endgültig löschen',
+      });
+      if (!ja) return;
     }
 
     setBulkBusy(true);
@@ -774,52 +796,17 @@ export default function App() {
    */
   const handleSnooze = async (uid: number) => {
     if (!selectedAccountId || !selectedFolder) return;
-    const eingabe = prompt(
-      'Wann soll die Nachricht wieder auftauchen?\n\n' +
-        '1 = in drei Stunden\n' +
-        '2 = heute Abend (18:00)\n' +
-        '3 = morgen früh (08:00)\n' +
-        '4 = nächste Woche (Montag 08:00)\n\n' +
-        'Oder ein Zeitpunkt als JJJJ-MM-TT HH:MM',
-      '3',
-    );
-    if (!eingabe) return;
 
-    const jetzt = new Date();
-    const ziel = new Date(jetzt);
-    switch (eingabe.trim()) {
-      case '1':
-        ziel.setHours(ziel.getHours() + 3);
-        break;
-      case '2':
-        ziel.setHours(18, 0, 0, 0);
-        if (ziel <= jetzt) ziel.setDate(ziel.getDate() + 1);
-        break;
-      case '3':
-        ziel.setDate(ziel.getDate() + 1);
-        ziel.setHours(8, 0, 0, 0);
-        break;
-      case '4': {
-        // Bis zum nächsten Montag: getDay() liefert 0 für Sonntag.
-        const tageBisMontag = (8 - ziel.getDay()) % 7 || 7;
-        ziel.setDate(ziel.getDate() + tageBisMontag);
-        ziel.setHours(8, 0, 0, 0);
-        break;
-      }
-      default: {
-        const eigen = new Date(eingabe.trim().replace(' ', 'T'));
-        if (Number.isNaN(eigen.getTime()) || eigen <= jetzt) {
-          setError(`"${eingabe.trim()}" ist kein brauchbarer Zeitpunkt in der Zukunft.`);
-          return;
-        }
-        ziel.setTime(eigen.getTime());
-      }
-    }
+    const ziel = await waehleZeitpunkt({
+      titel: 'Wann soll die Nachricht wieder auftauchen?',
+      text: 'Sie verschwindet bis dahin aus dem Posteingang und liegt zum gewählten Zeitpunkt wieder oben.',
+      vorschlaege: wiedervorlageVorschlaege(),
+    });
+    if (!ziel) return;
 
     try {
       await api.snoozeMessage(selectedAccountId, selectedFolder, uid, ziel.toISOString());
       removeFromView([uid]);
-      setError(null);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -999,6 +986,9 @@ export default function App() {
         setReloadCounter((n) => n + 1);
         setFolderReload((n) => n + 1);
         return;
+      case 'ansichtUmschalten':
+        thema.umschalten();
+        return;
       case 'kontoWeiter': {
         if (accounts.length < 2) return;
         const jetzt = accounts.findIndex((a) => a.id === selectedAccountId);
@@ -1074,12 +1064,14 @@ export default function App() {
     }
 
     // Die Mail ist raus - nur die Ablage im Gesendet-Ordner hat nicht geklappt. Als
-    // Hinweis anzeigen, aber nicht als Fehlschlag: sonst würde man erneut senden.
+    // Warnung und nicht als Fehler: sonst würde man erneut senden. Erst seit es die
+    // Abstufung gibt, lässt sich das überhaupt unterscheiden - vorher sah beides gleich
+    // aus, nämlich rot.
     if (!result.savedToSent) {
-      setError(
-        `Nachricht wurde versendet, konnte aber nicht im Gesendet-Ordner abgelegt werden: ${
-          result.saveError ?? 'unbekannter Grund'
-        }`,
+      meldeWarnung(
+        'Versendet, aber nicht abgelegt',
+        `Die Nachricht ist beim Empfänger unterwegs. Nur die Kopie im Gesendet-Ordner ` +
+          `konnte nicht geschrieben werden: ${result.saveError ?? 'unbekannter Grund'}`,
       );
     } else {
       setFolderReload((n) => n + 1);
@@ -1117,15 +1109,53 @@ export default function App() {
   const draftsFolder = folders.find((f) => f.specialUse === '\\Drafts');
   const inDraftsFolder = Boolean(draftsFolder) && selectedFolder === draftsFolder?.path;
 
+  /**
+   * Die Farbe des Anbieters. Sie färbt nicht mehr die ganze Oberfläche - dafür trägt das
+   * Programm seit der Neugestaltung eine eigene -, sondern nur noch das runde Kennzeichen,
+   * den Streifen an den Ordnern und den Punkt in der Titelleiste. Das genügt für die
+   * Frage, die sie beantworten soll ("aus welcher Adresse schreibe ich gerade"), und
+   * lässt der Anwendung ein eigenes Gesicht.
+   */
+  const kontoFarbe = providerTheme(selectedAccount?.provider).accent;
+
+  /**
+   * Ungelesene Nachrichten über alle Konten - für das Abzeichen am Taskleistensymbol.
+   *
+   * Zusammengezählt aus den Ordnern, die ohnehin schon geladen sind; ein eigener Abruf
+   * dafür wäre reine Verschwendung. Gezählt wird nur der Posteingang: was in Werbung
+   * oder Spam liegt, ist ungelesen und soll es auch bleiben - eine Zahl, die davon
+   * hochgeht, meldet nichts, was jemand wissen will.
+   *
+   * Das Bild entsteht hier (siehe design/abzeichen.ts) und geht fertig an die Hülle.
+   */
+  useEffect(() => {
+    const summe = Object.values(foldersByAccount)
+      .flat()
+      .filter((f) => f.specialUse === '\\Inbox')
+      .reduce((n, f) => n + (f.unseen ?? 0), 0);
+    window.energyMail?.setzeUngelesen(summe, zeichneAbzeichen(summe));
+    // thema.ansicht steht bewusst dabei: das Abzeichen nimmt die Markenfarbe der gerade
+    // gültigen Ansicht an und muss beim Umschalten neu gezeichnet werden.
+  }, [foldersByAccount, thema.ansicht]);
+
   return (
-    <>
-      {error && (
-        <div className="toast-error" role="alert">
-          <span>{error}</span>
-          <button className="icon-btn" onClick={() => setError(null)} title="Schließen">
-            ×
-          </button>
-        </div>
+    <div className="rahmen" style={{ ['--konto-farbe' as string]: kontoFarbe }}>
+      <Titelleiste
+        kontoName={selectedAccount?.displayName || selectedAccount?.email || null}
+        kontoFarbe={kontoFarbe}
+        ordnerName={selectedFolder ? aktuellerOrdnerName : null}
+        wahl={thema.wahl}
+        ansicht={thema.ansicht}
+        onThemaUmschalten={thema.umschalten}
+        aktualisierung={aktualisierung.knopf}
+        onAktualisierung={aktualisierung.anstossen}
+      />
+      {aktualisierung.sichtbar && (
+        <Aktualisierung
+          stand={aktualisierung.stand}
+          onNeuStarten={aktualisierung.neuStarten}
+          onSchliessen={aktualisierung.verbergen}
+        />
       )}
       {/* Bedenkzeit nach dem Absenden. Für "später senden" gibt es keine Meldung mit
           Rücklauf - dort wartet man Stunden, nicht Sekunden. */}
@@ -1151,12 +1181,7 @@ export default function App() {
           }}
         />
       )}
-      {/* Akzentfarbe des aktiven Kontos gilt für die ganze Ansicht: Verfassen-Knopf,
-          aktive Zeile, Balken. So ist beim Schreiben sichtbar, aus welcher Adresse. */}
-      <div
-        className="app"
-        style={{ ['--accent' as string]: providerTheme(selectedAccount?.provider).accent }}
-      >
+      <div className="app">
         <Sidebar
           accounts={accounts}
           selectedAccountId={selectedAccountId}
@@ -1346,6 +1371,6 @@ export default function App() {
           <OAuthSetupModal onClose={() => setShowOAuthSetup(false)} onChanged={setOauthClients} />
         )}
       </div>
-    </>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { frage } from '../dialoge.js';
 
 interface Props {
   html: string;
@@ -47,9 +48,34 @@ export function RichTextEditor({ html, onChange, disabled }: Props) {
     if (ref.current) onChange(ref.current.innerHTML);
   };
 
+  /**
+   * Die Auswahl im Editor geht verloren, sobald das Fenster den Fokus übernimmt - sie
+   * wird deshalb vorher festgehalten und danach wiederhergestellt. Bei prompt() erledigte
+   * das der Browser; ein gewöhnliches Fenster im Baum tut es nicht.
+   */
   const linkEinfuegen = () => {
-    const ziel = prompt('Adresse des Links:', 'https://');
-    if (ziel) fuehreAus('createLink', ziel);
+    const bereich = window.getSelection()?.rangeCount
+      ? window.getSelection()!.getRangeAt(0).cloneRange()
+      : null;
+
+    void frage({
+      titel: 'Link einfügen',
+      text: 'Der markierte Text wird damit verknüpft.',
+      vorgabe: 'https://',
+      ok: 'Einfügen',
+      pruefe: (ziel) =>
+        /^(https?|mailto):/i.test(ziel)
+          ? null
+          : 'Die Adresse muss mit http://, https:// oder mailto: beginnen.',
+    }).then((ziel) => {
+      if (!ziel) return;
+      if (bereich) {
+        const auswahl = window.getSelection();
+        auswahl?.removeAllRanges();
+        auswahl?.addRange(bereich);
+      }
+      fuehreAus('createLink', ziel);
+    });
   };
 
   return (

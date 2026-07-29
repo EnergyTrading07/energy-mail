@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Draft, DraftAttachment } from '../api.js';
+import { bestaetige, frage, sendeVorschlaege, waehleZeitpunkt } from '../dialoge.js';
 import { htmlToText } from '../htmlText.js';
 import { AddressInput } from './AddressInput.js';
 import { RichTextEditor } from './RichTextEditor.js';
@@ -36,45 +37,19 @@ function formatSize(bytes: number): string {
  *
  * Bewusst mit Vorschlägen statt eines freien Datumsfeldes: "morgen früh" ist der
  * überwiegende Fall, und ein Zeitpunkt, den man aus Ziffern zusammensetzt, wird leicht
- * zum falschen Tag. Liefert null, wenn abgebrochen wurde.
+ * zum falschen Tag. Die Vorschläge und ihre Prüfung stehen in dialoge.tsx, weil die
+ * Wiedervorlage dieselbe Frage stellt - bis dahin gab es beides doppelt, mit
+ * unterschiedlichen Vorschlägen und unterschiedlichen Fehlermeldungen.
+ *
+ * Liefert null, wenn abgebrochen wurde.
  */
-function frageZeitpunkt(): string | null {
-  const jetzt = new Date();
-  const morgenFrueh = new Date(jetzt);
-  morgenFrueh.setDate(morgenFrueh.getDate() + 1);
-  morgenFrueh.setHours(8, 0, 0, 0);
-
-  const eingabe = prompt(
-    'Wann soll die Nachricht raus?\n\n' +
-      '1 = in einer Stunde\n' +
-      '2 = heute Abend (18:00)\n' +
-      '3 = morgen früh (08:00)\n\n' +
-      'Oder ein Zeitpunkt als JJJJ-MM-TT HH:MM',
-    '3',
-  );
-  if (!eingabe) return null;
-
-  const wahl = eingabe.trim();
-  if (wahl === '1') return new Date(jetzt.getTime() + 60 * 60_000).toISOString();
-  if (wahl === '2') {
-    const abends = new Date(jetzt);
-    abends.setHours(18, 0, 0, 0);
-    // Ist es schon nach sechs, war offensichtlich der morgige Abend gemeint.
-    if (abends <= jetzt) abends.setDate(abends.getDate() + 1);
-    return abends.toISOString();
-  }
-  if (wahl === '3') return morgenFrueh.toISOString();
-
-  const eigen = new Date(wahl.replace(' ', 'T'));
-  if (Number.isNaN(eigen.getTime())) {
-    alert(`"${wahl}" ist kein Zeitpunkt, den ich lesen kann.`);
-    return null;
-  }
-  if (eigen <= jetzt) {
-    alert('Dieser Zeitpunkt liegt in der Vergangenheit.');
-    return null;
-  }
-  return eigen.toISOString();
+async function frageZeitpunkt(): Promise<string | null> {
+  const gewaehlt = await waehleZeitpunkt({
+    titel: 'Wann soll die Nachricht raus?',
+    text: 'Bis dahin bleibt sie hier liegen. Läuft Energy Mail zu diesem Zeitpunkt nicht, geht sie beim nächsten Start hinaus.',
+    vorschlaege: sendeVorschlaege(),
+  });
+  return gewaehlt ? gewaehlt.toISOString() : null;
 }
 
 function parseAddresses(value: string): string[] {
@@ -232,10 +207,16 @@ export function ComposeModal({
       return;
     }
 
-    const antwort = confirm(
-      'Die Nachricht wurde geändert.\n\nOK: als Entwurf speichern\nAbbrechen: weiter bearbeiten',
-    );
-    if (!antwort) return;
+    // Die Beschriftungen sagen, was geschieht. Vorher stand hier "OK / Abbrechen" mit
+    // einer Erklärung im Fließtext darüber, weil das Browserfenster nichts anderes
+    // zuließ - und "Abbrechen" für "weiter bearbeiten" ist genau verkehrt herum.
+    const speichernJa = await bestaetige({
+      titel: 'Die Nachricht wurde geändert.',
+      text: 'Soll sie als Entwurf gespeichert werden? Der Entwurf liegt danach im Entwürfe-Ordner und lässt sich jederzeit weiterschreiben.',
+      ok: 'Als Entwurf speichern',
+      abbrechen: 'Weiter bearbeiten',
+    });
+    if (!speichernJa) return;
     if (await speichern()) onClose();
   };
 
@@ -254,7 +235,13 @@ export function ComposeModal({
   });
 
   const verwerfen = async () => {
-    if (!confirm('Entwurf verwerfen? Der Inhalt geht verloren.')) return;
+    const ja = await bestaetige({
+      titel: 'Entwurf verwerfen?',
+      text: 'Der geschriebene Inhalt geht verloren. Das lässt sich nicht rückgängig machen.',
+      stil: 'gefahr',
+      ok: 'Verwerfen',
+    });
+    if (!ja) return;
     if (location.current?.uid && onDiscardDraft) {
       try {
         await onDiscardDraft();
@@ -430,24 +417,37 @@ export function ComposeModal({
                 onChange={(e) => {
                   const wert = e.target.value;
                   if (!wert) return;
+
                   if (wert === '__sichern') {
-                    const name = prompt('Unter welchem Namen soll der Text gesichert werden?');
-                    if (name?.trim()) {
-                      setBausteine(bausteinSichern(name, html));
-                    }
+                    void frage({
+                      titel: 'Text als Baustein sichern',
+                      text: 'Unter diesem Namen steht er künftig in der Auswahl.',
+                      platzhalter: 'z. B. Freundlicher Gruß',
+                      ok: 'Sichern',
+                    }).then((name) => name && setBausteine(bausteinSichern(name, html)));
                     return;
                   }
+
                   if (wert === '__loeschen') {
-                    const name = prompt(
-                      ['Welchen Baustein löschen?', '', ...bausteine.map((b) => b.name)].join('\n'),
-                    );
-                    const treffer = bausteine.find(
-                      (b) => b.name.toLowerCase() === name?.trim().toLowerCase(),
-                    );
-                    if (treffer) setBausteine(bausteinLoeschen(treffer.id));
-                    else if (name) alert(`"${name}" gibt es nicht.`);
+                    // Die vorhandenen Namen stehen mit in der Frage, und die Prüfung
+                    // meldet einen Tippfehler am Feld. Vorher kam dafür ein zweites
+                    // Fenster ("… gibt es nicht"), nachdem das erste schon zu war.
+                    const treffer = (name: string) =>
+                      bausteine.find((b) => b.name.toLowerCase() === name.toLowerCase());
+                    void frage({
+                      titel: 'Welchen Baustein löschen?',
+                      text: `Vorhanden:\n${bausteine.map((b) => `· ${b.name}`).join('\n')}`,
+                      stil: 'gefahr',
+                      ok: 'Löschen',
+                      pruefe: (name) =>
+                        name && !treffer(name) ? `"${name}" gibt es nicht.` : null,
+                    }).then((name) => {
+                      const b = name && treffer(name);
+                      if (b) setBausteine(bausteinLoeschen(b.id));
+                    });
                     return;
                   }
+
                   const baustein = bausteine.find((b) => b.id === wert);
                   if (baustein) {
                     // Anhängen statt ersetzen: der Baustein ergaenzt das Geschriebene,
@@ -472,8 +472,10 @@ export function ComposeModal({
                 disabled={busy}
                 title="Zu einem späteren Zeitpunkt senden"
                 onClick={(e) => {
-                  const zeitpunkt = frageZeitpunkt();
-                  if (zeitpunkt) void submit(e, zeitpunkt);
+                  e.preventDefault();
+                  void frageZeitpunkt().then((zeitpunkt) => {
+                    if (zeitpunkt) void submit(e, zeitpunkt);
+                  });
                 }}
               >
                 Später…

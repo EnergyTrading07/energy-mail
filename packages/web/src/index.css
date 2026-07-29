@@ -1,95 +1,588 @@
+@import './design/tokens.css';
+
+/*
+ * Das Aussehen der Anwendung.
+ *
+ * Aufgebaut von unten nach oben: erst die Grundlagen, die überall gelten, dann die
+ * Bedienelemente, dann die einzelnen Bereiche des Fensters, zuletzt alles Schwebende
+ * (Menüs, Dialoge, Meldungen). Farben und Maße stehen nirgends als Ziffernfolge, sondern
+ * kommen aus design/tokens.css - dadurch gilt jede Regel in der hellen wie in der dunklen
+ * Ansicht, ohne dass sie doppelt geschrieben werden müsste.
+ */
+
+/* ==========================================================================
+ * Grundlagen
+ * ========================================================================== */
+
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  color: #1a1a1a;
-  background: #f5f5f5;
+  height: 100%;
 }
 
-/* Akzentfarbe: wird je Konto vom Anbieter abgeleitet und über eine CSS-Variable
-   gesetzt. Der Wert hier ist nur der Rückfall, falls kein Konto aktiv ist. */
-:root {
-  --accent: #4a6cf7;
+body {
+  margin: 0;
+  font-family: var(--sf);
+  font-size: var(--t-n);
+  color: var(--text);
+  background: var(--grund);
+  /* Ohne das wirken kleine Grade unter Windows kantig; mit Ligaturen sieht Fließtext
+     in der Leseansicht ruhiger aus. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Ein Programmfenster ist kein Dokument: markierter Text beim Ziehen über die
+     Oberfläche ist immer ein Versehen. In den Bereichen, in denen tatsächlich gelesen
+     wird, ist die Markierung weiter unten ausdrücklich wieder erlaubt. */
+  user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--auswahl);
+  color: var(--text);
 }
 
 #root {
   height: 100vh;
 }
 
-/* Drei Spalten statt vier: Konten und Ordner teilen sich die erste. Die frei
-   gewordenen 200px gehen an die Nachrichtenliste, wo Betreffs sonst umbrechen. */
-.app {
-  display: grid;
-  grid-template-columns: 236px 400px 1fr;
-  height: 100vh;
+/*
+ * Bildlaufleisten.
+ *
+ * Die Windows-eigene ist breit, grau und in der dunklen Ansicht hell - in drei
+ * nebeneinanderliegenden Spalten ergibt das drei helle Balken, die mehr Aufmerksamkeit
+ * binden als der Inhalt daneben. Diese hier ist schmal, farblos und erscheint erst,
+ * wenn der Zeiger in der Nähe ist.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rand-stark) transparent;
 }
 
-/* --- Seitenleiste: Konten mit ihren Ordnern --- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: 3px solid transparent;
+  border-radius: var(--r-voll);
+  background-clip: content-box;
+}
+
+:hover > ::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--rand-stark);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * Fokusring für die Tastaturbedienung.
+ *
+ * :focus-visible statt :focus - sonst umrandet jeder Mausklick das Angeklickte, was
+ * niemandem hilft und nach einem Fehler aussieht. Wer mit Tabulator arbeitet, muss
+ * dagegen jederzeit sehen können, wo er ist.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--fokus);
+  border-radius: var(--r-1);
+  position: relative;
+  z-index: 1;
+}
+
+/* Ankreuzfelder und Schieber in der Farbe des Programms. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--marke);
+  cursor: pointer;
+}
+
+/*
+ * Wer die Systemeinstellung "Animationen reduzieren" gesetzt hat, hat einen Grund dafür -
+ * bei manchen lösen bewegte Flächen Übelkeit aus. Übrig bleibt ein Aufblenden ohne
+ * Bewegung, damit trotzdem erkennbar ist, dass etwas Neues erschienen ist.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+ * Bedienelemente
+ * ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a-2);
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-2);
+  background: var(--marke);
+  color: var(--auf-marke);
+  font-family: inherit;
+  font-size: var(--t-n);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--weich), border-color var(--weich), box-shadow var(--weich),
+    transform var(--weich);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--marke-hover);
+}
+
+/* Ein leichtes Einsinken beim Drücken. Der einzige Ort, an dem sich etwas bewegt -
+   dafür bestätigt es jeden Klick, ohne dass man darauf warten müsste. */
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn.secondary {
+  background: var(--flaeche);
+  border-color: var(--rand);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.btn.secondary:hover:not(:disabled) {
+  background: var(--flaeche-hover);
+  border-color: var(--rand-stark);
+}
+
+.btn.danger {
+  background: var(--flaeche);
+  border-color: var(--fehler-rand);
+  color: var(--fehler);
+  font-weight: 500;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: var(--fehler-grund);
+  border-color: var(--fehler);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Als Verweis gestalteter Knopf: löst etwas aus, sieht aber nicht nach Bedienelement
+   aus - richtig überall dort, wo er nicht die Hauptsache ist. */
+.link-btn {
+  border: none;
+  background: none;
+  color: var(--marke);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--t-s);
+  padding: 2px 0;
+  margin-left: var(--a-3);
+  border-radius: var(--r-1);
+  transition: color var(--weich);
+}
+
+.link-btn:hover:not(:disabled) {
+  color: var(--marke-hover);
+  text-decoration: underline;
+}
+
+.link-btn.gefaehrlich {
+  color: var(--fehler);
+}
+
+/* Ein gesperrter Knopf muss auch gesperrt aussehen. Ohne das war er von einem
+   anklickbaren nicht zu unterscheiden - der Zeiger blieb eine Hand, die Farbe die
+   der Anwendung, und erst der Klick zeigte, dass nichts geschieht. */
+.link-btn:disabled {
+  color: var(--text-aus);
+  cursor: default;
+  text-decoration: none;
+}
+
+.link-btn:disabled:hover {
+  text-decoration: none;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: var(--t-xl);
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background var(--weich), color var(--weich);
+}
+
+.icon-btn:hover {
+  background: var(--flaeche-hover);
+  color: var(--text);
+}
+
+/* Eingabefelder. Ein gemeinsames Aussehen für alles, was Text entgegennimmt - vorher
+   hatte fast jedes Fenster seine eigenen Rahmen und Radien. */
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+input[type='date'],
+input[type='datetime-local'],
+input[type='number'],
+textarea,
+select {
+  font-family: inherit;
+  font-size: var(--t-n);
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-1);
+  padding: 6px 9px;
+  user-select: text;
+  cursor: text;
+  transition: border-color var(--weich), box-shadow var(--weich);
+}
+
+select {
+  cursor: pointer;
+  /* Eigener Pfeil: der von Windows gezeichnete bleibt in der dunklen Ansicht hell und
+     sitzt in einem hellgrauen Kasten, der sich nicht mitfärben lässt. */
+  appearance: none;
+  padding-right: 26px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--text-2);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--marke);
+  box-shadow: var(--fokus);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-aus);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+label {
+  cursor: pointer;
+}
+
+/*
+ * Der Knopf im Dateiauswahlfeld.
+ *
+ * Den zeichnet der Browser, und er hört auf keine der Regeln oben - im Verfassen-Fenster
+ * saß deshalb zwischen lauter eigenen Bedienelementen ein graues Windows-Kästchen, das
+ * in der dunklen Ansicht hell blieb. ::file-selector-button ist die einzige Stelle, an
+ * der man daran kommt.
+ */
+input[type='file'] {
+  font-family: inherit;
+  font-size: var(--t-m);
+  color: var(--text-3);
+}
+
+input[type='file']::file-selector-button {
+  margin-right: var(--a-3);
+  padding: 6px var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-1);
+  background: var(--flaeche);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--t-m);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--weich), border-color var(--weich);
+}
+
+input[type='file']::file-selector-button:hover {
+  background: var(--flaeche-hover);
+  border-color: var(--rand-stark);
+}
+
+/* ==========================================================================
+ * Titelleiste
+ *
+ * Das Fenster ist rahmenlos; was Windows sonst zeichnet, steht hier. Der Gewinn ist
+ * nicht die Zeile selbst, sondern dass Programmname, Ansichtsumschalter und der
+ * Hinweis auf eine bereitstehende Fassung dort liegen, wo bei jedem anderen Programm
+ * ungenutzter Platz ist.
+ *
+ * -webkit-app-region: drag macht eine Fläche zum Griff, an dem das Fenster verschoben
+ * wird. Alles darin, was angeklickt werden soll, muss das ausdrücklich zurücknehmen -
+ * sonst verschiebt der Klick das Fenster, statt den Knopf zu betätigen.
+ * ========================================================================== */
+
+.rahmen {
+  display: grid;
+  grid-template-rows: var(--leiste-hoehe) 1fr;
+  height: 100vh;
+  min-height: 0;
+}
+
+.titelleiste {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding-left: var(--a-4);
+  background: var(--flaeche-leise);
+  border-bottom: 1px solid var(--rand);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* Ein Fenster im Hintergrund tritt zurück - dieselbe Unterscheidung, die Windows bei
+   seinen eigenen Leisten trifft. Ohne sie wirken bei mehreren offenen Programmen alle
+   gleich aktiv. */
+.titelleiste.abwesend .marke-wort,
+.titelleiste.abwesend .leisten-btn {
+  opacity: 0.55;
+}
+
+.titelleiste-marke {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  flex-shrink: 0;
+}
+
+.marke-symbol {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.marke-wort {
+  font-family: var(--sf-gross);
+  font-size: var(--t-m);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-2);
+  transition: opacity var(--weich);
+}
+
+/* Was gerade zu sehen ist - Konto und Ordner. Steht mittig und ist der eigentliche
+   Grund für die eigene Leiste: die Angabe war vorher über drei Stellen verteilt. */
+.titelleiste-mitte {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a-2);
+  font-size: var(--t-m);
+  color: var(--text-3);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.titelleiste-mitte .konto-punkt {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--konto-farbe);
+  flex-shrink: 0;
+}
+
+.titelleiste-mitte b {
+  font-weight: 600;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titelleiste-werkzeuge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.leisten-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a-1);
+  height: 26px;
+  min-width: 26px;
+  padding: 0 7px;
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: var(--t-s);
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich), opacity var(--weich);
+}
+
+.leisten-btn:hover {
+  background: var(--flaeche-hover);
+  color: var(--text);
+}
+
+/* Steht eine neue Fassung bereit, wird aus dem stillen Knopf ein Hinweis. */
+.leisten-btn.meldet {
+  background: var(--marke-leise);
+  color: var(--marke);
+  font-weight: 600;
+}
+
+.leisten-btn.meldet:hover {
+  background: color-mix(in srgb, var(--marke) 18%, var(--flaeche));
+}
+
+/*
+ * Platz für die drei Fensterknöpfe.
+ *
+ * Gezeichnet werden sie nicht hier, sondern von Chromium (titleBarOverlay in main.ts) -
+ * in unseren Farben, aber mit dem Verhalten von Windows, einschließlich der
+ * Ausrichtungshilfen, die beim Verweilen auf dem Maximieren-Knopf aufklappen. Nachgebaute
+ * Knöpfe können das nicht, und es fehlt sofort auf.
+ *
+ * Wie breit sie sind, steht nur Chromium zur Verfügung; es meldet es über
+ * env(titlebar-area-width), also die Breite des Rests. Der Rückfallwert 100% gilt im
+ * Browserbetrieb, wo es keine Knöpfe gibt - dann entsteht kein Abstand.
+ */
+.titelleiste {
+  padding-right: calc(100% - env(titlebar-area-width, 100%));
+}
+
+/* ==========================================================================
+ * Fensterraster
+ * ========================================================================== */
+
+.app {
+  display: grid;
+  /* Drei Spalten statt vier: Konten und Ordner teilen sich die erste. Die frei
+     gewordenen 200px gehen an die Nachrichtenliste, wo Betreffs sonst umbrechen. */
+  grid-template-columns: 244px 400px 1fr;
+  min-height: 0;
+  background: var(--grund);
+}
+
+/* ==========================================================================
+ * Seitenleiste: Konten mit ihren Ordnern
+ * ========================================================================== */
+
 .sidebar {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #fafbfc;
-  border-right: 1px solid #e3e6ea;
+  background: var(--flaeche-leise);
+  border-right: 1px solid var(--rand);
 }
 
 .sidebar-head {
-  padding: 12px;
-  border-bottom: 1px solid #e3e6ea;
+  padding: var(--a-4) var(--a-4) var(--a-3);
 }
 
 .compose-btn {
   width: 100%;
-  padding: 9px;
-  font-size: 13px;
+  padding: 10px;
+  font-size: var(--t-n);
   font-weight: 600;
+  box-shadow: var(--schatten-1);
 }
 
 .sidebar-scroll {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 6px 0;
+  padding: var(--a-1) 0 var(--a-3);
 }
 
 .sidebar-foot {
-  border-top: 1px solid #e3e6ea;
-  padding: 8px 12px 10px;
+  border-top: 1px solid var(--rand);
+  padding: var(--a-3) var(--a-4) var(--a-4);
   max-height: 60vh;
   overflow-y: auto;
 }
 
 .account-block + .account-block {
-  margin-top: 4px;
+  margin-top: var(--a-2);
 }
 
 .account-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: var(--a-2);
+  padding: 7px var(--a-3) 7px 10px;
+  margin: 0 var(--a-3);
+  border-radius: var(--r-2);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--t-m);
   font-weight: 600;
-  color: #444;
+  color: var(--text-2);
+  transition: background var(--weich), color var(--weich);
 }
 
 .account-head:hover {
-  background: #f0f2f5;
+  background: var(--flaeche-hover);
 }
 
 .account-block.active > .account-head {
-  color: #1a1a1a;
+  color: var(--text);
 }
 
 .caret {
-  color: #999;
-  font-size: 10px;
+  color: var(--text-aus);
+  font-size: var(--t-xs);
   width: 10px;
   flex-shrink: 0;
+  transition: transform var(--weich);
 }
 
 .account-label {
@@ -103,35 +596,102 @@ body {
    sonst in jeder Zeile Aufmerksamkeit binden. */
 .account-head .icon-btn {
   opacity: 0;
+  width: 20px;
+  height: 20px;
+  font-size: var(--t-l);
+  transition: opacity var(--weich), background var(--weich), color var(--weich);
 }
 
-.account-head:hover .icon-btn {
+.account-head:hover .icon-btn,
+.account-head .icon-btn:focus-visible {
   opacity: 1;
 }
 
+.account-head .icon-btn:hover {
+  color: var(--text);
+}
+
+/*
+ * Rundes Kürzel in der Hausfarbe des Anbieters.
+ *
+ * Seit die Oberfläche durchgehend die Farbe des Programms trägt, ist dies zusammen mit
+ * dem schmalen Streifen daneben die einzige Stelle, an der der Anbieter farbig auftritt -
+ * und sie genügt: gefragt ist nicht Schmuck, sondern die Antwort auf "aus welcher Adresse
+ * schreibe ich gerade". Bewusst ein Buchstabe und kein Logo: fremde Markenzeichen
+ * gehören nicht in die Anwendung.
+ */
+.provider-badge {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--konto-farbe);
+  color: #fff;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--konto-farbe) 22%, transparent);
+}
+
 .folder-list {
-  padding-bottom: 4px;
+  padding-bottom: var(--a-2);
+  /* Schmaler Streifen in der Kontofarbe entlang der Ordner: bindet sie sichtbar an das
+     Konto darüber, ohne dass dafür jede Zeile eingefärbt werden müsste. */
+  border-left: 2px solid color-mix(in srgb, var(--konto-farbe) 35%, transparent);
+  margin-left: 21px;
+  padding-left: 2px;
 }
 
 .folder-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 10px 5px 12px;
+  gap: var(--a-3);
+  padding: 6px 10px 6px var(--a-4);
   cursor: pointer;
-  font-size: 13px;
-  border-radius: 0 14px 14px 0;
-  margin-right: 8px;
+  font-size: var(--t-n);
+  color: var(--text-2);
+  border-radius: 0 var(--r-voll) var(--r-voll) 0;
+  margin-right: var(--a-3);
+  transition: background var(--weich), color var(--weich);
 }
 
 .folder-row:hover {
-  background: #eef1f5;
+  background: var(--flaeche-hover);
+  color: var(--text);
 }
 
 .folder-row.active {
-  background: color-mix(in srgb, var(--accent) 12%, #fff);
-  color: color-mix(in srgb, var(--accent) 75%, #111);
+  background: var(--marke-leise);
+  color: var(--marke);
   font-weight: 600;
+}
+
+.folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-name.unread {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.folder-row.active .folder-name.unread {
+  color: inherit;
+}
+
+.folder-icon {
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: color var(--weich);
+}
+
+.folder-row.active .folder-icon,
+.folder-row:hover .folder-icon {
+  color: var(--marke);
 }
 
 /* Gmails Einordnung des Posteingangs: kein eigener Ordner, sondern ein Filter darauf.
@@ -139,21 +699,21 @@ body {
    ist erkennbar, dass Löschen und Verschieben weiterhin am Posteingang wirken. */
 .category-row {
   position: relative;
-  font-size: 12.5px;
+  font-size: var(--t-m);
 }
 
 .category-row::before {
   content: '';
   position: absolute;
-  left: 17px;
+  left: 18px;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #e2e6ea;
+  background: var(--rand);
 }
 
 .category-row .folder-name {
-  color: #6d7681;
+  color: var(--text-3);
 }
 
 .category-row.active .folder-name,
@@ -161,176 +721,1625 @@ body {
   color: inherit;
 }
 
-/* Hinweis auf Wartendes und die zugehörige Übersicht. */
-.wartend-hinweis {
-  display: block;
-  margin-bottom: 6px;
-}
-
-/* Nur hervorgehoben, wenn tatsaechlich etwas aussteht - sonst stumpft es ab. */
-.wartend-hinweis.meldet {
+.unread-badge {
+  background: var(--marke);
+  color: #fff;
+  font-size: var(--t-s);
   font-weight: 600;
+  border-radius: var(--r-voll);
+  padding: 1px 7px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
-.wartend-titel {
-  margin: 14px 0 4px;
-  font-size: 11px;
+.folder-group {
+  font-size: var(--t-xs);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8b939c;
+  letter-spacing: 0.06em;
+  color: var(--text-aus);
+  padding: var(--a-4) 10px var(--a-1) var(--a-4);
 }
 
-.wartend-zeile {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 2px;
-  border-bottom: 1px solid #eef1f4;
+.folder-separator {
+  height: 1px;
+  background: var(--rand);
+  margin: var(--a-2) var(--a-4);
 }
 
-.wartend-text {
-  flex: 1;
-  min-width: 0;
+.folder-toggle {
+  margin: var(--a-1) 0 0 var(--a-4);
+  font-size: var(--t-s);
+}
+
+.new-mail-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--marke);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--marke) 20%, transparent);
+}
+
+/* Abgelaufene Anmeldung: bewusst warnend statt in der Kontofarbe - hier ist etwas
+   kaputt, das der Nutzer selbst beheben muss. */
+.auth-warn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--warn);
+  color: #fff;
+  font-size: var(--t-s);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.reauth-notice {
+  margin: var(--a-2) var(--a-3) var(--a-3) var(--a-4);
+  padding: var(--a-4);
+  border: 1px solid var(--warn-rand);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--r-2);
+  background: var(--warn-grund);
+}
+
+.reauth-notice strong {
+  display: block;
+  font-size: var(--t-m);
+  color: var(--warn);
+  margin-bottom: var(--a-1);
+}
+
+.reauth-notice p {
+  margin: 0 0 var(--a-3);
+  font-size: var(--t-s);
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.reauth-notice .btn {
+  width: 100%;
+}
+
+.add-account {
+  margin-top: var(--a-3);
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  font-size: 13px;
+  gap: var(--a-2);
 }
 
-.wartend-text span {
-  font-size: 11.5px;
-  color: #6b7480;
+.hint {
+  margin: var(--a-2) 0 0;
+  font-size: var(--t-s);
+  line-height: 1.5;
+  color: var(--text-3);
 }
 
-/* Zwischenüberschrift unterhalb von .wartend-titel - trennt die beiden Arten von
-   Liegengebliebenem, ohne wie eine zweite Hauptüberschrift zu wirken. */
-.wartend-untertitel {
-  margin: 10px 0 2px;
-  font-size: 12px;
+/* ==========================================================================
+ * Nachrichtenliste
+ * ========================================================================== */
+
+.message-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--rand);
+  background: var(--flaeche);
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding: var(--a-4) var(--a-5) var(--a-3);
+}
+
+.list-title {
+  font-family: var(--sf-gross);
   font-weight: 600;
-  color: #4a5560;
+  font-size: var(--t-xl);
+  letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Der Betreff ist anklickbar und soll trotzdem wie Text aussehen - sonst traegt jede
-   Zeile zwei hervorgehobene Elemente und zerfaellt optisch in lauter Verweise. Der
-   Klassenname steht doppelt, damit die Regel gegen .link-btn gewinnt. */
-.wartend-betreff.wartend-betreff {
+.list-count {
+  font-size: var(--t-s);
+  font-weight: 400;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.search-bar {
+  padding: 0 var(--a-5) var(--a-3);
+  border-bottom: 1px solid var(--rand-fein);
+}
+
+.search-bar input[type='search'] {
+  width: 100%;
+  padding: 8px var(--a-4);
+  border-radius: var(--r-voll);
+  background: var(--flaeche-hover);
+  border-color: transparent;
+  font-size: var(--t-n);
+}
+
+.search-bar input[type='search']:focus {
+  background: var(--flaeche);
+  border-color: var(--marke);
+}
+
+.search-options {
+  display: flex;
+  align-items: center;
+  gap: var(--a-4);
+  margin-top: var(--a-2);
+  min-height: 18px;
+}
+
+.message-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/*
+ * Feste Zeilenhöhe: Betreffs auf eine Zeile mit Auslassung. Vorher brachen sie auf
+ * zwei bis drei Zeilen um, wodurch die Liste unruhig wurde und nur 13 Mails
+ * gleichzeitig sichtbar waren. Zeilenhöhe bewusst knapp gehalten: bei 31.700
+ * Nachrichten zählt jede Zeile, die zusätzlich auf den Bildschirm passt.
+ */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-3);
+  padding: 7px var(--a-5) 8px var(--a-4);
+  border-bottom: 1px solid var(--rand-fein);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background var(--weich);
+}
+
+.message-row:hover {
+  background: var(--flaeche-hover);
+}
+
+.message-row.active {
+  background: var(--marke-leise);
+  border-left-color: var(--marke);
+}
+
+/* Ungelesenes trägt links einen Balken in der Kontofarbe. Bei mehreren Konten in einer
+   Trefferliste ist damit ohne Zusatzzeile erkennbar, wohin eine Nachricht gehört. */
+.message-row.unread {
+  border-left-color: var(--konto-farbe);
+}
+
+.message-row.checked {
+  background: color-mix(in srgb, var(--marke) 8%, var(--flaeche));
+}
+
+.row-check {
+  margin-top: 2px;
+  flex-shrink: 0;
+  opacity: 0.3;
+  transition: opacity var(--weich);
+}
+
+.message-row:hover .row-check,
+.row-check:checked,
+.row-check:focus-visible {
+  opacity: 1;
+}
+
+.row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a-2);
+}
+
+.row-sender {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-n);
+  line-height: 17px;
+  color: var(--text-2);
+}
+
+.message-row.unread .row-sender {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.row-clip {
+  font-size: var(--t-s);
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.row-date {
+  font-size: var(--t-s);
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.message-row.unread .row-date {
+  color: var(--marke);
+  font-weight: 600;
+}
+
+.row-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-n);
+  line-height: 17px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+.message-row.unread .row-subject {
+  color: var(--text-2);
+}
+
+/* Herkunft eines Treffers bei Suche über mehrere Ordner oder Konten. */
+.row-herkunft {
+  margin-top: 2px;
+  font-size: var(--t-xs);
+  color: var(--text-aus);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--t-m);
+  color: var(--text-2);
+}
+
+.load-more {
+  display: block;
+  width: 100%;
+  padding: var(--a-4);
+  border: none;
+  border-top: 1px solid var(--rand-fein);
+  background: var(--flaeche-leise);
+  color: var(--marke);
+  font-family: inherit;
+  font-size: var(--t-n);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--weich);
+}
+
+.load-more:hover:not(:disabled) {
+  background: var(--marke-leise);
+}
+
+.load-more:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+/*
+ * Gespräche. Die Kopfzeile trägt ein Dreieck zum Aufklappen statt eines Kästchens -
+ * ein Gespräch als Ganzes anzukreuzen wäre missverständlich, weil Sammelaktionen auf
+ * einzelne Nachrichten wirken.
+ */
+.gruppieren-schalter {
+  padding: 3px 10px;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-voll);
+  background: var(--flaeche);
+  color: var(--text-3);
+  font-size: var(--t-s);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--weich), border-color var(--weich), color var(--weich);
+}
+
+.gruppieren-schalter:hover {
+  border-color: var(--rand-stark);
+  color: var(--text-2);
+}
+
+.gruppieren-schalter.an {
+  border-color: var(--marke-rand);
+  background: var(--marke-leise);
+  color: var(--marke);
+  font-weight: 600;
+}
+
+.gespraech-schalter {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
   padding: 0;
-  text-align: left;
-  font-size: 13px;
-  font-weight: 600;
-  color: #26313c;
-  text-decoration: none;
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  color: var(--text-3);
+  font-size: var(--t-s);
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
 }
 
-.wartend-betreff.wartend-betreff:hover {
+.gespraech-schalter:hover {
+  background: var(--flaeche-tief);
+  color: var(--text);
+}
+
+.gespraech-anzahl {
+  flex-shrink: 0;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: var(--r-voll);
+  background: var(--flaeche-tief);
+  color: var(--text-2);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.message-row.unread .gespraech-anzahl {
+  background: var(--marke);
+  color: #fff;
+}
+
+/* Nachrichten innerhalb eines aufgeklappten Gesprächs. */
+.message-row.im-gespraech {
+  padding-left: 30px;
+  background: var(--flaeche-leise);
+}
+
+.message-row.im-gespraech .row-sender {
+  font-size: var(--t-m);
+}
+
+/* Ausgeklappte Sucheinschränkungen. Bewusst zurückhaltend: sie stehen über der Liste
+   und dürfen ihr nicht die Aufmerksamkeit nehmen. */
+.such-bereich {
+  font-size: var(--t-s);
+  padding: 3px var(--a-2);
+  padding-right: 22px;
+  border-radius: var(--r-1);
+  background: var(--flaeche-hover);
+  border-color: transparent;
+}
+
+.such-felder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-3);
+  margin-top: var(--a-3);
+  padding: var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+}
+
+.such-felder label {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  font-size: var(--t-m);
+  color: var(--text-2);
+}
+
+.such-felder label > span {
+  flex: 0 0 52px;
+}
+
+.such-felder input[type='text'],
+.such-felder input[type='date'] {
+  flex: 1;
+  min-width: 0;
+  padding: 5px var(--a-3);
+  font-size: var(--t-m);
+}
+
+.such-zeitraum {
+  display: flex;
+  gap: var(--a-3);
+}
+
+.such-zeitraum label {
+  flex: 1;
+}
+
+.such-zeitraum label > span {
+  flex: 0 0 auto;
+}
+
+.such-schalter {
+  display: flex;
+  gap: var(--a-5);
+  flex-wrap: wrap;
+}
+
+.such-schalter label {
+  gap: var(--a-2);
+}
+
+/* ==========================================================================
+ * Leseansicht
+ * ========================================================================== */
+
+.reader-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--flaeche);
+}
+
+.reader {
+  padding: var(--a-6) var(--a-7);
+  overflow-y: auto;
+  /* Der einzige Ort, an dem Text markiert werden können muss - hier steht der Inhalt
+     einer fremden Nachricht, den man zitieren oder herauskopieren will. */
+  user-select: text;
+  cursor: auto;
+}
+
+.mail-head {
+  padding-bottom: var(--a-5);
+  border-bottom: 1px solid var(--rand-fein);
+}
+
+.mail-head h2 {
+  margin: 0 0 var(--a-4);
+  font-family: var(--sf-gross);
+  font-size: var(--t-3xl);
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+}
+
+.mail-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a-4);
+}
+
+.mail-from {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mail-from-name {
+  font-weight: 600;
+  font-size: var(--t-l);
+}
+
+.mail-from-address {
+  color: var(--text-3);
+  font-size: var(--t-m);
+  margin-left: var(--a-2);
+}
+
+.mail-date {
+  color: var(--text-3);
+  font-size: var(--t-m);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.mail-to {
+  color: var(--text-3);
+  font-size: var(--t-m);
+  margin-top: var(--a-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar {
+  margin: var(--a-5) 0;
+  display: flex;
+  gap: var(--a-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/*
+ * Der Bogen, auf dem der Inhalt einer fremden Nachricht steht.
+ *
+ * Bleibt hell, auch wenn die Anwendung dunkel läuft - der Grund dafür steht bei
+ * GRUNDSTIL in MessageView.tsx. Damit das nicht wie ein Versehen aussieht, ist er
+ * ausdrücklich als eigene Fläche gerahmt: heller Bogen in einem dunklen Fenster ist
+ * dann erkennbar "die Nachricht" und nicht "hier fehlt die Farbe".
+ */
+.mail-bogen {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: #fff;
+  overflow: hidden;
+}
+
+:root[data-thema='dunkel'] .mail-bogen {
+  /* Im Dunkeln braucht der helle Bogen etwas Abstand nach außen, sonst schneidet die
+     Kante hart ins Fenster. */
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), var(--schatten-2);
+}
+
+/* Nachrichten ohne HTML-Teil. Kein fremdes Markup, deshalb auf der Fläche der
+   Anwendung und in der gewählten Ansicht. */
+.mail-text {
+  margin: 0;
+  padding: var(--a-2) 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-family: inherit;
+  font-size: var(--t-l);
+  line-height: 1.62;
+  color: var(--text);
+}
+
+.move-select {
+  padding: 7px var(--a-3);
+  font-size: var(--t-n);
+}
+
+.attachments {
+  margin-top: var(--a-6);
+  border-top: 1px solid var(--rand-fein);
+  padding-top: var(--a-5);
+  font-size: var(--t-n);
+}
+
+.attachments ul {
+  list-style: none;
+  padding: 0;
+  margin: var(--a-3) 0 0;
+}
+
+.attachments li {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding: var(--a-3) var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+  margin-bottom: var(--a-2);
+  max-width: 460px;
+  transition: border-color var(--weich), background var(--weich);
+}
+
+.attachments li:hover {
+  border-color: var(--marke-rand);
+  background: var(--marke-leise);
+}
+
+.attachments a {
+  color: var(--marke);
+  text-decoration: none;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.attachments a:hover {
   text-decoration: underline;
 }
 
-/* Die Uebersicht kann lang werden - sie soll das Fenster nicht sprengen. */
-.modal .wartend-zeile:last-of-type {
-  border-bottom: none;
+.attachment-size {
+  color: var(--text-3);
+  font-size: var(--t-m);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
-.wartend-schalter {
+/* Sammelaktionsleiste über der Leseansicht. */
+.bulk-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 2px 0 6px;
-  font-size: 12px;
-  color: #6b7480;
-  cursor: pointer;
+  gap: var(--a-3);
+  flex-wrap: wrap;
+  padding: var(--a-3) var(--a-5);
+  background: var(--marke-leise);
+  border-bottom: 1px solid var(--marke-rand);
+  flex-shrink: 0;
 }
 
-/* Meldung mit Bedenkzeit nach dem Absenden. Unten mittig statt oben rechts: dort
-   liegt der Blick nach dem Klick auf "Senden", und sie verdeckt nichts. */
-.sende-meldung {
+.bulk-count {
+  font-size: var(--t-n);
+  font-weight: 600;
+  margin-right: var(--a-1);
+  color: var(--marke);
+}
+
+.bulk-busy {
+  font-size: var(--t-m);
+  color: var(--text-2);
+}
+
+/*
+ * Leerer Bereich. Vorher grauer Text am oberen Rand - jetzt mittig, mit einem
+ * angedeuteten Zeichen darüber. Der Unterschied ist nicht Schmuck: an dieser Stelle
+ * steht "es ist nichts da" gegen "es ist etwas kaputt", und eine ruhige, absichtlich
+ * gestaltete Fläche beantwortet das ohne Worte.
+ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a-3);
+  padding: var(--a-7) var(--a-5);
+  min-height: 160px;
+  color: var(--text-3);
+  font-size: var(--t-n);
+  text-align: center;
+}
+
+.empty-state svg {
+  color: var(--rand-stark);
+}
+
+.sidebar .empty-state,
+.such-felder .empty-state {
+  min-height: 0;
+  padding: var(--a-4);
+  font-size: var(--t-m);
+}
+
+/* ==========================================================================
+ * Schwebendes: Fenster, Menüs, Vorschläge
+ * ========================================================================== */
+
+.modal-backdrop {
   position: fixed;
-  bottom: 22px;
+  inset: 0;
+  z-index: 300;
+  background: var(--schleier);
+  /* Weichzeichnung dahinter: das Fenster darunter bleibt als Zusammenhang erkennbar,
+     tritt aber deutlich zurück. Ohne sie wirkte der Schleier wie eine Fehlfarbe. */
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--a-6);
+  animation: einblenden var(--weich) both;
+}
+
+.modal {
+  background: var(--erhoben);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-3);
+  box-shadow: var(--schatten-3);
+  width: 480px;
+  max-width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--a-6);
+  animation: auftauchen var(--weich-lang) both;
+}
+
+.modal-wide {
+  width: 760px;
+  max-height: 88vh;
+}
+
+.modal h3 {
+  margin: 0 0 var(--a-5);
+  font-family: var(--sf-gross);
+  font-size: var(--t-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.modal h4 {
+  margin: var(--a-5) 0 var(--a-3);
+  font-size: var(--t-l);
+  font-weight: 600;
+}
+
+.modal p {
+  font-size: var(--t-n);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+@keyframes einblenden {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes auftauchen {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+/* Kontextmenü der Ordnerzeilen. Liegt über allem, folgt aber der Gestaltung der
+   übrigen Menüs: eigene Fläche, feine Trennung, klare Hervorhebung des Unumkehrbaren. */
+.kontextmenue {
+  position: fixed;
+  z-index: 400;
+  min-width: 224px;
+  padding: var(--a-1);
+  background: var(--erhoben);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  box-shadow: var(--schatten-2);
+  animation: auftauchen var(--weich) both;
+}
+
+.kontextmenue-eintrag {
+  display: block;
+  width: 100%;
+  padding: 7px var(--a-4);
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  font-size: var(--t-n);
+  font-family: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--weich);
+}
+
+.kontextmenue-eintrag:hover:not(:disabled) {
+  background: var(--flaeche-hover);
+}
+
+.kontextmenue-eintrag:disabled {
+  color: var(--text-aus);
+  cursor: default;
+}
+
+.kontextmenue-eintrag.gefaehrlich:not(:disabled) {
+  color: var(--fehler);
+}
+
+.kontextmenue-eintrag.gefaehrlich:hover:not(:disabled) {
+  background: var(--fehler-grund);
+}
+
+/* Adressvorschläge beim Verfassen. */
+.address-input {
+  position: relative;
+}
+
+.address-input input {
+  width: 100%;
+}
+
+.suggestions {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin: var(--a-1) 0 0;
+  padding: var(--a-1);
+  list-style: none;
+  background: var(--erhoben);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  box-shadow: var(--schatten-2);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.suggestions li {
+  padding: var(--a-2) 10px;
+  border-radius: var(--r-1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--t-n);
+}
+
+.suggestions li.active {
+  background: var(--marke-leise);
+}
+
+.suggestion-name {
+  font-weight: 600;
+}
+
+.suggestion-address {
+  color: var(--text-3);
+  font-size: var(--t-m);
+}
+
+/* ==========================================================================
+ * Meldungen
+ *
+ * Vorher gab es genau eine Art: einen roten Kasten oben in der Mitte. Alles andere -
+ * "gesendet", "Regel angelegt", "Anmeldung erneuert" - blieb unbestätigt oder wurde als
+ * Fehler gemeldet, weil es keinen anderen Weg gab. Jetzt gibt es vier Stufen, und
+ * Erfreuliches verschwindet von selbst wieder, während Fehler stehen bleiben, bis man
+ * sie gelesen hat.
+ * ========================================================================== */
+
+.meldungen {
+  position: fixed;
+  top: calc(var(--leiste-hoehe) + var(--a-4));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-3);
+  width: min(560px, 76vw);
+  pointer-events: none;
+}
+
+.meldung {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-4);
+  padding: var(--a-4) var(--a-5);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--erhoben);
+  box-shadow: var(--schatten-2);
+  font-size: var(--t-n);
+  line-height: 1.45;
+  pointer-events: auto;
+  animation: meldung-ein var(--weich-lang) both;
+}
+
+@keyframes meldung-ein {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.meldung.geht {
+  animation: meldung-aus var(--weich) both;
+}
+
+@keyframes meldung-aus {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.meldung-symbol {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 11px 16px;
-  border-radius: 9px;
-  background: #29313a;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+
+.meldung-text {
+  flex: 1;
+  min-width: 0;
+  user-select: text;
+}
+
+.meldung-titel {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.meldung-text p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--t-m);
+}
+
+.meldung.fehler {
+  border-color: var(--fehler-rand);
+  background: var(--fehler-grund);
+}
+.meldung.fehler .meldung-symbol,
+.meldung.fehler .meldung-titel {
+  color: var(--fehler);
+}
+
+.meldung.warnung {
+  border-color: var(--warn-rand);
+  background: var(--warn-grund);
+}
+.meldung.warnung .meldung-symbol,
+.meldung.warnung .meldung-titel {
+  color: var(--warn);
+}
+
+.meldung.gut {
+  border-color: var(--gut-rand);
+  background: var(--gut-grund);
+}
+.meldung.gut .meldung-symbol,
+.meldung.gut .meldung-titel {
+  color: var(--gut);
+}
+
+.meldung.hinweis {
+  border-color: var(--marke-rand);
+  background: var(--marke-leise);
+}
+.meldung.hinweis .meldung-symbol,
+.meldung.hinweis .meldung-titel {
+  color: var(--marke);
+}
+
+/* Der Zeitstreifen zeigt, wie lange eine Meldung noch steht. Ohne ihn wirkt das
+   Verschwinden willkürlich; mit ihm ist es angekündigt. */
+.meldung-zeit {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.35;
+  border-radius: 0 0 0 var(--r-2);
+  animation: meldung-zeit linear both;
+}
+
+.meldung {
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes meldung-zeit {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}
+
+/* Meldung mit Bedenkzeit nach dem Absenden. Unten mittig statt oben: dort liegt der
+   Blick nach dem Klick auf "Senden", und sie verdeckt nichts. */
+.sende-meldung {
+  position: fixed;
+  bottom: var(--a-6);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--a-5);
+  padding: var(--a-4) var(--a-5);
+  border-radius: var(--r-2);
+  background: #202834;
   color: #fff;
-  font-size: 13px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+  font-size: var(--t-n);
+  box-shadow: var(--schatten-3);
+  animation: meldung-ein var(--weich-lang) both;
 }
 
 .sende-meldung .btn.secondary {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.4);
   background: transparent;
   color: #fff;
-  padding: 3px 12px;
-  font-size: 12px;
+  padding: 4px var(--a-4);
+  font-size: var(--t-m);
 }
 
 .sende-meldung .btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.65);
 }
 
-/* Absender-Übersicht beim Aufräumen. Tabelle statt Liste: hier werden Zahlen
-   verglichen, und dafür müssen sie untereinander stehen. */
-.absender-tabelle {
+/* Ein Ring, der abläuft: dieselbe Auskunft wie ein Text ("noch 5 s"), aber ohne dass
+   man sie lesen müsste. */
+.sende-ring {
+  flex-shrink: 0;
+  transform: rotate(-90deg);
+}
+
+.sende-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.sende-ring .bahn {
+  stroke: rgba(255, 255, 255, 0.25);
+}
+
+.sende-ring .lauf {
+  stroke: var(--blitz-rein);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* Bänder innerhalb von Fenstern - für Rückmeldungen, die an ihrer Stelle bleiben
+   müssen, statt oben zu erscheinen. */
+.success-banner,
+.error-banner {
+  padding: var(--a-3) var(--a-4);
+  font-size: var(--t-n);
+  border-radius: var(--r-1);
+  border: 1px solid;
+  margin-bottom: var(--a-3);
+}
+
+.success-banner {
+  background: var(--gut-grund);
+  border-color: var(--gut-rand);
+  color: var(--gut);
+}
+
+.error-banner {
+  background: var(--fehler-grund);
+  border-color: var(--fehler-rand);
+  color: var(--fehler);
+}
+
+/* ==========================================================================
+ * Dialoge
+ *
+ * Ersetzen die Fenster des Browsers (confirm, prompt, alert). Die trugen den Namen der
+ * Anwendung in der Titelzeile, ließen sich nicht gestalten, boten nur "OK/Abbrechen"
+ * und blockierten das ganze Programm - bei der Frage nach dem Wiedervorlagezeitpunkt
+ * stand deshalb bis hierher eine Liste "1 = in drei Stunden, 2 = heute Abend" in einem
+ * einzeiligen Eingabefeld.
+ * ========================================================================== */
+
+.dialog {
+  width: 440px;
+  padding: var(--a-6);
+}
+
+.dialog-kopf {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-4);
+  margin-bottom: var(--a-5);
+}
+
+.dialog-symbol {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--marke-leise);
+  color: var(--marke);
+}
+
+.dialog.gefahr .dialog-symbol {
+  background: var(--fehler-grund);
+  color: var(--fehler);
+}
+
+.dialog.warnung .dialog-symbol {
+  background: var(--warn-grund);
+  color: var(--warn);
+}
+
+.dialog.gut .dialog-symbol {
+  background: var(--gut-grund);
+  color: var(--gut);
+}
+
+.dialog-titel {
+  margin: 3px 0 0;
+  font-family: var(--sf-gross);
+  font-size: var(--t-xl);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.dialog-text {
+  margin: var(--a-2) 0 0;
+  font-size: var(--t-n);
+  line-height: 1.55;
+  color: var(--text-2);
+  /* Meldungen kommen teilweise mit Absätzen aus mehreren Sätzen. */
+  white-space: pre-line;
+  user-select: text;
+}
+
+.dialog-koerper {
+  margin-bottom: var(--a-5);
+}
+
+.dialog-koerper input[type='text'],
+.dialog-koerper input[type='datetime-local'] {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
+  padding: 9px var(--a-4);
+  font-size: var(--t-l);
 }
 
-.absender-tabelle th {
-  padding: 6px 8px;
-  border-bottom: 1px solid #dde1e6;
-  font-size: 11px;
-  font-weight: 600;
-  color: #8b939c;
+.dialog-fuss {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--a-3);
+}
+
+/* Bei einem unumkehrbaren Schritt trägt der bestätigende Knopf die Warnfarbe - und
+   nicht die des Programms, die sonst überall "das ist der übliche Weg" bedeutet. */
+.dialog.gefahr .btn:not(.secondary) {
+  background: var(--fehler);
+  color: #fff;
+}
+
+.dialog.gefahr .btn:not(.secondary):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--fehler) 82%, #000);
+}
+
+/*
+ * Zeitpunktwahl - für "später senden" und "Wiedervorlage".
+ *
+ * Beide Male geht es um "nachher" und nicht um einen Zeitstempel; deshalb stehen die
+ * vier üblichen Antworten als Knöpfe da, und das freie Feld darunter ist der Ausweg
+ * für den seltenen Fall, dass es doch ein bestimmter Termin sein muss.
+ */
+.zeitwahl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--a-3);
+}
+
+.zeitwahl-knopf {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche);
+  font-family: inherit;
   text-align: left;
+  cursor: pointer;
+  transition: border-color var(--weich), background var(--weich), transform var(--weich);
 }
 
-.absender-tabelle td {
-  padding: 7px 8px;
-  border-bottom: 1px solid #eef1f4;
-  vertical-align: top;
+.zeitwahl-knopf:hover {
+  border-color: var(--marke);
+  background: var(--marke-leise);
 }
 
-.absender-tabelle .zahl {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.zeitwahl-knopf:active {
+  transform: translateY(1px);
 }
 
-.absender-name {
+.zeitwahl-knopf b {
+  font-size: var(--t-n);
   font-weight: 600;
-  color: #222;
+  color: var(--text);
 }
 
-.absender-adresse {
-  font-size: 11px;
-  color: #8b939c;
+.zeitwahl-knopf span {
+  font-size: var(--t-s);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.zeitwahl-eigen {
+  margin-top: var(--a-5);
+  padding-top: var(--a-5);
+  border-top: 1px solid var(--rand-fein);
+}
+
+.zeitwahl-eigen > span {
+  display: block;
+  margin-bottom: var(--a-2);
+  font-size: var(--t-m);
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+ * Aktualisierung
+ *
+ * Der Ablauf lief bis hierher unsichtbar: geladen wurde im Stillen, und erst am Ende
+ * erschien ein Systemfenster mit zwei Knöpfen. Wer bei schmaler Leitung nachsah, warum
+ * das Programm Daten zieht, fand nichts. Jetzt steht der Fortschritt in der Ecke, und
+ * was sich geändert hat, ist nachlesbar.
+ * ========================================================================== */
+
+.aktualisierung {
+  position: fixed;
+  right: var(--a-6);
+  bottom: var(--a-6);
+  z-index: 450;
+  width: 360px;
+  padding: var(--a-5);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-3);
+  background: var(--erhoben);
+  box-shadow: var(--schatten-3);
+  animation: karte-ein var(--weich-lang) both;
+}
+
+@keyframes karte-ein {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.aktualisierung-kopf {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin-bottom: var(--a-3);
+}
+
+.aktualisierung-kopf svg {
+  color: var(--marke);
+  flex-shrink: 0;
+}
+
+.aktualisierung-kopf strong {
+  flex: 1;
+  font-size: var(--t-l);
+  font-weight: 600;
+}
+
+.aktualisierung p {
+  margin: 0 0 var(--a-4);
+  font-size: var(--t-m);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.aktualisierung-balken {
+  height: 6px;
+  border-radius: var(--r-voll);
+  background: var(--flaeche-tief);
+  overflow: hidden;
+  margin-bottom: var(--a-2);
+}
+
+.aktualisierung-fortschritt {
+  height: 100%;
+  border-radius: var(--r-voll);
+  /* Der Blitz aus dem Programmsymbol - die einzige Stelle, an der das Gelb als Fläche
+     auftritt. Es passt hier, weil "wird geladen" das einzige Geschehen im Fenster ist. */
+  background: linear-gradient(90deg, var(--marke), var(--blitz-rein));
+  transition: width var(--weich-lang);
+}
+
+.aktualisierung-zahlen {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--t-s);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--a-4);
+}
+
+/* Was sich geändert hat. Aus der Veröffentlichung übernommen, deshalb in der Höhe
+   begrenzt - manche Einträge sind lang. */
+.aktualisierung-neuerungen {
+  max-height: 168px;
+  overflow-y: auto;
+  margin: 0 0 var(--a-4);
+  padding: var(--a-3) var(--a-4);
+  border-radius: var(--r-1);
+  background: var(--flaeche-leise);
+  border: 1px solid var(--rand-fein);
+  font-size: var(--t-m);
+  line-height: 1.55;
+  color: var(--text-2);
+  user-select: text;
+}
+
+.aktualisierung-neuerungen :first-child {
+  margin-top: 0;
+}
+
+.aktualisierung-neuerungen :last-child {
+  margin-bottom: 0;
+}
+
+.aktualisierung-neuerungen ul {
+  padding-left: var(--a-5);
+  margin: var(--a-2) 0;
+}
+
+.aktualisierung-fuss {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+}
+
+.aktualisierung-fuss .btn {
+  flex: 1;
+}
+
+/* ==========================================================================
+ * Verfassen-Fenster und Editor
+ * ========================================================================== */
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+  padding: var(--a-3) 0;
+}
+
+.form-row label {
+  display: flex;
+  align-items: baseline;
+  font-size: var(--t-m);
+  color: var(--text-2);
+}
+
+.form-row input,
+.form-row textarea {
+  width: 100%;
+}
+
+.editor {
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  overflow: hidden;
+  background: var(--flaeche);
+  transition: border-color var(--weich), box-shadow var(--weich);
+}
+
+.editor:focus-within {
+  border-color: var(--marke);
+  box-shadow: var(--fokus);
+}
+
+.editor-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: var(--a-1);
+  background: var(--flaeche-leise);
+  border-bottom: 1px solid var(--rand-fein);
+  flex-wrap: wrap;
+}
+
+.editor-toolbar button {
+  min-width: 30px;
+  height: 27px;
+  padding: 0 var(--a-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-1);
+  background: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--t-n);
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
+}
+
+.editor-toolbar button:hover:not(:disabled) {
+  background: var(--marke-leise);
+  color: var(--marke);
+}
+
+.editor-toolbar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.baustein-wahl {
+  height: 27px;
+  padding: 0 24px 0 var(--a-3);
+  font-size: var(--t-m);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.baustein-wahl:hover {
+  background-color: var(--flaeche-hover);
+}
+
+.editor-body {
+  min-height: 200px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: var(--a-4);
+  font-size: var(--t-l);
+  line-height: 1.6;
+  outline: none;
+  user-select: text;
+  cursor: text;
+}
+
+.editor-body blockquote.zitat {
+  margin: var(--a-3) 0 var(--a-3) var(--a-1);
+  padding-left: var(--a-4);
+  border-left: 2px solid var(--marke-rand);
+  color: var(--text-2);
+}
+
+.compose-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a-4);
+  padding-top: var(--a-5);
+  margin-top: var(--a-5);
+  border-top: 1px solid var(--rand-fein);
+  flex-wrap: wrap;
+}
+
+.compose-actions {
+  display: flex;
+  gap: var(--a-3);
+  margin-left: auto;
+}
+
+.draft-state {
+  font-size: var(--t-m);
+  color: var(--text-3);
+}
+
+.draft-attachments {
+  list-style: none;
+  padding: 0;
+  margin: var(--a-3) 0 0;
+}
+
+.draft-attachments li {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding: var(--a-2) var(--a-3);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-1);
+  background: var(--flaeche-leise);
+  margin-bottom: var(--a-1);
+  font-size: var(--t-n);
+}
+
+.draft-attachment-name {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.absender-aktionen {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
   white-space: nowrap;
 }
 
-/* Regeln. Eine Regel ist ein Satz ("Wenn …, dann …"), deshalb steht sie auch als
-   Satz da - eine Tabelle aus Feldern wäre schwerer zu überfliegen. */
+/* ==========================================================================
+ * Anmeldung und Einrichtung
+ * ========================================================================== */
+
+.oauth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a-2);
+  flex-wrap: wrap;
+  text-align: center;
+  font-size: var(--t-m);
+  padding: 9px;
+  width: 100%;
+}
+
+.badge-setup {
+  background: var(--warn-grund);
+  color: var(--warn);
+  border: 1px solid var(--warn-rand);
+  border-radius: var(--r-voll);
+  padding: 1px var(--a-2);
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+
+.badge-ok {
+  background: var(--gut-grund);
+  color: var(--gut);
+  border: 1px solid var(--gut-rand);
+  border-radius: var(--r-voll);
+  padding: 1px var(--a-2);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  margin-left: var(--a-2);
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  text-align: center;
+  font-size: var(--t-s);
+  color: var(--text-aus);
+  margin: var(--a-2) 0;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rand);
+}
+
+.provider-tabs {
+  display: flex;
+  gap: var(--a-2);
+  margin-bottom: var(--a-5);
+  padding: var(--a-1);
+  background: var(--flaeche-tief);
+  border-radius: var(--r-2);
+}
+
+.provider-tabs button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--t-n);
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
+}
+
+.provider-tabs button:hover {
+  color: var(--text);
+}
+
+.provider-tabs button.active {
+  background: var(--flaeche);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--schatten-1);
+}
+
+.setup-steps {
+  font-size: var(--t-n);
+  line-height: 1.7;
+  color: var(--text-2);
+  margin: 0 0 var(--a-4);
+  padding-left: var(--a-6);
+  user-select: text;
+}
+
+.setup-steps a {
+  color: var(--marke);
+}
+
+/* ==========================================================================
+ * Regeln, Aufräumen, Liegengebliebenes
+ * ========================================================================== */
+
+/* Eine Regel ist ein Satz ("Wenn …, dann …"), deshalb steht sie auch als Satz da -
+   eine Tabelle aus Feldern wäre schwerer zu überfliegen. */
 .regel-zeile {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 9px 4px;
-  border-bottom: 1px solid #eef1f4;
-  font-size: 13px;
+  gap: var(--a-4);
+  padding: var(--a-3) var(--a-1);
+  border-bottom: 1px solid var(--rand-fein);
+  font-size: var(--t-n);
 }
 
 .regel-zeile.inaktiv {
@@ -350,53 +2359,36 @@ body {
 }
 
 .regel-text span {
-  font-size: 12px;
-  color: #6b7480;
-}
-
-.link-btn.gefaehrlich {
-  color: #b3261e;
-}
-
-/* Ein gesperrter Knopf muss auch gesperrt aussehen. Ohne das war er von einem
-   anklickbaren nicht zu unterscheiden - der Zeiger blieb eine Hand, die Farbe die
-   der Anwendung, und erst der Klick zeigte, dass nichts geschieht. */
-.link-btn:disabled {
-  color: #adb4bb;
-  cursor: default;
-  text-decoration: none;
-}
-
-.link-btn:disabled:hover {
-  text-decoration: none;
+  font-size: var(--t-m);
+  color: var(--text-3);
 }
 
 .regel-form {
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid #e4e8ec;
-  border-radius: 8px;
-  background: #fafbfc;
+  margin-top: var(--a-5);
+  padding: var(--a-5);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
 }
 
 .regel-block {
-  margin: 10px 0;
+  margin: var(--a-4) 0;
 }
 
 .regel-block > strong {
   display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: #444;
+  margin-bottom: var(--a-2);
+  font-size: var(--t-m);
+  color: var(--text-2);
 }
 
 .regel-block label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  font-size: 12.5px;
-  color: #555;
+  gap: var(--a-3);
+  margin-bottom: var(--a-2);
+  font-size: var(--t-m);
+  color: var(--text-2);
 }
 
 .regel-block label > span {
@@ -407,11 +2399,8 @@ body {
 .regel-block select {
   flex: 1;
   min-width: 0;
-  padding: 4px 7px;
-  border: 1px solid #d8dde2;
-  border-radius: 5px;
-  font-size: 12.5px;
-  font-family: inherit;
+  padding: 5px var(--a-3);
+  font-size: var(--t-m);
 }
 
 .regel-block label.regel-kasten > input {
@@ -419,1169 +2408,161 @@ body {
 }
 
 .regel-vorschau {
-  margin: 10px 0;
-  padding: 9px 11px;
-  border-left: 3px solid var(--accent);
-  border-radius: 0 6px 6px 0;
-  background: color-mix(in srgb, var(--accent) 7%, #fff);
-  font-size: 12px;
-  color: #444;
+  margin: var(--a-4) 0;
+  padding: var(--a-3) var(--a-4);
+  border-left: 3px solid var(--marke);
+  border-radius: 0 var(--r-1) var(--r-1) 0;
+  background: var(--marke-leise);
+  font-size: var(--t-m);
+  line-height: 1.55;
+  color: var(--text-2);
 }
 
 .regel-vorschau strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: var(--a-1);
+  color: var(--text);
 }
 
 .regel-knoepfe {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--a-4);
 }
 
-/* Gespräche. Die Kopfzeile trägt ein Dreieck zum Aufklappen statt eines Kästchens -
-   ein Gespräch als Ganzes anzukreuzen wäre missverständlich, weil Sammelaktionen auf
-   einzelne Nachrichten wirken. */
-.gruppieren-schalter {
-  padding: 2px 8px;
-  border: 1px solid #d8dde2;
-  border-radius: 11px;
-  background: #fff;
-  color: #8b939c;
-  font-size: 11px;
-  font-family: inherit;
-  cursor: pointer;
+/* Absender-Übersicht beim Aufräumen. Tabelle statt Liste: hier werden Zahlen
+   verglichen, und dafür müssen sie untereinander stehen. */
+.absender-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-m);
 }
 
-.gruppieren-schalter.an {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, #fff);
-  color: color-mix(in srgb, var(--accent) 75%, #111);
-}
-
-.gespraech-schalter {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  color: #97a0aa;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.gespraech-schalter:hover {
-  background: #e4e8ec;
-  color: #333;
-}
-
-.gespraech-anzahl {
-  flex-shrink: 0;
-  min-width: 17px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: #e4e8ec;
-  color: #5a626b;
-  font-size: 10.5px;
+.absender-tabelle th {
+  padding: var(--a-2) var(--a-3);
+  border-bottom: 1px solid var(--rand);
+  font-size: var(--t-s);
   font-weight: 600;
-  text-align: center;
-}
-
-.message-row.unread .gespraech-anzahl {
-  background: var(--accent);
-  color: #fff;
-}
-
-/* Nachrichten innerhalb eines aufgeklappten Gesprächs. */
-.message-row.im-gespraech {
-  padding-left: 26px;
-  background: #fafbfc;
-}
-
-.message-row.im-gespraech .row-sender {
-  font-size: 12px;
-}
-
-/* Ausgeklappte Sucheinschränkungen. Bewusst zurückhaltend: sie stehen über der Liste
-   und dürfen ihr nicht die Aufmerksamkeit nehmen. */
-.such-bereich {
-  font-size: 11.5px;
-  padding: 2px 4px;
-  border: 1px solid #d8dde2;
-  border-radius: 5px;
-  background: #fff;
-  color: #555;
-  font-family: inherit;
-}
-
-.such-felder {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-top: 8px;
-  padding: 10px;
-  border: 1px solid #e4e8ec;
-  border-radius: 7px;
-  background: #fafbfc;
-}
-
-.such-felder label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: #555;
-}
-
-.such-felder label > span {
-  flex: 0 0 52px;
-}
-
-.such-felder input[type='text'],
-.such-felder input[type='date'] {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 7px;
-  border: 1px solid #d8dde2;
-  border-radius: 5px;
-  font-size: 12px;
-  font-family: inherit;
-}
-
-.such-zeitraum {
-  display: flex;
-  gap: 8px;
-}
-
-.such-zeitraum label {
-  flex: 1;
-}
-
-.such-zeitraum label > span {
-  flex: 0 0 auto;
-}
-
-.such-schalter {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.such-schalter label {
-  gap: 5px;
-}
-
-/* Herkunft eines Treffers bei Suche über mehrere Ordner oder Konten. */
-.row-herkunft {
-  margin-top: 2px;
-  font-size: 10.5px;
-  color: #8b939c;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Kontextmenü der Ordnerzeilen. Liegt über allem, folgt aber der Gestaltung der
-   übrigen Menüs: heller Grund, feine Trennung, klare Hervorhebung des Unumkehrbaren. */
-.kontextmenue {
-  position: fixed;
-  z-index: 100;
-  min-width: 216px;
-  padding: 4px;
-  background: #fff;
-  border: 1px solid #dde1e6;
-  border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
-}
-
-.kontextmenue-eintrag {
-  display: block;
-  width: 100%;
-  padding: 7px 12px;
-  border: none;
-  border-radius: 5px;
-  background: none;
-  font-size: 13px;
-  font-family: inherit;
-  color: #222;
-  text-align: left;
-  cursor: pointer;
-}
-
-.kontextmenue-eintrag:hover:not(:disabled) {
-  background: #eef1f5;
-}
-
-.kontextmenue-eintrag:disabled {
-  color: #a8b0b8;
-  cursor: default;
-}
-
-.kontextmenue-eintrag.gefaehrlich:not(:disabled) {
-  color: #b3261e;
-}
-
-.kontextmenue-eintrag.gefaehrlich:hover:not(:disabled) {
-  background: #fdeceb;
-}
-
-/* Abgelaufene Anmeldung: bewusst warnend statt in der Kontofarbe - hier ist etwas
-   kaputt, das der Nutzer selbst beheben muss. */
-.auth-warn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #c2410c;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.reauth-notice {
-  margin: 6px 10px 8px 12px;
-  padding: 10px 12px;
-  border: 1px solid #f0c9a8;
-  border-left: 3px solid #c2410c;
-  border-radius: 6px;
-  background: #fdf6f0;
-}
-
-.reauth-notice strong {
-  display: block;
-  font-size: 12px;
-  color: #9a3412;
-  margin-bottom: 4px;
-}
-
-.reauth-notice p {
-  margin: 0 0 8px;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: #6b5344;
-}
-
-.reauth-notice .btn {
-  width: 100%;
-}
-
-.folder-group {
-  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #9aa2ac;
-  padding: 8px 10px 3px 12px;
+  letter-spacing: 0.05em;
+  color: var(--text-aus);
+  text-align: left;
 }
 
-.folder-separator {
-  height: 1px;
-  background: #e8ebef;
-  margin: 6px 12px;
+.absender-tabelle td {
+  padding: var(--a-3);
+  border-bottom: 1px solid var(--rand-fein);
+  vertical-align: top;
 }
 
-.folder-toggle {
-  margin: 4px 0 0 12px;
-  font-size: 11px;
+.absender-tabelle tr:hover td {
+  background: var(--flaeche-hover);
 }
 
-.add-account {
-  margin-top: 6px;
-}
-
-/* --- Nachrichtenliste --- */
-.message-pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border-right: 1px solid #e3e6ea;
-  background: #fff;
-}
-
-.list-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px 10px;
-}
-
-.list-title {
-  font-weight: 600;
-  font-size: 14px;
-  flex: 1;
-}
-
-.search-bar {
-  padding: 0 14px 10px;
-  border-bottom: 1px solid #e8ebef;
-}
-
-.search-bar input[type='search'] {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1px solid #d8dce1;
-  border-radius: 16px;
-  font-size: 13px;
-  background: #f5f7f9;
-}
-
-.search-options {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-  min-height: 16px;
-}
-
-.message-scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-/* Feste Zeilenhöhe: Betreffs auf eine Zeile mit Auslassung. Vorher brachen sie auf
-   zwei bis drei Zeilen um, wodurch die Liste unruhig wurde und nur 13 Mails
-   gleichzeitig sichtbar waren. */
-/* Zeilenhöhe bewusst knapp gehalten: bei 31.700 Nachrichten zählt jede Zeile, die
-   zusätzlich auf den Bildschirm passt. Werte fest gesetzt statt vom Browser abhängig. */
-.message-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 6px 14px 7px 11px;
-  border-bottom: 1px solid #f0f2f4;
-  border-left: 3px solid transparent;
-  cursor: pointer;
-}
-
-.message-row:hover {
-  background: #f7f9fb;
-}
-
-.message-row.active {
-  background: color-mix(in srgb, var(--accent) 10%, #fff);
-  border-left-color: var(--accent);
-}
-
-.message-row.unread {
-  border-left-color: var(--accent);
-}
-
-.message-row.checked {
-  background: #eef3ff;
-}
-
-.row-check {
-  margin-top: 1px;
-  flex-shrink: 0;
-  opacity: 0.35;
-}
-
-.message-row:hover .row-check,
-.row-check:checked {
-  opacity: 1;
-}
-
-.row-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.row-top {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.row-sender {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  line-height: 17px;
-  color: #555;
-}
-
-.message-row.unread .row-sender {
-  font-weight: 700;
-  color: #111;
-}
-
-.row-clip {
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.row-date {
-  font-size: 11px;
-  color: #8b939c;
-  flex-shrink: 0;
+.absender-tabelle .zahl {
+  text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-.message-row.unread .row-date {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.row-subject {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  line-height: 17px;
-  color: #6b737c;
-  margin-top: 1px;
-}
-
-.message-row.unread .row-subject {
-  color: #333;
-}
-
-/* --- Mailkopf in der Leseansicht --- */
-.mail-head {
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e8ebef;
-}
-
-.mail-head h2 {
-  margin: 0 0 10px;
-  font-size: 19px;
-  line-height: 1.3;
-}
-
-.mail-meta {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.mail-from {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mail-from-name {
+.absender-name {
   font-weight: 600;
-  font-size: 14px;
+  color: var(--text);
 }
 
-.mail-from-address {
-  color: #8b939c;
-  font-size: 12px;
-  margin-left: 6px;
-}
-
-.mail-date {
-  color: #8b939c;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.mail-to {
-  color: #8b939c;
-  font-size: 12px;
-  margin-top: 3px;
+.absender-adresse {
+  font-size: var(--t-s);
+  color: var(--text-3);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.absender-aktionen {
+  display: flex;
+  gap: var(--a-4);
+  justify-content: flex-end;
   white-space: nowrap;
 }
 
-/* Rechte Spalte: Sammelaktionsleiste über der Leseansicht. */
-.reader-pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.bulk-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 10px 14px;
-  background: #eef3ff;
-  border-bottom: 1px solid #d4e0ff;
-  flex-shrink: 0;
-}
-
-.bulk-count {
-  font-size: 13px;
-  font-weight: 600;
-  margin-right: 4px;
-}
-
-.bulk-busy {
-  font-size: 12px;
-  color: #666;
-}
-
-.link-btn {
-  border: none;
-  background: none;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 11px;
-  padding: 0;
-  margin-left: 8px;
-}
-
-.link-btn:hover {
-  text-decoration: underline;
-}
-
-.form-row label {
-  display: flex;
-  align-items: baseline;
-}
-
-.list-count {
-  font-size: 11px;
-  font-weight: 400;
-  color: #888;
-}
-
-.load-more {
+/* Hinweis auf Wartendes und die zugehörige Übersicht. */
+.wartend-hinweis {
   display: block;
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-top: 1px solid #eee;
-  background: #fafafa;
-  color: #4a6cf7;
-  font-size: 13px;
-  cursor: pointer;
+  margin-bottom: var(--a-2);
+  margin-left: 0;
+  font-size: var(--t-m);
 }
 
-.load-more:hover:not(:disabled) {
-  background: #f0f4ff;
-}
-
-.load-more:disabled {
-  color: #999;
-  cursor: default;
-}
-
-.select-all {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
+/* Nur hervorgehoben, wenn tatsaechlich etwas aussteht - sonst stumpft es ab. */
+.wartend-hinweis.meldet {
   font-weight: 600;
 }
 
-.message-item {
+.wartend-titel {
+  margin: var(--a-5) 0 var(--a-1);
+  font-size: var(--t-s);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-aus);
+}
+
+.wartend-untertitel {
+  margin: var(--a-4) 0 2px;
+  font-size: var(--t-m);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.wartend-zeile {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--a-4);
+  padding: var(--a-3) 2px;
+  border-bottom: 1px solid var(--rand-fein);
 }
 
-.message-check {
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-
-.message-body {
+.wartend-text {
+  flex: 1;
   min-width: 0;
-  flex: 1;
-}
-
-.message-item.checked {
-  background: #eef3ff;
-}
-
-.draft-attachments {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
-}
-
-.draft-attachments li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
-  margin-bottom: 4px;
-  font-size: 13px;
-}
-
-.draft-attachment-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pane {
-  overflow-y: auto;
-  border-right: 1px solid #ddd;
-  background: #fff;
-}
-
-.pane-header {
-  padding: 12px;
-  font-weight: 600;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.list-item {
-  padding: 10px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.list-item:hover {
-  background: #f5f8ff;
-}
-
-.list-item.active {
-  background: #e6efff;
-}
-
-/* Gelesene Nachrichten treten optisch zurück, ungelesene stechen hervor. */
-.message-item .subject {
-  font-weight: 400;
-  font-size: 14px;
-  color: #444;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.message-item.unread .subject {
-  font-weight: 700;
-  color: #111;
-}
-
-.message-item .meta {
-  font-size: 12px;
-  color: #666;
-}
-
-.message-item.unread .meta {
-  color: #444;
-}
-
-.unread-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-}
-
-.folder-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.folder-name.unread {
-  font-weight: 700;
-}
-
-/* Container ohne eigene Nachrichten (z.B. Gmails "[Gmail]") */
-.folder-item.unselectable {
-  color: #aaa;
-  cursor: default;
-}
-
-.folder-item.unselectable:hover {
-  background: none;
-}
-
-.search-row {
-  gap: 6px;
-}
-
-.search-scope {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #666;
-  cursor: pointer;
-}
-
-.unread-badge {
-  background: var(--accent);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 10px;
-  padding: 1px 7px;
-  flex-shrink: 0;
-}
-
-.reader {
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.btn {
-  padding: 6px 12px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn.secondary {
-  background: #fff;
-  color: var(--accent);
-}
-
-.form-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 12px;
-}
-
-.form-row input,
-.form-row textarea {
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal {
-  background: #fff;
-  border-radius: 6px;
-  width: 480px;
-  max-width: 90vw;
-  padding: 16px;
-}
-
-.modal-wide {
-  width: 720px;
-  max-height: 88vh;
-  overflow-y: auto;
-}
-
-/* --- Editor für formatierten Text --- */
-.editor {
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.editor-toolbar {
-  display: flex;
   gap: 2px;
-  padding: 4px;
-  background: #f7f7f7;
-  border-bottom: 1px solid #e5e5e5;
-  flex-wrap: wrap;
+  font-size: var(--t-n);
 }
 
-.editor-toolbar button {
-  min-width: 30px;
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  background: none;
-  cursor: pointer;
-  font-size: 13px;
+.wartend-text span {
+  font-size: var(--t-s);
+  color: var(--text-3);
 }
 
-.editor-toolbar button:hover:not(:disabled) {
-  background: #e6efff;
-  border-color: #c7d8ff;
-}
-
-.editor-body {
-  min-height: 180px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  outline: none;
-}
-
-.editor-body blockquote.zitat {
-  margin: 8px 0 8px 4px;
-  padding-left: 10px;
-  border-left: 2px solid #c7d8ff;
-  color: #555;
-}
-
-/* --- Adressvorschläge --- */
-.address-input {
-  position: relative;
-}
-
-.address-input input {
-  width: 100%;
-}
-
-.suggestions {
-  position: absolute;
-  z-index: 20;
-  left: 0;
-  right: 0;
-  top: 100%;
-  margin: 2px 0 0;
+/* Der Betreff ist anklickbar und soll trotzdem wie Text aussehen - sonst traegt jede
+   Zeile zwei hervorgehobene Elemente und zerfaellt optisch in lauter Verweise. Der
+   Klassenname steht doppelt, damit die Regel gegen .link-btn gewinnt. */
+.wartend-betreff.wartend-betreff {
   padding: 0;
-  list-style: none;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.suggestions li {
-  padding: 6px 10px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  font-size: 13px;
-}
-
-.suggestions li.active {
-  background: #e6efff;
-}
-
-.suggestion-name {
+  margin-left: 0;
+  text-align: left;
+  font-size: var(--t-n);
   font-weight: 600;
-}
-
-.suggestion-address {
-  color: #666;
-  font-size: 12px;
-}
-
-/* --- Fußzeile des Verfassen-Fensters --- */
-.compose-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  flex-wrap: wrap;
-}
-
-.compose-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.draft-state {
-  font-size: 12px;
-  color: #777;
-}
-
-/* --- OAuth-Anmeldung und -Einrichtung --- */
-.oauth-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px 4px;
-  border-top: 1px solid #eee;
-}
-
-.oauth-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  text-align: center;
-  font-size: 12px;
-  padding: 8px;
-}
-
-.badge-setup {
-  background: #fff4e5;
-  color: #a15c00;
-  border: 1px solid #f0d5a8;
-  border-radius: 8px;
-  padding: 0 5px;
-  font-size: 10px;
-}
-
-.badge-ok {
-  background: #e7f6e9;
-  color: #1c6b2a;
-  border: 1px solid #b7e0bd;
-  border-radius: 8px;
-  padding: 0 5px;
-  font-size: 10px;
-  margin-left: 6px;
-}
-
-.oauth-divider {
-  text-align: center;
-  font-size: 11px;
-  color: #999;
-  margin: 4px 0 0;
-}
-
-.provider-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.provider-tabs button {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fafafa;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.provider-tabs button.active {
-  background: #e6efff;
-  border-color: #4a6cf7;
-  font-weight: 600;
-}
-
-.setup-steps {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #444;
-  margin: 0 0 12px;
-  padding-left: 22px;
-}
-
-.setup-steps a {
-  color: #4a6cf7;
-}
-
-.success-banner {
-  background: #e7f6e9;
-  color: #1c6b2a;
-  padding: 8px 12px;
-  font-size: 13px;
-  border-radius: 4px;
-  margin: 0 12px;
-}
-
-.error-banner {
-  background: #fdecea;
-  color: #b3261e;
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
-/* Fehler als Overlay, damit das App-Grid nicht verschoben wird. */
-.toast-error {
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  max-width: 70vw;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  background: #fdecea;
-  color: #b3261e;
-  border: 1px solid #f5c2bd;
-  border-radius: 6px;
-  padding: 10px 14px;
-  font-size: 13px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-}
-
-.account-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.account-email {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  flex: 1;
-}
-
-.new-mail-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-}
-
-.icon-btn {
-  border: none;
-  background: none;
-  color: #888;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 4px;
-}
-
-.icon-btn:hover {
-  color: #b3261e;
-}
-
-.account-form {
-  border-top: 1px solid #eee;
-  padding-bottom: 8px;
-}
-
-.hint {
-  padding: 0 12px;
-  margin: 4px 0 0;
-  font-size: 11px;
-  line-height: 1.45;
-  color: #777;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn.danger {
-  background: #fff;
-  color: #b3261e;
-  border-color: #e5a9a3;
-}
-
-.btn.danger:hover {
-  background: #fdecea;
-}
-
-.toolbar {
-  margin: 12px 0;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.attachments {
-  margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 12px;
-  font-size: 13px;
-}
-
-.attachments ul {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
-}
-
-.attachments li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
-  margin-bottom: 6px;
-  max-width: 460px;
-}
-
-.attachments a {
-  color: #4a6cf7;
+  color: var(--text);
   text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
 }
 
-.attachments a:hover {
+.wartend-betreff.wartend-betreff:hover {
+  color: var(--marke);
   text-decoration: underline;
 }
 
-.attachment-size {
-  color: #888;
-  font-size: 12px;
-  flex-shrink: 0;
+.modal .wartend-zeile:last-of-type {
+  border-bottom: none;
 }
 
-.move-select {
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 13px;
-  background: #fff;
-}
-
-.empty-state {
-  padding: 20px;
-  color: #888;
-  font-size: 13px;
-}
-
-/* --- Anbieterkennzeichen und Ordnersymbole --- */
-
-/* Rundes Kürzel in der Hausfarbe des Anbieters. Bewusst ein Buchstabe und kein Logo:
-   fremde Markenzeichen gehören nicht in die Anwendung. */
-.provider-badge {
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+.wartend-schalter {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.folder-icon {
-  flex-shrink: 0;
-  color: #97a0aa;
-}
-
-.folder-row.active .folder-icon {
-  color: var(--accent);
-}
-
-.folder-row:hover .folder-icon {
-  color: var(--accent);
-}
-
-/* Die Schriftfarbe des Zählers muss weiß bleiben - die aktive Ordnerzeile setzt eine
-   eigene Textfarbe, die sonst durchschlägt und den Zähler unlesbar macht. */
-.unread-badge {
-  color: #fff;
+  gap: var(--a-2);
+  margin: 2px 0 var(--a-2);
+  font-size: var(--t-m);
+  color: var(--text-3);
+  cursor: pointer;
 }

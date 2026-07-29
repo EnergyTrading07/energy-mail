@@ -1,4 +1,4 @@
-import { app, dialog } from 'electron';
+import { app } from 'electron';
 import electronUpdater from 'electron-updater';
 
 // electron-updater ist ein CommonJS-Paket; aus einem ES-Modul heraus kommt es als
@@ -16,6 +16,12 @@ const { autoUpdater } = electronUpdater;
  * Wohin geschaut wird, steht in app-update.yml im Paket - electron-builder legt die
  * Datei beim Bauen aus dem publish-Eintrag an. Da das Repository öffentlich ist, braucht
  * es dafür keinen Zugriffsschlüssel in der Anwendung.
+ *
+ * Was sich mit der Neugestaltung geändert hat: der Ablauf ist nicht mehr unsichtbar.
+ * Jeder Schritt wird als Zustand gemeldet, und die Oberfläche macht daraus die Karte
+ * unten rechts (Aktualisierung.tsx). Vorher lief alles im Stillen und meldete sich
+ * genau einmal, ganz am Ende, mit einem Systemfenster - wer wissen wollte, warum das
+ * Programm Daten zieht, fand nirgends eine Auskunft.
  */
 
 /** Abstand zwischen zwei Prüfungen, solange die Anwendung durchgehend läuft. */
@@ -26,7 +32,90 @@ export interface UpdateLogger {
   warn: (msg: string) => void;
 }
 
-export function starteAktualisierungspruefung(log: UpdateLogger): void {
+/** Muss zu packages/web/src/bruecke.d.ts passen. */
+export type Aktualisierungsstand =
+  | { phase: 'ruhe' }
+  | { phase: 'suche' }
+  | { phase: 'aktuell'; fassung: string }
+  | { phase: 'gefunden'; fassung: string; neuerungen?: string }
+  | { phase: 'laedt'; fassung: string; prozent: number; proSekunde: number }
+  | { phase: 'bereit'; fassung: string; neuerungen?: string }
+  | { phase: 'fehler'; grund: string };
+
+let stand: Aktualisierungsstand = { phase: 'ruhe' };
+let melde: (stand: Aktualisierungsstand) => void = () => {};
+
+/**
+ * Für die Abfrage beim Öffnen des Fensters.
+ *
+ * Nötig, weil die Prüfung schon läuft, bevor die Oberfläche zuhören kann - und weil sie
+ * nach einem Neuladen (F5) wieder von vorn zuhört. Ohne diesen Abruf wüsste sie danach
+ * nichts von einer bereits geladenen Fassung.
+ */
+export function holeAktualisierungsstand(): Aktualisierungsstand {
+  return stand;
+}
+
+function setze(neu: Aktualisierungsstand): void {
+  stand = neu;
+  melde(neu);
+}
+
+/**
+ * Die Angaben zur Veröffentlichung kommen als HTML von GitHub.
+ *
+ * Fremdes Markup gehört nicht ins Fenster - schon gar nicht ungeprüft aus dem Netz.
+ * Deshalb wird hier daraus schlichter Text: Aufzählungen behalten ihren Punkt, Absätze
+ * ihren Umbruch, alles andere fällt weg. Das reicht vollkommen; in einer Liste von
+ * Änderungen steht ohnehin nie mehr als ein Aufzählungspunkt je Zeile.
+ */
+function alsText(roh: string | { note: string | null }[] | null | undefined): string | undefined {
+  if (!roh) return undefined;
+  const html = Array.isArray(roh) ? roh.map((e) => e.note ?? '').join('\n') : roh;
+  const text = html
+    .replace(/<li[^>]*>/gi, '\n· ')
+    .replace(/<\/(p|div|h\d|ul|ol|li)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    // Mehr als eine Leerzeile hintereinander wirkt in der schmalen Karte wie ein Bruch.
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text || undefined;
+}
+
+/** Von Hand angestoßen (Knopf in der Titelleiste). */
+export function sucheAktualisierung(): void {
+  if (!app.isPackaged) {
+    setze({
+      phase: 'fehler',
+      grund:
+        'Aus dem Quellbaum gestartet gibt es nichts zu aktualisieren – ' +
+        'die Selbstaktualisierung gilt nur für die installierte Fassung.',
+    });
+    return;
+  }
+  setze({ phase: 'suche' });
+  autoUpdater.checkForUpdates().catch(() => {
+    // Bereits über das error-Ereignis gemeldet.
+  });
+}
+
+export function spieleAktualisierungEin(): void {
+  autoUpdater.quitAndInstall();
+}
+
+export function starteAktualisierungspruefung(
+  log: UpdateLogger,
+  aufStand: (stand: Aktualisierungsstand) => void,
+): void {
+  melde = aufStand;
+
   // Aus dem Quellbaum heraus gibt es keine app-update.yml; die Prüfung würde mit einem
   // Fehler abbrechen, der nichts bedeutet.
   if (!app.isPackaged) {
@@ -39,45 +128,60 @@ export function starteAktualisierungspruefung(log: UpdateLogger): void {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('checking-for-update', () => log.info('Aktualisierung: suche…'));
-
-  autoUpdater.on('update-not-available', (info: { version: string }) =>
-    log.info(`Aktualisierung: bereits aktuell (${info.version}).`),
-  );
-
-  autoUpdater.on('update-available', (info: { version: string }) =>
-    log.info(`Aktualisierung: Fassung ${info.version} gefunden, wird geladen…`),
-  );
-
-  autoUpdater.on('download-progress', (fortschritt: { percent: number }) =>
-    log.info(`Aktualisierung: ${Math.round(fortschritt.percent)} % geladen`),
-  );
-
-  autoUpdater.on('update-downloaded', (info: { version: string }) => {
-    log.info(`Aktualisierung: Fassung ${info.version} bereit.`);
-    void dialog
-      .showMessageBox({
-        type: 'info',
-        title: 'Aktualisierung bereit',
-        message: `Energy Mail ${info.version} steht bereit.`,
-        detail:
-          'Die neue Fassung ist heruntergeladen. Sie wird beim nächsten Beenden ' +
-          'eingespielt – oder sofort, wenn du jetzt neu startest.',
-        buttons: ['Jetzt neu starten', 'Später'],
-        defaultId: 1,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall();
-      });
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Aktualisierung: suche…');
+    setze({ phase: 'suche' });
   });
 
-  // Eine fehlgeschlagene Prüfung darf die Anwendung nicht behelligen: ohne Internet,
-  // hinter einer Firewall oder bei einer Störung bei GitHub ist das der Normalfall und
-  // hat mit dem Mailabruf nichts zu tun.
-  autoUpdater.on('error', (err: Error) =>
-    log.warn(`Aktualisierung fehlgeschlagen (ohne Folgen für den Betrieb): ${err.message}`),
+  autoUpdater.on('update-not-available', (info: { version: string }) => {
+    log.info(`Aktualisierung: bereits aktuell (${info.version}).`);
+    setze({ phase: 'aktuell', fassung: info.version });
+  });
+
+  autoUpdater.on(
+    'update-available',
+    (info: { version: string; releaseNotes?: string | { note: string | null }[] | null }) => {
+      log.info(`Aktualisierung: Fassung ${info.version} gefunden, wird geladen…`);
+      setze({ phase: 'gefunden', fassung: info.version, neuerungen: alsText(info.releaseNotes) });
+    },
   );
+
+  autoUpdater.on(
+    'download-progress',
+    (fortschritt: { percent: number; bytesPerSecond: number }) => {
+      log.info(`Aktualisierung: ${Math.round(fortschritt.percent)} % geladen`);
+      setze({
+        phase: 'laedt',
+        // Beim Wechsel von "gefunden" auf "laedt" ist die Fassung schon bekannt; das
+        // Fortschrittsereignis selbst nennt sie nicht.
+        fassung: 'fassung' in stand ? stand.fassung : '',
+        prozent: fortschritt.percent,
+        proSekunde: fortschritt.bytesPerSecond,
+      });
+    },
+  );
+
+  autoUpdater.on(
+    'update-downloaded',
+    (info: { version: string; releaseNotes?: string | { note: string | null }[] | null }) => {
+      log.info(`Aktualisierung: Fassung ${info.version} bereit.`);
+      setze({ phase: 'bereit', fassung: info.version, neuerungen: alsText(info.releaseNotes) });
+    },
+  );
+
+  /**
+   * Eine fehlgeschlagene Prüfung darf die Anwendung nicht behelligen: ohne Internet,
+   * hinter einer Firewall oder bei einer Störung bei GitHub ist das der Normalfall und
+   * hat mit dem Mailabruf nichts zu tun.
+   *
+   * Gemeldet wird es trotzdem - aber nur an die Karte, und die zeigt sich dafür nicht
+   * von selbst, wenn die Suche im Hintergrund lief. Wer selbst gesucht hat, sieht das
+   * Ergebnis; wer nicht, merkt nichts davon.
+   */
+  autoUpdater.on('error', (err: Error) => {
+    log.warn(`Aktualisierung fehlgeschlagen (ohne Folgen für den Betrieb): ${err.message}`);
+    setze({ phase: 'fehler', grund: err.message });
+  });
 
   const pruefen = () => {
     autoUpdater.checkForUpdates().catch(() => {

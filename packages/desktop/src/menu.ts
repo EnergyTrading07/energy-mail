@@ -1,4 +1,6 @@
 import { BrowserWindow, Menu, app, shell, type MenuItemConstructorOptions } from 'electron';
+import { sucheAktualisierung } from './autoUpdate.js';
+import { zeigeUeber } from './kleineFenster.js';
 
 /**
  * Deutsches Anwendungsmenü.
@@ -28,7 +30,8 @@ type Befehl =
   | 'kontoWeiter'
   | 'regeln'
   | 'aufraeumen'
-  | 'wartet';
+  | 'wartet'
+  | 'ansichtUmschalten';
 
 function sende(befehl: Befehl): void {
   const fenster = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -83,6 +86,10 @@ export function setzeMenue(): void {
     {
       label: '&Ansicht',
       submenu: [
+        // Auch über den Knopf in der Titelleiste erreichbar - im Menü steht es, weil
+        // dort das Tastenkürzel dabeisteht und man es sonst nirgends nachschlagen kann.
+        eintrag('Hell / dunkel umschalten', 'ansichtUmschalten', 'CmdOrCtrl+Shift+D'),
+        { type: 'separator' },
         eintrag('Neu laden', 'neuLaden', 'F5'),
         eintrag('Nächstes Konto', 'kontoWeiter', 'CmdOrCtrl+Tab'),
         { type: 'separator' },
@@ -106,11 +113,17 @@ export function setzeMenue(): void {
       label: '&Hilfe',
       submenu: [
         {
+          label: 'Nach Aktualisierungen suchen',
+          click: () => sucheAktualisierung(),
+        },
+        {
           label: 'Projektseite öffnen',
           click: () => void shell.openExternal('https://github.com/EnergyTrading07/energy-mail'),
         },
         { type: 'separator' },
-        { label: `Energy Mail ${app.getVersion()}`, enabled: false },
+        // Ein eigenes Fenster statt einer gesperrten Zeile mit der Fassungsnummer: dort
+        // steht auch, worauf die Anwendung aufsetzt und wo die Zugangsdaten liegen.
+        { label: `Über Energy Mail ${app.getVersion()}`, click: () => void zeigeUeber() },
       ],
     },
   ];

@@ -2,6 +2,7 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { gruppiere, type Konversation } from '../konversationen.js';
 import type { Listeneintrag } from '../listenTypen.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
+import { LeererKorb } from './Symbole.js';
 
 // Weitergereicht, damit Aufrufer den Typ nicht aus zwei Modulen holen müssen.
 export type { Listeneintrag };
@@ -281,7 +282,12 @@ export function MessageList({
 
       <div className="message-scroll">
         {loading && <div className="empty-state">Lade Nachrichten…</div>}
-        {!loading && messages.length === 0 && <div className="empty-state">Keine Nachrichten</div>}
+        {!loading && messages.length === 0 && (
+          <div className="empty-state">
+            <LeererKorb groesse={38} />
+            <span>{searchActive ? 'Keine Treffer' : 'Keine Nachrichten'}</span>
+          </div>
+        )}
         {!loading &&
           (gruppen
             ? gruppen.map((gruppe) =>

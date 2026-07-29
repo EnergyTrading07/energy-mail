@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { FolderInfo, Regel } from '@energy-mail/mail-core';
 import * as api from '../api.js';
 import type { Account } from '../api.js';
+import { bestaetige } from '../dialoge.js';
+import { meldeErfolg, meldeHinweis } from '../meldungen.js';
 
 /**
  * Verwaltung der Regeln eines Kontos.
@@ -91,23 +93,31 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
   };
 
   const anwenden = async () => {
-    if (
-      !confirm(
-        'Alle aktiven Regeln auf die neuesten 200 Nachrichten des Posteingangs anwenden?\n\n' +
-          'Nachrichten werden dabei verschoben, markiert oder als gelesen gesetzt.',
-      )
-    ) {
-      return;
-    }
+    const ja = await bestaetige({
+      titel: 'Regeln jetzt anwenden?',
+      text: 'Alle aktiven Regeln laufen über die neuesten 200 Nachrichten des Posteingangs. Nachrichten werden dabei verschoben, markiert oder als gelesen gesetzt.',
+      stil: 'warnung',
+      ok: 'Anwenden',
+    });
+    if (!ja) return;
+
     setBusy(true);
     setFehler(null);
     try {
       const ergebnis = await api.applyRules(account.id, 'INBOX');
-      alert(
-        ergebnis.betroffen === 0
-          ? `Keine der ${ergebnis.geprueft} geprüften Nachrichten passte auf eine Regel.`
-          : `${ergebnis.betroffen} von ${ergebnis.geprueft} Nachrichten bearbeitet:\n${ergebnis.schritte.join('\n')}`,
-      );
+      // Als Meldung und nicht als Fenster: hier ist nichts zu entscheiden, es wird nur
+      // berichtet - und wer weiterarbeiten will, soll dafür nichts wegklicken müssen.
+      if (ergebnis.betroffen === 0) {
+        meldeHinweis(
+          'Keine Regel hat gegriffen',
+          `Keine der ${ergebnis.geprueft} geprüften Nachrichten passte auf eine Regel.`,
+        );
+      } else {
+        meldeErfolg(
+          `${ergebnis.betroffen} von ${ergebnis.geprueft} Nachrichten bearbeitet`,
+          ergebnis.schritte.join(' · '),
+        );
+      }
       onGeaendert();
     } catch (err) {
       setFehler((err as Error).message);
@@ -174,7 +184,13 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
             <button
               className="link-btn gefaehrlich"
               onClick={async () => {
-                if (!confirm(`Regel „${regel.name}“ löschen?`)) return;
+                const ja = await bestaetige({
+                  titel: `Regel „${regel.name}“ löschen?`,
+                  text: 'Bereits verschobene Nachrichten bleiben, wo sie sind – die Regel greift nur künftig nicht mehr.',
+                  stil: 'gefahr',
+                  ok: 'Regel löschen',
+                });
+                if (!ja) return;
                 await api.deleteRule(account.id, regel.id);
                 await laden();
               }}

@@ -1,0 +1,205 @@
+/*
+ * Die Farb- und Maßwerte der Anwendung - an einer Stelle, benannt nach ihrem Zweck.
+ *
+ * Vorher standen rund zweihundert Farbwerte als Ziffernfolgen im Regelwerk verstreut.
+ * Das ließ sich pflegen, solange es nur eine Ansicht gab; mit einer zweiten (dunkel)
+ * müsste jeder dieser Werte doppelt geführt und von Hand auseinandergehalten werden.
+ * Hier steht stattdessen, wozu eine Farbe dient - "Grundfläche", "Nebentext", "Fehler" -
+ * und weiter unten, welchen Wert das je Ansicht bedeutet. Die Regeln selbst kennen nur
+ * noch den Zweck und gelten dadurch in beiden Ansichten unverändert.
+ *
+ * Die Namen sind deutsch wie der übrige Quelltext. Kurz gehalten, weil sie in fast jeder
+ * Regel vorkommen.
+ */
+
+:root {
+  /* --- Maße ---------------------------------------------------------------
+   * Abstände als Folge statt beliebiger Zahlen: dadurch stehen Dinge im ganzen
+   * Programm auf denselben Linien. Wer eine Lücke braucht, nimmt die nächste Stufe. */
+  --a-1: 4px;
+  --a-2: 6px;
+  --a-3: 8px;
+  --a-4: 12px;
+  --a-5: 16px;
+  --a-6: 22px;
+  --a-7: 30px;
+
+  /* Eckenradien. Drei Stufen reichen: Bedienelement, Karte, schwebendes Fenster. */
+  --r-1: 6px;
+  --r-2: 9px;
+  --r-3: 14px;
+  --r-voll: 999px;
+
+  /* --- Schrift ------------------------------------------------------------
+   * Segoe UI Variable ist die Schrift von Windows 11 und dort ohne Nachladen da;
+   * die Aufzählung fällt der Reihe nach auf ältere Fassungen und andere Systeme
+   * zurück. Bewusst keine mitgelieferte Schriftdatei: sie kostete Ladezeit und
+   * Paketgröße für einen Unterschied, den bei Fließtext niemand bemerkt. */
+  --sf: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue',
+    sans-serif;
+  /* Für Überschriften: dieselbe Familie, aber der für große Grade gezeichnete Schnitt. */
+  --sf-gross: 'Segoe UI Variable Display', 'Segoe UI Variable Text', 'Segoe UI', system-ui,
+    sans-serif;
+  /* Für Zahlenkolonnen, in denen Ziffern untereinander stehen müssen. */
+  --sf-zahl: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+
+  --t-xs: 10.5px;
+  --t-s: 11.5px;
+  --t-m: 12.5px;
+  --t-n: 13px;
+  --t-l: 14px;
+  --t-xl: 16px;
+  --t-2xl: 19px;
+  --t-3xl: 23px;
+
+  /* --- Bewegung -----------------------------------------------------------
+   * Eine einzige Kurve für alles. Sie beginnt schnell und läuft weich aus - das
+   * wirkt wie eine Reaktion auf den Klick und nicht wie eine Verzögerung. */
+  --weich: 140ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --weich-lang: 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* --- Marke --------------------------------------------------------------
+   * Aus dem Programmsymbol: das Blau des Grundes, das Gelb des Blitzes. Diese
+   * beiden Werte sind in beiden Ansichten dieselben - sie sind die Marke und
+   * nicht Teil der Ansicht. Was sich je Ansicht ändert, sind die daraus
+   * abgeleiteten Gebrauchsfarben weiter unten. */
+  --marke-rein: #2f5fd8;
+  --blitz-rein: #f5c518;
+}
+
+/* ==========================================================================
+ * Helle Ansicht
+ *
+ * Der Grund ist nicht reinweiß, sondern leicht ins Blaue gezogen: die
+ * Nachrichtenliste und die Leseansicht stehen als weiße Flächen darauf und
+ * heben sich dadurch ab, ohne dass es dafür überall Linien braucht.
+ * ========================================================================== */
+:root,
+:root[data-thema='hell'] {
+  color-scheme: light;
+
+  --grund: #eaeef5;
+  --flaeche: #ffffff;
+  --flaeche-leise: #f6f8fc;
+  --flaeche-hover: #eef2f8;
+  --flaeche-tief: #e3e9f2;
+  --erhoben: #ffffff;
+
+  --rand-fein: #edf0f5;
+  --rand: #dce2ec;
+  --rand-stark: #c3ccdb;
+
+  --text: #131a24;
+  --text-2: #4d5867;
+  --text-3: #7c8797;
+  --text-aus: #aeb6c2;
+
+  --marke: #2f5fd8;
+  --marke-hover: #2549ac;
+  --marke-leise: #eaf0ff;
+  --marke-rand: #c2d2fb;
+  --auf-marke: #ffffff;
+
+  --blitz: #d99b00;
+  --blitz-leise: #fff6e0;
+
+  --gut: #146c43;
+  --gut-grund: #e7f5ed;
+  --gut-rand: #b3ddc5;
+
+  --warn: #97590a;
+  --warn-grund: #fff5e4;
+  --warn-rand: #f0d7a6;
+
+  --fehler: #bf2517;
+  --fehler-grund: #fdecea;
+  --fehler-rand: #f5c3be;
+
+  --schatten-1: 0 1px 2px rgba(19, 26, 36, 0.06), 0 1px 3px rgba(19, 26, 36, 0.07);
+  --schatten-2: 0 2px 4px rgba(19, 26, 36, 0.05), 0 6px 16px rgba(19, 26, 36, 0.1);
+  --schatten-3: 0 4px 10px rgba(19, 26, 36, 0.08), 0 20px 48px rgba(19, 26, 36, 0.2);
+  --schleier: rgba(19, 26, 36, 0.4);
+
+  /* Auswahl in Textfeldern und in der Leseansicht. */
+  --auswahl: #cddcff;
+}
+
+/* ==========================================================================
+ * Dunkle Ansicht
+ *
+ * Nicht schwarz, sondern ein sehr dunkles Blaugrau: reines Schwarz lässt jede
+ * Kante hart erscheinen und ermüdet bei Text, der über Stunden gelesen wird.
+ * Die Markenfarbe wird aufgehellt - das Blau des Symbols hätte auf dunklem
+ * Grund zu wenig Abstand, um als Beschriftung lesbar zu sein.
+ * ========================================================================== */
+:root[data-thema='dunkel'] {
+  color-scheme: dark;
+
+  --grund: #0d1117;
+  --flaeche: #151b24;
+  --flaeche-leise: #11161e;
+  --flaeche-hover: #1d2530;
+  --flaeche-tief: #0a0e14;
+  --erhoben: #1a212b;
+
+  --rand-fein: #1c242f;
+  --rand: #27313e;
+  --rand-stark: #3a4655;
+
+  --text: #e6ecf4;
+  --text-2: #a2b0c1;
+  --text-3: #6e7c8e;
+  --text-aus: #4c5766;
+
+  --marke: #7ea6ff;
+  --marke-hover: #9dbdff;
+  --marke-leise: #16243d;
+  --marke-rand: #2b4270;
+  --auf-marke: #0b1120;
+
+  --blitz: #ffd23f;
+  --blitz-leise: #2a2109;
+
+  --gut: #52cf88;
+  --gut-grund: #0f2419;
+  --gut-rand: #1f4931;
+
+  --warn: #f0ba62;
+  --warn-grund: #291e0c;
+  --warn-rand: #4d3915;
+
+  --fehler: #ff8b7e;
+  --fehler-grund: #2a1512;
+  --fehler-rand: #55231d;
+
+  /* Schatten tragen im Dunkeln kaum - stattdessen werden schwebende Flächen
+     über eine hellere Eigenfarbe (--erhoben) abgesetzt. Der Schatten bleibt,
+     aber tiefer und weicher, damit Ränder nicht doppelt gezeichnet wirken. */
+  --schatten-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --schatten-2: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --schatten-3: 0 18px 50px rgba(0, 0, 0, 0.6);
+  --schleier: rgba(3, 6, 10, 0.62);
+
+  --auswahl: #2b4270;
+}
+
+/*
+ * Ableitungen, die in beiden Ansichten gleich gebildet werden.
+ *
+ * Stehen hinter beiden Blöcken, damit sie die jeweils gesetzten Werte benutzen.
+ * --akzent ist der Name, unter dem die Regeln die Farbe des Programms ansprechen;
+ * --konto-farbe trägt daneben die Hausfarbe des gerade gewählten Anbieters und
+ * wird nur noch für Kennzeichen und schmale Streifen verwendet.
+ */
+:root {
+  --akzent: var(--marke);
+  --konto-farbe: var(--marke);
+
+  /* Sichtbarer Fokusring für die Tastaturbedienung. Ein eigener Wert, weil er
+     auf jedem Untergrund erkennbar bleiben muss - deshalb halbdurchsichtig. */
+  --fokus: 0 0 0 3px color-mix(in srgb, var(--marke) 38%, transparent);
+
+  /* Höhe der eigenen Titelleiste. Steht hier, weil sowohl die Leiste selbst als
+     auch das darunterliegende Raster damit rechnen. */
+  --leiste-hoehe: 40px;
+}

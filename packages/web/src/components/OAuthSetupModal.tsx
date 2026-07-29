@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api.js';
 import type { OAuthClients, OAuthProvider } from '../api.js';
+import { bestaetige } from '../dialoge.js';
 
 interface Props {
   onClose: () => void;
@@ -94,7 +95,13 @@ export function OAuthSetupModal({ onClose, onChanged }: Props) {
   };
 
   const entfernen = async () => {
-    if (!confirm(`Zugangsdaten für ${anleitung.titel} entfernen?`)) return;
+    const ja = await bestaetige({
+      titel: `Zugangsdaten für ${anleitung.titel} entfernen?`,
+      text: 'Bereits angemeldete Konten bleiben bestehen. Neue Anmeldungen sind danach erst nach erneuter Einrichtung wieder möglich.',
+      stil: 'warnung',
+      ok: 'Entfernen',
+    });
+    if (!ja) return;
     setBusy(true);
     try {
       const aktualisiert = await api.deleteOAuthClient(provider);
