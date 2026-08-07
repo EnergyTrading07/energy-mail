@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.js';
 import type { Account } from '../api.js';
+import { fortschrittsText, useFortschritt } from '../useFortschritt.js';
 
 /**
  * Was noch aussteht: geplante Nachrichten, zurückgestellte Post und Liegengebliebenes.
@@ -76,6 +77,7 @@ export function WartendModal({
   const [auchUnbekannte, setAuchUnbekannte] = useState(false);
   const [laeuft, setLaeuft] = useState(true);
   const [fehler, setFehler] = useState<string | null>(null);
+  const stand = useFortschritt(account.id, 'offen', offeneLaeuft);
 
   const laden = () => {
     setLaeuft(true);
@@ -241,7 +243,10 @@ export function WartendModal({
         {offeneFehler && <div className="error-banner">{offeneFehler}</div>}
         {offeneLaeuft && (
           <div className="empty-state">
-            Wird durchgesehen… das dauert bei großen Postfächern einen Moment.
+            {fortschrittsText(stand, 'Wird durchgesehen…')}
+            <span className="fortschritt-hinweis">
+              Bei großen Postfächern dauert das einen Moment.
+            </span>
           </div>
         )}
         {!offeneLaeuft && !offeneFehler && offene?.length === 0 && (

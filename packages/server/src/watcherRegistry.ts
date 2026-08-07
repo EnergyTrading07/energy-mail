@@ -43,6 +43,23 @@ export type MailEvent =
       was: 'folders' | 'categories' | 'messages';
       folder?: string;
       category?: string;
+    }
+  /**
+   * Ein Vorgang, der länger dauert, meldet, wie weit er ist.
+   *
+   * Ohne das steht bei der Absenderübersicht 1,4 Sekunden und beim Liegengebliebenen
+   * eines großen Postfachs über fünf Sekunden nur "wird geladen" - und das ist von einem
+   * Hänger nicht zu unterscheiden. Der Vorgang trägt einen Namen, damit gleichzeitig
+   * laufende Abrufe sich nicht gegenseitig überschreiben.
+   */
+  | {
+      type: 'fortschritt';
+      accountId: string;
+      vorgang: 'absender' | 'offen';
+      getan: number;
+      von: number;
+      /** Was gerade geschieht, in einem Halbsatz - "Gesendet wird durchgesehen". */
+      text?: string;
     };
 
 type Listener = (event: MailEvent) => void;
@@ -191,6 +208,11 @@ async function holeNeue(config: AccountConfig, event: NewMailEvent): Promise<Mes
 
 /** Meldet der Oberfläche, dass ein zwischengespeicherter Stand überholt ist. */
 export function meldeAktualisierung(event: Extract<MailEvent, { type: 'data-updated' }>): void {
+  emit(event);
+}
+
+/** Meldet, wie weit ein länger dauernder Vorgang ist. */
+export function meldeFortschritt(event: Extract<MailEvent, { type: 'fortschritt' }>): void {
   emit(event);
 }
 

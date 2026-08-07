@@ -2484,6 +2484,15 @@ input[type='file']::file-selector-button:hover {
   white-space: nowrap;
 }
 
+/* Zusatzzeile unter einer Fortschrittsmeldung - erklaert die Wartezeit, ohne sie
+   in jeden Zwischenstand hineinzuschreiben. */
+.fortschritt-hinweis {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
 /* Quelltext einer Nachricht. Feste Schrift, weil dort Spalten und Einrückungen
    Bedeutung tragen, und mit Bildlauf, weil Kopfzeilen beliebig lang werden. */
 .modal-breit {

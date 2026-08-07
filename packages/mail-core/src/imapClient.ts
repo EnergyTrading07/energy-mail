@@ -685,7 +685,12 @@ export async function getRawMessage(
  */
 export async function offeneVorgaenge(
   config: AccountConfig,
-  optionen: { mindestTage?: number; hoechstTage?: number; auchUnbekannte?: boolean } = {},
+  optionen: {
+    mindestTage?: number;
+    hoechstTage?: number;
+    auchUnbekannte?: boolean;
+    melde?: Fortschritt;
+  } = {},
 ): Promise<OffenerVorgang[]> {
   const hoechstTage = optionen.hoechstTage ?? 90;
   const gesendetOrdner = await findSentFolder(config);
@@ -706,9 +711,15 @@ export async function offeneVorgaenge(
       }
     };
 
+    // Zwei Ordner über Monate - bei einem großen Postfach dauert das Sekunden.
+    optionen.melde?.(0, 3, 'Posteingang wird durchgesehen');
     const posteingang = await holen('INBOX');
+
     // Ohne Gesendet-Ordner fehlt die halbe Wahrheit - dann bleibt nur, was ich schulde.
+    optionen.melde?.(1, 3, gesendetOrdner ? 'Gesendet wird durchgesehen' : 'Gesendet fehlt');
     const gesendet = gesendetOrdner ? await holen(gesendetOrdner) : [];
+
+    optionen.melde?.(2, 3, 'Gespräche werden zusammengeführt');
 
     return findeOffeneVorgaenge(
       { posteingang, gesendet, gesendetOrdner: gesendetOrdner ?? '', posteingangOrdner: 'INBOX' },
@@ -961,11 +972,18 @@ export interface AbsenderUebersicht {
  * jeden gefundenen Absender einzeln gesucht: der Server liefert dabei nur Zahlen zurück,
  * das ist auch über den gesamten Bestand schnell.
  */
+/**
+ * Rückmeldung über den Stand eines länger dauernden Vorgangs. Optional: die Auswertung
+ * funktioniert auch ohne, sie meldet dann eben nichts.
+ */
+export type Fortschritt = (getan: number, von: number, text?: string) => void;
+
 export async function senderUebersicht(
   config: AccountConfig,
   folder: string,
   stichprobe = 500,
   maxAbsender = 12,
+  melde?: Fortschritt,
 ): Promise<AbsenderUebersicht> {
   return withClient(config, async (client) => {
     const lock = await client.getMailboxLock(folder);
@@ -1005,7 +1023,11 @@ export async function senderUebersicht(
         .sort((a, b) => b.inStichprobe - a.inStichprobe)
         .slice(0, maxAbsender);
 
+      // Hier liegt die Zeit: je Absender ein eigener Suchlauf. Bei zwölf Absendern sind
+      // das zwölf Runden, und ohne Rückmeldung sieht das aus wie ein Hänger.
+      let getan = 0;
       for (const eintrag of haeufigste) {
+        melde?.(getan++, haeufigste.length, `${eintrag.adresse} wird gezählt`);
         const treffer = (await client.search({ from: eintrag.adresse }, { uid: true })) || [];
         eintrag.gesamt = treffer.length;
         const offen =

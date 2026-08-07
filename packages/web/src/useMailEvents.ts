@@ -22,6 +22,15 @@ export type MailEvent =
       was: 'folders' | 'categories' | 'messages';
       folder?: string;
       category?: string;
+    }
+  /** Ein Vorgang, der länger dauert, meldet, wie weit er ist. */
+  | {
+      type: 'fortschritt';
+      accountId: string;
+      vorgang: 'absender' | 'offen';
+      getan: number;
+      von: number;
+      text?: string;
     };
 
 const INITIAL_RETRY_MS = 1_000;
@@ -45,6 +54,50 @@ function buildWsUrl(): string {
  * Konten. Bei Verbindungsabbruch (Server-Neustart, Standby) wird mit wachsender
  * Wartezeit neu verbunden.
  */
+/**
+ * Eine Verbindung für alle Zuhörer.
+ *
+ * Früher öffnete jeder Aufruf des Hakens eine eigene - solange nur die Hauptansicht
+ * zuhörte, fiel das nicht auf. Sobald aber ein Fenster mithört, um den Fortschritt eines
+ * Vorgangs zu zeigen, wären es zwei, und der Server hielte zwei Sitzungen offen. Die
+ * Verbindung entsteht beim ersten Zuhörer und schließt sich mit dem letzten.
+ */
+const zuhoerer = new Set<(event: MailEvent) => void>();
+let verbindung: WebSocket | null = null;
+let neuVersuchTimer: ReturnType<typeof setTimeout> | undefined;
+let neuVersuchMs = INITIAL_RETRY_MS;
+
+function verbinde(): void {
+  if (verbindung || zuhoerer.size === 0) return;
+  const socket = new WebSocket(buildWsUrl());
+  verbindung = socket;
+
+  socket.onopen = () => {
+    neuVersuchMs = INITIAL_RETRY_MS;
+  };
+
+  socket.onmessage = (message) => {
+    let ereignis: MailEvent;
+    try {
+      ereignis = JSON.parse(message.data as string) as MailEvent;
+    } catch {
+      // Unlesbare Nachricht ignorieren statt die Verbindung abzureißen.
+      return;
+    }
+    // Über eine Kopie: ein Zuhörer, der sich währenddessen abmeldet, dürfte sonst die
+    // Schleife durcheinanderbringen.
+    for (const hoere of [...zuhoerer]) hoere(ereignis);
+  };
+
+  socket.onclose = () => {
+    if (verbindung !== socket) return;
+    verbindung = null;
+    if (zuhoerer.size === 0) return;
+    neuVersuchTimer = setTimeout(verbinde, neuVersuchMs);
+    neuVersuchMs = Math.min(neuVersuchMs * 2, MAX_RETRY_MS);
+  };
+}
+
 export function useMailEvents(onEvent: (event: MailEvent) => void): void {
   const handlerRef = useRef(onEvent);
 
@@ -53,40 +106,19 @@ export function useMailEvents(onEvent: (event: MailEvent) => void): void {
   });
 
   useEffect(() => {
-    let socket: WebSocket | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    let disposed = false;
-    let retryDelay = INITIAL_RETRY_MS;
-
-    const connect = () => {
-      if (disposed) return;
-      socket = new WebSocket(buildWsUrl());
-
-      socket.onopen = () => {
-        retryDelay = INITIAL_RETRY_MS;
-      };
-
-      socket.onmessage = (message) => {
-        try {
-          handlerRef.current(JSON.parse(message.data as string) as MailEvent);
-        } catch {
-          // Unlesbare Nachricht ignorieren statt die Verbindung abzureißen.
-        }
-      };
-
-      socket.onclose = () => {
-        if (disposed) return;
-        retryTimer = setTimeout(connect, retryDelay);
-        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
-      };
-    };
-
-    connect();
+    // Über eine feste Hülle angemeldet, damit ein wechselnder onEvent die Anmeldung
+    // nicht jedes Mal löst und neu setzt.
+    const huelle = (event: MailEvent) => handlerRef.current(event);
+    zuhoerer.add(huelle);
+    verbinde();
 
     return () => {
-      disposed = true;
-      clearTimeout(retryTimer);
-      socket?.close();
+      zuhoerer.delete(huelle);
+      if (zuhoerer.size > 0) return;
+      clearTimeout(neuVersuchTimer);
+      const offen = verbindung;
+      verbindung = null;
+      offen?.close();
     };
   }, []);
 }

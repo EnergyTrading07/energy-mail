@@ -405,6 +405,10 @@ export default function App() {
   };
 
   useMailEvents((event) => {
+    // Fortschrittsmeldungen gehen die Hauptansicht nichts an - sie zeigen die Fenster,
+    // die den jeweiligen Vorgang angestoßen haben.
+    if (event.type === 'fortschritt') return;
+
     const isVisible = event.accountId === selectedAccountId && event.folder === selectedFolder;
 
     if (event.type === 'data-updated') {

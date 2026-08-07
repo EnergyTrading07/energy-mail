@@ -106,6 +106,7 @@ import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStor
 import { installTokenRefresh } from './tokenRefresh.js';
 import {
   meldeAktualisierung,
+  meldeFortschritt,
   meldeAnsicht,
   restartWatcher,
   setRegistryLogger,
@@ -623,7 +624,14 @@ export async function buildServer() {
 
     const { wert } = await ausSpeicherOderHolen(
       `offen:${account.id}:${mindestTage}:${hoechstTage}:${auchUnbekannte ? 'alle' : 'eng'}`,
-      () => offeneVorgaenge(account, { mindestTage, hoechstTage, auchUnbekannte }),
+      () =>
+        offeneVorgaenge(account, {
+          mindestTage,
+          hoechstTage,
+          auchUnbekannte,
+          melde: (getan, von, text) =>
+            meldeFortschritt({ type: 'fortschritt', accountId: account.id, vorgang: 'offen', getan, von, text }),
+        }),
       { maxAlterMs: 15 * 60_000 },
     );
     return wert;
@@ -645,7 +653,17 @@ export async function buildServer() {
 
       const { wert } = await ausSpeicherOderHolen(
         `absender:${account.id}:${ordner}:${stichprobe}`,
-        () => senderUebersicht(account, ordner, stichprobe),
+        () =>
+          senderUebersicht(account, ordner, stichprobe, undefined, (getan, von, text) =>
+            meldeFortschritt({
+              type: 'fortschritt',
+              accountId: account.id,
+              vorgang: 'absender',
+              getan,
+              von,
+              text,
+            }),
+          ),
         { maxAlterMs: 10 * 60_000 },
       );
       return wert;

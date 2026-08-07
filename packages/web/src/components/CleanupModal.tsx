@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { bestaetige } from '../dialoge.js';
+import { fortschrittsText, useFortschritt } from '../useFortschritt.js';
 
 /**
  * Postfach aufräumen.
@@ -23,6 +24,7 @@ interface Props {
 export function CleanupModal({ account, onClose, onRegelAnlegen, onGeaendert }: Props) {
   const [daten, setDaten] = useState<api.AbsenderUebersicht | null>(null);
   const [laeuft, setLaeuft] = useState(true);
+  const stand = useFortschritt(account.id, 'absender', laeuft);
   const [fehler, setFehler] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [meldung, setMeldung] = useState<string | null>(null);
@@ -118,7 +120,9 @@ export function CleanupModal({ account, onClose, onRegelAnlegen, onGeaendert }: 
 
         {fehler && <div className="error-banner">{fehler}</div>}
         {meldung && <div className="regel-vorschau">{meldung}</div>}
-        {laeuft && <div className="empty-state">Absender werden ermittelt…</div>}
+        {laeuft && (
+          <div className="empty-state">{fortschrittsText(stand, 'Absender werden ermittelt…')}</div>
+        )}
 
         {daten && !laeuft && (
           <table className="absender-tabelle">
