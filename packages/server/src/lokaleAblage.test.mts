@@ -21,6 +21,8 @@ const {
   pruefeUidGueltigkeit,
   schliesseAblage,
   setzeGelesen,
+  suchbestand,
+  sucheLokal,
   verwerfeKontoAblage,
   verwirfAblage,
 } = await import('./lokaleAblage.js');
@@ -282,6 +284,159 @@ pruefe('das zuletzt Gelesene bleibt, das aelteste geht', () => {
   holeInhalt(K, 'INBOX', 1);
   for (let i = 2000; i <= 2100; i++) merkeInhalt(K, 'INBOX', i, { text: `x${i}` });
   assert.ok(holeInhalt(K, 'INBOX', 1), 'die frisch gelesene wurde verworfen');
+});
+
+console.log('\nSuche:');
+
+pruefe('nach Betreff', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [
+    mail(1, { subject: 'Rechnung Mai 2026' }),
+    mail(2, { subject: 'Angebot fuer das Projekt' }),
+  ]);
+  const treffer = sucheLokal(K, 'Rechnung');
+  assert.equal(treffer.length, 1);
+  assert.equal(treffer[0]?.uid, 1);
+});
+
+pruefe('nach Absender, ueber Name und Adresse', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [
+    mail(1, { from: [{ name: 'Anna Muster', address: 'anna@firma.de' }] }),
+    mail(2, { from: [{ name: 'Bernd Beispiel', address: 'bernd@andere.de' }] }),
+  ]);
+  assert.equal(sucheLokal(K, 'Anna')[0]?.uid, 1);
+  assert.equal(sucheLokal(K, 'andere.de')[0]?.uid, 2);
+});
+
+pruefe('nach Empfaenger', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { to: [{ address: 'verteiler@firma.de' }] })]);
+  assert.equal(sucheLokal(K, 'verteiler')[0]?.uid, 1);
+});
+
+pruefe('Wortanfaenge genuegen', () => {
+  // "rechn" soll "Rechnung" finden - sonst muesste man das Wort genau treffen.
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Rechnung Mai' })]);
+  assert.equal(sucheLokal(K, 'rechn').length, 1);
+});
+
+pruefe('Gross- und Kleinschreibung ist egal', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Rechnung Mai' })]);
+  assert.equal(sucheLokal(K, 'RECHNUNG').length, 1);
+  assert.equal(sucheLokal(K, 'rechnung').length, 1);
+});
+
+pruefe('Umlaute finden sich auch ohne', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Grüße aus München' })]);
+  assert.equal(sucheLokal(K, 'Munchen').length, 1, 'ohne Umlaut nicht gefunden');
+  assert.equal(sucheLokal(K, 'München').length, 1, 'mit Umlaut nicht gefunden');
+});
+
+pruefe('mehrere Woerter muessen ALLE vorkommen', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [
+    mail(1, { subject: 'Rechnung Mai' }),
+    mail(2, { subject: 'Rechnung Juni' }),
+  ]);
+  assert.equal(sucheLokal(K, 'Rechnung Mai').length, 1);
+  assert.equal(sucheLokal(K, 'Rechnung').length, 2);
+});
+
+pruefe('der Text geoeffneter Nachrichten wird mitdurchsucht', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Kurze Frage' })]);
+  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 0, 'noch nichts abgelegt');
+  merkeInhalt(K, 'INBOX', 1, { text: 'Wir treffen uns am Zebrastreifen.' });
+  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 1);
+});
+
+pruefe('ein erneuter Abruf der Kopfdaten verliert den Text nicht', () => {
+  // Die Liste frischt sich staendig auf - dabei darf der Index nicht leerlaufen.
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Kurze Frage' })]);
+  merkeInhalt(K, 'INBOX', 1, { text: 'Wir treffen uns am Zebrastreifen.' });
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Kurze Frage', seen: true })]);
+  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 1, 'der Text ging beim Auffrischen verloren');
+});
+
+pruefe('auf einen Ordner einschraenken', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Rechnung' })]);
+  merkeKopfdaten(K, 'Gesendet', [mail(1, { subject: 'Rechnung' })]);
+  assert.equal(sucheLokal(K, 'Rechnung').length, 2);
+  assert.equal(sucheLokal(K, 'Rechnung', { ordner: 'Gesendet' }).length, 1);
+  assert.equal(sucheLokal(K, 'Rechnung', { ordner: 'Gesendet' })[0]?.ordner, 'Gesendet');
+});
+
+pruefe('fremde Konten bleiben aussen vor', () => {
+  frisch();
+  merkeKopfdaten('a', 'INBOX', [mail(1, { subject: 'Geheim' })]);
+  merkeKopfdaten('b', 'INBOX', [mail(1, { subject: 'Geheim' })]);
+  assert.equal(sucheLokal('a', 'Geheim').length, 1);
+});
+
+pruefe('Geloeschtes wird nicht mehr gefunden', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Rechnung' }), mail(2, { subject: 'Rechnung' })]);
+  entferneNachrichten(K, 'INBOX', [1]);
+  const treffer = sucheLokal(K, 'Rechnung');
+  assert.equal(treffer.length, 1);
+  assert.equal(treffer[0]?.uid, 2);
+});
+
+pruefe('nach dem Raeumen eines Ordners ebenfalls nicht', () => {
+  frisch();
+  pruefeUidGueltigkeit(K, 'INBOX', 111);
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Rechnung' })]);
+  pruefeUidGueltigkeit(K, 'INBOX', 222);
+  assert.equal(sucheLokal(K, 'Rechnung').length, 0);
+});
+
+pruefe('nach dem Verwerfen eines Kontos ebenfalls nicht', () => {
+  frisch();
+  merkeKopfdaten('a', 'INBOX', [mail(1, { subject: 'Rechnung' })]);
+  merkeKopfdaten('b', 'INBOX', [mail(1, { subject: 'Rechnung' })]);
+  verwerfeKontoAblage('a');
+  assert.equal(sucheLokal('a', 'Rechnung').length, 0);
+  assert.equal(sucheLokal('b', 'Rechnung').length, 1);
+});
+
+pruefe('Sonderzeichen bringen die Anfrage nicht durcheinander', () => {
+  // Ein eingetipptes AND, Klammern oder Anfuehrungszeichen sind Teil der
+  // Abfragesprache - unbehandelt haette das einen Fehler geworfen.
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Ganz normal' })]);
+  for (const eingabe of ['AND', 'OR', '(', '"', 'a*b', 'NEAR(x y)', '-', '^']) {
+    assert.doesNotThrow(() => sucheLokal(K, eingabe), `warf bei "${eingabe}"`);
+  }
+});
+
+pruefe('eine leere Eingabe findet nichts', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1)]);
+  assert.deepEqual(sucheLokal(K, ''), []);
+  assert.deepEqual(sucheLokal(K, '   '), []);
+});
+
+pruefe('neueste zuerst und die Grenze wird eingehalten', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', Array.from({ length: 40 }, (_, i) => mail(i + 1, { subject: 'Rechnung' })));
+  const treffer = sucheLokal(K, 'Rechnung', { grenze: 10 });
+  assert.equal(treffer.length, 10);
+  assert.equal(treffer[0]?.uid, 40);
+});
+
+pruefe('der Bestand wird gemeldet', () => {
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1), mail(2), mail(3)]);
+  merkeInhalt(K, 'INBOX', 1, { text: 'x' });
+  const b = suchbestand(K);
+  assert.equal(b.kopfdaten, 3);
+  assert.equal(b.mitText, 1);
 });
 
 console.log('\nWiderstandsfaehigkeit:');

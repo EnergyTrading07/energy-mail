@@ -96,6 +96,9 @@ import {
   pruefeUidGueltigkeit,
   setzeGelesen as ablageGelesen,
   entferneNachrichten as ablageEntfernen,
+  suchbestand,
+  sucheLokal,
+  sucheVerfuegbar,
   verwerfeKontoAblage,
 } from './lokaleAblage.js';
 import {
@@ -1297,6 +1300,33 @@ export async function buildServer() {
       pageSize: pageSize ? Number(pageSize) : undefined,
     });
   });
+
+  /**
+   * Die Suche in der lokalen Ablage.
+   *
+   * Antwortet sofort statt in Hunderten von Millisekunden und funktioniert auch ohne
+   * Netz. Sie durchsucht Betreff, Absender und Empfänger aller abgelegten Nachrichten
+   * und den Text derer, die schon geöffnet waren - was sie nicht abdeckt, meldet sie
+   * mit, damit die Oberfläche daneben die Suche über den Server anbieten kann.
+   */
+  app.get<{ Params: { id: string }; Querystring: { q?: string; folder?: string } }>(
+    '/accounts/:id/suche-lokal',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const text = request.query.q ?? '';
+      const ordner = request.query.folder ? decodeURIComponent(request.query.folder) : undefined;
+
+      const begonnen = Date.now();
+      const treffer = sucheLokal(account.id, text, { ordner });
+      return {
+        treffer,
+        dauerMs: Date.now() - begonnen,
+        // Woraus gesucht wurde - Grundlage für den Hinweis in der Oberfläche.
+        bestand: suchbestand(account.id),
+        verfuegbar: sucheVerfuegbar(),
+      };
+    },
+  );
 
   /**
    * Welche Ordner eines Kontos durchsucht werden.

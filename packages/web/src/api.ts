@@ -355,6 +355,29 @@ export async function sucheServer(email: string): Promise<GefundeneEinstellungen
   return gefunden;
 }
 
+export interface LokaleSuche {
+  treffer: (MessageSummary & { ordner: string })[];
+  dauerMs: number;
+  /** Woraus gesucht wurde - Grundlage für den Hinweis, was die Suche nicht abdeckt. */
+  bestand: { kopfdaten: number; mitText: number };
+  verfuegbar: boolean;
+}
+
+/**
+ * Sucht in der lokalen Ablage. Antwortet sofort und ohne Netz, deckt aber nur ab, was
+ * abgelegt ist: Betreff und Absender aller bekannten Nachrichten, Text nur bei den
+ * bereits geöffneten.
+ */
+export function sucheLokal(
+  accountId: string,
+  text: string,
+  folder?: string,
+): Promise<LokaleSuche> {
+  const p = new URLSearchParams({ q: text });
+  if (folder) p.set('folder', folder);
+  return request(`/accounts/${accountId}/suche-lokal?${p}`);
+}
+
 /** Die Nachricht im Original, mit allen Kopfzeilen. */
 export async function fetchQuelltext(
   accountId: string,

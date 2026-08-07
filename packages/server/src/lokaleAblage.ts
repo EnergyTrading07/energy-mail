@@ -96,6 +96,37 @@ function baueAuf(datenbank: DatabaseSync): void {
 
     create table if not exists stand (schluessel text primary key, wert text);
   `);
+
+  /**
+   * Der Suchindex.
+   *
+   * Getrennt vom exec oben, weil eine ältere SQLite-Fassung ohne FTS5 hier werfen
+   * würde - dann soll wenigstens der Rest stehen und die Suche eben über den Server
+   * laufen. In Electron 38 ist FTS5 vorhanden; die Vorsicht kostet nichts.
+   *
+   * Die Zeilennummer ist dieselbe wie in "nachrichten" - darüber wird gelöscht und
+   * ergänzt, ohne dass die Schlüssel doppelt im Index stehen müssten.
+   */
+  try {
+    datenbank.exec(`
+      create virtual table if not exists suche using fts5(
+        betreff, absender, empfaenger, inhalt,
+        tokenize = "unicode61 remove_diacritics 2"
+      );
+    `);
+  } catch (err) {
+    console.warn(`Volltextsuche steht nicht bereit: ${(err as Error).message}`);
+  }
+}
+
+/** Ob der Suchindex angelegt werden konnte. */
+export function sucheVerfuegbar(): boolean {
+  try {
+    ablage().prepare('select count(*) from suche where suche match ?').get('probe');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -219,6 +250,7 @@ export function pruefeUidGueltigkeit(
 
   const geleert = alt !== null && alt !== neu;
   if (geleert) {
+    loescheAusIndex(d, 'select rowid from nachrichten where konto = ? and ordner = ?', [konto, ordner]);
     d.prepare('delete from nachrichten where konto = ? and ordner = ?').run(konto, ordner);
     d.prepare('delete from inhalte where konto = ? and ordner = ?').run(konto, ordner);
   }
@@ -232,6 +264,19 @@ export function pruefeUidGueltigkeit(
   return geleert;
 }
 
+/**
+ * Nimmt die betroffenen Zeilen aus dem Suchindex.
+ *
+ * Muss vor dem Loeschen in "nachrichten" laufen - danach liessen sich die
+ * Zeilennummern nicht mehr ermitteln, und der Index behielte Eintraege zu
+ * Nachrichten, die es nicht mehr gibt.
+ */
+function loescheAusIndex(d: DatabaseSync, abfrage: string, werte: (string | number)[]): void {
+  if (!sucheVerfuegbar()) return;
+  const weg = d.prepare('delete from suche where rowid = ?');
+  for (const z of d.prepare(abfrage).all(...werte) as { rowid: number }[]) weg.run(z.rowid);
+}
+
 /** Kopfdaten ablegen. Bereits Bekanntes wird ersetzt - der neue Stand gilt. */
 export function merkeKopfdaten(
   konto: string,
@@ -241,18 +286,46 @@ export function merkeKopfdaten(
   if (nachrichten.length === 0) return;
   const d = ablage();
 
+  /**
+   * Bewusst "on conflict do update" statt "insert or replace": das Ersetzen löscht die
+   * Zeile und legt eine neue an, wodurch sie eine andere Zeilennummer bekäme. Über
+   * genau diese Nummer hängt aber der Suchindex an der Nachricht - er zeigte danach
+   * ins Leere, und die Suche fände Betreffzeilen, die es nicht mehr gibt.
+   */
   const ein = d.prepare(
-    `insert or replace into nachrichten
+    `insert into nachrichten
      (konto, ordner, uid, message_id, thread_id, betreff, absender_name, absender_adresse,
       empfaenger, datum, gelesen, markiert, hat_anhaenge, list_id, abmeldeweg)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     on conflict (konto, ordner, uid) do update set
+       message_id = excluded.message_id, thread_id = excluded.thread_id,
+       betreff = excluded.betreff, absender_name = excluded.absender_name,
+       absender_adresse = excluded.absender_adresse, empfaenger = excluded.empfaenger,
+       datum = excluded.datum, gelesen = excluded.gelesen, markiert = excluded.markiert,
+       hat_anhaenge = excluded.hat_anhaenge, list_id = excluded.list_id,
+       abmeldeweg = excluded.abmeldeweg`,
   );
+  const nummer = d.prepare(
+    'select rowid from nachrichten where konto = ? and ordner = ? and uid = ?',
+  );
+
+  const kannSuchen = sucheVerfuegbar();
+  const indexWeg = kannSuchen ? d.prepare('delete from suche where rowid = ?') : null;
+  const indexEin = kannSuchen
+    ? d.prepare(
+        'insert into suche (rowid, betreff, absender, empfaenger, inhalt) values (?, ?, ?, ?, ?)',
+      )
+    : null;
+  const alterInhalt = kannSuchen
+    ? d.prepare('select inhalt from suche where rowid = ?')
+    : null;
 
   // In einem Zug: einzeln wären es bei tausend Nachrichten tausend Schreibvorgänge.
   d.exec('begin');
   try {
     for (const m of nachrichten) {
       const von = m.from[0];
+      const empfaenger = m.to.map((a) => a.address).join(', ') || null;
       ein.run(
         konto,
         ordner,
@@ -263,13 +336,29 @@ export function merkeKopfdaten(
         von?.name ?? null,
         von?.address ?? null,
         // Als Text, weil danach nicht sortiert wird - nur angezeigt und durchsucht.
-        m.to.map((a) => a.address).join(', ') || null,
+        empfaenger,
         m.date ? m.date.getTime() : null,
         m.seen ? 1 : 0,
         m.flags.includes('\\Flagged') ? 1 : 0,
         m.hasAttachments ? 1 : 0,
         m.listId ?? null,
         m.listUnsubscribe ?? null,
+      );
+
+      if (!kannSuchen) continue;
+      const zeile = nummer.get(konto, ordner, m.uid) as { rowid: number } | undefined;
+      if (!zeile) continue;
+
+      // Einen bereits indizierten Nachrichtentext nicht verlieren, nur weil die
+      // Kopfdaten noch einmal hereinkommen.
+      const bisher = alterInhalt!.get(zeile.rowid) as { inhalt?: string } | undefined;
+      indexWeg!.run(zeile.rowid);
+      indexEin!.run(
+        zeile.rowid,
+        m.subject ?? '',
+        [von?.name, von?.address].filter(Boolean).join(' '),
+        empfaenger ?? '',
+        bisher?.inhalt ?? '',
       );
     }
     d.exec('commit');
@@ -403,6 +492,7 @@ export function entferneNachrichten(konto: string, ordner: string, uids: number[
   d.exec('begin');
   try {
     for (const uid of uids) {
+      loescheAusIndex(d, 'select rowid from nachrichten where konto = ? and ordner = ? and uid = ?', [konto, ordner, uid]);
       wegK.run(konto, ordner, uid);
       wegI.run(konto, ordner, uid);
     }
@@ -418,6 +508,7 @@ export function verwerfeKontoAblage(konto: string): void {
   const d = ablage();
   d.exec('begin');
   try {
+    loescheAusIndex(d, 'select rowid from nachrichten where konto = ?', [konto]);
     d.prepare('delete from nachrichten where konto = ?').run(konto);
     d.prepare('delete from inhalte where konto = ?').run(konto);
     d.prepare('delete from ordner where konto = ?').run(konto);
@@ -458,6 +549,33 @@ export function merkeInhalt(
     Date.now(),
   );
 
+  // Den Text mit in den Suchindex nehmen - erst dadurch findet die Suche etwas, das
+  // nur im Nachrichtentext steht und weder im Betreff noch beim Absender.
+  if (inhalt.text && sucheVerfuegbar()) {
+    const zeile = d
+      .prepare('select rowid from nachrichten where konto = ? and ordner = ? and uid = ?')
+      .get(konto, ordner, uid) as { rowid: number } | undefined;
+    if (zeile) {
+      const kopf = d
+        .prepare('select betreff, absender, empfaenger from suche where rowid = ?')
+        .get(zeile.rowid) as
+        | { betreff: string; absender: string; empfaenger: string }
+        | undefined;
+      d.prepare('delete from suche where rowid = ?').run(zeile.rowid);
+      d.prepare(
+        'insert into suche (rowid, betreff, absender, empfaenger, inhalt) values (?, ?, ?, ?, ?)',
+      ).run(
+        zeile.rowid,
+        kopf?.betreff ?? '',
+        kopf?.absender ?? '',
+        kopf?.empfaenger ?? '',
+        // Gekürzt: die ersten Zehntausend Zeichen tragen praktisch jede Suche, und ein
+        // Index über ganze Rundmails würde die Ablage aufblähen.
+        inhalt.text.slice(0, 10_000),
+      );
+    }
+  }
+
   const anzahl = Number(
     (d.prepare('select count(*) as n from inhalte').get() as { n: number }).n,
   );
@@ -468,6 +586,82 @@ export function merkeInhalt(
        )`,
     ).run(anzahl - MAX_INHALTE);
   }
+}
+
+export interface Suchtreffer extends AbgelegteNachricht {
+  ordner: string;
+}
+
+/**
+ * Sucht in der lokalen Ablage.
+ *
+ * Was gefunden wird: Betreff, Absender und Empfänger **aller** abgelegten Nachrichten,
+ * dazu der Text derer, die schon einmal geöffnet waren. Das ist eine bewusste Grenze -
+ * den Text aller 31.700 Nachrichten zu holen hieße, Stunden zu laden und Gigabyte
+ * abzulegen. Die Oberfläche sagt das dazu und bietet daneben die Suche über den Server
+ * an, die auch ungelesene Texte erreicht.
+ */
+export function sucheLokal(
+  konto: string,
+  text: string,
+  optionen: { ordner?: string; grenze?: number } = {},
+): Suchtreffer[] {
+  const begriff = text.trim();
+  if (!begriff || !sucheVerfuegbar()) return [];
+
+  const d = ablage();
+  const grenze = optionen.grenze ?? 100;
+
+  /**
+   * Die Eingabe in eine Suchanfrage übersetzen.
+   *
+   * Jedes Wort wird in Anführungszeichen gesetzt und mit "*" versehen: so gilt es als
+   * Wortanfang statt als vollständiges Wort ("rechn" findet "Rechnung"), und
+   * Sonderzeichen aus der Eingabe können die Anfrage nicht durcheinanderbringen -
+   * ein eingetipptes "AND" oder eine Klammer wäre sonst Teil der Abfragesprache.
+   */
+  const anfrage = begriff
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((wort) => `"${wort.replace(/"/g, '""')}"*`)
+    .join(' AND ');
+  if (!anfrage) return [];
+
+  const wo = optionen.ordner ? 'and n.ordner = ?' : '';
+  const werte: (string | number)[] = optionen.ordner
+    ? [anfrage, konto, optionen.ordner, grenze]
+    : [anfrage, konto, grenze];
+
+  try {
+    const zeilen = d
+      .prepare(
+        `select n.* from suche s
+         join nachrichten n on n.rowid = s.rowid
+         where suche match ? and n.konto = ? ${wo}
+         order by n.datum desc limit ?`,
+      )
+      .all(...werte);
+    return (zeilen as unknown as (Zeile & { ordner: string })[]).map((z) => ({
+      ...zuNachricht(z),
+      ordner: z.ordner,
+    }));
+  } catch (err) {
+    // Eine Anfrage, die FTS5 nicht versteht, ist kein Grund für einen Fehlerbildschirm.
+    console.warn(`Lokale Suche nicht möglich: ${(err as Error).message}`);
+    return [];
+  }
+}
+
+/** Wie viele Nachrichten durchsuchbar sind - und bei wie vielen auch der Text. */
+export function suchbestand(konto: string): { kopfdaten: number; mitText: number } {
+  const d = ablage();
+  return {
+    kopfdaten: anzahlAbgelegt(konto),
+    mitText: Number(
+      (d.prepare('select count(*) as n from inhalte where konto = ?').get(konto) as { n: number })
+        .n,
+    ),
+  };
 }
 
 export function holeInhalt(

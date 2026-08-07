@@ -116,6 +116,8 @@ export default function App() {
   const [wartendFor, setWartendFor] = useState<api.Account | null>(null);
   /** Für welche Nachricht der Quelltext offen ist - Ordner und Konto ergeben sich. */
   const [quelltextFuer, setQuelltextFuer] = useState<{ uid: number; betreff: string } | null>(null);
+  /** Gesetzt, solange Treffer aus der lokalen Ablage angezeigt werden. */
+  const [lokalerStand, setLokalerStand] = useState<api.LokaleSuche | null>(null);
   /** Wie viel aussteht - fuer den Hinweis in der Seitenleiste. */
   const [wartendAnzahl, setWartendAnzahl] = useState(0);
   /** Vorgemerkte Nachricht - waehrend der Bedenkzeit oder bis zum geplanten Zeitpunkt. */
@@ -847,6 +849,7 @@ export default function App() {
       setHasMore(res.hasMore);
       setSuche(null);
       setSearchFolder(null);
+      setLokalerStand(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -862,12 +865,46 @@ export default function App() {
    * jüngsten Treffer je Ordner zusammengeführt und nach Datum sortiert, weiter blättern
    * wäre nur mit vollständigem Abruf aller Treffer möglich.
    */
-  const handleSearch = async (eingabe: SucheEingabe) => {
+  const handleSearch = async (eingabe: SucheEingabe, ohneAblage = false) => {
     if (!selectedAccountId || !selectedFolder) return;
     setLoadingMessages(true);
     setCheckedUids(new Set());
     setSelection(null);
+    setLokalerStand(null);
     try {
+      /**
+       * Erst in der lokalen Ablage nachsehen.
+       *
+       * Sie antwortet sofort statt in Hunderten von Millisekunden, und was sie findet,
+       * steht da, bevor der Server überhaupt geantwortet hätte. Nur bei einer einfachen
+       * Textsuche - sobald jemand nach Absender, Anhang oder Zeitraum einschränkt,
+       * gehört das dem Server, der diese Felder kennt.
+       */
+      const nurText =
+        !ohneAblage && Boolean(eingabe.text.trim()) && !eingabe.from && !eingabe.subject;
+      if (nurText) {
+        try {
+          const lokal = await api.sucheLokal(
+            selectedAccountId,
+            eingabe.text,
+            eingabe.bereich === 'ordner' ? selectedFolder : undefined,
+          );
+          if (lokal.treffer.length > 0) {
+            setMessages(lokal.treffer);
+            setTotalMessages(lokal.treffer.length);
+            setCursor(null);
+            setHasMore(false);
+            setSearchFolder(null);
+            setSuche(eingabe);
+            setLokalerStand(lokal);
+            setLoadingMessages(false);
+            return;
+          }
+        } catch {
+          // Die Ablage ist eine Abkürzung, kein Muss - notfalls fragt der Server.
+        }
+      }
+
       if (eingabe.bereich === 'ordner') {
         // Eine aktive Einordnung bleibt Bedingung: wer in "Werbung" sucht, will nicht
         // plötzlich Treffer aus dem ganzen Posteingang sehen.
@@ -1257,6 +1294,11 @@ export default function App() {
           hasMore={hasMore && cursor !== null}
           loadingMore={loadingMore}
           searchActive={suche !== null}
+          lokalerStand={lokalerStand}
+          onVollstaendigSuchen={() => {
+            // Dieselbe Eingabe noch einmal, diesmal ohne die Abkürzung über die Ablage.
+            if (suche) void handleSearch(suche, true);
+          }}
           anhangSuchbar={faehigkeiten.gmailSearch}
           mehrereKonten={accounts.length > 1}
           zeigeHerkunft={suche !== null && suche.bereich !== 'ordner'}

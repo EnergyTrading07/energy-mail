@@ -17,6 +17,10 @@ interface Props {
   hasMore: boolean;
   loadingMore: boolean;
   searchActive: boolean;
+  /** Gesetzt, solange Treffer aus der lokalen Ablage gezeigt werden. */
+  lokalerStand?: { dauerMs: number; bestand: { kopfdaten: number; mitText: number } } | null;
+  /** Sucht dieselbe Eingabe noch einmal beim Anbieter, über den ganzen Bestand. */
+  onVollstaendigSuchen?: () => void;
   /** Ob der Anbieter nach Anhängen suchen kann - nur Gmail beherrscht das. */
   anhangSuchbar: boolean;
   mehrereKonten: boolean;
@@ -58,6 +62,35 @@ function kurzesDatum(date: Date | null): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
   }
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+/**
+ * Hinweis über Treffern aus der lokalen Ablage.
+ *
+ * Nötig, weil die schnelle Suche eine echte Grenze hat: Betreff und Absender kennt sie
+ * von allen Nachrichten, den Text nur von den bereits geöffneten. Diese Grenze zu
+ * verschweigen wäre schlimmer als die Wartezeit - wer glaubt, vollständig gesucht zu
+ * haben, hört auf zu suchen.
+ */
+function LokalHinweis({
+  stand,
+  onVollstaendig,
+}: {
+  stand: { dauerMs: number; bestand: { kopfdaten: number; mitText: number } };
+  onVollstaendig: () => void;
+}) {
+  return (
+    <div className="lokal-hinweis">
+      <span>
+        Sofort gefunden ({stand.dauerMs} ms) — in Betreff und Absender von{' '}
+        {stand.bestand.kopfdaten.toLocaleString('de-DE')} Nachrichten, im Text von{' '}
+        {stand.bestand.mitText.toLocaleString('de-DE')} bereits geöffneten.
+      </span>
+      <button className="link-btn" onClick={onVollstaendig}>
+        Beim Anbieter vollständig suchen
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -141,6 +174,8 @@ export function MessageList({
   hasMore,
   loadingMore,
   searchActive,
+  lokalerStand,
+  onVollstaendigSuchen,
   anhangSuchbar,
   mehrereKonten,
   zeigeHerkunft,
@@ -279,6 +314,10 @@ export function MessageList({
         onSearch={onSearch}
         onClear={onClear}
       />
+
+      {lokalerStand && onVollstaendigSuchen && (
+        <LokalHinweis stand={lokalerStand} onVollstaendig={onVollstaendigSuchen} />
+      )}
 
       <div className="message-scroll">
         {loading && <div className="empty-state">Lade Nachrichten…</div>}

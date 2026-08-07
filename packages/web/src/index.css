@@ -2740,3 +2740,25 @@ input[type='file']::file-selector-button:hover {
   color: var(--text-3);
   cursor: pointer;
 }
+
+/* Hinweis ueber Treffern aus der lokalen Ablage. Sagt, wie schnell es ging und was
+   die schnelle Suche nicht abdeckt - diese Grenze zu verschweigen waere schlimmer
+   als die Wartezeit, denn wer sich vollstaendig gesucht glaubt, hoert auf zu suchen. */
+.lokal-hinweis {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  padding: 7px 14px;
+  background: var(--flaeche-leise);
+  border-bottom: 1px solid var(--rand);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.lokal-hinweis .link-btn {
+  font-size: 11.5px;
+  flex: none;
+}
