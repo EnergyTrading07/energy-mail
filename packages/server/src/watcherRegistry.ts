@@ -55,7 +55,7 @@ export type MailEvent =
   | {
       type: 'fortschritt';
       accountId: string;
-      vorgang: 'absender' | 'offen';
+      vorgang: 'absender' | 'offen' | 'sicherung';
       getan: number;
       von: number;
       /** Was gerade geschieht, in einem Halbsatz - "Gesendet wird durchgesehen". */

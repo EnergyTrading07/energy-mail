@@ -35,6 +35,7 @@ interface Props {
     loeschen: (accountId: string, folder: FolderInfo) => void;
     leeren: (accountId: string, folder: FolderInfo) => void;
     alleGelesen: (accountId: string, folder: FolderInfo) => void;
+    sichern: (accountId: string, folder: FolderInfo) => void;
   };
   onSelectAccount: (id: string) => void;
   onSelectFolder: (path: string) => void;
@@ -226,6 +227,13 @@ export function Sidebar({
           ? () => ordnerAktionen.alleGelesen(accountId, folder)
           : undefined,
         grund: folder.unseen ? undefined : 'Hier ist nichts ungelesen.',
+      },
+      {
+        label: 'Als Datei sichern…',
+        onClick: folder.selectable
+          ? () => ordnerAktionen.sichern(accountId, folder)
+          : undefined,
+        grund: folder.selectable ? undefined : 'Dieser Eintrag ist nur eine Überschrift.',
       },
       {
         label: 'Ordner leeren…',

@@ -31,6 +31,8 @@ import {
   listMessages,
   moveMessages,
   sendeEinKlickAbmeldung,
+  dateiname,
+  exportiereAlsMbox,
   findeEinstellungen,
   getProviderPreset,
   getRawMessage,
@@ -1156,6 +1158,68 @@ export async function buildServer() {
       return mitVertrauen(nachricht);
     },
   );
+
+  /**
+   * Sichert einen ganzen Ordner als mbox-Datei.
+   *
+   * Strömend ausgeliefert, nicht am Stück: ein Ordner mit 31.700 Nachrichten wäre als
+   * eine Antwort mehrere Gigabyte im Arbeitsspeicher. So beginnt der Browser zu
+   * schreiben, während der Server noch holt.
+   *
+   * mbox, weil Thunderbird, Apple Mail und praktisch jedes Umstellungswerkzeug es
+   * lesen - ohne diesen Weg wäre Energy Mail eine Einbahnstraße.
+   */
+  app.get<{
+    Params: { id: string; folder: string };
+    Querystring: { max?: string };
+  }>('/accounts/:id/folders/:folder/sicherung', async (request, reply) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const hoechstens = request.query.max ? Number(request.query.max) : undefined;
+
+    reply.raw.setHeader('content-type', 'application/mbox; charset=utf-8');
+    reply.raw.setHeader(
+      'content-disposition',
+      `attachment; filename="${dateiname(ordner, 'mbox')}"`,
+    );
+
+    try {
+      const ergebnis = await exportiereAlsMbox(
+        account,
+        ordner,
+        (stueck) =>
+          new Promise<void>((fertig, schiefgegangen) => {
+            // Auf das Abfließen warten: schreibt man schneller, als die Leitung
+            // abnimmt, wächst der Puffer bis zum Speicherfehler.
+            const platz = reply.raw.write(stueck, (err) => (err ? schiefgegangen(err) : fertig()));
+            if (!platz) reply.raw.once('drain', () => undefined);
+          }),
+        {
+          hoechstens,
+          melde: (getan, von, text) =>
+            meldeFortschritt({
+              type: 'fortschritt',
+              accountId: account.id,
+              vorgang: 'sicherung',
+              getan,
+              von,
+              text,
+            }),
+        },
+      );
+      app.log.info(
+        `Sicherung ${ordner}: ${ergebnis.ausgegeben} ausgegeben, ${ergebnis.uebersprungen} übersprungen`,
+      );
+    } catch (err) {
+      // Die Kopfzeilen sind längst hinaus - ein Fehlerstatus geht nicht mehr. Dann
+      // wenigstens einen sichtbaren Vermerk in die Datei, statt sie still abzuschneiden.
+      app.log.error(`Sicherung abgebrochen: ${(err as Error).message}`);
+      reply.raw.write(`\n\nX-Energy-Mail-Abbruch: ${(err as Error).message}\n`);
+    }
+
+    reply.raw.end();
+    return reply;
+  });
 
   /**
    * Die Nachricht im Original. Bewusst nicht zwischengespeichert: sie wird selten

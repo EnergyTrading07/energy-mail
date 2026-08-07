@@ -378,6 +378,17 @@ export function sucheLokal(
   return request(`/accounts/${accountId}/suche-lokal?${p}`);
 }
 
+/**
+ * Adresse, unter der ein Ordner als mbox-Datei liegt.
+ *
+ * Bewusst nur die Adresse und kein Abruf: der Browser laedt sie selbst herunter und
+ * schreibt mit, waehrend der Server noch holt. Durch die Anwendung geschleust waeren
+ * es bei einem grossen Ordner Gigabyte im Arbeitsspeicher.
+ */
+export function sicherungsAdresse(accountId: string, folder: string): string {
+  return `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/sicherung`;
+}
+
 /** Die Nachricht im Original, mit allen Kopfzeilen. */
 export async function fetchQuelltext(
   accountId: string,

@@ -27,7 +27,7 @@ export type MailEvent =
   | {
       type: 'fortschritt';
       accountId: string;
-      vorgang: 'absender' | 'offen';
+      vorgang: 'absender' | 'offen' | 'sicherung';
       getan: number;
       von: number;
       text?: string;

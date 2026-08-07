@@ -2762,3 +2762,53 @@ input[type='file']::file-selector-button:hover {
   font-size: 11.5px;
   flex: none;
 }
+
+/* Fortschritt der Ordnersicherung. Unten mittig wie die Sendemeldung - der Browser
+   kann hier keinen eigenen Balken zeigen, weil er eine Datei unbekannter Laenge
+   laedt und deshalb bei "unbekannt" stehen bleibt. */
+.sicherung-meldung {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 340px;
+  max-width: min(560px, 92vw);
+  padding: 12px 16px;
+  background: var(--erhoben);
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  font-size: 13px;
+}
+
+.sicherung-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sicherung-text span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.sicherung-balken {
+  flex: none;
+  width: 90px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--flaeche-tief);
+  overflow: hidden;
+}
+
+.sicherung-anteil {
+  height: 100%;
+  background: var(--marke);
+  transition: width 220ms ease-out;
+}

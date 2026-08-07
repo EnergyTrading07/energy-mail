@@ -17,7 +17,7 @@ export interface Stand {
 
 export function useFortschritt(
   accountId: string | null,
-  vorgang: 'absender' | 'offen',
+  vorgang: 'absender' | 'offen' | 'sicherung',
   laeuft: boolean,
 ): Stand | null {
   const [stand, setStand] = useState<Stand | null>(null);

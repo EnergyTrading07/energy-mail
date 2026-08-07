@@ -1,6 +1,7 @@
 import { type FetchMessageObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { withClient, withThrowawayClient } from './connectionPool.js';
+import { alsMboxEintrag } from './mbox.js';
 import { findeOffeneVorgaenge, type OffenerVorgang } from './nachfassen.js';
 import {
   GMAIL_CATEGORIES,
@@ -658,6 +659,67 @@ export function findSentFolder(config: AccountConfig): Promise<string | null> {
 
 export function findDraftsFolder(config: AccountConfig): Promise<string | null> {
   return findSpecialFolder(config, '\\Drafts', ['drafts', 'entwürfe', 'entwuerfe']);
+}
+
+/**
+ * Gibt einen ganzen Ordner als mbox aus.
+ *
+ * Strömend statt am Stück: ein Ordner mit 31.700 Nachrichten wäre als Zeichenkette im
+ * Arbeitsspeicher mehrere Gigabyte. Jede Nachricht geht einzeln durch "schreibe" und
+ * ist danach wieder weg.
+ *
+ * Gibt die Zahl der ausgegebenen Nachrichten zurück. Einzelne, die sich nicht holen
+ * lassen, werden übersprungen und gezählt - eine Sicherung, die an einer beschädigten
+ * Nachricht ganz abbricht, ist keine.
+ */
+export async function exportiereAlsMbox(
+  config: AccountConfig,
+  folder: string,
+  schreibe: (stueck: string) => void | Promise<void>,
+  optionen: { melde?: Fortschritt; hoechstens?: number } = {},
+): Promise<{ ausgegeben: number; uebersprungen: number }> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const alle = (await client.search({ all: true }, { uid: true })) || [];
+      const uids = optionen.hoechstens ? alle.slice(-optionen.hoechstens) : alle;
+
+      let ausgegeben = 0;
+      let uebersprungen = 0;
+
+      for (const [i, uid] of uids.entries()) {
+        // Nicht bei jeder einzelnen melden - bei 30.000 Nachrichten wäre die Meldung
+        // teurer als die Arbeit.
+        if (i % 25 === 0) {
+          optionen.melde?.(i, uids.length, `${i} von ${uids.length} gesichert`);
+        }
+
+        try {
+          const { content } = await client.download(String(uid), undefined, { uid: true });
+          const teile: Buffer[] = [];
+          for await (const stueck of content) teile.push(stueck as Buffer);
+          const roh = Buffer.concat(teile).toString('utf-8');
+
+          // Absender und Datum für die Trennzeile stehen im Kopf der Nachricht selbst.
+          const von = roh.match(/^From:\s*.*?([^\s<>]+@[^\s<>]+)/im)?.[1];
+          const datumZeile = roh.match(/^Date:\s*(.+)$/im)?.[1];
+          const datum = datumZeile ? new Date(datumZeile) : null;
+
+          await schreibe(
+            alsMboxEintrag(roh, von, datum && !Number.isNaN(datum.getTime()) ? datum : null),
+          );
+          ausgegeben++;
+        } catch {
+          uebersprungen++;
+        }
+      }
+
+      optionen.melde?.(uids.length, uids.length, 'fertig');
+      return { ausgegeben, uebersprungen };
+    } finally {
+      lock.release();
+    }
+  });
 }
 
 /**

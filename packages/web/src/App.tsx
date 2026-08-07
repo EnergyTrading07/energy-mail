@@ -23,6 +23,7 @@ import { QuelltextModal } from './components/QuelltextModal.js';
 import { absenderFuerAntwort, alleAbsender } from './identitaeten.js';
 import { WartendModal } from './components/WartendModal.js';
 import { SendeMeldung } from './components/SendeMeldung.js';
+import { SicherungsMeldung } from './components/SicherungsMeldung.js';
 import type { SucheEingabe } from './components/SearchBar.js';
 import {
   buildFollowUpSubject,
@@ -118,6 +119,11 @@ export default function App() {
   const [quelltextFuer, setQuelltextFuer] = useState<{ uid: number; betreff: string } | null>(null);
   /** Gesetzt, solange Treffer aus der lokalen Ablage angezeigt werden. */
   const [lokalerStand, setLokalerStand] = useState<api.LokaleSuche | null>(null);
+  /** Welcher Ordner gerade gesichert wird - traegt die Fortschrittsanzeige. */
+  const [sicherungLaeuft, setSicherungLaeuft] = useState<{
+    accountId: string;
+    ordner: string;
+  } | null>(null);
   /** Wie viel aussteht - fuer den Hinweis in der Seitenleiste. */
   const [wartendAnzahl, setWartendAnzahl] = useState(0);
   /** Vorgemerkte Nachricht - waehrend der Bedenkzeit oder bis zum geplanten Zeitpunkt. */
@@ -785,6 +791,28 @@ export default function App() {
         await api.markFolderRead(accountId, folder.path);
         if (selectedFolder === folder.path) setReloadCounter((n) => n + 1);
       }),
+
+    /**
+     * Sichert einen Ordner als mbox-Datei.
+     *
+     * Der Browser lädt die Adresse selbst herunter, statt dass die Anwendung die Datei
+     * durch den Arbeitsspeicher schleust - bei einem großen Ordner wären das Gigabyte.
+     * Er schreibt mit, während der Server noch holt.
+     */
+    sichern: (accountId: string, folder: FolderInfo) => {
+      void bestaetige({
+        titel: `"${folder.name}" sichern?`,
+        text:
+          'Alle Nachrichten des Ordners werden vom Anbieter geholt und als mbox-Datei ' +
+          'gespeichert - das Format, das Thunderbird, Apple Mail und die üblichen ' +
+          'Umstellungswerkzeuge lesen. Bei großen Ordnern dauert das einige Minuten.',
+        ok: 'Sichern',
+      }).then((ja) => {
+        if (!ja) return;
+        setSicherungLaeuft({ accountId, ordner: folder.name });
+        window.location.href = api.sicherungsAdresse(accountId, folder.path);
+      });
+    },
   };
 
   /** Ordnerwechsel hebt eine aktive Einordnung auf - sie gilt nur für den Posteingang. */
@@ -1232,6 +1260,13 @@ export default function App() {
           stand={aktualisierung.stand}
           onNeuStarten={aktualisierung.neuStarten}
           onSchliessen={aktualisierung.verbergen}
+        />
+      )}
+      {sicherungLaeuft && (
+        <SicherungsMeldung
+          accountId={sicherungLaeuft.accountId}
+          ordner={sicherungLaeuft.ordner}
+          onFertig={() => setSicherungLaeuft(null)}
         />
       )}
       {/* Bedenkzeit nach dem Absenden. Für "später senden" gibt es keine Meldung mit
