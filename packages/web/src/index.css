@@ -2484,6 +2484,57 @@ input[type='file']::file-selector-button:hover {
   white-space: nowrap;
 }
 
+/* Auskunft der Serversuche beim Anlegen eines Kontos. Steht zwischen Passwortfeld und
+   Knopf, weil sie genau dort die Frage beantwortet, die man sich stellt: klappt das? */
+.serverauskunft {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 8px;
+}
+
+.server-status {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.server-gefunden {
+  color: var(--gut);
+}
+
+.server-fehlt {
+  color: var(--warn);
+}
+
+.server-details {
+  font-size: 11px;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+/* .form-row stellt seine Felder untereinander und macht sie voll breit - hier sollen
+   Rechnername und Anschluss nebeneinander stehen. Doppelter Klassenname, damit die
+   Regel gegen die allgemeine gewinnt. */
+.server-felder .form-row.form-row {
+  flex-direction: row;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+/* Der Anschluss braucht nur Platz fuer vier Ziffern - der Rechnername den Rest. */
+.server-felder .form-row input.server-port {
+  flex: none;
+  width: 56px;
+  text-align: center;
+}
+
+.server-felder .form-row input {
+  min-width: 0;
+}
+
 /* Zusatzzeile unter einer Fortschrittsmeldung - erklaert die Wartezeit, ohne sie
    in jeden Zwischenstand hineinzuschreiben. */
 .fortschritt-hinweis {

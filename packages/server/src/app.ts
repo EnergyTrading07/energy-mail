@@ -31,6 +31,8 @@ import {
   listMessages,
   moveMessages,
   sendeEinKlickAbmeldung,
+  findeEinstellungen,
+  getProviderPreset,
   getRawMessage,
   offeneVorgaenge,
   senderUebersicht,
@@ -192,16 +194,45 @@ export async function buildServer() {
     reply.code(500).send({ error: err instanceof Error ? err.message : 'Interner Fehler' });
   });
 
-  app.post<{ Body: { email?: string; password?: string } }>('/accounts', async (request, reply) => {
-    const { email, password } = request.body ?? {};
+  /**
+   * Sucht die Serveradressen zu einer Adresse, ohne ein Konto anzulegen. Die Oberfläche
+   * fragt damit schon beim Tippen nach - dann steht "Posteo erkannt" da, bevor das
+   * Passwort überhaupt eingegeben ist.
+   */
+  app.get<{ Querystring: { email?: string } }>('/autoconfig', async (request) => {
+    const email = request.query.email?.trim();
+    if (!email?.includes('@')) throw new HttpError(400, 'Feld "email" ist erforderlich');
+    return { gefunden: await findeEinstellungen(email, getProviderPreset) };
+  });
+
+  app.post<{
+    Body: {
+      email?: string;
+      password?: string;
+      overrides?: {
+        imapHost?: string;
+        imapPort?: number;
+        imapSecure?: boolean;
+        smtpHost?: string;
+        smtpPort?: number;
+        smtpSecure?: boolean;
+      };
+    };
+  }>('/accounts', async (request, reply) => {
+    const { email, password, overrides } = request.body ?? {};
     if (!email || !password) {
       reply.code(400);
       return { error: 'E-Mail und Passwort sind erforderlich' };
     }
 
+    // Nur suchen, wenn nicht ohnehin alles von Hand angegeben ist - sonst wartet man
+    // auf eine Auskunft, die keine Rolle mehr spielt.
+    const vollstaendigVonHand = Boolean(overrides?.imapHost && overrides?.smtpHost);
+    const gefunden = vollstaendigVonHand ? null : await findeEinstellungen(email, getProviderPreset);
+
     let account: AccountConfig;
     try {
-      account = buildPasswordAccount({ email, password });
+      account = buildPasswordAccount({ email, password, overrides, gefunden });
     } catch (err) {
       reply.code(400);
       return { error: (err as Error).message };

@@ -57,8 +57,23 @@ export function fetchAccounts(): Promise<Account[]> {
   return request('/accounts');
 }
 
-export function createAccount(email: string, password: string): Promise<Account> {
-  return request('/accounts', { method: 'POST', body: JSON.stringify({ email, password }) });
+/** Von Hand eingetragene Serveradressen - sie gewinnen gegen die Suche. */
+export interface Serverangaben {
+  imapHost?: string;
+  imapPort?: number;
+  smtpHost?: string;
+  smtpPort?: number;
+}
+
+export function createAccount(
+  email: string,
+  password: string,
+  overrides?: Serverangaben,
+): Promise<Account> {
+  return request('/accounts', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, overrides }),
+  });
 }
 
 export function deleteAccount(accountId: string): Promise<{ ok: boolean }> {
@@ -308,6 +323,26 @@ export function fetchOffeneVorgaenge(
   if (optionen.auchUnbekannte) p.set('all', '1');
   const anhang = p.toString();
   return request(`/accounts/${accountId}/offen${anhang ? `?${anhang}` : ''}`);
+}
+
+export interface GefundeneEinstellungen {
+  fundort: 'eingebaut' | 'anbieterdatenbank' | 'domain' | 'dns';
+  anbieter?: string;
+  imapHost: string;
+  imapPort: number;
+  imapSecure: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  benutzername?: 'adresse' | 'ortsteil';
+}
+
+/** Sucht die Serveradressen zu einer Mailadresse, ohne ein Konto anzulegen. */
+export async function sucheServer(email: string): Promise<GefundeneEinstellungen | null> {
+  const { gefunden } = await request<{ gefunden: GefundeneEinstellungen | null }>(
+    `/autoconfig?email=${encodeURIComponent(email)}`,
+  );
+  return gefunden;
 }
 
 /** Die Nachricht im Original, mit allen Kopfzeilen. */

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { CategoryInfo, FolderInfo, GmailCategory } from '@energy-mail/mail-core';
-import type { Account, OAuthClients, OAuthProvider } from '../api.js';
+import type { Account, OAuthClients, OAuthProvider, Serverangaben } from '../api.js';
 import { bestaetige, frage } from '../dialoge.js';
 import { buildFolderView, type AnzeigeOrdner } from '../folderTree.js';
 import { categoryDescription, categoryLabel, visibleCategories } from '../gmailCategories.js';
 import { providerTheme } from '../providerTheme.js';
 import { FolderIcon } from './FolderIcon.js';
 import { FolderMenu, type MenuEintrag } from './FolderMenu.js';
+import { LEERE_HANDWERTE, Serverauskunft, type HandWerte } from './Serverauskunft.js';
 
 interface Props {
   accounts: Account[];
@@ -39,7 +40,7 @@ interface Props {
   onSelectFolder: (path: string) => void;
   onSelectCategory: (folder: string, category: GmailCategory) => void;
   onCompose: () => void;
-  onAddAccount: (email: string, password: string) => Promise<void>;
+  onAddAccount: (email: string, password: string, overrides?: Serverangaben) => Promise<void>;
   onDeleteAccount: (id: string) => Promise<void>;
   onOpenSettings: (account: Account) => void;
   onOAuthLogin: (provider: OAuthProvider) => void;
@@ -160,6 +161,9 @@ export function Sidebar({
   const [password, setPassword] = useState('');
   const [fehler, setFehler] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Serveradressen von Hand statt aus der Suche - offen, sobald die Suche nichts fand. */
+  const [vonHand, setVonHand] = useState(false);
+  const [handWerte, setHandWerte] = useState<HandWerte>(LEERE_HANDWERTE);
 
   const formSichtbar = formOffen || accounts.length === 0;
 
@@ -259,9 +263,21 @@ export function Sidebar({
     setFehler(null);
     setBusy(true);
     try {
-      await onAddAccount(email, password);
+      // Nur mitgeben, was wirklich ausgefüllt ist - ein leeres Feld überschriebe sonst
+      // die gefundene Angabe mit nichts.
+      const angaben = vonHand
+        ? {
+            imapHost: handWerte.imapHost.trim() || undefined,
+            imapPort: Number(handWerte.imapPort) || undefined,
+            smtpHost: handWerte.smtpHost.trim() || undefined,
+            smtpPort: Number(handWerte.smtpPort) || undefined,
+          }
+        : undefined;
+      await onAddAccount(email, password, angaben);
       setEmail('');
       setPassword('');
+      setVonHand(false);
+      setHandWerte(LEERE_HANDWERTE);
       setFormOffen(false);
     } catch (err) {
       setFehler((err as Error).message);
@@ -513,6 +529,13 @@ export function Sidebar({
                   disabled={busy}
                 />
               </div>
+              <Serverauskunft
+                email={email}
+                vonHand={vonHand}
+                onVonHand={setVonHand}
+                werte={handWerte}
+                onWert={(feld, wert) => setHandWerte((v) => ({ ...v, [feld]: wert }))}
+              />
               {fehler && <div className="error-banner">{fehler}</div>}
               <div className="form-row">
                 <button className="btn" type="submit" disabled={busy}>

@@ -574,8 +574,12 @@ export default function App() {
     }
   };
 
-  const handleAddAccount = async (email: string, password: string) => {
-    const account = await api.createAccount(email, password);
+  const handleAddAccount = async (
+    email: string,
+    password: string,
+    overrides?: api.Serverangaben,
+  ) => {
+    const account = await api.createAccount(email, password, overrides);
     setAccounts((prev) => [...prev, account]);
     setSelectedAccountId(account.id);
   };

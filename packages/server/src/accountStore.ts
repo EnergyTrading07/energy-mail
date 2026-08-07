@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AccountAuth, AccountConfig } from '@energy-mail/mail-core';
-import { getProviderPreset } from '@energy-mail/mail-core';
+import { getProviderPreset, type GefundeneEinstellungen } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
 import { decryptSecret, encryptSecret } from './secretCrypto.js';
 
@@ -102,32 +102,52 @@ export interface CreatePasswordAccountInput {
   email: string;
   password: string;
   overrides?: ConnectionOverrides;
+  /**
+   * Was die Serversuche ermittelt hat. Der Aufrufer besorgt es, weil die Suche ins Netz
+   * greift und diese Funktion ohne Wartezeit auskommen soll.
+   */
+  gefunden?: GefundeneEinstellungen | null;
 }
 
 /**
- * Baut die Kontokonfiguration aus Preset + Overrides, ohne sie zu speichern. Getrennt
- * vom Speichern, damit der Aufrufer die Verbindung erst prüfen kann.
+ * Baut die Kontokonfiguration, ohne sie zu speichern. Getrennt vom Speichern, damit der
+ * Aufrufer die Verbindung erst prüfen kann.
+ *
+ * Drei Quellen in dieser Reihenfolge: was der Nutzer selbst eingetragen hat, dann was
+ * die Serversuche ergeben hat, zuletzt die eingebauten Voreinstellungen. Von Hand
+ * Eingetragenes gewinnt immer - wer die Felder ausfüllt, weiß in der Regel, warum.
  */
 export function buildPasswordAccount(input: CreatePasswordAccountInput): AccountConfig {
   const preset = getProviderPreset(input.email);
-  const imapHost = input.overrides?.imapHost ?? preset?.imapHost;
-  const smtpHost = input.overrides?.smtpHost ?? preset?.smtpHost;
+  const gefunden = input.gefunden;
+
+  const imapHost = input.overrides?.imapHost ?? gefunden?.imapHost ?? preset?.imapHost;
+  const smtpHost = input.overrides?.smtpHost ?? gefunden?.smtpHost ?? preset?.smtpHost;
   if (!imapHost || !smtpHost) {
     throw new Error(
-      `Für "${input.email}" ist kein Anbieter hinterlegt. Bitte IMAP- und SMTP-Server manuell angeben.`,
+      `Für "${input.email}" ließen sich die Serveradressen nicht ermitteln. ` +
+        'Bitte IMAP- und SMTP-Server von Hand angeben.',
     );
   }
+
+  /**
+   * Manche Anbieter wollen als Benutzernamen nur den Teil vor dem Klammeraffen. Die
+   * Serversuche sagt das mit; ohne diese Angabe ist die ganze Adresse das Übliche.
+   */
+  const benutzer =
+    gefunden?.benutzername === 'ortsteil' ? (input.email.split('@')[0] ?? input.email) : input.email;
 
   return {
     id: randomUUID(),
     email: input.email,
     imapHost,
-    imapPort: input.overrides?.imapPort ?? preset?.imapPort ?? 993,
-    imapSecure: input.overrides?.imapSecure ?? preset?.imapSecure ?? true,
+    imapPort: input.overrides?.imapPort ?? gefunden?.imapPort ?? preset?.imapPort ?? 993,
+    imapSecure: input.overrides?.imapSecure ?? gefunden?.imapSecure ?? preset?.imapSecure ?? true,
     smtpHost,
-    smtpPort: input.overrides?.smtpPort ?? preset?.smtpPort ?? 587,
-    smtpSecure: input.overrides?.smtpSecure ?? preset?.smtpSecure ?? false,
-    auth: { type: 'password', user: input.email, pass: input.password } satisfies AccountAuth,
+    smtpPort: input.overrides?.smtpPort ?? gefunden?.smtpPort ?? preset?.smtpPort ?? 587,
+    smtpSecure:
+      input.overrides?.smtpSecure ?? gefunden?.smtpSecure ?? preset?.smtpSecure ?? false,
+    auth: { type: 'password', user: benutzer, pass: input.password } satisfies AccountAuth,
   };
 }
 
