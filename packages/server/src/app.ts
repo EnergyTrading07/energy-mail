@@ -94,6 +94,11 @@ import {
   wendeRegelnAn,
 } from './rules.js';
 import {
+  holeGesamtPosteingang,
+  markeAlsText,
+  markeAusText,
+} from './gesamtPosteingang.js';
+import {
   alleEtiketten,
   loescheEtikett,
   speichereEtikett,
@@ -375,6 +380,29 @@ export async function buildServer() {
     }
     return einfuhrVisitenkarten(inhalt);
   });
+
+  /**
+   * Der Posteingang aller Konten in einer Liste.
+   *
+   * "nach" trägt für jedes Konto die zuletzt ausgegebene UID - daraus lässt sich jede
+   * Seite neu herleiten, ohne dass der Server sich etwas merken müsste.
+   */
+  app.get<{ Querystring: { pageSize?: string; nach?: string } }>(
+    '/posteingang',
+    async (request) => {
+      const konten = listAccounts();
+      if (konten.length === 0) {
+        return { messages: [], total: 0, nextCursor: null, hasMore: false, fehlende: [] };
+      }
+      const pageSize = Math.min(Math.max(Number(request.query.pageSize) || 25, 1), 100);
+      const seite = await holeGesamtPosteingang(
+        konten,
+        markeAusText(request.query.nach),
+        pageSize,
+      );
+      return { ...seite, nextCursor: seite.nextCursor ? markeAlsText(seite.nextCursor) : null };
+    },
+  );
 
   // --- Etiketten: das Verzeichnis von Namen und Farben ---
 

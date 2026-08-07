@@ -36,6 +36,9 @@ interface Props {
   wartendAnzahl: number;
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
+  /** Ob gerade der Posteingang aller Konten angezeigt wird. */
+  gesamtAnsicht: boolean;
+  onGesamtAnsicht: () => void;
   /** Gespeicherte Suchen - Ordner, die es gar nicht gibt. */
   suchen: GespeicherteSuche[];
   /** Verzeichnis der Etiketten - damit in der Beschreibung ihr Name steht, nicht das
@@ -154,6 +157,8 @@ export function Sidebar({
   wartendAnzahl,
   onOpenWartend,
   onOpenAdressbuch,
+  gesamtAnsicht,
+  onGesamtAnsicht,
   suchen,
   etiketten,
   onSucheAusfuehren,
@@ -331,8 +336,21 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-scroll">
+        {/* Nur bei mehreren Konten: bei einem einzigen waere es derselbe Posteingang
+            zweimal, und die Liste faenge mit einer Doppelung an. */}
+        {accounts.length > 1 && (
+          <div
+            className={`folder-row gesamt-zeile${gesamtAnsicht ? ' active' : ''}`}
+            onClick={onGesamtAnsicht}
+            title="Die Posteingänge aller Konten in einer Liste"
+          >
+            <FolderIcon role="\Inbox" />
+            <span className="folder-name">Alle Posteingänge</span>
+          </div>
+        )}
+
         {accounts.map((account) => {
-          const aktiv = account.id === selectedAccountId;
+          const aktiv = account.id === selectedAccountId && !gesamtAnsicht;
           const ordner = foldersByAccount[account.id] ?? [];
           const ansicht = buildFolderView(ordner, alleOrdner);
           const posteingang = ansicht.sonder.find((e) => e.folder.specialUse === '\\Inbox');

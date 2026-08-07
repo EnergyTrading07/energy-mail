@@ -3231,3 +3231,17 @@ input[type='file']::file-selector-button:hover {
 .gemerkte-suche .link-btn:focus-visible {
   opacity: 1;
 }
+
+/* Die Zeile für den Posteingang aller Konten. Steht über den Konten und gehört zu
+   keinem - deshalb etwas kräftiger und mit einer Trennung darunter. */
+.gesamt-zeile {
+  margin: 0 var(--a-2) var(--a-2);
+  padding-left: 10px;
+  border-bottom: 1px solid var(--rand-fein);
+  border-radius: var(--r-1);
+  font-weight: 500;
+}
+
+.gesamt-zeile.active {
+  background: var(--auswahl);
+}

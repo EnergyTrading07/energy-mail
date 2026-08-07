@@ -35,6 +35,10 @@ interface Props {
   onToggleKonversationen: (an: boolean) => void;
   /** Verzeichnis der Etiketten - fuer Farbe und Name der Marken an den Zeilen. */
   etiketten: Etikett[];
+  /** Ob die Liste die Posteingaenge aller Konten zeigt. */
+  gesamtAnsicht?: boolean;
+  /** Konten, die beim Zusammensetzen nicht antworteten - dann fehlt deren Post. */
+  fehlendeKonten?: { accountId: string; email: string; grund: string }[];
   /** Vorgegebene Sucheingabe, etwa aus einer gespeicherten Suche. */
   sucheVorgabe?: SucheEingabe | null;
   /** Legt die laufende Suche in der Seitenleiste ab. */
@@ -123,6 +127,8 @@ const MessageRow = memo(function MessageRow({
   eingerueckt,
   zeigeHerkunft,
   etiketten,
+  ohneKaestchen,
+  nurKonto,
   onSelect,
   onToggleChecked,
 }: {
@@ -132,6 +138,10 @@ const MessageRow = memo(function MessageRow({
   eingerueckt: boolean;
   zeigeHerkunft: boolean;
   etiketten: Etikett[];
+  ohneKaestchen: boolean;
+  /** Nur das Postfach nennen, nicht auch den Ordner - in der Gesamtliste sind alle im
+      Posteingang, und "INBOX" vor jeder Zeile waere reine Wiederholung. */
+  nurKonto: boolean;
   onSelect: (message: Listeneintrag) => void;
   onToggleChecked: (uid: number, checked: boolean) => void;
 }) {
@@ -146,15 +156,17 @@ const MessageRow = memo(function MessageRow({
       }
       onClick={() => onSelect(message)}
     >
-      <input
-        type="checkbox"
-        className="row-check"
-        checked={angekreuzt}
-        // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
-        // Nachricht öffnen und als gelesen markieren.
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
-      />
+      {!ohneKaestchen && (
+        <input
+          type="checkbox"
+          className="row-check"
+          checked={angekreuzt}
+          // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
+          // Nachricht öffnen und als gelesen markieren.
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
+        />
+      )}
       <div className="row-body">
         <div className="row-top">
           <span className="row-sender">{absender(message)}</span>
@@ -173,8 +185,8 @@ const MessageRow = memo(function MessageRow({
         </div>
         {zeigeHerkunft && message.folder && (
           <div className="row-herkunft">
-            {message.folder}
-            {message.email ? ` · ${message.email}` : ''}
+            {nurKonto ? (message.email ?? message.folder) : message.folder}
+            {!nurKonto && message.email ? ` · ${message.email}` : ''}
           </div>
         )}
       </div>
@@ -200,6 +212,8 @@ export function MessageList({
   konversationen,
   onToggleKonversationen,
   etiketten,
+  gesamtAnsicht,
+  fehlendeKonten,
   sucheVorgabe,
   onSucheSpeichern,
   folderLabel,
@@ -214,7 +228,16 @@ export function MessageList({
 
   /** Aufgeklappte Gespräche - beim Wechsel der Ansicht ohne Bedeutung, daher lokal. */
   const [offen, setOffen] = useState<Set<string>>(new Set());
-  const gruppen = konversationen ? gruppiere(messages) : null;
+  /**
+   * In der Gesamtliste wird nicht gruppiert.
+   *
+   * Ein Gespraech kann sich sonst ueber zwei Postfaecher erstrecken - etwa auf einem
+   * Verteiler, auf dem beide Adressen stehen. Die Kopfzeile eines solchen Eintrags
+   * zaehlte dann Nachrichten aus verschiedenen Konten zusammen und traegt keine
+   * Herkunft mehr. Fuer eine Uebersicht ist die schlichte Liste die ehrlichere Form.
+   */
+  const gruppieren = konversationen && !gesamtAnsicht;
+  const gruppen = gruppieren ? gruppiere(messages) : null;
 
   const umschalten = (id: string) =>
     setOffen((vorher) => {
@@ -249,6 +272,8 @@ export function MessageList({
       eingerueckt={eingerueckt}
       zeigeHerkunft={zeigeHerkunft}
       etiketten={etiketten}
+      ohneKaestchen={Boolean(gesamtAnsicht)}
+      nurKonto={Boolean(gesamtAnsicht)}
       onSelect={stabil.auswaehlen}
       onToggleChecked={stabil.ankreuzen}
     />
@@ -302,26 +327,34 @@ export function MessageList({
   return (
     <div className="message-pane">
       <div className="list-head">
-        <label className="select-all" title="Alle auf dieser Seite auswählen">
-          <input
-            type="checkbox"
-            checked={alleAngekreuzt}
-            disabled={messages.length === 0}
-            onChange={(e) => onToggleAll(e.target.checked)}
-          />
-        </label>
+        {/* In der Gesamtliste gibt es kein Ankreuzen. Eine UID gilt nur innerhalb
+            ihres Postfachs: die 34 von GMX und die 34 von Gmail sind verschiedene
+            Nachrichten, und eine Sammelaktion traefe die falsche. Lieber gar nicht
+            anbieten als im Postfach eines anderen Kontos etwas loeschen. */}
+        {!gesamtAnsicht && (
+          <label className="select-all" title="Alle auf dieser Seite auswählen">
+            <input
+              type="checkbox"
+              checked={alleAngekreuzt}
+              disabled={messages.length === 0}
+              onChange={(e) => onToggleAll(e.target.checked)}
+            />
+          </label>
+        )}
         <span className="list-title">{searchActive ? 'Suchergebnisse' : folderLabel}</span>
-        <button
-          className={`gruppieren-schalter${konversationen ? ' an' : ''}`}
-          title={
-            konversationen
-              ? 'Gespräche gruppieren: an – zusammengehörige Nachrichten stehen als ein Eintrag'
-              : 'Gespräche gruppieren: aus – jede Nachricht steht für sich'
-          }
-          onClick={() => onToggleKonversationen(!konversationen)}
-        >
-          Gespräche
-        </button>
+        {!gesamtAnsicht && (
+          <button
+            className={`gruppieren-schalter${konversationen ? ' an' : ''}`}
+            title={
+              konversationen
+                ? 'Gespräche gruppieren: an – zusammengehörige Nachrichten stehen als ein Eintrag'
+                : 'Gespräche gruppieren: aus – jede Nachricht steht für sich'
+            }
+            onClick={() => onToggleKonversationen(!konversationen)}
+          >
+            Gespräche
+          </button>
+        )}
         {total > 0 && (
           <span className="list-count">
             {messages.length} von {total.toLocaleString('de-DE')}
@@ -339,6 +372,15 @@ export function MessageList({
         onSearch={onSearch}
         onClear={onClear}
       />
+
+      {gesamtAnsicht && (fehlendeKonten?.length ?? 0) > 0 && (
+        <div className="ohne-verbindung" role="status">
+          <span>
+            {fehlendeKonten!.map((k) => k.email).join(', ')} antwortet nicht – die Liste ist
+            unvollständig.
+          </span>
+        </div>
+      )}
 
       {ohneVerbindung && (
         <div className="ohne-verbindung" role="status">

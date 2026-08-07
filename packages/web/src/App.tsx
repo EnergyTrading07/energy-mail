@@ -142,6 +142,22 @@ export default function App() {
   const [suchen, setSuchen] = useState<api.GespeicherteSuche[]>([]);
   /** Von aussen in die Suchleiste gesetzte Eingabe - aus einer gemerkten Suche. */
   const [sucheVorgabe, setSucheVorgabe] = useState<SucheEingabe | null>(null);
+  /** Ob der Posteingang aller Konten in einer Liste steht. */
+  const [gesamtAnsicht, setGesamtAnsicht] = useState(false);
+  /** Marke fuer die naechste Seite der Gesamtliste - je Konto die zuletzt gelieferte UID. */
+  const [gesamtCursor, setGesamtCursor] = useState<string | null>(null);
+  /** Konten, die beim letzten Abruf nicht antworteten. */
+  const [gesamtFehlende, setGesamtFehlende] = useState<
+    { accountId: string; email: string; grund: string }[]
+  >([]);
+  /**
+   * In der Gesamtliste bestimmt die angeklickte Nachricht, welches Konto und welcher
+   * Ordner gemeint sind - nicht die Auswahl in der Seitenleiste.
+   */
+  const [gesamtHerkunft, setGesamtHerkunft] = useState<{
+    accountId: string;
+    folder: string;
+  } | null>(null);
   /**
    * Eine gemerkte Suche, die noch auf ihren Ordner wartet.
    *
@@ -241,6 +257,17 @@ export default function App() {
     api.fetchAccounts().then(setAccounts).catch(() => {});
     setError(null);
   }, [error]);
+
+  /**
+   * Auf welches Konto und welchen Ordner sich eine Aktion bezieht.
+   *
+   * Ausserhalb der Gesamtliste ist das schlicht die Auswahl der Seitenleiste. In der
+   * Gesamtliste dagegen stammt jede Zeile aus einem anderen Postfach - dort entscheidet
+   * die angeklickte Nachricht. Ohne diese Unterscheidung ginge ein Loeschen an das
+   * zuletzt gewaehlte Konto, nicht an das der Nachricht.
+   */
+  const arbeitsKonto = gesamtAnsicht ? (gesamtHerkunft?.accountId ?? null) : selectedAccountId;
+  const arbeitsOrdner = gesamtAnsicht ? (gesamtHerkunft?.folder ?? null) : selectedFolder;
 
   // Beim Kontowechsel die Ordnerauswahl verwerfen, damit unten wieder der Posteingang
   // des neuen Kontos gewählt wird.
@@ -395,7 +422,20 @@ export default function App() {
   const folders = selectedAccountId ? foldersByAccount[selectedAccountId] ?? [] : [];
 
   /** Kennung der aktuellen Ansicht - bindet die Nachrichtenauswahl an Konto und Ordner. */
-  const viewKey = `${selectedAccountId ?? ''}|${selectedFolder ?? ''}|${selectedCategory ?? ''}`;
+  /**
+   * Wozu die gemerkte Auswahl gehört. Passt der Schlüssel nicht mehr, gilt sie nicht -
+   * eine UID gilt nur innerhalb ihres Ordners.
+   *
+   * Die Gesamtliste braucht einen eigenen Schlüssel, und zwar ohne Konto und Ordner:
+   * dort wechselt beides von Zeile zu Zeile, die Auswahl gehört aber weiterhin zur
+   * Gesamtliste. Ohne diesen Zweig trug eine dort gewählte Nachricht den Schlüssel des
+   * zuletzt in der Seitenleiste angeklickten Kontos - und beim Wechsel in dessen
+   * Posteingang wurde eine Gmail-Nummer bei GMX gesucht ("Nachricht 32273 nicht
+   * gefunden in INBOX").
+   */
+  const viewKey = gesamtAnsicht
+    ? 'ALLE-POSTEINGAENGE'
+    : `${selectedAccountId ?? ''}|${selectedFolder ?? ''}|${selectedCategory ?? ''}`;
   const selectedUid = selection && selection.view === viewKey ? selection.uid : null;
   const setSelectedUid = (uid: number) => setSelection({ view: viewKey, uid });
 
@@ -413,9 +453,35 @@ export default function App() {
     setTotalMessages(0);
     setSuche(null);
     setSearchFolder(null);
-  }, [selectedAccountId, selectedFolder, selectedCategory]);
+    // Auch beim Verlassen der Gesamtliste: hatte die Seitenleiste denselben Ordner schon
+    // stehen, aendert sich sonst kein einziger der anderen Werte, und die Zeilen aus
+    // allen Konten blieben stehen. Beim Wechsel in einen GMX-Posteingang mit 17
+    // Nachrichten standen so 40 Zeilen da - die Gmail-Post der Gesamtliste war noch dabei.
+  }, [gesamtAnsicht, selectedAccountId, selectedFolder, selectedCategory]);
+
+  /**
+   * Der Posteingang aller Konten. Eigener Effekt, weil er weder Ordner noch Kategorie
+   * kennt - er fragt eine einzige Adresse, die den Rest zusammensetzt.
+   */
+  useEffect(() => {
+    if (!gesamtAnsicht) return;
+    setLoadingMessages(true);
+    api
+      .ladeGesamtPosteingang(null)
+      .then((seite) => {
+        setMessages(seite.messages);
+        setTotalMessages(seite.total);
+        setGesamtCursor(seite.nextCursor);
+        setHasMore(seite.hasMore);
+        setGesamtFehlende(seite.fehlende);
+        setOhneVerbindung(false);
+      })
+      .catch((err) => setError((err as Error).message))
+      .finally(() => setLoadingMessages(false));
+  }, [gesamtAnsicht, accounts.length, reloadCounter]);
 
   useEffect(() => {
+    if (gesamtAnsicht) return;
     if (!selectedAccountId || !selectedFolder) {
       setMessages([]);
       return;
@@ -440,13 +506,36 @@ export default function App() {
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoadingMessages(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountId, selectedFolder, selectedCategory, reloadCounter, offeneSuche]);
+  }, [
+    gesamtAnsicht,
+    selectedAccountId,
+    selectedFolder,
+    selectedCategory,
+    reloadCounter,
+    offeneSuche,
+  ]);
 
   /**
    * Lädt die nächste, ältere Seite. Bei aktiver Suche wird innerhalb der Trefferliste
    * weitergeblättert, sonst innerhalb des Ordners.
    */
   const loadMore = async () => {
+    if (gesamtAnsicht) {
+      if (loadingMore || !gesamtCursor) return;
+      setLoadingMore(true);
+      try {
+        const seite = await api.ladeGesamtPosteingang(gesamtCursor);
+        setMessages((prev) => [...prev, ...seite.messages]);
+        setGesamtCursor(seite.nextCursor);
+        setHasMore(seite.hasMore);
+        setGesamtFehlende(seite.fehlende);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoadingMore(false);
+      }
+      return;
+    }
     if (!selectedAccountId || loadingMore || cursor === null) return;
     const ordner = suche ? searchFolder : selectedFolder;
     if (!ordner) return;
@@ -531,13 +620,13 @@ export default function App() {
   }, [selectedAccountId, selectedFolder]);
 
   useEffect(() => {
-    if (!selectedAccountId || !selectedFolder || selectedUid === null) {
+    if (!arbeitsKonto || !arbeitsOrdner || selectedUid === null) {
       setSelectedMessage(null);
       return;
     }
     setLoadingMessage(true);
     api
-      .fetchMessage(selectedAccountId, selectedFolder, selectedUid)
+      .fetchMessage(arbeitsKonto, arbeitsOrdner, selectedUid)
       .then((full) => {
         setSelectedMessage(full);
         // Abrufen allein ändert den Status nicht (IMAP-Abruf erfolgt mit PEEK), das
@@ -548,7 +637,7 @@ export default function App() {
       .finally(() => setLoadingMessage(false));
     // applySeen hängt an denselben Werten und wird bewusst nicht als Abhängigkeit geführt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccountId, selectedFolder, selectedUid]);
+  }, [arbeitsKonto, arbeitsOrdner, selectedUid]);
 
   /**
    * Nimmt entgegen, worauf in einer Benachrichtigung geklickt wurde.
@@ -608,7 +697,7 @@ export default function App() {
     // Kurz warten: wer schnell durchklickt, soll nicht für jede übersprungene Nachricht
     // einen Abruf auslösen.
     const timer = setTimeout(() => {
-      void api.prefetchMessage(selectedAccountId, selectedFolder, naechste.uid, abbruch.signal);
+      void api.prefetchMessage(arbeitsKonto!, arbeitsOrdner!, naechste.uid, abbruch.signal);
     }, 400);
 
     return () => {
@@ -622,7 +711,7 @@ export default function App() {
    * zurückgenommen, damit sich das Anklicken nicht verzögert anfühlt.
    */
   const applySeen = async (uids: number[], seen: boolean) => {
-    if (!selectedAccountId || !selectedFolder || uids.length === 0) return;
+    if (!arbeitsKonto || !arbeitsOrdner || uids.length === 0) return;
     const affected = new Set(uids);
 
     const setLocalSeen = (value: boolean) => {
@@ -632,7 +721,7 @@ export default function App() {
 
     setLocalSeen(seen);
     try {
-      await api.setMessagesSeen(selectedAccountId, selectedFolder, uids, seen);
+      await api.setMessagesSeen(arbeitsKonto, arbeitsOrdner, uids, seen);
       setFolderReload((n) => n + 1);
     } catch (err) {
       setLocalSeen(!seen);
@@ -649,7 +738,7 @@ export default function App() {
    * vergisst ihn beim Schließen - ohne die Rückfrage wäre das eine stille Enttäuschung.
    */
   const setzeEtikett = async (uid: number, schluessel: string, an: boolean) => {
-    if (!selectedAccountId || !selectedFolder) return;
+    if (!arbeitsKonto || !arbeitsOrdner) return;
 
     const aendere = (flags: string[]): string[] => {
       const ohne = flags.filter((f) => f.toLowerCase() !== schluessel.toLowerCase());
@@ -671,8 +760,8 @@ export default function App() {
 
     try {
       const ergebnis = await api.setzeEtiketten(
-        selectedAccountId,
-        selectedFolder,
+        arbeitsKonto,
+        arbeitsOrdner,
         [uid],
         an ? [schluessel] : [],
         an ? [] : [schluessel],
@@ -883,7 +972,7 @@ export default function App() {
     if (!selectedAccountId || !selectedFolder || uids.length === 0) return;
     setBulkBusy(true);
     try {
-      await api.moveMessages(selectedAccountId, selectedFolder, uids, targetFolder);
+      await api.moveMessages(arbeitsKonto!, arbeitsOrdner!, uids, targetFolder);
       removeFromView(uids);
     } catch (err) {
       setError((err as Error).message);
@@ -919,9 +1008,9 @@ export default function App() {
     setBulkBusy(true);
     try {
       if (permanent) {
-        await api.deleteMessages(selectedAccountId, selectedFolder, uids);
+        await api.deleteMessages(arbeitsKonto!, arbeitsOrdner!, uids);
       } else {
-        await api.moveMessages(selectedAccountId, selectedFolder, uids, trashFolder!.path);
+        await api.moveMessages(arbeitsKonto!, arbeitsOrdner!, uids, trashFolder!.path);
       }
       removeFromView(uids);
     } catch (err) {
@@ -1014,11 +1103,27 @@ export default function App() {
 
   /** Ordnerwechsel hebt eine aktive Einordnung auf - sie gilt nur für den Posteingang. */
   const waehleOrdner = (path: string) => {
+    setGesamtAnsicht(false);
+    setGesamtHerkunft(null);
     setSelectedFolder(path);
     setSelectedCategory(null);
   };
 
+  /** Schaltet auf den Posteingang aller Konten um. */
+  const waehleGesamt = () => {
+    setGesamtAnsicht(true);
+    setGesamtHerkunft(null);
+    setSelection(null);
+    setSelectedMessage(null);
+    setCheckedUids(new Set());
+    setSuche(null);
+    setMessages([]);
+    setGesamtCursor(null);
+  };
+
   const waehleKategorie = (path: string, category: GmailCategory) => {
+    setGesamtAnsicht(false);
+    setGesamtHerkunft(null);
     setSelectedFolder(path);
     setSelectedCategory(category);
   };
@@ -1044,7 +1149,7 @@ export default function App() {
     if (!ziel) return;
 
     try {
-      await api.snoozeMessage(selectedAccountId, selectedFolder, uid, ziel.toISOString());
+      await api.snoozeMessage(arbeitsKonto!, arbeitsOrdner!, uid, ziel.toISOString());
       removeFromView([uid]);
     } catch (err) {
       setError((err as Error).message);
@@ -1508,11 +1613,20 @@ export default function App() {
           wartendAnzahl={wartendAnzahl}
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onOpenAdressbuch={() => setAdressbuch({})}
+          gesamtAnsicht={gesamtAnsicht}
+          onGesamtAnsicht={waehleGesamt}
           suchen={suchen}
           etiketten={etiketten}
           onSucheAusfuehren={fuehreSucheAus}
           onSucheLoeschen={(gemerkt) => void vergissSuche(gemerkt)}
-          onSelectAccount={setSelectedAccountId}
+          onSelectAccount={(id) => {
+            // Auch der Griff zu einem Konto verlaesst die Gesamtliste - sonst liesse
+            // sich dessen Ordnerbaum gar nicht aufklappen, und man saesse in der
+            // Uebersicht fest.
+            setGesamtAnsicht(false);
+            setGesamtHerkunft(null);
+            setSelectedAccountId(id);
+          }}
           onSelectFolder={waehleOrdner}
           onSelectCategory={waehleKategorie}
           onCompose={handleCompose}
@@ -1539,18 +1653,33 @@ export default function App() {
           }}
           anhangSuchbar={faehigkeiten.gmailSearch}
           mehrereKonten={accounts.length > 1}
-          zeigeHerkunft={suche !== null && suche.bereich !== 'ordner'}
+          // In der Gesamtliste steht neben jeder Zeile, aus welchem Postfach sie kommt -
+          // ohne das waere eine gemischte Liste nicht deutbar.
+          zeigeHerkunft={gesamtAnsicht || (suche !== null && suche.bereich !== 'ordner')}
           konversationen={konversationen}
           onToggleKonversationen={(an) => {
             setKonversationen(an);
             localStorage.setItem('energy-mail:konversationen', an ? 'an' : 'aus');
           }}
           etiketten={etiketten}
+          gesamtAnsicht={gesamtAnsicht}
+          fehlendeKonten={gesamtFehlende}
           sucheVorgabe={sucheVorgabe}
           onSucheSpeichern={(eingabe) => void merkeSuche(eingabe)}
           folderLabel={aktuellerOrdnerName}
           onLoadMore={() => void loadMore()}
           onSelect={(eintrag) => {
+            // In der Gesamtliste bleibt die Liste stehen; geöffnet wird die Nachricht
+            // dort, wo sie liegt. Sie ins Konto zu verfolgen hiesse, die Übersicht bei
+            // jedem Klick zu verlassen.
+            if (gesamtAnsicht) {
+              setGesamtHerkunft({
+                accountId: eintrag.accountId ?? '',
+                folder: eintrag.folder ?? 'INBOX',
+              });
+              setSelectedUid(eintrag.uid);
+              return;
+            }
             // Ein Treffer aus einem anderen Ordner oder Konto: dorthin wechseln und ihn
             // öffnen - über denselben Weg wie eine angeklickte Benachrichtigung.
             if (eintrag.folder && eintrag.folder !== selectedFolder) {
@@ -1595,10 +1724,10 @@ export default function App() {
             message={selectedMessage}
             loading={loadingMessage}
             folders={folders}
-            currentFolder={selectedFolder}
+            currentFolder={arbeitsOrdner}
             attachmentUrl={(partId) =>
-              selectedAccountId && selectedFolder && selectedMessage
-                ? api.attachmentUrl(selectedAccountId, selectedFolder, selectedMessage.uid, partId)
+              arbeitsKonto && arbeitsOrdner && selectedMessage
+                ? api.attachmentUrl(arbeitsKonto, arbeitsOrdner, selectedMessage.uid, partId)
                 : '#'
             }
             isInTrash={isInTrash}

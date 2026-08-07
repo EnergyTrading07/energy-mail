@@ -158,6 +158,24 @@ export function fuehreVisitenkartenEin(inhalt: string): Promise<EinfuhrErgebnis>
 /** Die Adresse, unter der die vCard-Datei heruntergeladen wird. */
 export const adressbuchAusfuhrAdresse = () => `${API_BASE}/adressbuch/ausfuhr`;
 
+// --- Kontenübergreifender Posteingang ---
+
+export interface GesamtSeite {
+  messages: (MessageSummary & { folder: string; accountId: string; email: string })[];
+  total: number;
+  /** Marke für die nächste Seite: je Konto die zuletzt gelieferte UID. */
+  nextCursor: string | null;
+  hasMore: boolean;
+  /** Konten, die nicht antworteten - die Liste ist dann unvollständig. */
+  fehlende: { accountId: string; email: string; grund: string }[];
+}
+
+export function ladeGesamtPosteingang(nach?: string | null): Promise<GesamtSeite> {
+  const params = new URLSearchParams({ pageSize: String(PAGE_SIZE) });
+  if (nach) params.set('nach', nach);
+  return request(`/posteingang?${params}`);
+}
+
 // --- Etiketten ---
 
 export function ladeEtiketten(): Promise<Etikett[]> {
