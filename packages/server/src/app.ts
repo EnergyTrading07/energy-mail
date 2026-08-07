@@ -45,6 +45,7 @@ import {
   verifyImapConnection,
   verifySmtpConnection,
   type AccountConfig,
+  type Identitaet,
   type GmailCategory,
   type OAuthProviderId,
   type OutgoingMessage,
@@ -134,6 +135,7 @@ function publicAccount(account: AccountConfig) {
     email: account.email,
     displayName: account.displayName,
     signature: account.signature,
+    identitaeten: account.identitaeten ?? [],
     // Bestimmt Farbgebung und anbietereigene Aktionen in der Oberfläche.
     provider: getProviderId(
       account.email,
@@ -261,12 +263,16 @@ export async function buildServer() {
     return listAccounts().map(publicAccount);
   });
 
-  app.patch<{ Params: { id: string }; Body: { displayName?: string; signature?: string } }>(
+  app.patch<{
+    Params: { id: string };
+    Body: { displayName?: string; signature?: string; identitaeten?: Identitaet[] };
+  }>(
     '/accounts/:id',
     async (request) => {
       const updated = updateAccountSettings(request.params.id, {
         displayName: request.body?.displayName,
         signature: request.body?.signature,
+        identitaeten: request.body?.identitaeten,
       });
       if (!updated) throw new HttpError(404, 'Konto nicht gefunden');
       return publicAccount(updated);

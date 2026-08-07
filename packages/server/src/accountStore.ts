@@ -239,7 +239,7 @@ export function buildOAuthAccount(input: CreateOAuthAccountInput): AccountConfig
   };
 }
 
-export type AccountSettings = Pick<AccountConfig, 'displayName' | 'signature'>;
+export type AccountSettings = Pick<AccountConfig, 'displayName' | 'signature' | 'identitaeten'>;
 
 /** Ändert die Einstellungen eines Kontos; Zugangsdaten bleiben unangetastet. */
 export function updateAccountSettings(id: string, settings: AccountSettings): AccountConfig | null {
@@ -249,6 +249,11 @@ export function updateAccountSettings(id: string, settings: AccountSettings): Ac
 
   account.displayName = settings.displayName?.trim() || undefined;
   account.signature = settings.signature?.trim() || undefined;
+  // Nur anfassen, wenn der Aufrufer sie mitschickt - sonst loeschte ein Aendern des
+  // Anzeigenamens die weiteren Absenderadressen gleich mit.
+  if (settings.identitaeten) {
+    account.identitaeten = settings.identitaeten.length > 0 ? settings.identitaeten : undefined;
+  }
   writeAccounts(accounts);
   return account;
 }

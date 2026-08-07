@@ -27,6 +27,16 @@ export interface Account {
   canReauth?: boolean;
   /** Die hinterlegte Anmeldung wird vom Anbieter nicht mehr anerkannt. */
   needsReauth?: boolean;
+  /** Weitere Adressen, unter denen von diesem Konto gesendet werden darf. */
+  identitaeten?: Identitaet[];
+}
+
+/** Eine weitere Absenderadresse. Leerer Name oder Signatur heißt "wie das Konto". */
+export interface Identitaet {
+  id: string;
+  email: string;
+  displayName?: string;
+  signature?: string;
 }
 
 export interface Contact {
@@ -82,7 +92,7 @@ export function deleteAccount(accountId: string): Promise<{ ok: boolean }> {
 
 export function updateAccount(
   accountId: string,
-  settings: { displayName?: string; signature?: string },
+  settings: { displayName?: string; signature?: string; identitaeten?: Identitaet[] },
 ): Promise<Account> {
   return request(`/accounts/${accountId}`, { method: 'PATCH', body: JSON.stringify(settings) });
 }

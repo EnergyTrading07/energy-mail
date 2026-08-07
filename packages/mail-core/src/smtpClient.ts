@@ -43,8 +43,16 @@ export async function buildRawMessage(
   config: AccountConfig,
   message: OutgoingMessage,
 ): Promise<Buffer> {
+  /**
+   * Unter welcher Adresse die Nachricht hinausgeht. Ohne Angabe die des Kontos; sonst
+   * eine der weiteren Identitäten - verschickt wird in beiden Fällen über denselben
+   * Server, nur der Kopf nennt einen anderen Absender.
+   */
+  const absender = message.absender?.email ?? config.email;
+  const name = message.absender?.displayName ?? config.displayName;
+
   const composer = new MailComposer({
-    from: config.displayName ? { name: config.displayName, address: config.email } : config.email,
+    from: name ? { name, address: absender } : absender,
     to: message.to,
     cc: message.cc,
     bcc: message.bcc,
@@ -68,6 +76,11 @@ export async function sendRawMessage(
   try {
     // envelope muss explizit gesetzt werden: bei "raw" liest Nodemailer die Empfänger
     // nicht aus den Kopfzeilen - und Bcc darf ohnehin nicht im Versand stehen.
+    //
+    // Der Absender im Umschlag bleibt bewusst der des Kontos, auch wenn im Kopf eine
+    // andere Adresse steht: hierhin gehen Unzustellbarkeitsmeldungen, und die
+    // Absenderprüfung der Gegenseite rechnet mit der Adresse, unter der wir angemeldet
+    // sind. Ein fremder Umschlagabsender führte dort geradewegs in den Spamordner.
     await transport.sendMail({
       envelope: { from: config.email, to: recipients },
       raw,

@@ -2484,6 +2484,50 @@ input[type='file']::file-selector-button:hover {
   white-space: nowrap;
 }
 
+/* Weitere Absenderadressen in den Kontoeinstellungen. */
+.identitaet-zeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--rand-fein);
+}
+
+.identitaet-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.identitaet-text span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* Adresse, Name und Knopf nebeneinander - .form-row stellt sie sonst untereinander. */
+.form-row.identitaet-neu {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+.form-row.identitaet-neu input {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-row.identitaet-neu .btn {
+  flex: none;
+}
+
+.hinweis-fehler {
+  color: var(--warn);
+}
+
 /* Auskunft der Serversuche beim Anlegen eines Kontos. Steht zwischen Passwortfeld und
    Knopf, weil sie genau dort die Frage beantwortet, die man sich stellt: klappt das? */
 .serverauskunft {

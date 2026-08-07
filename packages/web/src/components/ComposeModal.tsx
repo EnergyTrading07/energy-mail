@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Draft, DraftAttachment } from '../api.js';
+import type { Absender } from '../identitaeten.js';
 import { pruefeAnhaenge } from '../anhangErinnerung.js';
 import { bestaetige, frage, sendeVorschlaege, waehleZeitpunkt } from '../dialoge.js';
 import { htmlToText } from '../htmlText.js';
@@ -21,6 +22,8 @@ interface Props {
   onSend: (draft: Draft, sendenAm?: string) => Promise<void>;
   onSaveDraft: (draft: Draft) => Promise<{ folder: string; uid: number | null }>;
   onDiscardDraft?: () => Promise<void>;
+  /** Alle eigenen Adressen des Kontos - die erste ist die des Kontos selbst. */
+  absender?: Absender[];
 }
 
 /** Muss zum bodyLimit des Servers passen (40 MB inkl. Base64-Aufschlag). */
@@ -86,6 +89,7 @@ export function ComposeModal({
   onSend,
   onSaveDraft,
   onDiscardDraft,
+  absender,
 }: Props) {
   const [to, setTo] = useState(initial?.to?.join(', ') ?? '');
   const [cc, setCc] = useState(initial?.cc?.join(', ') ?? '');
@@ -108,6 +112,18 @@ export function ComposeModal({
 
   const totalBytes = attachments.reduce((sum, att) => sum + att.size, 0);
 
+  /**
+   * Unter welcher Adresse gesendet wird. Beim Antworten hat der Aufrufer schon die
+   * richtige ausgesucht - hier wird sie nur noch aufgenommen und ist aenderbar.
+   */
+  const auswahl = absender ?? [];
+  const [absenderId, setAbsenderId] = useState<string>(
+    initial?.absender?.email
+      ? (auswahl.find((a) => a.email === initial.absender?.email)?.id ?? '')
+      : '',
+  );
+  const gewaehlt = auswahl.find((a) => (a.id ?? '') === absenderId) ?? auswahl[0];
+
   const buildDraft = (): Draft => ({
     ...initial,
     to: parseAddresses(to),
@@ -118,6 +134,11 @@ export function ComposeModal({
     // Textfassung immer mitschicken: Empfänger ohne HTML-Anzeige sähen sonst nichts.
     text: htmlToText(html),
     attachments: attachments.length > 0 ? attachments : undefined,
+    // Nur mitgeben, wenn es nicht die Adresse des Kontos ist - sonst trüge jeder
+    // Entwurf eine Angabe, die ohnehin dem Standard entspricht.
+    absender: gewaehlt?.id
+      ? { email: gewaehlt.email, displayName: gewaehlt.displayName }
+      : undefined,
   });
 
   const markDirty = () => {
@@ -274,6 +295,28 @@ export function ComposeModal({
       <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
         <h3>{title}</h3>
         <form onSubmit={submit}>
+          {/* Nur zeigen, wenn es etwas zu wählen gibt - bei einem Konto ohne weitere
+              Adressen wäre die Zeile bloßes Beiwerk. */}
+          {auswahl.length > 1 && (
+            <div className="form-row">
+              <label htmlFor="absenderwahl">Von</label>
+              <select
+                id="absenderwahl"
+                value={absenderId}
+                disabled={busy}
+                onChange={(e) => {
+                  setAbsenderId(e.target.value);
+                  markDirty();
+                }}
+              >
+                {auswahl.map((a) => (
+                  <option key={a.id ?? ''} value={a.id ?? ''}>
+                    {a.displayName ? `${a.displayName} <${a.email}>` : a.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="form-row">
             <label>
               An

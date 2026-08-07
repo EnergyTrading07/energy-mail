@@ -15,6 +15,20 @@ export interface OAuth2Auth {
 
 export type AccountAuth = PasswordAuth | OAuth2Auth;
 
+/**
+ * Eine weitere Absenderadresse desselben Kontos.
+ *
+ * Anzeigename und Signatur können je Adresse eigene sein - wer dienstlich und privat
+ * über dasselbe Postfach schreibt, will unter beiden nicht gleich unterschreiben.
+ * Bleiben sie leer, gelten die des Kontos.
+ */
+export interface Identitaet {
+  id: string;
+  email: string;
+  displayName?: string;
+  signature?: string;
+}
+
 export interface AccountConfig {
   id: string;
   email: string;
@@ -22,6 +36,17 @@ export interface AccountConfig {
   displayName?: string;
   /** Signatur als HTML; wird beim Verfassen unter den Text gesetzt. */
   signature?: string;
+  /**
+   * Weitere Adressen, unter denen von diesem Konto gesendet werden darf.
+   *
+   * Fast jeder hat davon welche: Aliase des Anbieters, eine Adresse der eigenen Domain,
+   * die auf dasselbe Postfach zeigt, oder eine Sammeladresse wie "info@". Verschickt
+   * wird immer über denselben Sendeserver - nur der Absender im Kopf ist ein anderer.
+   *
+   * Die Adresse des Kontos selbst steht nicht in dieser Liste; sie ist immer die erste
+   * Wahl und ergibt sich aus "email".
+   */
+  identitaeten?: Identitaet[];
   imapHost: string;
   imapPort: number;
   imapSecure: boolean;
@@ -169,6 +194,11 @@ export interface OutgoingMessage {
   inReplyTo?: string;
   references?: string[];
   attachments?: { filename: string; content: Buffer; contentType?: string }[];
+  /**
+   * Unter welcher der eigenen Adressen gesendet wird. Fehlt sie, ist es die des Kontos.
+   * Der Sendeserver bleibt in jedem Fall derselbe.
+   */
+  absender?: { email: string; displayName?: string };
 }
 
 /**

@@ -20,6 +20,7 @@ import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { RulesModal } from './components/RulesModal.js';
 import { QuelltextModal } from './components/QuelltextModal.js';
+import { absenderFuerAntwort, alleAbsender } from './identitaeten.js';
 import { WartendModal } from './components/WartendModal.js';
 import { SendeMeldung } from './components/SendeMeldung.js';
 import type { SucheEingabe } from './components/SearchBar.js';
@@ -940,9 +941,17 @@ export default function App() {
 
   const handleReply = (message: FullMessage, toAll: boolean) => {
     const entwurf = buildReply(message, ownEmail, toAll);
+    /**
+     * Unter der Adresse antworten, an die geschrieben wurde. Post an "info@" privat zu
+     * beantworten verwirrt den Empfänger, und die nächste Antwort landet wieder woanders.
+     */
+    const von = selectedAccount
+      ? absenderFuerAntwort(selectedAccount, { to: message.to, cc: message.cc })
+      : null;
     oeffneVerfassen(toAll ? 'Allen antworten' : 'Antworten', {
       ...entwurf,
-      html: withSignature(entwurf.html ?? '', selectedAccount?.signature),
+      absender: von?.id ? { email: von.email, displayName: von.displayName } : undefined,
+      html: withSignature(entwurf.html ?? '', von?.signature ?? selectedAccount?.signature),
     });
   };
 
@@ -1126,7 +1135,11 @@ export default function App() {
     setFolderReload((n) => n + 1);
   };
 
-  const handleSaveSettings = async (settings: { displayName?: string; signature?: string }) => {
+  const handleSaveSettings = async (settings: {
+    displayName?: string;
+    signature?: string;
+    identitaeten?: api.Identitaet[];
+  }) => {
     if (!settingsFor) return;
     const updated = await api.updateAccount(settingsFor.id, settings);
     setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
@@ -1342,6 +1355,7 @@ export default function App() {
             onSend={handleSend}
             onSaveDraft={handleSaveDraft}
             onDiscardDraft={handleDiscardDraft}
+            absender={selectedAccount ? alleAbsender(selectedAccount) : undefined}
           />
         )}
         {settingsFor && (
