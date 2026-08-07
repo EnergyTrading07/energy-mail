@@ -87,6 +87,13 @@ import {
 } from './rules.js';
 import { merkeAusListe, rememberAddresses, searchContacts } from './contactStore.js';
 import {
+  istVertraut,
+  vertrauenEntziehen,
+  vertrauenGeben,
+  vertrauenVerwerfen,
+  vertrauteAbsender,
+} from './trustedSenders.js';
+import {
   aktualisiereGelesen,
   liesNachricht,
   merkeNachricht,
@@ -464,9 +471,40 @@ export async function buildServer() {
     verwerfeKonto(request.params.id);
     verwirfNachrichten(`${request.params.id}:`);
     regelnVerwerfen(request.params.id);
+    vertrauenVerwerfen(request.params.id);
     syncWatchers();
     return { ok: true };
   });
+
+  // --- Vertraute Absender ---
+
+  /**
+   * Entfernte Inhalte sind grundsätzlich angehalten - sie melden dem Absender, dass
+   * gelesen wurde. Diese Liste ist die Ausnahme für Absender, bei denen man das nicht
+   * jedes Mal freigeben will.
+   */
+  app.get<{ Params: { id: string } }>('/accounts/:id/vertraute-absender', async (request) => {
+    requireAccount(request.params.id);
+    return { absender: vertrauteAbsender(request.params.id) };
+  });
+
+  app.post<{ Params: { id: string }; Body: { adresse?: string } }>(
+    '/accounts/:id/vertraute-absender',
+    async (request) => {
+      requireAccount(request.params.id);
+      const adresse = request.body?.adresse?.trim();
+      if (!adresse) throw new HttpError(400, 'Feld "adresse" ist erforderlich');
+      return { absender: vertrauenGeben(request.params.id, adresse) };
+    },
+  );
+
+  app.delete<{ Params: { id: string; adresse: string } }>(
+    '/accounts/:id/vertraute-absender/:adresse',
+    async (request) => {
+      requireAccount(request.params.id);
+      return { absender: vertrauenEntziehen(request.params.id, decodeURIComponent(request.params.adresse)) };
+    },
+  );
 
   /**
    * Wie lange ein zwischengespeicherter Stand ohne Nachfrage gilt. Bewusst kurz: die
@@ -998,8 +1036,18 @@ export async function buildServer() {
       const uid = Number(request.params.uid);
       const key = nachrichtenSchluessel(account.id, ordner, uid);
 
+      /**
+       * Ob der Absender freigegeben ist, wird bei jedem Abruf frisch bestimmt und nicht
+       * mitgespeichert: sonst zeigte eine Nachricht, die vor dem Freigeben schon einmal
+       * offen war, weiterhin die Rückfrage.
+       */
+      const mitVertrauen = (n: Awaited<ReturnType<typeof getMessage>>) => ({
+        ...n,
+        absenderVertraut: istVertraut(account.id, n.from[0]?.address ?? ''),
+      });
+
       const vorhanden = liesNachricht(key);
-      if (vorhanden) return vorhanden;
+      if (vorhanden) return mitVertrauen(vorhanden);
 
       const nachricht = mitAbrufbarenBildern(
         await getMessage(account, ordner, uid),
@@ -1008,7 +1056,7 @@ export async function buildServer() {
         uid,
       );
       merkeNachricht(key, nachricht);
-      return nachricht;
+      return mitVertrauen(nachricht);
     },
   );
 

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderInfo, FullMessage } from '@energy-mail/mail-core';
+import { entschaerfeExterneInhalte } from '../externeInhalte.js';
 import { moveTargets } from '../folderTargets.js';
 import { LeererKorb } from './Symbole.js';
 
@@ -33,6 +34,8 @@ interface Props {
   onSnooze: (uid: number) => void;
   onDelete: (uid: number) => void;
   onMove: (uid: number, targetFolder: string) => void;
+  /** Gibt die entfernten Inhalte dieses Absenders dauerhaft frei. */
+  onVertrauen?: (adresse: string) => void;
 }
 
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
@@ -109,6 +112,48 @@ function HtmlMailBody({ html }: { html: string }) {
   );
 }
 
+/**
+ * Hinweis über einer Nachricht, deren entfernte Inhalte angehalten wurden.
+ *
+ * Bewusst mit Zahl statt einer allgemeinen Warnung: "6 Bilder" sagt einem, ob man etwas
+ * verpasst, "diese Nachricht enthält entfernte Inhalte" sagt gar nichts. Und bewusst
+ * nicht in Alarmfarbe - angehalten ist der Normalfall und kein Zwischenfall.
+ */
+function ExterneLeiste({
+  anzahl,
+  absender,
+  onLaden,
+  onVertrauen,
+}: {
+  anzahl: number;
+  absender?: string;
+  onLaden: () => void;
+  onVertrauen?: () => void;
+}) {
+  return (
+    <div className="externe-leiste">
+      <span className="externe-text">
+        {anzahl === 1
+          ? 'Ein Bild von einem fremden Server wurde nicht geladen'
+          : `${anzahl} Inhalte von fremden Servern wurden nicht geladen`}
+        <span className="externe-grund">
+          Geladen melden sie dem Absender, dass du die Nachricht gerade liest.
+        </span>
+      </span>
+      <span className="externe-knoepfe">
+        <button className="btn secondary" onClick={onLaden}>
+          Einmal laden
+        </button>
+        {absender && onVertrauen && (
+          <button className="link-btn" onClick={onVertrauen} title={`Gilt künftig für ${absender}`}>
+            Absender immer erlauben
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function MessageView({
   message,
   loading,
@@ -127,7 +172,26 @@ export function MessageView({
   onSnooze,
   onDelete,
   onMove,
+  onVertrauen,
 }: Props) {
+  /**
+   * Ob die entfernten Inhalte dieser Nachricht freigegeben sind. Beim Wechsel zu einer
+   * anderen Nachricht muss das zurückfallen - sonst erbte die nächste die Freigabe der
+   * vorigen. Der Schlüssel aus Ordner und Kennung sorgt dafür.
+   */
+  const schluessel = message ? `${currentFolder}:${message.uid}` : '';
+  const [freigegeben, setFreigegeben] = useState('');
+  const zeigeExterne = Boolean(message?.absenderVertraut) || freigegeben === schluessel;
+
+  /**
+   * Das Entschärfen geht durch das gesamte HTML der Nachricht. Bei einer bebilderten
+   * Rundmail ist das nicht umsonst, und ohne Merken liefe es bei jedem Zeichnen erneut.
+   */
+  const inhalt = useMemo(
+    () => (message?.html ? entschaerfeExterneInhalte(message.html) : { html: '', anzahl: 0 }),
+    [message?.html],
+  );
+
   if (loading) {
     return <div className="reader empty-state">Lade Nachricht…</div>;
   }
@@ -141,6 +205,7 @@ export function MessageView({
   }
 
   const absender = message.from[0];
+  const setZeigeExterne = (an: boolean) => setFreigegeben(an ? schluessel : '');
 
   return (
     <div className="reader">
@@ -214,7 +279,24 @@ export function MessageView({
         </select>
       </div>
       {message.html ? (
-        <HtmlMailBody html={message.html} />
+        <>
+          {inhalt.anzahl > 0 && !zeigeExterne && (
+            <ExterneLeiste
+              anzahl={inhalt.anzahl}
+              absender={absender?.address}
+              onLaden={() => setZeigeExterne(true)}
+              onVertrauen={
+                absender?.address && onVertrauen
+                  ? () => {
+                      setZeigeExterne(true);
+                      onVertrauen(absender.address);
+                    }
+                  : undefined
+              }
+            />
+          )}
+          <HtmlMailBody html={zeigeExterne ? message.html : inhalt.html} />
+        </>
       ) : (
         // Reiner Text stammt nicht aus fremdem Markup und darf deshalb auf der Fläche
         // der Anwendung stehen - er nimmt die gewählte Ansicht ohne Weiteres an.

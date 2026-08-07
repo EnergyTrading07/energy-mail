@@ -1,0 +1,135 @@
+/**
+ * Entfernte Inhalte aus fremden Nachrichten unschädlich machen.
+ *
+ * Der Grund ist nicht Darstellung, sondern Rückmeldung an den Absender. Ein einziges
+ * Bild von einem fremden Server verrät beim Öffnen: diese Adresse existiert, sie wird
+ * gelesen, und zwar gerade jetzt, von diesem Anschluss aus. Werbeversender bauen genau
+ * dafür ein Bild von einem Pixel Größe ein. Alle etablierten Mailprogramme laden fremde
+ * Inhalte deshalb erst auf Zuruf.
+ *
+ * Nicht angerührt wird, was nichts nach draußen meldet: eingebettete Bilder der
+ * Nachricht selbst (der Server hat sie schon zu Adressen auf uns umgeschrieben),
+ * eingebaute Daten und Sprungmarken innerhalb der Nachricht.
+ */
+
+/** Attribute, über die ein Element von sich aus etwas nachlädt. */
+const LADENDE_ATTRIBUTE = ['src', 'srcset', 'poster', 'background', 'data', 'href'] as const;
+
+/**
+ * Nur diese Elemente laden über "href" tatsächlich etwas nach. Ein gewöhnlicher Verweis
+ * im Text tut das nicht - der würde nur beim Anklicken folgen, und dann will der Leser
+ * es auch.
+ */
+const HREF_LAEDT = new Set(['LINK']);
+
+/** Elemente ohne "src" oder "href", die trotzdem nachladen können. */
+const WEITERE = 'style, [style]';
+
+/**
+ * Ist die Adresse eine, die nach draußen führt?
+ *
+ * Alles ohne Schema bleibt: der Server hat die eingebetteten Bilder der Nachricht
+ * bereits zu Adressen auf uns selbst umgeschrieben, und die sollen laden.
+ */
+function fuehrtNachDraussen(wert: string): boolean {
+  const roh = wert.trim();
+  if (!roh) return false;
+  // "//beispiel.de/bild.png" erbt das Schema und führt genauso nach draußen.
+  if (roh.startsWith('//')) return true;
+  const schema = roh.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (!schema) return false;
+  // "data:" trägt die Daten selbst, "cid:" zeigt in die Nachricht.
+  return schema !== 'data' && schema !== 'cid';
+}
+
+/** In "url(...)" innerhalb von CSS steckt derselbe Abruf - auch in Kurzschreibweisen. */
+const URL_IM_CSS = /url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi;
+
+function cssEntschaerfen(css: string, gesehen: Set<string>): string {
+  return css.replace(URL_IM_CSS, (ganzes, anfuehrung, adresse) => {
+    if (!fuehrtNachDraussen(adresse)) return ganzes;
+    gesehen.add(adresse.trim());
+    // Der Wert bleibt lesbar erhalten, verweist aber ins Nichts: so bleibt das
+    // Seitenlayout erhalten, ohne dass etwas geladen wird.
+    return `url(${anfuehrung}about:blank${anfuehrung})`;
+  });
+}
+
+export interface EntschaerftesErgebnis {
+  html: string;
+  /**
+   * Wie viele verschiedene Adressen nicht abgerufen wurden.
+   *
+   * Verschiedene, nicht Verweise: eine Rundmail nennt dasselbe Bild oft mehrfach - beim
+   * GMX-Magazin standen 29 Verweise auf 13 Bilder. "29 Inhalte" zu melden und dann 13
+   * Abrufe auszulösen wäre schlicht falsch gezählt.
+   */
+  anzahl: number;
+}
+
+/**
+ * Nimmt das HTML einer Nachricht und gibt es ohne Abrufe nach draußen zurück.
+ *
+ * Die ursprünglichen Werte bleiben in "data-extern-*" stehen. Damit lässt sich später
+ * ohne erneuten Abruf umschalten - der Leser sieht sofort die Bilder, wenn er sie will.
+ */
+export function entschaerfeExterneInhalte(html: string): EntschaerftesErgebnis {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const gesehen = new Set<string>();
+
+  for (const el of Array.from(doc.querySelectorAll('*'))) {
+    for (const attribut of LADENDE_ATTRIBUTE) {
+      if (attribut === 'href' && !HREF_LAEDT.has(el.tagName)) continue;
+      const wert = el.getAttribute(attribut);
+      if (!wert) continue;
+
+      // srcset enthält mehrere Adressen mit Größenangaben.
+      const adressen =
+        attribut === 'srcset' ? wert.split(',').map((t) => t.trim().split(/\s+/)[0] ?? '') : [wert];
+      const draussen = adressen.filter(fuehrtNachDraussen);
+      if (draussen.length === 0) continue;
+
+      for (const a of draussen) gesehen.add(a.trim());
+      el.setAttribute(`data-extern-${attribut}`, wert);
+      el.removeAttribute(attribut);
+    }
+
+    // Stilangaben am Element selbst.
+    const stil = el.getAttribute('style');
+    if (stil) {
+      const vorher = gesehen.size;
+      const neu = cssEntschaerfen(stil, gesehen);
+      if (gesehen.size > vorher) {
+        el.setAttribute('data-extern-style', stil);
+        el.setAttribute('style', neu);
+      }
+    }
+  }
+
+  // Ganze Stilblöcke.
+  for (const block of Array.from(doc.querySelectorAll('style'))) {
+    block.textContent = cssEntschaerfen(block.textContent ?? '', gesehen);
+  }
+
+  return { html: doc.body.innerHTML, anzahl: gesehen.size };
+}
+
+/**
+ * Grobe Zählung, ohne das HTML umzubauen - für die Frage "hat diese Nachricht
+ * überhaupt entfernte Inhalte?", bevor entschieden ist, ob entschärft wird.
+ */
+export function zaehleExterneInhalte(html: string): number {
+  return entschaerfeExterneInhalte(html).anzahl;
+}
+
+/** Nur der Sonderfall Zählpixel: winzige Bilder, die nichts darstellen sollen. */
+export function enthaeltZaehlpixel(html: string): boolean {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return Array.from(doc.querySelectorAll('img')).some((img) => {
+    const quelle = img.getAttribute('src') ?? img.getAttribute('data-extern-src') ?? '';
+    if (!fuehrtNachDraussen(quelle)) return false;
+    const breite = Number(img.getAttribute('width'));
+    const hoehe = Number(img.getAttribute('height'));
+    return breite > 0 && breite <= 3 && hoehe > 0 && hoehe <= 3;
+  });
+}

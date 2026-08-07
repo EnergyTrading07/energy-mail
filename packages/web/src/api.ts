@@ -310,6 +310,27 @@ export function fetchOffeneVorgaenge(
   return request(`/accounts/${accountId}/offen${anhang ? `?${anhang}` : ''}`);
 }
 
+/** Absender, deren entfernte Bilder ohne Rückfrage geladen werden dürfen. */
+export function fetchVertrauteAbsender(accountId: string): Promise<{ absender: string[] }> {
+  return request(`/accounts/${accountId}/vertraute-absender`);
+}
+
+export function vertrauenGeben(accountId: string, adresse: string): Promise<{ absender: string[] }> {
+  return request(`/accounts/${accountId}/vertraute-absender`, {
+    method: 'POST',
+    body: JSON.stringify({ adresse }),
+  });
+}
+
+export function vertrauenEntziehen(
+  accountId: string,
+  adresse: string,
+): Promise<{ absender: string[] }> {
+  return request(`/accounts/${accountId}/vertraute-absender/${encodeURIComponent(adresse)}`, {
+    method: 'DELETE',
+  });
+}
+
 export function fetchPendingSends(accountId: string): Promise<GeplanteSendung[]> {
   return request(`/accounts/${accountId}/send/pending`);
 }

@@ -152,6 +152,11 @@ export interface FullMessage extends MessageSummary {
   inReplyTo?: string;
   /** Falls gesetzt, gehen Antworten hierhin statt an den Absender (z.B. Verteiler). */
   replyTo?: EmailAddress[];
+  /**
+   * Ob der Absender freigegeben ist, seine entfernten Bilder also ohne Rückfrage geladen
+   * werden dürfen. Wird vom Server bei jedem Abruf frisch bestimmt, nicht mitgespeichert.
+   */
+  absenderVertraut?: boolean;
 }
 
 export interface OutgoingMessage {

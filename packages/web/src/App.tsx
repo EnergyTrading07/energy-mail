@@ -911,6 +911,22 @@ export default function App() {
     oeffneVerfassen('Neue Nachricht', { html: withSignature('', selectedAccount?.signature) });
   };
 
+  /**
+   * Gibt die entfernten Inhalte eines Absenders dauerhaft frei.
+   *
+   * Danach wird die Nachricht neu geholt, damit sie das Vertrauen auch selbst kennt -
+   * sonst stünde die Rückfrage beim nächsten Öffnen wieder da.
+   */
+  const handleVertrauen = async (adresse: string) => {
+    if (!selectedAccountId) return;
+    try {
+      await api.vertrauenGeben(selectedAccountId, adresse);
+      setReloadCounter((n) => n + 1);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   const handleReply = (message: FullMessage, toAll: boolean) => {
     const entwurf = buildReply(message, ownEmail, toAll);
     oeffneVerfassen(toAll ? 'Allen antworten' : 'Antworten', {
@@ -1290,6 +1306,7 @@ export default function App() {
             onSnooze={(uid) => void handleSnooze(uid)}
             onDelete={(uid) => void handleDelete([uid])}
             onMove={(uid, target) => void handleMove([uid], target)}
+            onVertrauen={(adresse) => void handleVertrauen(adresse)}
           />
         </div>
         {composeInitial !== null && (
