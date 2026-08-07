@@ -3037,3 +3037,197 @@ input[type='file']::file-selector-button:hover {
 .zum-adressbuch:focus-visible {
   opacity: 1;
 }
+
+/* --- Etiketten ---------------------------------------------------------------
+   Farbige Merkmale an einer Nachricht. In der Liste nur als Punkte, in der Leseansicht
+   ausgeschrieben - dort ist Platz, und dort will man wissen, was genau hängt. */
+
+.etikett-punkte {
+  display: inline-flex;
+  gap: 3px;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+.etikett-punkt {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-voll);
+  flex: none;
+}
+
+.mail-etiketten {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  margin-top: var(--a-2);
+}
+
+.etikett-marken {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+}
+
+.etikett-marke {
+  padding: 1px 8px;
+  border: 1px solid;
+  border-radius: var(--r-voll);
+  font-size: var(--t-s);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Der Anker, an dem das Menü hängt - ohne ihn fiele es an den Seitenrand. */
+.etikett-anker {
+  position: relative;
+  display: inline-flex;
+}
+
+.etikett-menue {
+  position: absolute;
+  z-index: 300;
+  top: calc(100% + var(--a-2));
+  left: 0;
+  min-width: 240px;
+  padding: var(--a-2);
+  background: var(--erhoben);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  box-shadow: var(--schatten-2);
+  animation: auftauchen var(--weich) both;
+}
+
+.etikett-warnung {
+  margin: 0 0 var(--a-2);
+  padding: var(--a-2) var(--a-3);
+  border-radius: var(--r-1);
+  background: var(--warn-grund);
+  color: var(--warn);
+  line-height: 1.45;
+}
+
+.etikett-zeile {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  padding: 3px var(--a-2);
+  border-radius: var(--r-1);
+}
+
+.etikett-zeile:hover {
+  background: var(--flaeche-hover);
+}
+
+.etikett-zeile label {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-n);
+  cursor: pointer;
+}
+
+.etikett-farbe {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-voll);
+  flex: none;
+}
+
+/* Das Löschkreuz erscheint erst beim Überfahren der Zeile: es steht neben jedem
+   Etikett und wäre dauernd sichtbar nur Lärm neben der eigentlichen Auswahl. */
+.etikett-zeile .link-btn {
+  opacity: 0;
+  padding: 0 4px;
+  font-size: var(--t-l);
+  line-height: 1;
+}
+
+.etikett-zeile:hover .link-btn,
+.etikett-zeile .link-btn:focus-visible {
+  opacity: 1;
+}
+
+.etikett-neu {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  margin-top: var(--a-2);
+  padding-top: var(--a-2);
+  border-top: 1px solid var(--rand);
+}
+
+.etikett-neu input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* --- Gemerkte Suchen --------------------------------------------------------- */
+
+.such-etikett {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+}
+
+.such-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-4);
+}
+
+.gemerkte-suchen {
+  padding: var(--a-2) var(--a-2) 0;
+  border-top: 1px solid var(--rand-fein);
+}
+
+.sidebar-abschnitt {
+  padding: var(--a-2) 10px;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.gemerkte-suche {
+  display: flex;
+  align-items: center;
+  gap: var(--a-1);
+  border-radius: var(--r-1);
+}
+
+.gemerkte-suche:hover {
+  background: var(--flaeche-hover);
+}
+
+.gemerkte-suche-name {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 10px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--t-n);
+  color: var(--text);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gemerkte-suche .link-btn {
+  opacity: 0;
+  padding: 0 8px;
+  font-size: var(--t-l);
+  line-height: 1;
+}
+
+.gemerkte-suche:hover .link-btn,
+.gemerkte-suche .link-btn:focus-visible {
+  opacity: 1;
+}

@@ -1,5 +1,6 @@
 import type {
   CategoryInfo,
+  Etikett,
   FolderInfo,
   FullMessage,
   GmailCategory,
@@ -156,6 +157,84 @@ export function fuehreVisitenkartenEin(inhalt: string): Promise<EinfuhrErgebnis>
 
 /** Die Adresse, unter der die vCard-Datei heruntergeladen wird. */
 export const adressbuchAusfuhrAdresse = () => `${API_BASE}/adressbuch/ausfuhr`;
+
+// --- Etiketten ---
+
+export function ladeEtiketten(): Promise<Etikett[]> {
+  return request('/etiketten');
+}
+
+export function speichereEtikett(eingabe: {
+  schluessel?: string;
+  name: string;
+  farbe?: string;
+}): Promise<Etikett> {
+  return request('/etiketten', { method: 'PUT', body: JSON.stringify(eingabe) });
+}
+
+export function loescheEtikett(schluessel: string): Promise<{ ok: boolean }> {
+  return request(`/etiketten/${encodeURIComponent(schluessel)}`, { method: 'DELETE' });
+}
+
+/**
+ * Hängt Etiketten an Nachrichten oder nimmt sie ab. "dauerhaft: false" heißt, dass der
+ * Server sie beim Schließen des Ordners wieder vergisst - der Befehl gelingt trotzdem.
+ */
+export function setzeEtiketten(
+  accountId: string,
+  folder: string,
+  uids: number[],
+  hinzu: string[],
+  weg: string[] = [],
+): Promise<{ dauerhaft: boolean }> {
+  return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/etiketten`, {
+    method: 'PATCH',
+    body: JSON.stringify({ uids, hinzu, weg }),
+  });
+}
+
+export function pruefeEtikettenMoeglich(
+  accountId: string,
+  folder: string,
+): Promise<{ dauerhaft: boolean }> {
+  return request(
+    `/accounts/${accountId}/folders/${encodeURIComponent(folder)}/etiketten-moeglich`,
+  );
+}
+
+// --- Gespeicherte Suchen ---
+
+export interface GespeicherteSuche {
+  id: string;
+  name: string;
+  accountId?: string;
+  folder?: string;
+  kriterien: {
+    text?: string;
+    from?: string;
+    subject?: string;
+    since?: string;
+    before?: string;
+    unreadOnly?: boolean;
+    withAttachment?: boolean;
+    etikett?: string;
+    category?: GmailCategory;
+  };
+}
+
+export function ladeSuchen(): Promise<GespeicherteSuche[]> {
+  return request('/suchen');
+}
+
+export function speichereSuche(
+  eingabe: Omit<GespeicherteSuche, 'id'> & { id?: string },
+): Promise<GespeicherteSuche> {
+  return request('/suchen', { method: 'PUT', body: JSON.stringify(eingabe) });
+}
+
+export function loescheSuche(id: string): Promise<{ ok: boolean }> {
+  return request(`/suchen/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
 
 // --- OAuth ---
 
@@ -633,6 +712,8 @@ export interface SucheParameter {
   before: string;
   unreadOnly: boolean;
   withAttachment: boolean;
+  /** Das IMAP-Schlüsselwort eines Etiketts, nicht dessen angezeigter Name. */
+  etikett?: string;
 }
 
 /** Übersetzt die Eingabe in Abfrageparameter - an einer Stelle für alle drei Bereiche. */
@@ -645,6 +726,7 @@ function suchParameter(eingabe: SucheParameter): URLSearchParams {
   if (eingabe.before) params.set('before', eingabe.before);
   if (eingabe.unreadOnly) params.set('unread', '1');
   if (eingabe.withAttachment) params.set('attachment', '1');
+  if (eingabe.etikett) params.set('etikett', eingabe.etikett);
   return params;
 }
 

@@ -1,6 +1,7 @@
 import { type FetchMessageObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { withClient, withThrowawayClient } from './connectionPool.js';
+import { nimmtEtikettenAn } from './etiketten.js';
 import { alsMboxEintrag } from './mbox.js';
 import { findeOffeneVorgaenge, type OffenerVorgang } from './nachfassen.js';
 import {
@@ -320,6 +321,71 @@ export async function setMessagesFlagged(
       } else {
         await client.messageFlagsRemove(uids, ['\\Flagged'], { uid: true });
       }
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/** Was beim Setzen eines Etiketts herauskam. */
+export interface EtikettErgebnis {
+  /** Ob der Ordner eigene Schlüsselwörter dauerhaft behält. */
+  dauerhaft: boolean;
+}
+
+/**
+ * Hängt Etiketten an Nachrichten oder nimmt sie ab.
+ *
+ * Vor dem Setzen wird gefragt, ob der Ordner eigene Schlüsselwörter überhaupt behält.
+ * Der Grund ist unangenehm: ein STORE mit einem unbekannten Schlüsselwort gelingt auch
+ * dann, wenn der Server es gleich wieder vergisst - gemeldet wird nichts, und das
+ * Etikett ist beim nächsten Öffnen des Ordners spurlos verschwunden. Ob er es behält,
+ * sagt er nur beim Öffnen in PERMANENTFLAGS.
+ *
+ * Nachgemessen bei GMX und Gmail: beide nennen dort "\*", nehmen "$label1" wie auch
+ * eigene Wörter an und haben sie nach dem Trennen der Verbindung noch.
+ */
+export async function setzeEtiketten(
+  config: AccountConfig,
+  folder: string,
+  uids: number[],
+  hinzu: string[],
+  weg: string[] = [],
+): Promise<EtikettErgebnis> {
+  if (uids.length === 0 || (hinzu.length === 0 && weg.length === 0)) {
+    return { dauerhaft: true };
+  }
+
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const permanent = client.mailbox ? [...(client.mailbox.permanentFlags ?? [])] : [];
+      const dauerhaft = nimmtEtikettenAn(permanent);
+
+      // Abnehmen zuerst: wer ein Etikett gegen ein anderes tauscht, soll nicht kurz
+      // beide tragen - manche Ansicht liest genau dazwischen.
+      if (weg.length > 0) await client.messageFlagsRemove(uids, weg, { uid: true });
+      if (hinzu.length > 0) await client.messageFlagsAdd(uids, hinzu, { uid: true });
+
+      return { dauerhaft };
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
+ * Sagt für einen Ordner, ob Etiketten dort halten. Wird beim Öffnen des Etikettenfensters
+ * gefragt, damit man es erfährt, bevor man welche vergibt.
+ */
+export async function pruefeEtikettenUnterstuetzung(
+  config: AccountConfig,
+  folder: string,
+): Promise<boolean> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      return nimmtEtikettenAn(client.mailbox ? [...(client.mailbox.permanentFlags ?? [])] : []);
     } finally {
       lock.release();
     }
@@ -987,6 +1053,7 @@ function baueSuchbedingung(
     bedingung.before = bis;
   }
   if (kriterien.unreadOnly) bedingung.seen = false;
+  if (kriterien.etikett) bedingung.keyword = kriterien.etikett;
 
   if (kriterien.withAttachment) {
     if (!gmailVerfuegbar) {

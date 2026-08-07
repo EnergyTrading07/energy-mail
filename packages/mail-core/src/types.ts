@@ -242,6 +242,12 @@ export interface SearchCriteria {
    */
   withAttachment?: boolean;
   category?: GmailCategory;
+  /**
+   * Nur Nachrichten mit diesem Etikett - dem IMAP-Schlüsselwort, nicht dem angezeigten
+   * Namen. Serverseitig über SEARCH KEYWORD, das jeder Server kennt, der Etiketten
+   * überhaupt annimmt.
+   */
+  etikett?: string;
 }
 
 /** Ein Suchtreffer weiß, wo er liegt - eine UID gilt nur innerhalb ihres Ordners. */

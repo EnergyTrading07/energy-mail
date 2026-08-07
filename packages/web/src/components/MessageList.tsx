@@ -1,6 +1,8 @@
 import { memo, useMemo, useRef, useState } from 'react';
+import type { Etikett } from '@energy-mail/mail-core';
 import { gruppiere, type Konversation } from '../konversationen.js';
 import type { Listeneintrag } from '../listenTypen.js';
+import { EtikettMarken } from './Etiketten.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
 import { LeererKorb } from './Symbole.js';
 
@@ -31,6 +33,12 @@ interface Props {
   /** Ob zusammengehörige Nachrichten als ein Eintrag erscheinen. */
   konversationen: boolean;
   onToggleKonversationen: (an: boolean) => void;
+  /** Verzeichnis der Etiketten - fuer Farbe und Name der Marken an den Zeilen. */
+  etiketten: Etikett[];
+  /** Vorgegebene Sucheingabe, etwa aus einer gespeicherten Suche. */
+  sucheVorgabe?: SucheEingabe | null;
+  /** Legt die laufende Suche in der Seitenleiste ab. */
+  onSucheSpeichern?: (eingabe: SucheEingabe) => void;
   folderLabel: string;
   onLoadMore: () => void;
   onSelect: (eintrag: Listeneintrag) => void;
@@ -114,6 +122,7 @@ const MessageRow = memo(function MessageRow({
   angekreuzt,
   eingerueckt,
   zeigeHerkunft,
+  etiketten,
   onSelect,
   onToggleChecked,
 }: {
@@ -122,6 +131,7 @@ const MessageRow = memo(function MessageRow({
   angekreuzt: boolean;
   eingerueckt: boolean;
   zeigeHerkunft: boolean;
+  etiketten: Etikett[];
   onSelect: (message: Listeneintrag) => void;
   onToggleChecked: (uid: number, checked: boolean) => void;
 }) {
@@ -155,7 +165,12 @@ const MessageRow = memo(function MessageRow({
           )}
           <span className="row-date">{kurzesDatum(message.date)}</span>
         </div>
-        <div className="row-subject">{message.subject}</div>
+        <div className="row-subject">
+          {/* Nur Farbpunkte: ausgeschriebene Namen fraessen in einer Liste den Platz,
+              den der Betreff braucht. Beim Ueberfahren stehen sie im Hinweis. */}
+          <EtikettMarken flags={message.flags} bekannte={etiketten} wenige />
+          {message.subject}
+        </div>
         {zeigeHerkunft && message.folder && (
           <div className="row-herkunft">
             {message.folder}
@@ -184,6 +199,9 @@ export function MessageList({
   zeigeHerkunft,
   konversationen,
   onToggleKonversationen,
+  etiketten,
+  sucheVorgabe,
+  onSucheSpeichern,
   folderLabel,
   onLoadMore,
   onSelect,
@@ -230,6 +248,7 @@ export function MessageList({
       angekreuzt={checkedUids.has(message.uid)}
       eingerueckt={eingerueckt}
       zeigeHerkunft={zeigeHerkunft}
+      etiketten={etiketten}
       onSelect={stabil.auswaehlen}
       onToggleChecked={stabil.ankreuzen}
     />
@@ -314,6 +333,9 @@ export function MessageList({
         searchActive={searchActive}
         anhangSuchbar={anhangSuchbar}
         mehrereKonten={mehrereKonten}
+        etiketten={etiketten}
+        vorgabe={sucheVorgabe}
+        onSpeichern={onSucheSpeichern}
         onSearch={onSearch}
         onClear={onClear}
       />

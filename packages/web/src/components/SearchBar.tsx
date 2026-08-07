@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { Etikett } from '@energy-mail/mail-core';
 
 /**
  * Sucheingabe mit ausklappbaren Einschränkungen.
@@ -18,6 +19,8 @@ export interface SucheEingabe {
   before: string;
   unreadOnly: boolean;
   withAttachment: boolean;
+  /** Das IMAP-Schluesselwort eines Etiketts, nicht dessen angezeigter Name. */
+  etikett: string;
   bereich: Suchbereich;
 }
 
@@ -29,6 +32,7 @@ export const LEERE_SUCHE: SucheEingabe = {
   before: '',
   unreadOnly: false,
   withAttachment: false,
+  etikett: '',
   bereich: 'ordner',
 };
 
@@ -41,7 +45,8 @@ export function hatEinschraenkung(e: SucheEingabe): boolean {
       e.since ||
       e.before ||
       e.unreadOnly ||
-      e.withAttachment,
+      e.withAttachment ||
+      e.etikett,
   );
 }
 
@@ -50,13 +55,40 @@ interface Props {
   /** Ob der Anbieter nach Anhängen suchen kann - nur Gmail beherrscht das. */
   anhangSuchbar: boolean;
   mehrereKonten: boolean;
+  /** Verzeichnis der Etiketten - fuer die Auswahl unter den Einschraenkungen. */
+  etiketten: Etikett[];
+  /**
+   * Von aussen vorgegebene Eingabe - etwa aus einer gespeicherten Suche. Aendert sie
+   * sich, uebernimmt die Leiste sie und klappt auf, damit sichtbar ist, wonach gesucht
+   * wird.
+   */
+  vorgabe?: SucheEingabe | null;
+  /** Bietet an, die laufende Suche zu speichern. */
+  onSpeichern?: (eingabe: SucheEingabe) => void;
   onSearch: (eingabe: SucheEingabe) => void;
   onClear: () => void;
 }
 
-export function SearchBar({ searchActive, anhangSuchbar, mehrereKonten, onSearch, onClear }: Props) {
+export function SearchBar({
+  searchActive,
+  anhangSuchbar,
+  mehrereKonten,
+  etiketten,
+  vorgabe,
+  onSpeichern,
+  onSearch,
+  onClear,
+}: Props) {
   const [eingabe, setEingabe] = useState<SucheEingabe>(LEERE_SUCHE);
   const [offen, setOffen] = useState(false);
+
+  // Eine gespeicherte Suche traegt ihre Bedingungen in die Leiste ein - sonst stuende
+  // dort weiter die vorige und man wuesste nicht, wonach die Liste gefiltert ist.
+  useEffect(() => {
+    if (!vorgabe) return;
+    setEingabe(vorgabe);
+    setOffen(true);
+  }, [vorgabe]);
 
   const setze = <K extends keyof SucheEingabe>(feld: K, wert: SucheEingabe[K]) =>
     setEingabe((vorher) => ({ ...vorher, [feld]: wert }));
@@ -64,7 +96,7 @@ export function SearchBar({ searchActive, anhangSuchbar, mehrereKonten, onSearch
   // Eingeklappt bleiben die Zusatzfelder nur, wenn keines von ihnen gefüllt ist.
   const zusatzGefuellt = Boolean(
     eingabe.from || eingabe.subject || eingabe.since || eingabe.before ||
-      eingabe.unreadOnly || eingabe.withAttachment,
+      eingabe.unreadOnly || eingabe.withAttachment || eingabe.etikett,
   );
   const zeigeFelder = offen || zusatzGefuellt;
 
@@ -180,9 +212,33 @@ export function SearchBar({ searchActive, anhangSuchbar, mehrereKonten, onSearch
               nur mit Anhang
             </label>
           </div>
-          <button type="submit" className="btn" disabled={!hatEinschraenkung(eingabe)}>
-            Suchen
-          </button>
+          <label className="such-etikett">
+            <span>Etikett</span>
+            <select value={eingabe.etikett} onChange={(e) => setze('etikett', e.target.value)}>
+              <option value="">alle</option>
+              {etiketten.map((etikett) => (
+                <option key={etikett.schluessel} value={etikett.schluessel}>
+                  {etikett.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="such-knoepfe">
+            <button type="submit" className="btn" disabled={!hatEinschraenkung(eingabe)}>
+              Suchen
+            </button>
+            {onSpeichern && (
+              <button
+                type="button"
+                className="link-btn"
+                disabled={!hatEinschraenkung(eingabe)}
+                onClick={() => onSpeichern(eingabe)}
+                title="Diese Suche in der Seitenleiste ablegen"
+              >
+                Suche merken
+              </button>
+            )}
+          </div>
         </div>
       )}
     </form>

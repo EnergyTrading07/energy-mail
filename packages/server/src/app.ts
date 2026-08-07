@@ -37,7 +37,9 @@ import {
   getProviderPreset,
   getRawMessage,
   offeneVorgaenge,
+  pruefeEtikettenUnterstuetzung,
   senderUebersicht,
+  setzeEtiketten,
   verschiebeVonAbsender,
   saveDraft,
   searchFolders,
@@ -91,6 +93,20 @@ import {
   regelnVerwerfen,
   wendeRegelnAn,
 } from './rules.js';
+import {
+  alleEtiketten,
+  loescheEtikett,
+  speichereEtikett,
+  EtikettFehler,
+  type EtikettEingabe,
+} from './etikettenStore.js';
+import {
+  alleSuchen,
+  loescheSuche,
+  speichereSuche,
+  SucheFehler,
+  type GespeicherteSuche,
+} from './gespeicherteSuchen.js';
 import {
   einfuhrVisitenkarten,
   kontakteAlsVcf,
@@ -358,6 +374,43 @@ export async function buildServer() {
       throw new HttpError(400, 'Die Datei ist leer');
     }
     return einfuhrVisitenkarten(inhalt);
+  });
+
+  // --- Etiketten: das Verzeichnis von Namen und Farben ---
+
+  app.get('/etiketten', async () => alleEtiketten());
+
+  app.put<{ Body: EtikettEingabe }>('/etiketten', async (request) => {
+    try {
+      return speichereEtikett(request.body ?? ({} as EtikettEingabe));
+    } catch (err) {
+      if (err instanceof EtikettFehler) throw new HttpError(400, err.message);
+      throw err;
+    }
+  });
+
+  app.delete<{ Params: { schluessel: string } }>('/etiketten/:schluessel', async (request) => {
+    const weg = loescheEtikett(decodeURIComponent(request.params.schluessel));
+    if (!weg) throw new HttpError(404, 'Etikett nicht gefunden');
+    return { ok: true };
+  });
+
+  // --- Gespeicherte Suchen ---
+
+  app.get('/suchen', async () => alleSuchen());
+
+  app.put<{ Body: Omit<GespeicherteSuche, 'id'> & { id?: string } }>('/suchen', async (request) => {
+    try {
+      return speichereSuche(request.body ?? ({} as GespeicherteSuche));
+    } catch (err) {
+      if (err instanceof SucheFehler) throw new HttpError(400, err.message);
+      throw err;
+    }
+  });
+
+  app.delete<{ Params: { id: string } }>('/suchen/:id', async (request) => {
+    if (!loescheSuche(request.params.id)) throw new HttpError(404, 'Suche nicht gefunden');
+    return { ok: true };
   });
 
   // --- OAuth: Einrichtung der Anbieter-Zugangsdaten ---
@@ -1395,6 +1448,43 @@ export async function buildServer() {
     },
   );
 
+  /**
+   * Etiketten an Nachrichten hängen oder abnehmen.
+   *
+   * Die Antwort trägt "dauerhaft": ob der Ordner eigene Schlüsselwörter über das
+   * Schließen hinaus behält. Ein Server, der das nicht tut, nimmt den Befehl trotzdem an
+   * und vergisst ihn still - das muss die Oberfläche sagen können.
+   */
+  app.patch<{
+    Params: { id: string; folder: string };
+    Body: { uids?: unknown; hinzu?: string[]; weg?: string[] };
+  }>('/accounts/:id/folders/:folder/etiketten', async (request) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const uids = parseUids(request.body?.uids);
+    const hinzu = (request.body?.hinzu ?? []).filter((s) => typeof s === 'string' && s.trim());
+    const weg = (request.body?.weg ?? []).filter((s) => typeof s === 'string' && s.trim());
+
+    if (hinzu.length === 0 && weg.length === 0) {
+      throw new HttpError(400, 'Es wurde weder ein Etikett angehängt noch eines abgenommen');
+    }
+
+    const ergebnis = await setzeEtiketten(account, ordner, uids, hinzu, weg);
+    // Die vorgehaltenen Listen tragen die alten Flags - sonst zeigte die Liste das
+    // Etikett erst nach dem nächsten Ordnerwechsel.
+    verwerfeStaende(account.id, ordner);
+    return ergebnis;
+  });
+
+  app.get<{ Params: { id: string; folder: string } }>(
+    '/accounts/:id/folders/:folder/etiketten-moeglich',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const ordner = decodeURIComponent(request.params.folder);
+      return { dauerhaft: await pruefeEtikettenUnterstuetzung(account, ordner) };
+    },
+  );
+
   app.get<{ Params: { id: string; folder: string; uid: string; partId: string } }>(
     '/accounts/:id/folders/:folder/messages/:uid/attachments/:partId',
     async (request, reply) => {
@@ -1462,12 +1552,22 @@ export async function buildServer() {
       before: q.before || undefined,
       unreadOnly: q.unread === '1',
       withAttachment: q.attachment === '1',
+      etikett: q.etikett?.trim() || undefined,
       category: parseCategory(q.category),
     };
   }
 
   const hatEinschraenkung = (k: SearchCriteria) =>
-    Boolean(k.text || k.from || k.subject || k.since || k.before || k.unreadOnly || k.withAttachment);
+    Boolean(
+      k.text ||
+        k.from ||
+        k.subject ||
+        k.since ||
+        k.before ||
+        k.unreadOnly ||
+        k.withAttachment ||
+        k.etikett,
+    );
 
   app.get<{
     Params: { id: string; folder: string };

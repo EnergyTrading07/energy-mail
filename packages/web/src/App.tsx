@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
 import type {
   CategoryInfo,
+  Etikett,
   FolderInfo,
   FullMessage,
   GmailCategory,
@@ -35,11 +37,11 @@ import {
 } from './composeHelpers.js';
 import { zeichneAbzeichen } from './design/abzeichen.js';
 import { useThema } from './design/thema.js';
-import { bestaetige, waehleZeitpunkt, wiedervorlageVorschlaege } from './dialoge.js';
+import { bestaetige, frage, waehleZeitpunkt, wiedervorlageVorschlaege } from './dialoge.js';
 import { archiveTarget } from './folderTargets.js';
 import { buildFolderView } from './folderTree.js';
 import { categoryLabel } from './gmailCategories.js';
-import { meldeFehler, meldeWarnung } from './meldungen.js';
+import { meldeErfolg, meldeFehler, meldeWarnung } from './meldungen.js';
 import { providerTheme } from './providerTheme.js';
 import { textToHtml } from './htmlText.js';
 import { useAktualisierung } from './useAktualisierung.js';
@@ -129,6 +131,28 @@ export default function App() {
   } | null>(null);
   /** Wie viel aussteht - fuer den Hinweis in der Seitenleiste. */
   const [wartendAnzahl, setWartendAnzahl] = useState(0);
+  /** Verzeichnis der Etiketten: Name und Farbe zu jedem Schluesselwort. */
+  const [etiketten, setEtiketten] = useState<Etikett[]>([]);
+  /**
+   * Ob der offene Ordner Etiketten dauerhaft behaelt. null heisst "noch nicht gefragt" -
+   * gefragt wird beim ersten Vergeben, nicht bei jedem Ordnerwechsel.
+   */
+  const [etikettenDauerhaft, setEtikettenDauerhaft] = useState<boolean | null>(null);
+  /** Gespeicherte Suchen - Ordner, die es gar nicht gibt. */
+  const [suchen, setSuchen] = useState<api.GespeicherteSuche[]>([]);
+  /** Von aussen in die Suchleiste gesetzte Eingabe - aus einer gemerkten Suche. */
+  const [sucheVorgabe, setSucheVorgabe] = useState<SucheEingabe | null>(null);
+  /**
+   * Eine gemerkte Suche, die noch auf ihren Ordner wartet.
+   *
+   * Sie sofort auszufuehren ginge schief: der Ordnerwechsel laedt den Ordnerinhalt, und
+   * welche der beiden Antworten zuletzt eintraefe, waere Zufall. Darum erst merken, dann
+   * ausfuehren, sobald der richtige Ordner offen ist.
+   */
+  const [offeneSuche, setOffeneSuche] = useState<{
+    eingabe: SucheEingabe;
+    folder?: string;
+  } | null>(null);
   /**
    * Das Adressbuch. Ein leeres Objekt heisst "offen ohne Vorgabe" - mit "vorgabe" wird
    * gleich ein Eintrag zum Anlegen vorgelegt, etwa aus einer Nachricht heraus.
@@ -224,6 +248,22 @@ export default function App() {
     setSelectedFolder(null);
     setSelectedCategory(null);
   }, [selectedAccountId]);
+
+  /**
+   * Etiketten und gespeicherte Suchen einmal beim Start.
+   *
+   * Beides gilt für alle Konten zusammen und ändert sich selten - es beim Ordnerwechsel
+   * neu zu holen wäre reine Last.
+   */
+  useEffect(() => {
+    api.ladeEtiketten().then(setEtiketten).catch(() => setEtiketten([]));
+    api.ladeSuchen().then(setSuchen).catch(() => setSuchen([]));
+  }, []);
+
+  // Ob Etiketten halten, hängt am Ordner - beim Wechsel gilt die Antwort nicht mehr.
+  useEffect(() => {
+    setEtikettenDauerhaft(null);
+  }, [selectedAccountId, selectedFolder]);
 
   /**
    * Lädt Gmails Einordnung des Posteingangs - bewusst getrennt von der Ordnerliste.
@@ -380,6 +420,9 @@ export default function App() {
       setMessages([]);
       return;
     }
+    // Steht eine gemerkte Suche an, waere der Ordnerinhalt gleich wieder ueberschrieben -
+    // und welche der beiden Antworten zuletzt eintraefe, waere Zufall.
+    if (offeneSuche) return;
     setLoadingMessages(true);
     api
       .fetchMessages(selectedAccountId, selectedFolder, undefined, selectedCategory)
@@ -396,7 +439,8 @@ export default function App() {
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoadingMessages(false));
-  }, [selectedAccountId, selectedFolder, selectedCategory, reloadCounter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId, selectedFolder, selectedCategory, reloadCounter, offeneSuche]);
 
   /**
    * Lädt die nächste, ältere Seite. Bei aktiver Suche wird innerhalb der Trefferliste
@@ -594,6 +638,146 @@ export default function App() {
       setLocalSeen(!seen);
       setError((err as Error).message);
     }
+  };
+
+  /**
+   * Hängt ein Etikett an eine Nachricht oder nimmt es ab.
+   *
+   * Wie beim Gelesen-Status wird die Anzeige sofort umgestellt und bei einem Fehler
+   * zurückgenommen. Zusätzlich wird beim ersten Mal gefragt, ob der Ordner Etiketten
+   * überhaupt behält: ein Server, der es nicht tut, nimmt den Befehl trotzdem an und
+   * vergisst ihn beim Schließen - ohne die Rückfrage wäre das eine stille Enttäuschung.
+   */
+  const setzeEtikett = async (uid: number, schluessel: string, an: boolean) => {
+    if (!selectedAccountId || !selectedFolder) return;
+
+    const aendere = (flags: string[]): string[] => {
+      const ohne = flags.filter((f) => f.toLowerCase() !== schluessel.toLowerCase());
+      return an ? [...ohne, schluessel] : ohne;
+    };
+    const setzeOertlich = (setzen: boolean) => {
+      const wandeln = (flags: string[]) =>
+        setzen ? aendere(flags) : flags.filter((f) => f.toLowerCase() !== schluessel.toLowerCase());
+      setMessages((prev) =>
+        prev.map((m) => (m.uid === uid ? { ...m, flags: wandeln(m.flags) } : m)),
+      );
+      setSelectedMessage((prev) =>
+        prev && prev.uid === uid ? { ...prev, flags: wandeln(prev.flags) } : prev,
+      );
+    };
+
+    const vorher = messages.find((m) => m.uid === uid)?.flags ?? selectedMessage?.flags ?? [];
+    setzeOertlich(an);
+
+    try {
+      const ergebnis = await api.setzeEtiketten(
+        selectedAccountId,
+        selectedFolder,
+        [uid],
+        an ? [schluessel] : [],
+        an ? [] : [schluessel],
+      );
+      setEtikettenDauerhaft(ergebnis.dauerhaft);
+      if (!ergebnis.dauerhaft) {
+        meldeWarnung(
+          'Dieser Ordner behält keine Etiketten',
+          'Der Server hat den Befehl angenommen, vergisst das Etikett aber beim Schließen des Ordners wieder.',
+        );
+      }
+    } catch (err) {
+      // Genau zurücksetzen, nicht nur umkehren: die Nachricht kann das Etikett schon
+      // vorher getragen haben.
+      setMessages((prev) => prev.map((m) => (m.uid === uid ? { ...m, flags: vorher } : m)));
+      setSelectedMessage((prev) => (prev && prev.uid === uid ? { ...prev, flags: vorher } : prev));
+      meldeFehler('Etikett nicht gesetzt', (err as Error).message);
+    }
+  };
+
+  /**
+   * Fuehrt eine gemerkte Suche aus, sobald ihr Ordner offen ist. Nach dem Ladeeffekt
+   * angemeldet, damit er in derselben Runde vor diesem laeuft und nicht danach.
+   */
+  useEffect(() => {
+    if (!offeneSuche || !selectedAccountId || !selectedFolder) return;
+    if (offeneSuche.folder && offeneSuche.folder !== selectedFolder) return;
+
+    const { eingabe } = offeneSuche;
+    setOffeneSuche(null);
+    setSucheVorgabe(eingabe);
+    void handleSearch(eingabe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offeneSuche, selectedAccountId, selectedFolder]);
+
+  /**
+   * Merkt sich die laufende Suche unter einem Namen.
+   *
+   * Ordner und Konto kommen mit: "Rechnungen im Archiv" ist etwas anderes als
+   * "Rechnungen im Posteingang", und ohne die Angabe liefe die Suche später dort, wo man
+   * gerade zufällig steht.
+   */
+  const merkeSuche = async (eingabe: SucheEingabe) => {
+    const name = await frage({
+      titel: 'Diese Suche merken',
+      text: beschreibeSuche({ ...eingabe, etikett: eingabe.etikett || undefined }, etiketten),
+      vorgabe: eingabe.text || eingabe.from || eingabe.subject || '',
+      ok: 'Merken',
+    });
+    if (!name) return;
+
+    try {
+      const gemerkt = await api.speichereSuche({
+        name,
+        accountId: selectedAccountId ?? undefined,
+        folder: eingabe.bereich === 'ordner' ? (selectedFolder ?? undefined) : undefined,
+        kriterien: {
+          text: eingabe.text || undefined,
+          from: eingabe.from || undefined,
+          subject: eingabe.subject || undefined,
+          since: eingabe.since || undefined,
+          before: eingabe.before || undefined,
+          unreadOnly: eingabe.unreadOnly || undefined,
+          withAttachment: eingabe.withAttachment || undefined,
+          etikett: eingabe.etikett || undefined,
+        },
+      });
+      setSuchen((prev) => [...prev, gemerkt]);
+      meldeErfolg(`„${gemerkt.name}“ gemerkt`, 'Steht jetzt unten in der Seitenleiste.');
+    } catch (err) {
+      meldeFehler('Suche nicht gemerkt', (err as Error).message);
+    }
+  };
+
+  /** Führt eine gemerkte Suche aus - im hinterlegten Konto und Ordner, wenn angegeben. */
+  const fuehreSucheAus = (gemerkt: api.GespeicherteSuche) => {
+    if (gemerkt.accountId && gemerkt.accountId !== selectedAccountId) {
+      setSelectedAccountId(gemerkt.accountId);
+    }
+    if (gemerkt.folder) setSelectedFolder(gemerkt.folder);
+
+    const eingabe: SucheEingabe = {
+      text: gemerkt.kriterien.text ?? '',
+      from: gemerkt.kriterien.from ?? '',
+      subject: gemerkt.kriterien.subject ?? '',
+      since: gemerkt.kriterien.since ?? '',
+      before: gemerkt.kriterien.before ?? '',
+      unreadOnly: gemerkt.kriterien.unreadOnly ?? false,
+      withAttachment: gemerkt.kriterien.withAttachment ?? false,
+      etikett: gemerkt.kriterien.etikett ?? '',
+      bereich: gemerkt.folder ? 'ordner' : 'konto',
+    };
+    // Nicht sofort suchen: erst muss der Ordnerwechsel durch sein.
+    setOffeneSuche({ eingabe, folder: gemerkt.folder });
+  };
+
+  const vergissSuche = async (gemerkt: api.GespeicherteSuche) => {
+    const ja = await bestaetige({
+      titel: `Suche „${gemerkt.name}“ vergessen?`,
+      text: 'Nur die gemerkte Suche verschwindet – an Ihren Nachrichten ändert sich nichts.',
+      ok: 'Vergessen',
+    });
+    if (!ja) return;
+    await api.loescheSuche(gemerkt.id);
+    setSuchen((prev) => prev.filter((s) => s.id !== gemerkt.id));
   };
 
   const handleAddAccount = async (
@@ -1324,6 +1508,10 @@ export default function App() {
           wartendAnzahl={wartendAnzahl}
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onOpenAdressbuch={() => setAdressbuch({})}
+          suchen={suchen}
+          etiketten={etiketten}
+          onSucheAusfuehren={fuehreSucheAus}
+          onSucheLoeschen={(gemerkt) => void vergissSuche(gemerkt)}
           onSelectAccount={setSelectedAccountId}
           onSelectFolder={waehleOrdner}
           onSelectCategory={waehleKategorie}
@@ -1357,6 +1545,9 @@ export default function App() {
             setKonversationen(an);
             localStorage.setItem('energy-mail:konversationen', an ? 'an' : 'aus');
           }}
+          etiketten={etiketten}
+          sucheVorgabe={sucheVorgabe}
+          onSucheSpeichern={(eingabe) => void merkeSuche(eingabe)}
           folderLabel={aktuellerOrdnerName}
           onLoadMore={() => void loadMore()}
           onSelect={(eintrag) => {
@@ -1425,6 +1616,10 @@ export default function App() {
             onVertrauen={(adresse) => void handleVertrauen(adresse)}
             onQuelltext={(m) => setQuelltextFuer({ uid: m.uid, betreff: m.subject })}
             onZumAdressbuch={(address, name) => setAdressbuch({ vorgabe: { address, name } })}
+            etiketten={etiketten}
+            etikettenDauerhaft={etikettenDauerhaft}
+            onEtikettSetzen={(uid, schluessel, an) => setzeEtikett(uid, schluessel, an)}
+            onEtikettenGeaendert={setEtiketten}
           />
         </div>
         {quelltextFuer && selectedAccountId && selectedFolder && (

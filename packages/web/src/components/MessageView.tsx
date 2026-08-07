@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FolderInfo, FullMessage } from '@energy-mail/mail-core';
+import type { Etikett, FolderInfo, FullMessage } from '@energy-mail/mail-core';
 import { entschaerfeExterneInhalte } from '../externeInhalte.js';
 import { escapeHtml } from '../htmlText.js';
 import { moveTargets } from '../folderTargets.js';
+import { EtikettMarken, EtikettMenue } from './Etiketten.js';
 import { LeererKorb } from './Symbole.js';
 
 function formatSize(bytes: number): string {
@@ -41,6 +42,12 @@ interface Props {
   onQuelltext?: (message: FullMessage) => void;
   /** Legt den Absender im Adressbuch an - der Ort, an dem man danach greift. */
   onZumAdressbuch?: (adresse: string, name?: string) => void;
+  /** Verzeichnis der Etiketten - Namen und Farben zu den Schlüsselwörtern. */
+  etiketten: Etikett[];
+  /** Ob der Ordner Etiketten dauerhaft behält; null heißt "noch nicht gefragt". */
+  etikettenDauerhaft: boolean | null;
+  onEtikettSetzen: (uid: number, schluessel: string, an: boolean) => void | Promise<void>;
+  onEtikettenGeaendert: (etiketten: Etikett[]) => void;
 }
 
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
@@ -221,7 +228,13 @@ export function MessageView({
   onVertrauen,
   onQuelltext,
   onZumAdressbuch,
+  etiketten,
+  etikettenDauerhaft,
+  onEtikettSetzen,
+  onEtikettenGeaendert,
 }: Props) {
+  /** Ob das Etikettenmenü offen ist. Rein örtlich - es überdauert keinen Wechsel. */
+  const [etikettMenue, setEtikettMenue] = useState(false);
   /**
    * Ob die entfernten Inhalte dieser Nachricht freigegeben sind. Beim Wechsel zu einer
    * anderen Nachricht muss das zurückfallen - sonst erbte die nächste die Freigabe der
@@ -282,6 +295,29 @@ export function MessageView({
         <div className="mail-to" title={formatAddresses(message.to)}>
           an {formatAddresses(message.to) || '(unbekannt)'}
           {message.cc.length > 0 && <> · Kopie: {formatAddresses(message.cc)}</>}
+        </div>
+        <div className="mail-etiketten">
+          <EtikettMarken flags={message.flags} bekannte={etiketten} />
+          <span className="etikett-anker">
+            <button
+              className="link-btn"
+              onClick={() => setEtikettMenue((v) => !v)}
+              aria-expanded={etikettMenue}
+              aria-haspopup="menu"
+            >
+              Etiketten
+            </button>
+            {etikettMenue && (
+              <EtikettMenue
+                bekannte={etiketten}
+                flags={message.flags}
+                dauerhaft={etikettenDauerhaft}
+                onSetzen={(schluessel, an) => onEtikettSetzen(message.uid, schluessel, an)}
+                onVerzeichnisGeaendert={onEtikettenGeaendert}
+                onClose={() => setEtikettMenue(false)}
+              />
+            )}
+          </span>
         </div>
       </div>
       <div className="toolbar">

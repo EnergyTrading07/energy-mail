@@ -1,6 +1,13 @@
 import { useState } from 'react';
-import type { CategoryInfo, FolderInfo, GmailCategory } from '@energy-mail/mail-core';
-import type { Account, OAuthClients, OAuthProvider, Serverangaben } from '../api.js';
+import type { CategoryInfo, Etikett, FolderInfo, GmailCategory } from '@energy-mail/mail-core';
+import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
+import type {
+  Account,
+  GespeicherteSuche,
+  OAuthClients,
+  OAuthProvider,
+  Serverangaben,
+} from '../api.js';
 import { bestaetige, frage } from '../dialoge.js';
 import { buildFolderView, type AnzeigeOrdner } from '../folderTree.js';
 import { categoryDescription, categoryLabel, visibleCategories } from '../gmailCategories.js';
@@ -29,6 +36,13 @@ interface Props {
   wartendAnzahl: number;
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
+  /** Gespeicherte Suchen - Ordner, die es gar nicht gibt. */
+  suchen: GespeicherteSuche[];
+  /** Verzeichnis der Etiketten - damit in der Beschreibung ihr Name steht, nicht das
+      Schluesselwort, das nur der Server versteht. */
+  etiketten: Etikett[];
+  onSucheAusfuehren: (suche: GespeicherteSuche) => void;
+  onSucheLoeschen: (suche: GespeicherteSuche) => void;
   /** Ordnerverwaltung. Die Rückfragen stellt die Seitenleiste, ausgeführt wird oben. */
   ordnerAktionen: {
     anlegen: (accountId: string, pfad: string) => void;
@@ -140,6 +154,10 @@ export function Sidebar({
   wartendAnzahl,
   onOpenWartend,
   onOpenAdressbuch,
+  suchen,
+  etiketten,
+  onSucheAusfuehren,
+  onSucheLoeschen,
   ordnerAktionen,
   onSelectAccount,
   onSelectFolder,
@@ -480,6 +498,31 @@ export function Sidebar({
           );
         })}
       </div>
+
+      {suchen.length > 0 && (
+        <div className="gemerkte-suchen">
+          <div className="sidebar-abschnitt">Gemerkte Suchen</div>
+          {suchen.map((suche) => (
+            <div key={suche.id} className="gemerkte-suche">
+              <button
+                className="gemerkte-suche-name"
+                onClick={() => onSucheAusfuehren(suche)}
+                title={beschreibeSuche(suche.kriterien, etiketten)}
+              >
+                {suche.name}
+              </button>
+              <button
+                className="link-btn gefaehrlich"
+                onClick={() => onSucheLoeschen(suche)}
+                aria-label={`Suche „${suche.name}“ vergessen`}
+                title="Diese Suche vergessen"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="sidebar-foot">
         {/* Immer sichtbar, weil dahinter auch das Liegengebliebene steckt - das gibt es

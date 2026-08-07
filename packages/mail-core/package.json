@@ -5,6 +5,13 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "//exports": "Der Einstiegspunkt zieht imapflow und damit node:dns, node:net und Verwandte nach sich - im Browser nicht zu gebrauchen. Die reinen Module bekommen deshalb einen eigenen Weg, damit die Oberflaeche sie einbinden kann, ohne den halben Server mitzunehmen.",
+  "exports": {
+    ".": "./dist/index.js",
+    "./etiketten": "./dist/etiketten.js",
+    "./vcard": "./dist/vcard.js",
+    "./mbox": "./dist/mbox.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
