@@ -45,14 +45,29 @@ function fuehrtNachDraussen(wert: string): boolean {
 /** In "url(...)" innerhalb von CSS steckt derselbe Abruf - auch in Kurzschreibweisen. */
 const URL_IM_CSS = /url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi;
 
-function cssEntschaerfen(css: string, gesehen: Set<string>): string {
-  return css.replace(URL_IM_CSS, (ganzes, anfuehrung, adresse) => {
+/**
+ * Ersetzt jede nach draußen führende Adresse in einem Stück CSS.
+ *
+ * Gibt getrennt zurück, ob etwas geändert wurde - und stützt das nicht auf das Wachsen
+ * der Adressmenge. Genau daran scheiterte es zuvor: eine Rundmail nannte dasselbe Bild
+ * einmal im "background"-Attribut und einmal in der Stilangabe desselben Elements. Beim
+ * zweiten Mal war die Adresse schon bekannt, die Menge wuchs nicht, und die Stilangabe
+ * blieb stehen - das Bild wurde geladen.
+ */
+function cssEntschaerfen(
+  css: string,
+  gesehen: Set<string>,
+): { css: string; geaendert: boolean } {
+  let geaendert = false;
+  const neu = css.replace(URL_IM_CSS, (ganzes, anfuehrung, adresse) => {
     if (!fuehrtNachDraussen(adresse)) return ganzes;
     gesehen.add(adresse.trim());
+    geaendert = true;
     // Der Wert bleibt lesbar erhalten, verweist aber ins Nichts: so bleibt das
     // Seitenlayout erhalten, ohne dass etwas geladen wird.
     return `url(${anfuehrung}about:blank${anfuehrung})`;
   });
+  return { css: neu, geaendert };
 }
 
 export interface EntschaerftesErgebnis {
@@ -97,18 +112,17 @@ export function entschaerfeExterneInhalte(html: string): EntschaerftesErgebnis {
     // Stilangaben am Element selbst.
     const stil = el.getAttribute('style');
     if (stil) {
-      const vorher = gesehen.size;
-      const neu = cssEntschaerfen(stil, gesehen);
-      if (gesehen.size > vorher) {
+      const { css, geaendert } = cssEntschaerfen(stil, gesehen);
+      if (geaendert) {
         el.setAttribute('data-extern-style', stil);
-        el.setAttribute('style', neu);
+        el.setAttribute('style', css);
       }
     }
   }
 
   // Ganze Stilblöcke.
   for (const block of Array.from(doc.querySelectorAll('style'))) {
-    block.textContent = cssEntschaerfen(block.textContent ?? '', gesehen);
+    block.textContent = cssEntschaerfen(block.textContent ?? '', gesehen).css;
   }
 
   return { html: doc.body.innerHTML, anzahl: gesehen.size };

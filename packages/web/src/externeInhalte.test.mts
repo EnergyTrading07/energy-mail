@@ -79,6 +79,25 @@ pruefe('mehrere verschiedene Adressen werden alle gezaehlt', () => {
   assert.equal(anzahl, 3);
 });
 
+pruefe('dieselbe Adresse in Attribut UND Stilangabe desselben Elements', () => {
+  // So kam es in einer echten Rundmail vor, und so rutschte das Bild durch: die
+  // Adresse war aus dem background-Attribut schon bekannt, und die Pruefung "ist die
+  // Adressmenge gewachsen" schlug daher fuer die Stilangabe nicht mehr an.
+  const bild = 'https://assets.werbung.de/kopf.png';
+  const { html, anzahl } = entschaerfeExterneInhalte(
+    `<table><tr><td background="${bild}" style="background:#000 url('${bild}') no-repeat">x</td></tr></table>`,
+  );
+  assert.equal(anzahl, 1, 'einmal gezaehlt, weil es dieselbe Adresse ist');
+  assert.ok(!/\sbackground="http/.test(html), `background-Attribut noch da: ${html}`);
+  // Der Bindestrich davor muss ausgeschlossen werden: "data-extern-style=" endet
+  // ebenfalls auf 'style="' und traefe sonst auf sich selbst zu.
+  assert.ok(
+    !/(?<!-)style="[^"]*url\(\s*['"]?https?:/.test(html),
+    `Stilangabe laedt weiterhin: ${html}`,
+  );
+  assert.match(html, /about:blank/);
+});
+
 pruefe('dieselbe Adresse mehrfach zaehlt einmal', () => {
   // Beim GMX-Magazin standen 29 Verweise auf 13 Bilder. "29 Inhalte" zu melden und
   // dann 13 Abrufe auszuloesen waere falsch gezaehlt.
