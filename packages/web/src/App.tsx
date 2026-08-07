@@ -119,6 +119,8 @@ export default function App() {
   const [quelltextFuer, setQuelltextFuer] = useState<{ uid: number; betreff: string } | null>(null);
   /** Gesetzt, solange Treffer aus der lokalen Ablage angezeigt werden. */
   const [lokalerStand, setLokalerStand] = useState<api.LokaleSuche | null>(null);
+  /** Gesetzt, solange die Liste aus der Ablage kommt, weil keine Verbindung besteht. */
+  const [ohneVerbindung, setOhneVerbindung] = useState(false);
   /** Welcher Ordner gerade gesichert wird - traegt die Fortschrittsanzeige. */
   const [sicherungLaeuft, setSicherungLaeuft] = useState<{
     accountId: string;
@@ -377,6 +379,9 @@ export default function App() {
         setTotalMessages(res.total);
         setCursor(res.nextCursor);
         setHasMore(res.hasMore);
+        // Kommt die Liste aus der Ablage, wird das gesagt - ein stiller alter Stand
+        // wäre schlimmer als gar keiner.
+        setOhneVerbindung(Boolean(res.ausAblage));
         // Zusammenführen statt ersetzen: bereits nachgeladene ältere Seiten bleiben
         // erhalten, wenn oben eine neue Nachricht eintrifft.
         setMessages((prev) => mergeMessages(prev, res.messages));
@@ -1329,6 +1334,7 @@ export default function App() {
           hasMore={hasMore && cursor !== null}
           loadingMore={loadingMore}
           searchActive={suche !== null}
+          ohneVerbindung={ohneVerbindung}
           lokalerStand={lokalerStand}
           onVollstaendigSuchen={() => {
             // Dieselbe Eingabe noch einmal, diesmal ohne die Abkürzung über die Ablage.

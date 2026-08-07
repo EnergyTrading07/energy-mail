@@ -92,7 +92,11 @@ import {
   wendeRegelnAn,
 } from './rules.js';
 import { merkeAusListe, rememberAddresses, searchContacts } from './contactStore.js';
+import { istVerbindungsfehler } from './verbindungsfehler.js';
 import {
+  anzahlAbgelegt,
+  holeInhalt,
+  holeSeite,
   merkeInhalt,
   merkeKopfdaten,
   pruefeUidGueltigkeit,
@@ -1058,10 +1062,42 @@ export async function buildServer() {
       return seite;
     };
 
+    /**
+     * Kommt der Server nicht ans Netz, aus der Ablage antworten.
+     *
+     * Das ist der Kern des Offline-Betriebs: die Liste bleibt vollständig, weil die
+     * Kopfdaten aller je geholten Nachrichten auf der Platte liegen. Bewusst nur bei
+     * Verbindungsfehlern - eine abgelaufene Anmeldung oder ein fehlender Ordner soll
+     * weiterhin als Fehler ankommen, sonst suchte man den Grund an der falschen Stelle.
+     */
+    const holenOderAusAblage = async () => {
+      try {
+        return await holen();
+      } catch (err) {
+        if (!istVerbindungsfehler(err)) throw err;
+
+        const abgelegt = holeSeite(account.id, ordner, {
+          vorUid: beforeUid ? Number(beforeUid) : undefined,
+          anzahl: groesse,
+        });
+        if (abgelegt.length === 0) throw err;
+
+        app.log.warn(`Ohne Verbindung - ${ordner} kommt aus der Ablage`);
+        return {
+          messages: abgelegt as unknown as Awaited<ReturnType<typeof listMessages>>['messages'],
+          total: anzahlAbgelegt(account.id, ordner),
+          nextCursor: abgelegt[abgelegt.length - 1]?.uid ?? null,
+          hasMore: abgelegt.length === groesse,
+          // Sagt der Oberfläche, dass sie einen Stand von der Platte zeigt.
+          ausAblage: true as const,
+        };
+      }
+    };
+
     // Nur die erste Seite kommt in den Zwischenspeicher. Nachgeladene ältere Seiten holt
     // man einmal beim Blättern - dort wartet man ohnehin auf etwas Neues, und sie alle
     // vorzuhalten würde den Speicher bei großen Postfächern vollaufen lassen.
-    if (beforeUid) return holen();
+    if (beforeUid) return holenOderAusAblage();
 
     // Der Abruf der ersten Seite heißt: dieser Ordner wird gerade angesehen. Er kommt
     // damit in die Überwachung, sodass Änderungen dort ebenso sofort ankommen wie im
@@ -1070,7 +1106,7 @@ export async function buildServer() {
 
     const { wert } = await ausSpeicherOderHolen(
       schluessel.nachrichten(account.id, ordner, einordnung, groesse),
-      holen,
+      holenOderAusAblage,
       {
         maxAlterMs: FRIST_NACHRICHTEN_MS,
         beiAenderung: () =>
@@ -1135,12 +1171,36 @@ export async function buildServer() {
       const vorhanden = liesNachricht(key);
       if (vorhanden) return mitVertrauen(vorhanden);
 
-      const nachricht = mitAbrufbarenBildern(
-        await getMessage(account, ordner, uid),
-        account.id,
-        ordner,
-        uid,
-      );
+      let geholt: Awaited<ReturnType<typeof getMessage>>;
+      try {
+        geholt = await getMessage(account, ordner, uid);
+      } catch (err) {
+        // Ohne Verbindung das nehmen, was beim letzten Lesen abgelegt wurde.
+        const ausAblage = istVerbindungsfehler(err) ? holeInhalt(account.id, ordner, uid) : null;
+        if (!ausAblage) throw err;
+
+        const kopf = holeSeite(account.id, ordner, { anzahl: 1, vorUid: uid + 1 }).find(
+          (m) => m.uid === uid,
+        );
+        app.log.warn(`Ohne Verbindung - Nachricht ${uid} kommt aus der Ablage`);
+        return mitVertrauen({
+          uid,
+          subject: kopf?.subject ?? '(kein Betreff)',
+          from: kopf?.from ?? [],
+          to: kopf?.to ?? [],
+          cc: [],
+          date: kopf?.date ?? null,
+          flags: kopf?.flags ?? [],
+          seen: kopf?.seen ?? true,
+          hasAttachments: Boolean(ausAblage.anhaenge?.length),
+          html: ausAblage.html,
+          text: ausAblage.text,
+          attachments: (ausAblage.anhaenge ?? []) as never,
+          ausAblage: true,
+        } as never);
+      }
+
+      const nachricht = mitAbrufbarenBildern(geholt, account.id, ordner, uid);
       merkeNachricht(key, nachricht);
 
       // Zusätzlich dauerhaft ablegen: der Speicher im Arbeitsspeicher ist nach dem

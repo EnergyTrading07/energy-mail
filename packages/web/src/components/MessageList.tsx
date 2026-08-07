@@ -17,6 +17,8 @@ interface Props {
   hasMore: boolean;
   loadingMore: boolean;
   searchActive: boolean;
+  /** Gesetzt, wenn die Liste mangels Verbindung von der Platte kommt. */
+  ohneVerbindung?: boolean;
   /** Gesetzt, solange Treffer aus der lokalen Ablage gezeigt werden. */
   lokalerStand?: { dauerMs: number; bestand: { kopfdaten: number; mitText: number } } | null;
   /** Sucht dieselbe Eingabe noch einmal beim Anbieter, über den ganzen Bestand. */
@@ -174,6 +176,7 @@ export function MessageList({
   hasMore,
   loadingMore,
   searchActive,
+  ohneVerbindung,
   lokalerStand,
   onVollstaendigSuchen,
   anhangSuchbar,
@@ -314,6 +317,15 @@ export function MessageList({
         onSearch={onSearch}
         onClear={onClear}
       />
+
+      {ohneVerbindung && (
+        <div className="ohne-verbindung" role="status">
+          <span>
+            <strong>Keine Verbindung.</strong> Gezeigt wird der zuletzt geholte Stand von
+            deinem Rechner. Gelesen werden kann alles, was schon einmal offen war.
+          </span>
+        </div>
+      )}
 
       {lokalerStand && onVollstaendigSuchen && (
         <LokalHinweis stand={lokalerStand} onVollstaendig={onVollstaendigSuchen} />

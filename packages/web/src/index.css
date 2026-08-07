@@ -2812,3 +2812,14 @@ input[type='file']::file-selector-button:hover {
   background: var(--marke);
   transition: width 220ms ease-out;
 }
+
+/* Hinweis, dass die Liste mangels Verbindung von der Platte kommt. In Warnfarbe,
+   nicht in Alarmfarbe: es funktioniert ja etwas, nur eben nicht alles. */
+.ohne-verbindung {
+  padding: 8px 14px;
+  background: var(--blitz-leise);
+  border-bottom: 1px solid var(--rand);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--warn);
+}

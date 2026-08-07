@@ -202,6 +202,8 @@ export const PAGE_SIZE = 25;
 export interface MessagePage {
   messages: MessageSummary[];
   total: number;
+  /** Gesetzt, wenn der Server ohne Verbindung aus der lokalen Ablage geantwortet hat. */
+  ausAblage?: boolean;
   /** Marke für die nächste, ältere Seite. */
   nextCursor: number | null;
   hasMore: boolean;
