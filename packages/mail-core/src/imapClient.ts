@@ -649,6 +649,33 @@ export function findDraftsFolder(config: AccountConfig): Promise<string | null> 
 }
 
 /**
+ * Die Nachricht so, wie sie über die Leitung kam - alle Kopfzeilen, alle Teile.
+ *
+ * Man braucht sie, um zu prüfen, ob eine Mail echt ist (Absenderprüfung, Weg über die
+ * Server), um zu verstehen, warum etwas nicht dargestellt wird, und um sie als Datei
+ * zu sichern. Jedes andere Mailprogramm kann das.
+ */
+export async function getRawMessage(
+  config: AccountConfig,
+  folder: string,
+  uid: number,
+): Promise<string> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const { content } = await client.download(String(uid), undefined, { uid: true });
+      const teile: Buffer[] = [];
+      for await (const stueck of content) teile.push(stueck as Buffer);
+      // Nachrichten sind nach RFC in ASCII kodiert; alles darüber hinaus steckt in
+      // kodierten Wörtern und bleibt so lesbar, wie es im Original steht.
+      return Buffer.concat(teile).toString('utf-8');
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/**
  * Sucht, was liegengeblieben ist: worauf noch eine Antwort aussteht und wem man selbst
  * noch eine schuldet.
  *

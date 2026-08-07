@@ -2484,6 +2484,40 @@ input[type='file']::file-selector-button:hover {
   white-space: nowrap;
 }
 
+/* Quelltext einer Nachricht. Feste Schrift, weil dort Spalten und Einrückungen
+   Bedeutung tragen, und mit Bildlauf, weil Kopfzeilen beliebig lang werden. */
+.modal-breit {
+  max-width: min(980px, 94vw);
+}
+
+.quelltext {
+  margin: 0 0 4px;
+  padding: 12px 14px;
+  max-height: 42vh;
+  overflow: auto;
+  background: var(--flaeche-leise);
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.quelltext-rumpf {
+  max-height: 34vh;
+}
+
+/* Die Zeilen, an denen die Echtheit haengt - deswegen sieht man hier ueberhaupt hinein. */
+.quell-pruefzeile {
+  background: var(--marke-leise);
+  border-left: 2px solid var(--marke-rand);
+  margin-left: -14px;
+  padding-left: 12px;
+}
+
 /* Hinweis über einer Nachricht, deren entfernte Inhalte angehalten wurden.
    Bewusst in ruhigen Tönen und nicht in Alarmfarbe: angehalten ist der Normalfall. */
 .externe-leiste {

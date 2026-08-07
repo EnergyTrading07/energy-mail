@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderInfo, FullMessage } from '@energy-mail/mail-core';
 import { entschaerfeExterneInhalte } from '../externeInhalte.js';
+import { escapeHtml } from '../htmlText.js';
 import { moveTargets } from '../folderTargets.js';
 import { LeererKorb } from './Symbole.js';
 
@@ -36,6 +37,8 @@ interface Props {
   onMove: (uid: number, targetFolder: string) => void;
   /** Gibt die entfernten Inhalte dieses Absenders dauerhaft frei. */
   onVertrauen?: (adresse: string) => void;
+  /** Zeigt die Nachricht im Original mit allen Kopfzeilen. */
+  onQuelltext?: (message: FullMessage) => void;
 }
 
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
@@ -112,6 +115,47 @@ function HtmlMailBody({ html }: { html: string }) {
   );
 }
 
+/** Kopf über dem Ausdruck: auf Papier fehlt sonst, von wem, an wen und wann. */
+const DRUCKSTIL = `<style>
+  @page { margin: 16mm; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11pt; line-height: 1.5;
+         color: #000; background: #fff; margin: 0; }
+  .druckkopf { border-bottom: 1px solid #999; padding-bottom: 10px; margin-bottom: 16px; }
+  .druckkopf h1 { font-size: 14pt; margin: 0 0 7px; }
+  .druckkopf div { font-size: 9.5pt; color: #333; line-height: 1.55; }
+  img { max-width: 100%; height: auto; }
+  table { max-width: 100%; }
+  pre { white-space: pre-wrap; overflow-wrap: break-word; font-size: 10pt; }
+</style>`;
+
+/**
+ * Druckt eine Nachricht über einen eigenen, kurzlebigen Rahmen.
+ *
+ * Nicht über den angezeigten Rahmen und erst recht nicht über das Fenster selbst: das
+ * eine trägt die Bildschirmgestaltung mit auf das Papier, das andere druckte Ordnerliste
+ * und Nachrichtenliste gleich mit. Der eigene Rahmen bekommt nur den Inhalt und ein
+ * Format für Papier.
+ *
+ * Er bleibt abgeschottet und ohne Skriptausführung - das Drucken stößt die Anwendung
+ * von außen an, dafür genügt "allow-modals".
+ */
+function druckeNachricht(titel: string, kopf: string, inhalt: string): void {
+  const rahmen = document.createElement('iframe');
+  rahmen.setAttribute('sandbox', 'allow-same-origin allow-modals');
+  rahmen.setAttribute('aria-hidden', 'true');
+  rahmen.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  rahmen.srcdoc = `<title>${escapeHtml(titel)}</title>${DRUCKSTIL}${kopf}${inhalt}`;
+
+  rahmen.addEventListener('load', () => {
+    rahmen.contentWindow?.focus();
+    rahmen.contentWindow?.print();
+    // Erst wegräumen, wenn der Druckdialog durch ist - sonst verschwindet die Vorlage
+    // unter dem Dialog weg und es kommt ein leeres Blatt.
+    window.setTimeout(() => rahmen.remove(), 60_000);
+  });
+  document.body.appendChild(rahmen);
+}
+
 /**
  * Hinweis über einer Nachricht, deren entfernte Inhalte angehalten wurden.
  *
@@ -173,6 +217,7 @@ export function MessageView({
   onDelete,
   onMove,
   onVertrauen,
+  onQuelltext,
 }: Props) {
   /**
    * Ob die entfernten Inhalte dieser Nachricht freigegeben sind. Beim Wechsel zu einer
@@ -259,6 +304,37 @@ export function MessageView({
           onClick={() => onSnooze(message.uid)}
         >
           Wiedervorlage
+        </button>
+        <button
+          className="btn secondary"
+          title="Nachricht drucken oder als PDF sichern"
+          onClick={() =>
+            druckeNachricht(
+              message.subject,
+              `<div class="druckkopf"><h1>${escapeHtml(message.subject)}</h1><div>` +
+                `Von: ${escapeHtml(absender?.name ? `${absender.name} <${absender.address}>` : (absender?.address ?? '(unbekannt)'))}<br>` +
+                `An: ${escapeHtml(formatAddresses(message.to) || '(unbekannt)')}<br>` +
+                (message.cc.length > 0 ? `Kopie: ${escapeHtml(formatAddresses(message.cc))}<br>` : '') +
+                `Datum: ${escapeHtml(message.date ? new Date(message.date).toLocaleString('de-DE') : '(unbekannt)')}` +
+                `</div></div>`,
+              // Gedruckt wird, was auf dem Bildschirm steht: sind die entfernten Bilder
+              // angehalten, kommen sie auch nicht aufs Papier.
+              message.html
+                ? zeigeExterne
+                  ? message.html
+                  : inhalt.html
+                : `<pre>${escapeHtml(message.text ?? '')}</pre>`,
+            )
+          }
+        >
+          Drucken
+        </button>
+        <button
+          className="btn secondary"
+          title="Die Nachricht im Original mit allen Kopfzeilen"
+          onClick={() => onQuelltext?.(message)}
+        >
+          Quelltext
         </button>
         <button className="btn danger" onClick={() => onDelete(message.uid)}>
           {isInTrash ? 'Endgültig löschen' : 'Löschen'}

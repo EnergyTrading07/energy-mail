@@ -310,6 +310,29 @@ export function fetchOffeneVorgaenge(
   return request(`/accounts/${accountId}/offen${anhang ? `?${anhang}` : ''}`);
 }
 
+/** Die Nachricht im Original, mit allen Kopfzeilen. */
+export async function fetchQuelltext(
+  accountId: string,
+  folder: string,
+  uid: number,
+): Promise<string> {
+  const antwort = await fetch(
+    `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}/quelltext`,
+  );
+  if (!antwort.ok) {
+    // Der Fehlerfall kommt als JSON, der Erfolgsfall als reiner Text.
+    const text = await antwort.text();
+    let meldung = text;
+    try {
+      meldung = (JSON.parse(text) as { error?: string }).error ?? text;
+    } catch {
+      // Kein JSON - dann ist der Text selbst die Meldung.
+    }
+    throw new Error(meldung);
+  }
+  return antwort.text();
+}
+
 /** Absender, deren entfernte Bilder ohne Rückfrage geladen werden dürfen. */
 export function fetchVertrauteAbsender(accountId: string): Promise<{ absender: string[] }> {
   return request(`/accounts/${accountId}/vertraute-absender`);

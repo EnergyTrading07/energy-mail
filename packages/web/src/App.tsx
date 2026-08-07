@@ -19,6 +19,7 @@ import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { RulesModal } from './components/RulesModal.js';
+import { QuelltextModal } from './components/QuelltextModal.js';
 import { WartendModal } from './components/WartendModal.js';
 import { SendeMeldung } from './components/SendeMeldung.js';
 import type { SucheEingabe } from './components/SearchBar.js';
@@ -112,6 +113,8 @@ export default function App() {
   const [cleanupFor, setCleanupFor] = useState<api.Account | null>(null);
   /** Konto, dessen ausstehende Sendungen und Wiedervorlagen gezeigt werden. */
   const [wartendFor, setWartendFor] = useState<api.Account | null>(null);
+  /** Für welche Nachricht der Quelltext offen ist - Ordner und Konto ergeben sich. */
+  const [quelltextFuer, setQuelltextFuer] = useState<{ uid: number; betreff: string } | null>(null);
   /** Wie viel aussteht - fuer den Hinweis in der Seitenleiste. */
   const [wartendAnzahl, setWartendAnzahl] = useState(0);
   /** Vorgemerkte Nachricht - waehrend der Bedenkzeit oder bis zum geplanten Zeitpunkt. */
@@ -1307,8 +1310,18 @@ export default function App() {
             onDelete={(uid) => void handleDelete([uid])}
             onMove={(uid, target) => void handleMove([uid], target)}
             onVertrauen={(adresse) => void handleVertrauen(adresse)}
+            onQuelltext={(m) => setQuelltextFuer({ uid: m.uid, betreff: m.subject })}
           />
         </div>
+        {quelltextFuer && selectedAccountId && selectedFolder && (
+          <QuelltextModal
+            accountId={selectedAccountId}
+            ordner={selectedFolder}
+            uid={quelltextFuer.uid}
+            betreff={quelltextFuer.betreff}
+            onClose={() => setQuelltextFuer(null)}
+          />
+        )}
         {composeInitial !== null && (
           <ComposeModal
             initial={composeInitial}

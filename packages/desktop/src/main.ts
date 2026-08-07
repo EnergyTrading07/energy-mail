@@ -16,6 +16,7 @@ import { FARBEN, LEISTE_HOEHE } from './fensterFarben.js';
 import { zeigeStartbild, zeigeStartfehler, zeigeUeber } from './kleineFenster.js';
 import { setzeMenue } from './menu.js';
 import { starteBenachrichtigungen } from './notifications.js';
+import { richteRechtschreibungEin } from './rechtschreibung.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 
 // Gleicher Port wie der Standalone-Server (siehe packages/server), damit der ohne
@@ -122,6 +123,8 @@ function createWindow(url: string) {
     }
     return { action: 'deny' };
   });
+
+  richteRechtschreibungEin(win);
 
   // Einzeln aufgeführt und nicht in einer Schleife: die Ereignisnamen sind für den
   // Übersetzer je eine eigene Überladung und lassen sich nicht gebündelt übergeben.

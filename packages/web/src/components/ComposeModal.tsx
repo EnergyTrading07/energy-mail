@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Draft, DraftAttachment } from '../api.js';
+import { pruefeAnhaenge } from '../anhangErinnerung.js';
 import { bestaetige, frage, sendeVorschlaege, waehleZeitpunkt } from '../dialoge.js';
 import { htmlToText } from '../htmlText.js';
 import { AddressInput } from './AddressInput.js';
@@ -176,6 +177,21 @@ export function ComposeModal({
   const submit = async (e: React.FormEvent, sendenAm?: string) => {
     e.preventDefault();
     setError(null);
+
+    // Angekündigt, aber nichts angehängt? Lieber einmal fragen als hinterher nachreichen.
+    const erinnerung = pruefeAnhaenge(subject, htmlToText(html), attachments.length);
+    if (erinnerung.nachfragen) {
+      const trotzdem = await bestaetige({
+        titel: 'Anhang vergessen?',
+        text:
+          `Im Text steht „${erinnerung.fundstelle}“, aber es hängt keine Datei an. ` +
+          'Trotzdem senden?',
+        ok: 'Trotzdem senden',
+        abbrechen: 'Zurück zum Text',
+      });
+      if (!trotzdem) return;
+    }
+
     setBusy(true);
     try {
       await onSend(

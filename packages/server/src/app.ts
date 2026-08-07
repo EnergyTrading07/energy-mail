@@ -31,6 +31,7 @@ import {
   listMessages,
   moveMessages,
   sendeEinKlickAbmeldung,
+  getRawMessage,
   offeneVorgaenge,
   senderUebersicht,
   verschiebeVonAbsender,
@@ -1057,6 +1058,24 @@ export async function buildServer() {
       );
       merkeNachricht(key, nachricht);
       return mitVertrauen(nachricht);
+    },
+  );
+
+  /**
+   * Die Nachricht im Original. Bewusst nicht zwischengespeichert: sie wird selten
+   * geholt, kann groß sein, und wer sie ansieht, will genau den Stand vom Server.
+   */
+  app.get<{ Params: { id: string; folder: string; uid: string } }>(
+    '/accounts/:id/folders/:folder/messages/:uid/quelltext',
+    async (request, reply) => {
+      const account = requireAccount(request.params.id);
+      const roh = await getRawMessage(
+        account,
+        decodeURIComponent(request.params.folder),
+        Number(request.params.uid),
+      );
+      reply.type('text/plain; charset=utf-8');
+      return roh;
     },
   );
 
