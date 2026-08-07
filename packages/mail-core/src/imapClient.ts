@@ -442,7 +442,19 @@ export async function listMessages(
       const total = options.category ? treffer.length : imOrdner;
       const { uids, nextCursor, hasMore } = seitenAnteil(treffer, options.beforeUid, pageSize);
 
-      return { messages: await fetchSummaries(client, uids), total, nextCursor, hasMore };
+      return {
+        messages: await fetchSummaries(client, uids),
+        total,
+        nextCursor,
+        hasMore,
+        // Reicht die lokale Ablage durch: ändert sie sich, sind alle gemerkten UIDs
+        // dieses Ordners wertlos und müssen weg. Der Server liefert sie als bigint,
+        // weil sie bis 2^32 gehen darf - als Zahl bleibt sie bis dahin genau.
+        uidValidity:
+          mailbox && typeof mailbox !== 'boolean' && mailbox.uidValidity !== undefined
+            ? Number(mailbox.uidValidity)
+            : undefined,
+      };
     } finally {
       lock.release();
     }

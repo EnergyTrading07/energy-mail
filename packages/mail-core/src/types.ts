@@ -318,4 +318,10 @@ export interface MessagePage {
   /** Marke für die nächste Seite; null, wenn nichts mehr folgt. */
   nextCursor: number | null;
   hasMore: boolean;
+  /**
+   * Die "UID-Gültigkeit" des Ordners. Ändert der Server sie, hat er die Nummerierung
+   * neu begonnen und alle gemerkten UIDs zeigen ins Leere - die lokale Ablage muss den
+   * Ordner dann räumen. Fehlt, wenn der Server sie nicht meldet.
+   */
+  uidValidity?: number;
 }

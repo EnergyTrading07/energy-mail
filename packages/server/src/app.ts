@@ -91,6 +91,14 @@ import {
 } from './rules.js';
 import { merkeAusListe, rememberAddresses, searchContacts } from './contactStore.js';
 import {
+  merkeInhalt,
+  merkeKopfdaten,
+  pruefeUidGueltigkeit,
+  setzeGelesen as ablageGelesen,
+  entferneNachrichten as ablageEntfernen,
+  verwerfeKontoAblage,
+} from './lokaleAblage.js';
+import {
   istVertraut,
   vertrauenEntziehen,
   vertrauenGeben,
@@ -511,6 +519,7 @@ export async function buildServer() {
     verwirfNachrichten(`${request.params.id}:`);
     regelnVerwerfen(request.params.id);
     vertrauenVerwerfen(request.params.id);
+    verwerfeKontoAblage(request.params.id);
     syncWatchers();
     return { ok: true };
   });
@@ -1025,6 +1034,22 @@ export async function buildServer() {
       // ohne dass jemand ein Adressbuch pflegen muss. Bewusst hier drin: aus dem
       // Zwischenspeicher beantwortete Anfragen sollen die Zähler nicht hochtreiben.
       merkeAusListe(account.id, ordner, seite.messages);
+
+      /**
+       * In die lokale Ablage schreiben, was gerade geholt wurde.
+       *
+       * Erst die UID-Gültigkeit prüfen: hat der Server die Nummerierung neu begonnen,
+       * zeigen alle gemerkten UIDs ins Leere und der Ordner muss geräumt werden, bevor
+       * das Neue dazukommt. Fehler dabei dürfen den Abruf nicht aufhalten - die Ablage
+       * ist ein Abbild, die Anzeige hängt nicht an ihr.
+       */
+      try {
+        pruefeUidGueltigkeit(account.id, ordner, seite.uidValidity);
+        merkeKopfdaten(account.id, ordner, seite.messages);
+      } catch (err) {
+        app.log.warn(`Lokale Ablage nicht beschrieben: ${(err as Error).message}`);
+      }
+
       return seite;
     };
 
@@ -1112,6 +1137,19 @@ export async function buildServer() {
         uid,
       );
       merkeNachricht(key, nachricht);
+
+      // Zusätzlich dauerhaft ablegen: der Speicher im Arbeitsspeicher ist nach dem
+      // Beenden weg, die Ablage überdauert ihn und trägt später das Lesen ohne Netz.
+      try {
+        merkeInhalt(account.id, ordner, uid, {
+          html: typeof nachricht.html === 'string' ? nachricht.html : undefined,
+          text: nachricht.text,
+          anhaenge: nachricht.attachments,
+        });
+      } catch (err) {
+        app.log.warn(`Inhalt nicht abgelegt: ${(err as Error).message}`);
+      }
+
       return mitVertrauen(nachricht);
     },
   );
@@ -1164,6 +1202,8 @@ export async function buildServer() {
       // Nachziehen statt verwerfen: das Öffnen einer Nachricht markiert sie als gelesen,
       // und die vorgehaltene Fassung soll deswegen nicht verlorengehen.
       aktualisiereGelesen(account.id, ordner, uids, request.body.seen);
+      // Auch in der dauerhaften Ablage, sonst zeigte die Liste ohne Netz den alten Stand.
+      ablageGelesen(account.id, ordner, uids, request.body.seen);
       return { ok: true };
     },
   );
@@ -1207,6 +1247,7 @@ export async function buildServer() {
     verwerfeStaende(account.id, ordner, request.body.targetFolder);
     // Im Quellordner gibt es diese UIDs nicht mehr; im Zielordner haben sie andere.
     for (const uid of uids) verwirfNachrichten(nachrichtenSchluessel(account.id, ordner, uid));
+    ablageEntfernen(account.id, ordner, uids);
     return { ok: true };
   });
 
@@ -1219,6 +1260,7 @@ export async function buildServer() {
       await deleteMessages(account, ordner, uids);
       verwerfeStaende(account.id, ordner);
       for (const uid of uids) verwirfNachrichten(nachrichtenSchluessel(account.id, ordner, uid));
+      ablageEntfernen(account.id, ordner, uids);
       return { ok: true };
     },
   );
