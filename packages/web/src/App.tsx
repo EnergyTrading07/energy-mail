@@ -18,6 +18,7 @@ import { MessageView } from './components/MessageView.js';
 import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
+import { AdressbuchModal } from './components/AdressbuchModal.js';
 import { RulesModal } from './components/RulesModal.js';
 import { QuelltextModal } from './components/QuelltextModal.js';
 import { absenderFuerAntwort, alleAbsender } from './identitaeten.js';
@@ -128,6 +129,13 @@ export default function App() {
   } | null>(null);
   /** Wie viel aussteht - fuer den Hinweis in der Seitenleiste. */
   const [wartendAnzahl, setWartendAnzahl] = useState(0);
+  /**
+   * Das Adressbuch. Ein leeres Objekt heisst "offen ohne Vorgabe" - mit "vorgabe" wird
+   * gleich ein Eintrag zum Anlegen vorgelegt, etwa aus einer Nachricht heraus.
+   */
+  const [adressbuch, setAdressbuch] = useState<{
+    vorgabe?: { address: string; name?: string };
+  } | null>(null);
   /** Vorgemerkte Nachricht - waehrend der Bedenkzeit oder bis zum geplanten Zeitpunkt. */
   const [geplant, setGeplant] = useState<{
     id: string;
@@ -1315,6 +1323,7 @@ export default function App() {
           ordnerAktionen={ordnerAktionen}
           wartendAnzahl={wartendAnzahl}
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
+          onOpenAdressbuch={() => setAdressbuch({})}
           onSelectAccount={setSelectedAccountId}
           onSelectFolder={waehleOrdner}
           onSelectCategory={waehleKategorie}
@@ -1415,6 +1424,7 @@ export default function App() {
             onMove={(uid, target) => void handleMove([uid], target)}
             onVertrauen={(adresse) => void handleVertrauen(adresse)}
             onQuelltext={(m) => setQuelltextFuer({ uid: m.uid, betreff: m.subject })}
+            onZumAdressbuch={(address, name) => setAdressbuch({ vorgabe: { address, name } })}
           />
         </div>
         {quelltextFuer && selectedAccountId && selectedFolder && (
@@ -1504,6 +1514,12 @@ export default function App() {
         )}
         {showOAuthSetup && (
           <OAuthSetupModal onClose={() => setShowOAuthSetup(false)} onChanged={setOauthClients} />
+        )}
+        {adressbuch && (
+          <AdressbuchModal
+            vorgabe={adressbuch.vorgabe}
+            onClose={() => setAdressbuch(null)}
+          />
         )}
       </div>
     </div>

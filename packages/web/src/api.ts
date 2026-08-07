@@ -44,6 +44,26 @@ export interface Contact {
   name?: string;
   count: number;
   lastSeen: string;
+  /** Im Adressbuch eingetragen - nicht nur nebenbei aus der Post aufgelesen. */
+  gepflegt?: boolean;
+}
+
+/** Eine Telefonnummer mit ihrer Art ("Privat", "Arbeit", "Mobil" ...). */
+export interface Telefonnummer {
+  nummer: string;
+  art?: string;
+}
+
+/** Ein Eintrag im Adressbuch, mit allem, was dazu erfasst werden kann. */
+export interface Kontakt extends Contact {
+  vorname?: string;
+  nachname?: string;
+  organisation?: string;
+  telefone?: Telefonnummer[];
+  anschrift?: string;
+  geburtstag?: string;
+  notiz?: string;
+  weitereAdressen?: string[];
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -100,6 +120,42 @@ export function updateAccount(
 export function fetchContacts(query: string): Promise<Contact[]> {
   return request(`/contacts?q=${encodeURIComponent(query)}`);
 }
+
+// --- Adressbuch ---
+
+export interface Kontaktliste {
+  eintraege: Kontakt[];
+  gesamt: number;
+}
+
+export function ladeAdressbuch(suche = '', auchAufgelesene = false): Promise<Kontaktliste> {
+  const teile = [`q=${encodeURIComponent(suche)}`];
+  if (auchAufgelesene) teile.push('alle=1');
+  return request(`/adressbuch?${teile.join('&')}`);
+}
+
+export function speichereKontakt(
+  kontakt: Partial<Kontakt> & { address: string; vorherigeAdresse?: string },
+): Promise<Kontakt> {
+  return request('/adressbuch', { method: 'PUT', body: JSON.stringify(kontakt) });
+}
+
+export function loescheKontakt(adresse: string): Promise<{ ok: boolean }> {
+  return request(`/adressbuch/${encodeURIComponent(adresse)}`, { method: 'DELETE' });
+}
+
+export interface EinfuhrErgebnis {
+  angelegt: number;
+  aktualisiert: number;
+  uebergangen: number;
+}
+
+export function fuehreVisitenkartenEin(inhalt: string): Promise<EinfuhrErgebnis> {
+  return request('/adressbuch/einfuhr', { method: 'POST', body: JSON.stringify({ inhalt }) });
+}
+
+/** Die Adresse, unter der die vCard-Datei heruntergeladen wird. */
+export const adressbuchAusfuhrAdresse = () => `${API_BASE}/adressbuch/ausfuhr`;
 
 // --- OAuth ---
 

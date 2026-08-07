@@ -39,6 +39,8 @@ interface Props {
   onVertrauen?: (adresse: string) => void;
   /** Zeigt die Nachricht im Original mit allen Kopfzeilen. */
   onQuelltext?: (message: FullMessage) => void;
+  /** Legt den Absender im Adressbuch an - der Ort, an dem man danach greift. */
+  onZumAdressbuch?: (adresse: string, name?: string) => void;
 }
 
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
@@ -218,6 +220,7 @@ export function MessageView({
   onMove,
   onVertrauen,
   onQuelltext,
+  onZumAdressbuch,
 }: Props) {
   /**
    * Ob die entfernten Inhalte dieser Nachricht freigegeben sind. Beim Wechsel zu einer
@@ -261,6 +264,17 @@ export function MessageView({
             <span className="mail-from-name">{absender?.name || absender?.address || '(unbekannt)'}</span>
             {absender?.name && <span className="mail-from-address">&lt;{absender.address}&gt;</span>}
           </div>
+          {/* Ausserhalb von .mail-from: das kuerzt lange Absendernamen ab und wuerde den
+              Knopf mit abschneiden. */}
+          {absender?.address && onZumAdressbuch && (
+            <button
+              className="link-btn zum-adressbuch"
+              onClick={() => onZumAdressbuch(absender.address, absender.name)}
+              title={`${absender.address} ins Adressbuch aufnehmen`}
+            >
+              Ins Adressbuch
+            </button>
+          )}
           <span className="mail-date">
             {message.date ? new Date(message.date).toLocaleString('de-DE') : ''}
           </span>

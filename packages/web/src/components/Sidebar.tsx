@@ -28,6 +28,7 @@ interface Props {
   /** Wie viele Nachrichten geplant oder zurueckgestellt sind. */
   wartendAnzahl: number;
   onOpenWartend: () => void;
+  onOpenAdressbuch: () => void;
   /** Ordnerverwaltung. Die Rückfragen stellt die Seitenleiste, ausgeführt wird oben. */
   ordnerAktionen: {
     anlegen: (accountId: string, pfad: string) => void;
@@ -138,6 +139,7 @@ export function Sidebar({
   onReauth,
   wartendAnzahl,
   onOpenWartend,
+  onOpenAdressbuch,
   ordnerAktionen,
   onSelectAccount,
   onSelectFolder,
@@ -491,6 +493,9 @@ export function Sidebar({
           {wartendAnzahl > 0
             ? `Offen · ${wartendAnzahl} ${wartendAnzahl === 1 ? 'wartet' : 'warten'}`
             : 'Was ist offen?'}
+        </button>
+        <button className="link-btn" onClick={onOpenAdressbuch}>
+          Adressbuch
         </button>
         <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
           {formSichtbar ? '× Konto hinzufügen abbrechen' : '+ Konto hinzufügen'}

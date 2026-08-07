@@ -2823,3 +2823,217 @@ input[type='file']::file-selector-button:hover {
   line-height: 1.5;
   color: var(--warn);
 }
+
+/* --- Adressbuch --------------------------------------------------------------
+   Zwei Flächen nebeneinander wie in jedem gewohnten Adressbuch: links die Liste,
+   rechts der Eintrag. Beide scrollen für sich, damit ein langes Formular nicht die
+   Liste mitnimmt und die Knöpfe unten immer erreichbar bleiben. */
+
+.modal.adressbuch {
+  display: flex;
+  flex-direction: column;
+  width: 880px;
+}
+
+.adressbuch-leiste {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding-bottom: var(--a-4);
+}
+
+.adressbuch-leiste input[type='search'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.adressbuch-schalter {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  flex: none;
+  font-size: var(--t-m);
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.adressbuch-flaechen {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: var(--a-5);
+  /* Feste Höhe statt mitwachsend: sonst springt das Fenster bei jedem Kontakt, den
+     man wählt, in eine andere Größe. */
+  height: 52vh;
+  min-height: 320px;
+}
+
+.adressbuch-liste {
+  overflow-y: auto;
+  padding-right: var(--a-2);
+  border-right: 1px solid var(--rand);
+}
+
+.adressbuch-form {
+  overflow-y: auto;
+  padding-right: var(--a-2);
+}
+
+.adressbuch-liste .empty-state,
+.adressbuch-form .empty-state {
+  padding: var(--a-5) var(--a-3);
+  font-size: var(--t-m);
+  line-height: 1.5;
+}
+
+.kontakt-zeile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--a-2) 10px;
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--weich);
+}
+
+.kontakt-zeile:hover {
+  background: var(--flaeche-hover);
+}
+
+.kontakt-zeile.aktiv {
+  background: var(--auswahl);
+}
+
+.kontakt-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a-2);
+  font-size: var(--t-n);
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Kennzeichnet, was nur nebenbei aufgelesen wurde - solche Einträge halten nur die
+   Adresse, keine Telefonnummer und keine Notiz, und verschwinden beim Aufräumen. */
+.kontakt-marke {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--r-voll);
+  background: var(--flaeche-tief);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.kontakt-zweitzeile {
+  font-size: var(--t-s);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adressbuch-rest {
+  padding: var(--a-3) 10px 0;
+}
+
+/* Vor- und Nachname nebeneinander - sie gehören zusammen und sind beide kurz. */
+.form-row.adressbuch-namen {
+  flex-direction: row;
+  gap: var(--a-3);
+}
+
+.form-row.adressbuch-namen > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Eine Zeile, die neben dem Feld noch eine Auswahl und einen Knopf trägt. Das Etikett
+   steht darüber, damit die Feldbreite nicht von der Länge des Wortes abhängt. */
+.form-row.adressbuch-zeile {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--a-2);
+}
+
+/* Volle Breite: damit fällt alles Übrige in die Zeile darunter. */
+.form-row.adressbuch-zeile label {
+  flex-basis: 100%;
+}
+
+.form-row.adressbuch-zeile select {
+  flex: none;
+  width: auto;
+}
+
+/* Gegen die Regel, die Felder in einer .form-row voll breit macht - hier teilen sie
+   sich die Zeile mit Auswahl und Knopf. */
+.form-row.adressbuch-zeile input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.form-row.adressbuch-zeile .link-btn {
+  flex: none;
+}
+
+.adressbuch-hinzu {
+  display: flex;
+  gap: var(--a-4);
+  padding: var(--a-2) 0 var(--a-3);
+}
+
+.adressbuch-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding-top: var(--a-4);
+}
+
+/* Bleibt am unteren Rand der Fläche stehen, auch wenn das Formular länger ist als sie.
+   Ohne das lag "Speichern" unter dem sichtbaren Bereich - man füllt aus und findet den
+   Knopf nicht, mit dem man es festhält. */
+.adressbuch-formknoepfe {
+  position: sticky;
+  bottom: 0;
+  margin-top: var(--a-3);
+  padding-bottom: var(--a-3);
+  background: var(--erhoben);
+  border-top: 1px solid var(--rand);
+}
+
+.adressbuch-unten {
+  margin-top: var(--a-4);
+  border-top: 1px solid var(--rand);
+}
+
+.adressbuch-fueller {
+  flex: 1;
+}
+
+/* Der Weg vom Absender ins Adressbuch. Zurückhaltend, weil er selten gebraucht wird -
+   aber genau dort, wo man ihn sucht: neben dem Namen.
+
+   Blass statt unsichtbar: was erst beim Überfahren erscheint, findet nur, wer schon
+   weiß, dass es da ist. */
+.zum-adressbuch {
+  flex-shrink: 0;
+  font-size: var(--t-s);
+  opacity: 0.5;
+  transition: opacity var(--weich);
+}
+
+.mail-head:hover .zum-adressbuch,
+.zum-adressbuch:focus-visible {
+  opacity: 1;
+}

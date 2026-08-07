@@ -91,7 +91,17 @@ import {
   regelnVerwerfen,
   wendeRegelnAn,
 } from './rules.js';
-import { merkeAusListe, rememberAddresses, searchContacts } from './contactStore.js';
+import {
+  einfuhrVisitenkarten,
+  kontakteAlsVcf,
+  listeKontakte,
+  loescheKontakt,
+  merkeAusListe,
+  rememberAddresses,
+  searchContacts,
+  speichereKontakt,
+  type KontaktEingabe,
+} from './contactStore.js';
 import { istVerbindungsfehler } from './verbindungsfehler.js';
 import {
   anzahlAbgelegt,
@@ -298,6 +308,56 @@ export async function buildServer() {
 
   app.get<{ Querystring: { q?: string } }>('/contacts', async (request) => {
     return searchContacts(request.query.q ?? '');
+  });
+
+  // --- Das Adressbuch ---
+
+  app.get<{ Querystring: { q?: string; alle?: string } }>('/adressbuch', async (request) => {
+    return listeKontakte({
+      suche: request.query.q,
+      auchAufgelesene: request.query.alle === '1',
+    });
+  });
+
+  app.put<{ Body: KontaktEingabe & { vorherigeAdresse?: string } }>(
+    '/adressbuch',
+    async (request) => {
+      const { vorherigeAdresse, ...eingabe } = request.body ?? ({} as KontaktEingabe);
+      try {
+        return speichereKontakt(eingabe, vorherigeAdresse);
+      } catch (err) {
+        throw new HttpError(400, (err as Error).message);
+      }
+    },
+  );
+
+  app.delete<{ Params: { adresse: string } }>('/adressbuch/:adresse', async (request) => {
+    const weg = loescheKontakt(decodeURIComponent(request.params.adresse));
+    if (!weg) throw new HttpError(404, 'Kontakt nicht gefunden');
+    return { ok: true };
+  });
+
+  /**
+   * Das Adressbuch als vCard-Datei. Der Weg hinaus - ohne ihn wären die Kontakte hier
+   * gefangen, und ein Adressbuch, aus dem man nicht herauskommt, ist keins.
+   */
+  app.get('/adressbuch/ausfuhr', async (_request, reply) => {
+    const heute = new Date().toISOString().slice(0, 10);
+    reply.type('text/vcard; charset=utf-8');
+    reply.header('content-disposition', `attachment; filename="Adressbuch-${heute}.vcf"`);
+    return kontakteAlsVcf();
+  });
+
+  /**
+   * Eine vCard-Datei einlesen. Der Inhalt kommt als Text im Rumpf - die Datei wird im
+   * Fenster gelesen, damit hier kein Pfad und keine Dateiablage nötig ist.
+   */
+  app.post<{ Body: { inhalt?: string } }>('/adressbuch/einfuhr', async (request) => {
+    const inhalt = request.body?.inhalt;
+    if (typeof inhalt !== 'string' || !inhalt.trim()) {
+      throw new HttpError(400, 'Die Datei ist leer');
+    }
+    return einfuhrVisitenkarten(inhalt);
   });
 
   // --- OAuth: Einrichtung der Anbieter-Zugangsdaten ---
