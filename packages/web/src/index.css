@@ -3720,3 +3720,84 @@ input[type='file']::file-selector-button:hover {
   color: var(--marke);
   pointer-events: none;
 }
+
+/* --- Formatierleiste --------------------------------------------------------- */
+
+.werkzeug-gruppe {
+  display: flex;
+  gap: 2px;
+}
+
+/* Feine Trennung zwischen den Gruppen statt Abstand: der Platz ist knapp. */
+.werkzeug-gruppe + .werkzeug-gruppe {
+  margin-left: var(--a-2);
+  padding-left: var(--a-2);
+  border-left: 1px solid var(--rand-fein);
+}
+
+/* Was gerade gilt, ist zu sehen - sonst tippt man weiter und merkt erst am Ergebnis,
+   dass alles fett ist. */
+.editor-toolbar button.an {
+  background: var(--marke-leise);
+  border-color: var(--marke-rand);
+  color: var(--marke);
+}
+
+.editor-toolbar button.farbknopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 2px;
+}
+
+.editor-toolbar button.farbknopf:hover:not(:disabled) {
+  background: var(--flaeche-hover);
+}
+
+.farbtupfen {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  /* Der Ring kommt vom Erscheinungsbild, die Fuellung vom Empfaenger: sonst
+     verschwaende Schwarz im dunklen Grund und Weiss im hellen. */
+  border: 1px solid var(--rand-stark);
+}
+
+/* Die neuen Absatzformen brauchen im Editor dieselbe Gestalt wie spaeter in der Mail -
+   sonst sieht der Verfasser etwas anderes als der Empfaenger. */
+.editor-body blockquote {
+  margin: var(--a-3) 0 var(--a-3) 2px;
+  padding-left: var(--a-3);
+  border-left: 2px solid var(--marke-rand);
+  color: var(--text-2);
+}
+
+.editor-body pre {
+  margin: var(--a-3) 0;
+  padding: var(--a-3);
+  border-radius: var(--r-1);
+  background: var(--flaeche-tief);
+  font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+  font-size: var(--t-s);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.editor-body h1,
+.editor-body h2,
+.editor-body h3 {
+  margin: var(--a-4) 0 var(--a-2);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.editor-body h2 {
+  font-size: var(--t-l);
+}
+
+.editor-body ul,
+.editor-body ol {
+  margin: var(--a-2) 0;
+  padding-left: var(--a-6);
+}
