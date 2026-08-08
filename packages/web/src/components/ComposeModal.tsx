@@ -3,6 +3,7 @@ import * as api from '../api.js';
 import type { Draft, DraftAttachment } from '../api.js';
 import type { Absender } from '../identitaeten.js';
 import { pruefeAnhaenge } from '../anhangErinnerung.js';
+import { bringtDateien } from '../ziehen.js';
 import { bestaetige, frage, sendeVorschlaege, waehleZeitpunkt } from '../dialoge.js';
 import { htmlToText } from '../htmlText.js';
 import { AddressInput } from './AddressInput.js';
@@ -105,6 +106,14 @@ export function ComposeModal({
   /** Ob und wie die Nachricht geschuetzt hinausgeht. */
   const [pgp, setPgp] = useState<'signieren' | 'verschluesseln' | undefined>(undefined);
   const [pgpLage, setPgpLage] = useState<api.PgpLage | null>(null);
+  /**
+   * Ob gerade Dateien ueber dem Fenster haengen.
+   *
+   * Ein Zaehler statt eines Schalters: beim Ueberfahren feuert "dragleave" auch dann,
+   * wenn der Zeiger nur von einem Kind zum naechsten wandert. Mit einem Schalter
+   * flackerte die Flaeche bei jeder Bewegung.
+   */
+  const [ueberDatei, setUeberDatei] = useState(0);
 
   /**
    * Was mit OpenPGP moeglich waere - haengt am eigenen Schluessel und daran, ob fuer
@@ -359,7 +368,33 @@ export function ComposeModal({
 
   return (
     <div className="modal-backdrop" onClick={() => void schliessen()}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal modal-wide${ueberDatei > 0 ? ' datei-ueber' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+        onDragEnter={(e) => {
+          if (bringtDateien([...e.dataTransfer.types])) setUeberDatei((n) => n + 1);
+        }}
+        onDragOver={(e) => {
+          // Ohne preventDefault oeffnet der Browser die Datei einfach im Fenster - und
+          // die Nachricht, an der man gerade schreibt, ist weg.
+          if (bringtDateien([...e.dataTransfer.types])) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }
+        }}
+        onDragLeave={() => setUeberDatei((n) => Math.max(0, n - 1))}
+        onDrop={(e) => {
+          if (!bringtDateien([...e.dataTransfer.types])) return;
+          e.preventDefault();
+          setUeberDatei(0);
+          void addFiles(e.dataTransfer.files);
+        }}
+      >
+        {ueberDatei > 0 && (
+          <div className="datei-flaeche" aria-hidden="true">
+            Dateien hier ablegen, um sie anzuhängen
+          </div>
+        )}
         <h3>{title}</h3>
         <form onSubmit={submit}>
           {/* Nur zeigen, wenn es etwas zu wählen gibt - bei einem Konto ohne weitere

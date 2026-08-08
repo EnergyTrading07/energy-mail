@@ -10,6 +10,7 @@ import {
   type Sortierschluessel,
   type Sortierung,
 } from '../sortierung.js';
+import { FRACHT_ART, alsFracht, frachtFuer, ziehtext } from '../ziehen.js';
 import { EtikettMarken } from './Etiketten.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
 import { LeererKorb } from './Symbole.js';
@@ -49,6 +50,9 @@ interface Props {
   /** Wie eng die Zeilen stehen. */
   dichte: Dichte;
   onDichte: (neu: Dichte) => void;
+  /** Wo die Liste herkommt - fuer das Ziehen in einen Ordner. */
+  accountId?: string | null;
+  ordner?: string | null;
   /** Ob die Liste die Posteingaenge aller Konten zeigt. */
   gesamtAnsicht?: boolean;
   /** Konten, die beim Zusammensetzen nicht antworteten - dann fehlt deren Post. */
@@ -143,6 +147,7 @@ const MessageRow = memo(function MessageRow({
   etiketten,
   ohneKaestchen,
   nurKonto,
+  onZiehen,
   onSelect,
   onToggleChecked,
 }: {
@@ -156,6 +161,8 @@ const MessageRow = memo(function MessageRow({
   /** Nur das Postfach nennen, nicht auch den Ordner - in der Gesamtliste sind alle im
       Posteingang, und "INBOX" vor jeder Zeile waere reine Wiederholung. */
   nurKonto: boolean;
+  /** Beginnt einen Ziehvorgang; null heisst, dass hier nicht gezogen werden kann. */
+  onZiehen: ((e: React.DragEvent, message: Listeneintrag) => void) | null;
   onSelect: (message: Listeneintrag) => void;
   onToggleChecked: (uid: number, checked: boolean) => void;
 }) {
@@ -169,6 +176,8 @@ const MessageRow = memo(function MessageRow({
         (eingerueckt ? ' im-gespraech' : '')
       }
       onClick={() => onSelect(message)}
+      draggable={Boolean(onZiehen)}
+      onDragStart={onZiehen ? (e) => onZiehen(e, message) : undefined}
     >
       {!ohneKaestchen && (
         <input
@@ -230,6 +239,8 @@ export function MessageList({
   onSortierung,
   dichte,
   onDichte,
+  accountId,
+  ordner,
   gesamtAnsicht,
   fehlendeKonten,
   sucheVorgabe,
@@ -272,12 +283,34 @@ export function MessageList({
    * Referenz weitergereicht bleiben sie für die Zeilen dieselben - erst dadurch greift
    * das Merken unten überhaupt.
    */
-  const behandlungen = useRef({ onSelect, onToggleChecked });
-  behandlungen.current = { onSelect, onToggleChecked };
+  const behandlungen = useRef({ onSelect, onToggleChecked, checkedUids, accountId, ordner });
+  behandlungen.current = { onSelect, onToggleChecked, checkedUids, accountId, ordner };
   const stabil = useMemo(
     () => ({
       auswaehlen: (m: Listeneintrag) => behandlungen.current.onSelect(m),
       ankreuzen: (uid: number, an: boolean) => behandlungen.current.onToggleChecked(uid, an),
+      /**
+       * Beginnt das Ziehen einer Nachricht.
+       *
+       * Konto und Ordner kommen aus der Zeile selbst, wenn sie sie tragen (Suchtreffer,
+       * Gesamtliste) - sonst aus der Ansicht. Ohne diese Unterscheidung landete ein
+       * gezogener Treffer aus einem anderen Ordner im falschen Postfach.
+       */
+      ziehen: (e: React.DragEvent, m: Listeneintrag) => {
+        const { checkedUids: angekreuzt, accountId: konto, ordner: hier } = behandlungen.current;
+        const vonKonto = m.accountId ?? konto;
+        const vonOrdner = m.folder ?? hier;
+        if (!vonKonto || !vonOrdner) return;
+
+        const uids = frachtFuer(m.uid, angekreuzt);
+        e.dataTransfer.setData(
+          FRACHT_ART,
+          alsFracht({ accountId: vonKonto, ordner: vonOrdner, uids }),
+        );
+        // Auch als Text, damit ein Ablegen ausserhalb wenigstens etwas Lesbares ergibt.
+        e.dataTransfer.setData('text/plain', ziehtext(uids.length));
+        e.dataTransfer.effectAllowed = 'move';
+      },
     }),
     [],
   );
@@ -294,6 +327,7 @@ export function MessageList({
       etiketten={etiketten}
       ohneKaestchen={Boolean(gesamtAnsicht)}
       nurKonto={Boolean(gesamtAnsicht)}
+      onZiehen={stabil.ziehen}
       onSelect={stabil.auswaehlen}
       onToggleChecked={stabil.ankreuzen}
     />

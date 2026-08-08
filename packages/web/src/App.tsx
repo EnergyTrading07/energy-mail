@@ -21,6 +21,7 @@ import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { AdressbuchModal } from './components/AdressbuchModal.js';
+import { bringtDateien, type Fracht } from './ziehen.js';
 import {
   STANDARD_SORTIERUNG,
   alsDichte,
@@ -932,6 +933,35 @@ export default function App() {
     setSuchen((prev) => prev.filter((s) => s.id !== gemerkt.id));
   };
 
+  /**
+   * Verschiebt Nachrichten, die auf einen Ordner gezogen wurden.
+   *
+   * Konto und Ordner kommen aus der Fracht, nicht aus der Ansicht: gezogen werden kann
+   * auch aus einer Trefferliste, in der jede Zeile woanders liegt.
+   */
+  const verschiebeGezogene = async (fracht: Fracht, ziel: FolderInfo) => {
+    const betroffen = new Set(fracht.uids);
+    // Sofort aus der Liste nehmen - sonst steht die Nachricht noch da, wo sie nicht
+    // mehr ist, und ein Klick liefe ins Leere.
+    setMessages((prev) => prev.filter((m) => !betroffen.has(m.uid)));
+    setCheckedUids((prev) => new Set([...prev].filter((uid) => !betroffen.has(uid))));
+    setSelection((aktuell) => (aktuell && betroffen.has(aktuell.uid) ? null : aktuell));
+
+    try {
+      await api.moveMessages(fracht.accountId, fracht.ordner, fracht.uids, ziel.path);
+      setFolderReload((n) => n + 1);
+      meldeErfolg(
+        fracht.uids.length === 1
+          ? `Nach „${ziel.name}“ verschoben`
+          : `${fracht.uids.length} Nachrichten nach „${ziel.name}“ verschoben`,
+      );
+    } catch (err) {
+      // Zurueckholen, was gar nicht weg ist.
+      setReloadCounter((n) => n + 1);
+      meldeFehler('Verschieben nicht möglich', (err as Error).message);
+    }
+  };
+
   const handleAddAccount = async (
     email: string,
     password: string,
@@ -1694,6 +1724,7 @@ export default function App() {
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onOpenAdressbuch={() => setAdressbuch({})}
           onOpenSchluessel={() => setSchluesselOffen(true)}
+          onAblegen={(fracht, ziel) => void verschiebeGezogene(fracht, ziel)}
           gesamtAnsicht={gesamtAnsicht}
           onGesamtAnsicht={waehleGesamt}
           suchen={suchen}
@@ -1743,6 +1774,8 @@ export default function App() {
             localStorage.setItem('energy-mail:konversationen', an ? 'an' : 'aus');
           }}
           etiketten={etiketten}
+          accountId={arbeitsKonto}
+          ordner={arbeitsOrdner}
           sortierung={sortierung}
           onSortierung={(neu) => {
             setSortierung(neu);

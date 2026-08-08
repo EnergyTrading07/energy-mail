@@ -3675,3 +3675,48 @@ input[type='file']::file-selector-button:hover {
 .message-pane.dichte-eng .row-herkunft {
   flex-basis: 100%;
 }
+
+/* --- Ziehen und Ablegen -------------------------------------------------------
+   Beim Ziehen gibt es kein "Sind Sie sicher?" - deshalb muss vorher unmissverstaendlich
+   zu sehen sein, wo etwas landet und wo nicht. */
+
+.message-row[draggable='true'] {
+  /* Kein "grab"-Zeiger: die Zeile ist zuerst zum Anklicken da, und ein Greifzeiger
+     ueber der ganzen Liste sähe aus, als ginge Klicken nicht. */
+  -webkit-user-drag: element;
+}
+
+.folder-row.ablegbar {
+  background: var(--marke-leise);
+  outline: 2px solid var(--marke);
+  outline-offset: -2px;
+}
+
+.folder-row.nicht-ablegbar {
+  background: var(--fehler-grund);
+  outline: 2px dashed var(--fehler-rand);
+  outline-offset: -2px;
+  cursor: not-allowed;
+}
+
+/* Die Flaeche zum Ablegen von Dateien liegt ueber dem Verfassen-Fenster, ohne es zu
+   verdecken - man soll sehen, wohin die Datei geht. */
+.modal.datei-ueber {
+  position: relative;
+}
+
+.datei-flaeche {
+  position: absolute;
+  inset: var(--a-3);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--marke);
+  border-radius: var(--r-2);
+  background: color-mix(in srgb, var(--erhoben) 88%, var(--marke));
+  font-size: var(--t-l);
+  font-weight: 500;
+  color: var(--marke);
+  pointer-events: none;
+}

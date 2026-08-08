@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CategoryInfo, Etikett, FolderInfo, GmailCategory } from '@energy-mail/mail-core';
 import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
+import { FRACHT_ART, ausFracht, darfAblegen, type Fracht } from '../ziehen.js';
 import type {
   Account,
   GespeicherteSuche,
@@ -37,6 +38,8 @@ interface Props {
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
   onOpenSchluessel: () => void;
+  /** Verschiebt gezogene Nachrichten in einen Ordner. */
+  onAblegen: (fracht: Fracht, ziel: FolderInfo) => void;
   /** Ob gerade der Posteingang aller Konten angezeigt wird. */
   gesamtAnsicht: boolean;
   onGesamtAnsicht: () => void;
@@ -75,14 +78,21 @@ function badge(anzahl: number): string {
 function FolderRow({
   eintrag,
   active,
+  accountId,
   onSelect,
   onContextMenu,
+  onAblegen,
 }: {
   eintrag: AnzeigeOrdner;
   active: boolean;
+  /** Zu welchem Konto dieser Ordner gehoert - ohne das liesse sich "INBOX" verwechseln. */
+  accountId: string;
   onSelect: (path: string) => void;
   onContextMenu?: (e: React.MouseEvent, folder: FolderInfo) => void;
+  onAblegen?: (fracht: Fracht, ziel: FolderInfo) => void;
 }) {
+  /** Ob gerade etwas Ablegbares ueber dieser Zeile haengt. */
+  const [ueber, setUeber] = useState<'ja' | 'nein' | null>(null);
   const { folder, tiefe, label } = eintrag;
   // "Alle Nachrichten" spiegelt bei Gmail den gesamten Bestand; sein Zähler wiederholte
   // nur den des Posteingangs.
@@ -99,10 +109,32 @@ function FolderRow({
 
   return (
     <div
-      className={`folder-row${active ? ' active' : ''}`}
+      className={
+        `folder-row${active ? ' active' : ''}` +
+        (ueber === 'ja' ? ' ablegbar' : ueber === 'nein' ? ' nicht-ablegbar' : '')
+      }
       style={{ paddingLeft: 10 + tiefe * 14 }}
       onClick={() => onSelect(folder.path)}
       onContextMenu={(e) => onContextMenu?.(e, folder)}
+      onDragOver={(e) => {
+        // Nur wenn wirklich Nachrichten daran haengen: gezogener Text aus einem anderen
+        // Fenster soll die Ordnerliste nicht aufleuchten lassen.
+        if (!e.dataTransfer.types.includes(FRACHT_ART)) return;
+        e.preventDefault();
+        // Die Pruefung geht erst beim Ablegen vollstaendig - beim Ueberfahren gibt der
+        // Browser den Inhalt nicht heraus. Was hier feststeht, genuegt aber schon.
+        const moeglich = folder.selectable;
+        e.dataTransfer.dropEffect = moeglich ? 'move' : 'none';
+        setUeber(moeglich ? 'ja' : 'nein');
+      }}
+      onDragLeave={() => setUeber(null)}
+      onDrop={(e) => {
+        setUeber(null);
+        const fracht = ausFracht(e.dataTransfer.getData(FRACHT_ART));
+        if (!darfAblegen(fracht, folder, accountId).erlaubt) return;
+        e.preventDefault();
+        onAblegen?.(fracht!, folder);
+      }}
       title={folder.path}
     >
       <FolderIcon role={folder.specialUse} />
@@ -159,6 +191,7 @@ export function Sidebar({
   onOpenWartend,
   onOpenAdressbuch,
   onOpenSchluessel,
+  onAblegen,
   gesamtAnsicht,
   onGesamtAnsicht,
   suchen,
@@ -439,6 +472,8 @@ export function Sidebar({
                   {ansicht.sonder.map((eintrag) => (
                     <div key={eintrag.folder.path}>
                       <FolderRow
+                        accountId={account.id}
+                        onAblegen={onAblegen}
                         eintrag={eintrag}
                         // Der Posteingang selbst ist nur hervorgehoben, wenn keine
                         // Einordnung gewählt ist - sonst wären zwei Zeilen aktiv.
@@ -478,6 +513,8 @@ export function Sidebar({
                   {ansicht.weitere.map((eintrag) => (
                     <FolderRow
                       key={eintrag.folder.path}
+                      accountId={account.id}
+                      onAblegen={onAblegen}
                       eintrag={eintrag}
                       active={eintrag.folder.path === selectedFolder}
                       onSelect={onSelectFolder}
