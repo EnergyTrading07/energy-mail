@@ -102,12 +102,23 @@ export const schluessel = {
   ordner: (accountId: string) => `ordner:${accountId}`,
   einordnung: (accountId: string) => `einordnung:${accountId}`,
   /**
-   * Die Seitengröße gehört in den Schlüssel: sie bestimmt mit, was in der Antwort steht.
-   * Ohne sie bekam eine Anfrage nach 25 Nachrichten die zuvor abgelegten 5 - der Abruf
-   * beantwortete also eine andere Frage als die gestellte.
+   * Alles, was die Antwort mitbestimmt, gehört in den Schlüssel.
+   *
+   * Die Seitengröße: ohne sie bekam eine Anfrage nach 25 Nachrichten die zuvor
+   * abgelegten 5 - der Abruf beantwortete also eine andere Frage als die gestellte.
+   *
+   * Die Reihenfolge aus demselben Grund, und der Fehler sah genauso aus: "Älteste
+   * zuerst" lieferte in 2 ms die neuesten, weil der Schlüssel die Richtung nicht kannte
+   * und der abgelegte Stand der vorigen Frage passte.
    */
-  nachrichten: (accountId: string, ordner: string, kategorie: string | undefined, seitenGroesse: number) =>
-    `nachrichten:${accountId}:${ordner}:${kategorie ?? ''}:${seitenGroesse}`,
+  nachrichten: (
+    accountId: string,
+    ordner: string,
+    kategorie: string | undefined,
+    seitenGroesse: number,
+    aeltesteZuerst = false,
+  ) =>
+    `nachrichten:${accountId}:${ordner}:${kategorie ?? ''}:${seitenGroesse}:${aeltesteZuerst ? 'auf' : 'ab'}`,
 };
 
 /** Verwirft alles, was zu einem Konto gehört. */

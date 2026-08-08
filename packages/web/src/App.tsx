@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
 import type {
   CategoryInfo,
@@ -21,6 +21,16 @@ import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { AdressbuchModal } from './components/AdressbuchModal.js';
+import {
+  STANDARD_SORTIERUNG,
+  alsDichte,
+  alsSortierung,
+  alsText,
+  sortiere,
+  umfasstAlles,
+  type Dichte,
+  type Sortierung,
+} from './sortierung.js';
 import { SchluesselModal } from './components/SchluesselModal.js';
 import { RulesModal } from './components/RulesModal.js';
 import { QuelltextModal } from './components/QuelltextModal.js';
@@ -55,12 +65,25 @@ interface DraftLocation {
 }
 
 /** Fügt neue Treffer zu vorhandenen hinzu, ersetzt gleiche UIDs und sortiert nach Datum. */
-function mergeMessages(existing: Listeneintrag[], incoming: Listeneintrag[]): Listeneintrag[] {
+/**
+ * Führt eine nachgeladene Seite mit dem Vorhandenen zusammen.
+ *
+ * Die Richtung muss mit hinein. Vorher ordnete diese Funktion fest nach Datum
+ * absteigend - und machte damit "Älteste zuerst" wirkungslos: der Server lieferte
+ * brav die ältesten, hier wurden sie wieder umgedreht, und in der Liste stand
+ * unverändert die neueste oben. Vom Umschalten war nichts zu sehen.
+ */
+function mergeMessages(
+  existing: Listeneintrag[],
+  incoming: Listeneintrag[],
+  aeltesteZuerst = false,
+): Listeneintrag[] {
   const byUid = new Map(existing.map((m) => [m.uid, m]));
   for (const message of incoming) byUid.set(message.uid, message);
-  return [...byUid.values()].sort(
-    (a, b) => new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime(),
-  );
+  return [...byUid.values()].sort((a, b) => {
+    const abstand = new Date(b.date ?? 0).getTime() - new Date(a.date ?? 0).getTime();
+    return aeltesteZuerst ? -abstand : abstand;
+  });
 }
 
 export default function App() {
@@ -143,6 +166,16 @@ export default function App() {
   const [suchen, setSuchen] = useState<api.GespeicherteSuche[]>([]);
   /** Ob der Schluesselbund offen ist. */
   const [schluesselOffen, setSchluesselOffen] = useState(false);
+  /**
+   * Sortierung und Anzeigedichte. Beide ueberdauern den Neustart - eine Einstellung,
+   * die man bei jedem Start neu treffen muss, ist keine.
+   */
+  const [sortierung, setSortierung] = useState<Sortierung>(() =>
+    alsSortierung(localStorage.getItem('energy-mail:sortierung')),
+  );
+  const [dichte, setDichte] = useState<Dichte>(() =>
+    alsDichte(localStorage.getItem('energy-mail:dichte')),
+  );
   /** Von aussen in die Suchleiste gesetzte Eingabe - aus einer gemerkten Suche. */
   const [sucheVorgabe, setSucheVorgabe] = useState<SucheEingabe | null>(null);
   /** Ob der Posteingang aller Konten in einer Liste steht. */
@@ -460,7 +493,18 @@ export default function App() {
     // stehen, aendert sich sonst kein einziger der anderen Werte, und die Zeilen aus
     // allen Konten blieben stehen. Beim Wechsel in einen GMX-Posteingang mit 17
     // Nachrichten standen so 40 Zeilen da - die Gmail-Post der Gesamtliste war noch dabei.
-  }, [gesamtAnsicht, selectedAccountId, selectedFolder, selectedCategory]);
+    //
+    // Und beim Umschalten der Datumsrichtung: die neue Seite wird sonst in die alte
+    // Liste eingefuegt statt sie zu ersetzen, und weil das Zusammenfuehren nach Datum
+    // absteigend ordnet, stuenden weiter die neuesten oben. "Aelteste zuerst" aenderte
+    // dann sichtbar gar nichts.
+  }, [
+    gesamtAnsicht,
+    selectedAccountId,
+    selectedFolder,
+    selectedCategory,
+    sortierung.schluessel === 'datum' ? sortierung.richtung : 'egal',
+  ]);
 
   /**
    * Der Posteingang aller Konten. Eigener Effekt, weil er weder Ordner noch Kategorie
@@ -494,7 +538,13 @@ export default function App() {
     if (offeneSuche) return;
     setLoadingMessages(true);
     api
-      .fetchMessages(selectedAccountId, selectedFolder, undefined, selectedCategory)
+      .fetchMessages(
+        selectedAccountId,
+        selectedFolder,
+        undefined,
+        selectedCategory,
+        sortierung.schluessel === 'datum' && sortierung.richtung === 'auf',
+      )
       .then((res) => {
         setTotalMessages(res.total);
         setCursor(res.nextCursor);
@@ -504,7 +554,7 @@ export default function App() {
         setOhneVerbindung(Boolean(res.ausAblage));
         // Zusammenführen statt ersetzen: bereits nachgeladene ältere Seiten bleiben
         // erhalten, wenn oben eine neue Nachricht eintrifft.
-        setMessages((prev) => mergeMessages(prev, res.messages));
+        setMessages((prev) => mergeMessages(prev, res.messages, aeltesteZuerst));
       })
       .catch((err) => setError((err as Error).message))
       .finally(() => setLoadingMessages(false));
@@ -516,6 +566,10 @@ export default function App() {
     selectedCategory,
     reloadCounter,
     offeneSuche,
+    // Die Datumsrichtung entscheidet, von welchem Ende der Server blaettert - dafuer
+    // muss neu geladen werden. Bei Absender und Betreff nicht: dort wird nur das
+    // Geladene umsortiert, und ein Neuladen wuerde nur warten lassen.
+    sortierung.schluessel === 'datum' ? sortierung.richtung : 'egal',
   ]);
 
   /**
@@ -550,11 +604,17 @@ export default function App() {
             beforeUid: cursor,
             category: selectedCategory,
           })
-        : await api.fetchMessages(selectedAccountId, ordner, cursor, selectedCategory);
+        : await api.fetchMessages(
+            selectedAccountId,
+            ordner,
+            cursor,
+            selectedCategory,
+            sortierung.schluessel === 'datum' && sortierung.richtung === 'auf',
+          );
       setTotalMessages(res.total);
       setCursor(res.nextCursor);
       setHasMore(res.hasMore);
-      setMessages((prev) => mergeMessages(prev, res.messages));
+      setMessages((prev) => mergeMessages(prev, res.messages, aeltesteZuerst));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -1026,6 +1086,22 @@ export default function App() {
   const allMailFolder = folders.find((folder) => folder.isAllMail);
 
   // Überschrift der Nachrichtenliste - mit dem vereinheitlichten Namen der Seitenleiste.
+  /**
+   * Die Liste, wie sie angezeigt wird.
+   *
+   * Nach Datum sortiert schon der Server, indem er vom anderen Ende blättert - dann ist
+   * hier nichts zu tun, und die Sortierung gilt für den ganzen Ordner. Nach Absender
+   * oder Betreff wird hier sortiert, und zwar nur über das Geladene; die Liste sagt das
+   * auch.
+   */
+  /** Ob vom aelteren Ende her geblaettert wird - haengt allein an der Datumsrichtung. */
+  const aeltesteZuerst = sortierung.schluessel === 'datum' && sortierung.richtung === 'auf';
+
+  const angezeigteNachrichten = useMemo(
+    () => (sortierung.schluessel === 'datum' ? messages : sortiere(messages, sortierung)),
+    [messages, sortierung],
+  );
+
   const aktuellerOrdnerName = (() => {
     // Bei aktiver Einordnung deren Name: dieselbe Beschriftung wie die hervorgehobene
     // Zeile in der Seitenleiste.
@@ -1175,6 +1251,7 @@ export default function App() {
         selectedFolder,
         undefined,
         selectedCategory,
+        sortierung.schluessel === 'datum' && sortierung.richtung === 'auf',
       );
       setMessages(res.messages);
       setTotalMessages(res.total);
@@ -1641,7 +1718,7 @@ export default function App() {
           onOpenOAuthSetup={() => setShowOAuthSetup(true)}
         />
         <MessageList
-          messages={messages}
+          messages={angezeigteNachrichten}
           selectedUid={selectedUid}
           loading={loadingMessages}
           checkedUids={checkedUids}
@@ -1666,6 +1743,16 @@ export default function App() {
             localStorage.setItem('energy-mail:konversationen', an ? 'an' : 'aus');
           }}
           etiketten={etiketten}
+          sortierung={sortierung}
+          onSortierung={(neu) => {
+            setSortierung(neu);
+            localStorage.setItem('energy-mail:sortierung', alsText(neu));
+          }}
+          dichte={dichte}
+          onDichte={(neu) => {
+            setDichte(neu);
+            localStorage.setItem('energy-mail:dichte', neu);
+          }}
           gesamtAnsicht={gesamtAnsicht}
           fehlendeKonten={gesamtFehlende}
           sucheVorgabe={sucheVorgabe}

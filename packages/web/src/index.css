@@ -3603,3 +3603,75 @@ input[type='file']::file-selector-button:hover {
 .pgp-wahl-hinweis {
   color: var(--warn);
 }
+
+/* --- Sortierung und Anzeigedichte --------------------------------------------- */
+
+.listen-steuerung {
+  display: flex;
+  align-items: center;
+  gap: var(--a-4);
+  padding: var(--a-2) var(--a-4);
+  border-bottom: 1px solid var(--rand-fein);
+  font-size: var(--t-s);
+  color: var(--text-3);
+}
+
+.steuerung-feld {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+}
+
+.steuerung-feld select {
+  padding: 2px 6px;
+  font-size: var(--t-s);
+}
+
+.steuerung-hinweis {
+  color: var(--warn);
+}
+
+/* Die Dichte wirkt über eine Variable, damit sie an jeder Stelle dieselbe ist -
+   Zeilen, Gesprächsköpfe und Einrückungen gehen alle davon aus. */
+.message-pane {
+  --zeilen-luft: 9px;
+}
+
+.message-pane.dichte-eng {
+  --zeilen-luft: 4px;
+}
+
+.message-pane.dichte-weit {
+  --zeilen-luft: 15px;
+}
+
+.message-pane .message-row {
+  padding-top: var(--zeilen-luft);
+  padding-bottom: var(--zeilen-luft);
+}
+
+/* Bei enger Anzeige rückt der Betreff neben den Absender statt darunter - das ist der
+   eigentliche Gewinn, nicht die paar Pixel Rand. */
+.message-pane.dichte-eng .row-body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a-3);
+}
+
+.message-pane.dichte-eng .row-top {
+  flex: none;
+  width: 190px;
+}
+
+.message-pane.dichte-eng .row-subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Die Herkunft passt in der engen Ansicht nicht mehr daneben - sie bleibt unten. */
+.message-pane.dichte-eng .row-herkunft {
+  flex-basis: 100%;
+}

@@ -405,6 +405,7 @@ const DEFAULT_PAGE_SIZE = 25;
 async function fetchSummaries(
   client: Parameters<Parameters<typeof withClient>[1]>[0],
   uids: number[],
+  aeltesteZuerst = false,
 ): Promise<MessageSummary[]> {
   if (uids.length === 0) return [];
   const messages: MessageSummary[] = [];
@@ -425,7 +426,10 @@ async function fetchSummaries(
   )) {
     messages.push(summarizeMessage(msg));
   }
-  messages.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+  messages.sort((a, b) => {
+    const abstand = (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0);
+    return aeltesteZuerst ? -abstand : abstand;
+  });
   return messages;
 }
 
@@ -434,14 +438,32 @@ function seitenAnteil(
   aufsteigend: number[],
   beforeUid: number | undefined,
   pageSize: number,
+  aeltesteZuerst = false,
 ): { uids: number[]; nextCursor: number | null; hasMore: boolean } {
+  /**
+   * Von hinten oder von vorn.
+   *
+   * "Älteste zuerst" kostet nichts: die Liste aller Nummern liegt beim Öffnen des
+   * Ordners ohnehin vor, und statt vom Ende wird eben vom Anfang genommen. Das ist der
+   * Grund, warum sich nach Datum der ganze Ordner sortieren lässt und nach Absender
+   * oder Betreff nicht - dafür bräuchte man die Kopfdaten jeder einzelnen Nachricht.
+   */
+  if (aeltesteZuerst) {
+    const kandidaten = beforeUid ? aufsteigend.filter((uid) => uid > beforeUid) : aufsteigend;
+    const uids = kandidaten.slice(0, pageSize);
+    return {
+      uids,
+      nextCursor: uids.length > 0 ? Math.max(...uids) : null,
+      hasMore: kandidaten.length > uids.length,
+    };
+  }
+
   const kandidaten = beforeUid ? aufsteigend.filter((uid) => uid < beforeUid) : aufsteigend;
   const uids = kandidaten.slice(-pageSize);
-  const hasMore = kandidaten.length > uids.length;
   return {
     uids,
     nextCursor: uids.length > 0 ? Math.min(...uids) : null,
-    hasMore,
+    hasMore: kandidaten.length > uids.length,
   };
 }
 
@@ -508,10 +530,15 @@ export async function listMessages(
       // Bei einer Einordnung zählt deren Umfang, nicht der des Ordners - sonst stünde in
       // der Liste "25 von 31.700" statt "25 von 8.868".
       const total = options.category ? treffer.length : imOrdner;
-      const { uids, nextCursor, hasMore } = seitenAnteil(treffer, options.beforeUid, pageSize);
+      const { uids, nextCursor, hasMore } = seitenAnteil(
+        treffer,
+        options.beforeUid,
+        pageSize,
+        options.aeltesteZuerst,
+      );
 
       return {
-        messages: await fetchSummaries(client, uids),
+        messages: await fetchSummaries(client, uids, options.aeltesteZuerst),
         total,
         nextCursor,
         hasMore,
@@ -1372,9 +1399,14 @@ export async function searchMessages(
 
       const treffer = (await client.search(bedingung, { uid: true })) || [];
 
-      const { uids, nextCursor, hasMore } = seitenAnteil(treffer, options.beforeUid, pageSize);
+      const { uids, nextCursor, hasMore } = seitenAnteil(
+        treffer,
+        options.beforeUid,
+        pageSize,
+        options.aeltesteZuerst,
+      );
       return {
-        messages: await fetchSummaries(client, uids),
+        messages: await fetchSummaries(client, uids, options.aeltesteZuerst),
         total: treffer.length,
         nextCursor,
         hasMore,

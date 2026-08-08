@@ -1299,10 +1299,16 @@ export async function buildServer() {
 
   app.get<{
     Params: { id: string; folder: string };
-    Querystring: { beforeUid?: string; pageSize?: string; category?: string };
+    Querystring: {
+      beforeUid?: string;
+      pageSize?: string;
+      category?: string;
+      aelteste?: string;
+    };
   }>('/accounts/:id/folders/:folder/messages', async (request) => {
     const account = requireAccount(request.params.id);
     const { beforeUid, pageSize, category } = request.query;
+    const aeltesteZuerst = request.query.aelteste === '1';
     const ordner = decodeURIComponent(request.params.folder);
     const einordnung = parseCategory(category);
 
@@ -1313,6 +1319,7 @@ export async function buildServer() {
         beforeUid: beforeUid ? Number(beforeUid) : undefined,
         pageSize: groesse,
         category: einordnung,
+        aeltesteZuerst,
       });
 
       // Nebenbei Adressen einsammeln - daraus entstehen die Vorschläge beim Verfassen,
@@ -1381,7 +1388,7 @@ export async function buildServer() {
     meldeAnsicht(account.id, ordner);
 
     const { wert } = await ausSpeicherOderHolen(
-      schluessel.nachrichten(account.id, ordner, einordnung, groesse),
+      schluessel.nachrichten(account.id, ordner, einordnung, groesse, aeltesteZuerst),
       holenOderAusAblage,
       {
         maxAlterMs: FRIST_NACHRICHTEN_MS,

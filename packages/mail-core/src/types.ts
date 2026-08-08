@@ -341,6 +341,11 @@ export interface ListMessagesOptions {
    * angegebenen Ordner, weshalb Löschen, Verschieben und Markieren unverändert arbeiten.
    */
   category?: GmailCategory;
+  /**
+   * Älteste zuerst statt neueste. Kostet nichts: geblättert wird durch dieselbe Liste
+   * von Nummern, nur vom anderen Ende her.
+   */
+  aeltesteZuerst?: boolean;
 }
 
 export interface MessagePage {

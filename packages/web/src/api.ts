@@ -486,10 +486,13 @@ export function fetchMessages(
   folder: string,
   beforeUid?: number,
   category?: GmailCategory | null,
+  /** Aelteste zuerst - der Server blaettert dann vom anderen Ende der Liste. */
+  aeltesteZuerst?: boolean,
 ): Promise<MessagePage> {
   const params = new URLSearchParams({ pageSize: String(PAGE_SIZE) });
   if (beforeUid !== undefined) params.set('beforeUid', String(beforeUid));
   if (category) params.set('category', category);
+  if (aeltesteZuerst) params.set('aelteste', '1');
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages?${params}`);
 }
 

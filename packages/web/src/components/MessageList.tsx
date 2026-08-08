@@ -2,6 +2,14 @@ import { memo, useMemo, useRef, useState } from 'react';
 import type { Etikett } from '@energy-mail/mail-core';
 import { gruppiere, type Konversation } from '../konversationen.js';
 import type { Listeneintrag } from '../listenTypen.js';
+import {
+  DICHTEN,
+  beschreibeSortierung,
+  umfasstAlles,
+  type Dichte,
+  type Sortierschluessel,
+  type Sortierung,
+} from '../sortierung.js';
 import { EtikettMarken } from './Etiketten.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
 import { LeererKorb } from './Symbole.js';
@@ -35,6 +43,12 @@ interface Props {
   onToggleKonversationen: (an: boolean) => void;
   /** Verzeichnis der Etiketten - fuer Farbe und Name der Marken an den Zeilen. */
   etiketten: Etikett[];
+  /** Wonach sortiert wird - und in welche Richtung. */
+  sortierung: Sortierung;
+  onSortierung: (neu: Sortierung) => void;
+  /** Wie eng die Zeilen stehen. */
+  dichte: Dichte;
+  onDichte: (neu: Dichte) => void;
   /** Ob die Liste die Posteingaenge aller Konten zeigt. */
   gesamtAnsicht?: boolean;
   /** Konten, die beim Zusammensetzen nicht antworteten - dann fehlt deren Post. */
@@ -212,6 +226,10 @@ export function MessageList({
   konversationen,
   onToggleKonversationen,
   etiketten,
+  sortierung,
+  onSortierung,
+  dichte,
+  onDichte,
   gesamtAnsicht,
   fehlendeKonten,
   sucheVorgabe,
@@ -237,7 +255,9 @@ export function MessageList({
    * Herkunft mehr. Fuer eine Uebersicht ist die schlichte Liste die ehrlichere Form.
    */
   const gruppieren = konversationen && !gesamtAnsicht;
-  const gruppen = gruppieren ? gruppiere(messages) : null;
+  const gruppen = gruppieren
+    ? gruppiere(messages, sortierung.schluessel === 'datum' && sortierung.richtung === 'auf')
+    : null;
 
   const umschalten = (id: string) =>
     setOffen((vorher) => {
@@ -325,7 +345,9 @@ export function MessageList({
   };
 
   return (
-    <div className="message-pane">
+    // Die Dichte haengt an der ganzen Flaeche - so wirkt sie auf Zeilen, Gespraeche und
+    // Kopfzeile zugleich, ohne dass jede Stelle sie einzeln kennen muesste.
+    <div className={`message-pane dichte-${dichte}`}>
       <div className="list-head">
         {/* In der Gesamtliste gibt es kein Ankreuzen. Eine UID gilt nur innerhalb
             ihres Postfachs: die 34 von GMX und die 34 von Gmail sind verschiedene
@@ -372,6 +394,59 @@ export function MessageList({
         onSearch={onSearch}
         onClear={onClear}
       />
+
+      {/* Sortierung und Dichte. Beides Ansichtssache und deshalb hier statt in den
+          Einstellungen - man will es sehen, waehrend man es aendert. */}
+      <div className="listen-steuerung">
+        <label className="steuerung-feld">
+          <span>Sortieren</span>
+          <select
+            value={`${sortierung.schluessel}:${sortierung.richtung}`}
+            onChange={(e) => {
+              const [schluessel, richtung] = e.target.value.split(':');
+              onSortierung({
+                schluessel: schluessel as Sortierschluessel,
+                richtung: richtung === 'auf' ? 'auf' : 'ab',
+              });
+            }}
+          >
+            {(
+              [
+                { schluessel: 'datum', richtung: 'ab' },
+                { schluessel: 'datum', richtung: 'auf' },
+                { schluessel: 'absender', richtung: 'auf' },
+                { schluessel: 'absender', richtung: 'ab' },
+                { schluessel: 'betreff', richtung: 'auf' },
+                { schluessel: 'betreff', richtung: 'ab' },
+              ] as Sortierung[]
+            ).map((s) => (
+              <option key={`${s.schluessel}:${s.richtung}`} value={`${s.schluessel}:${s.richtung}`}>
+                {beschreibeSortierung(s)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="steuerung-feld">
+          <span>Dichte</span>
+          <select value={dichte} onChange={(e) => onDichte(e.target.value as Dichte)}>
+            {DICHTEN.map((d) => (
+              <option key={d.wert} value={d.wert} title={d.erklaerung}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* Die Grenze, die man kennen muss: nach Absender oder Betreff wird nur das
+            Geladene sortiert. Eine Sortierung, die so tut, als umfasse sie alles, laesst
+            einen oben nach etwas suchen, das weiter unten steht. */}
+        {!umfasstAlles(sortierung) && messages.length < total && (
+          <span className="steuerung-hinweis">
+            sortiert die {messages.length} geladenen von {total.toLocaleString('de-DE')}
+          </span>
+        )}
+      </div>
 
       {gesamtAnsicht && (fehlendeKonten?.length ?? 0) > 0 && (
         <div className="ohne-verbindung" role="status">

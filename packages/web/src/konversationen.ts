@@ -73,7 +73,11 @@ function absenderName(nachricht: Listeneintrag): string {
   return von?.name || von?.address || '(unbekannt)';
 }
 
-export function gruppiere(nachrichten: Listeneintrag[]): Konversation[] {
+export function gruppiere(
+  nachrichten: Listeneintrag[],
+  /** Aelteste Gespraeche zuerst - muss zur Sortierung der Liste passen. */
+  aeltesteZuerst = false,
+): Konversation[] {
   const verbund = new Verbund();
   const schluesselVon = new Map<Listeneintrag, string>();
 
@@ -141,5 +145,11 @@ export function gruppiere(nachrichten: Listeneintrag[]): Konversation[] {
         beteiligte,
       };
     })
-    .sort((a, b) => alter(b.neueste) - alter(a.neueste));
+    .sort((a, b) => {
+      // Die Richtung muss durchgereicht werden. Ohne sie ordnete das Gruppieren die
+      // Gespraeche immer nach der neuesten Nachricht absteigend - und machte damit
+      // "Aelteste zuerst" wirkungslos, obwohl Server und Liste laengst richtig lagen.
+      const abstand = alter(b.neueste) - alter(a.neueste);
+      return aeltesteZuerst ? -abstand : abstand;
+    });
 }
