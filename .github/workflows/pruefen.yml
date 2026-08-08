@@ -1,0 +1,55 @@
+# Prüft jeden Stand, bevor er in main landet.
+#
+# Bisher liefen die Prüfungen nur, wenn jemand sie von Hand startete - beim
+# Veröffentlichen sicherte nichts ab. Jetzt läuft dasselbe, was lokal läuft, bei jedem
+# Push: Typen, Bau, Prüfungen.
+name: Prüfen
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Damit sich der Lauf auch von Hand anstoßen lässt, ohne eigens etwas zu ändern.
+  workflow_dispatch:
+
+# Ein zweiter Push macht den ersten Lauf überflüssig - er wird abgebrochen, statt die
+# Warteschlange zu belegen.
+concurrency:
+  group: pruefen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruefen:
+    # Windows, weil die Anwendung dorthin ausgeliefert wird. Auf Linux liefe manches
+    # anders (Pfadtrenner, Groß- und Kleinschreibung von Dateinamen), und dann prüfte
+    # der Lauf etwas, das so niemand benutzt.
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # node:sqlite wird für die lokale Ablage gebraucht - das gibt es erst ab 22.
+          # 24 ist die Fassung, unter der auch entwickelt wird.
+          node-version: '24'
+          cache: npm
+
+      - name: Abhängigkeiten holen
+        run: npm ci
+        env:
+          # Spart rund hundert Megabyte und eine Minute: die Prüfungen brauchen die
+          # Electron-Binärdatei nicht, nur ihre Typangaben - und die stecken im Paket.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Typen
+        run: npm run typecheck
+
+      - name: Bau
+        # Getrennt vom Typcheck: Vite wirft Typen weg und baut auch dann, wenn welche
+        # nicht stimmen. Umgekehrt findet der Typcheck keine Fehler in der Bauwerkstatt.
+        run: npm run build
+
+      - name: Prüfungen
+        run: npm test
