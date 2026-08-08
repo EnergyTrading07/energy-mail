@@ -1058,12 +1058,12 @@ export async function moveMessages(
   folder: string,
   uids: number[],
   targetFolder: string,
-): Promise<void> {
-  if (uids.length === 0) return;
+): Promise<{ neueUids: number[] }> {
+  if (uids.length === 0) return { neueUids: [] };
   if (folder === targetFolder) {
     throw new Error('Quell- und Zielordner sind identisch.');
   }
-  await withClient(config, async (client) => {
+  return withClient(config, async (client) => {
     const lock = await client.getMailboxLock(folder);
     try {
       // ImapFlow nutzt den MOVE-Befehl und weicht auf COPY + \Deleted + EXPUNGE aus,
@@ -1072,6 +1072,16 @@ export async function moveMessages(
       if (!result) {
         throw new Error(`Verschieben nach "${targetFolder}" wurde vom Server abgelehnt.`);
       }
+      /*
+       * Im Zielordner haben die Nachrichten andere Nummern.
+       *
+       * Wer sie zurückholen will, braucht die neuen - mit den alten griffe er im
+       * Papierkorb nach irgendetwas anderem oder ins Leere. Server mit UIDPLUS nennen
+       * sie in der Antwort auf COPY/MOVE; ohne UIDPLUS bleibt die Liste leer, und der
+       * Aufrufer bietet dann keinen Rückweg an.
+       */
+      const zuordnung = (result as { uidMap?: Map<number, number> }).uidMap;
+      return { neueUids: zuordnung ? [...zuordnung.values()] : [] };
     } finally {
       lock.release();
     }

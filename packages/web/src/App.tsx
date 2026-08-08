@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
 import type {
   CategoryInfo,
@@ -53,7 +53,7 @@ import { bestaetige, frage, waehleZeitpunkt, wiedervorlageVorschlaege } from './
 import { archiveTarget } from './folderTargets.js';
 import { buildFolderView } from './folderTree.js';
 import { categoryLabel } from './gmailCategories.js';
-import { meldeErfolg, meldeFehler, meldeWarnung } from './meldungen.js';
+import { meldeErfolg, meldeFehler, meldeMitRueckweg, meldeWarnung } from './meldungen.js';
 import { providerTheme } from './providerTheme.js';
 import { textToHtml } from './htmlText.js';
 import { useAktualisierung } from './useAktualisierung.js';
@@ -230,6 +230,8 @@ export default function App() {
 
   // Hochzählen erzwingt ein Neuladen der Nachrichtenliste, ohne die Auswahl zu verlieren.
   const [reloadCounter, setReloadCounter] = useState(0);
+  /** Laufende Nummer der Suchen - nur die jüngste darf das Ergebnis setzen. */
+  const sucheNummer = useRef(0);
   // Getrennt davon, weil sich die Ungelesen-Zähler der Ordner auch ändern, wenn die
   // Nachrichtenliste selbst gleich bleibt (z.B. beim Als-gelesen-Markieren).
   const [folderReload, setFolderReload] = useState(0);
@@ -1099,13 +1101,51 @@ export default function App() {
     }
 
     setBulkBusy(true);
+    const vonKonto = arbeitsKonto!;
+    const vonOrdner = arbeitsOrdner!;
     try {
+      let imPapierkorb: number[] = [];
       if (permanent) {
-        await api.deleteMessages(arbeitsKonto!, arbeitsOrdner!, uids);
+        await api.deleteMessages(vonKonto, vonOrdner, uids);
       } else {
-        await api.moveMessages(arbeitsKonto!, arbeitsOrdner!, uids, trashFolder!.path);
+        const { neueUids } = await api.moveMessages(vonKonto, vonOrdner, uids, trashFolder!.path);
+        imPapierkorb = neueUids;
       }
       removeFromView(uids);
+
+      /*
+       * Gesagt haben, dass etwas weg ist - und einen Weg zurück lassen.
+       *
+       * Vorher geschah das Löschen stumm: ein Druck auf Entf, die Nachricht war im
+       * Papierkorb, und nichts wies darauf hin. Beim Senden gibt es acht Sekunden
+       * Bedenkzeit; beim Löschen gab es nichts. Endgültiges Löschen wird weiterhin
+       * vorher bestätigt - da hilft ein Weg zurück nicht mehr.
+       */
+      if (!permanent) {
+        const was = uids.length === 1 ? 'Nachricht' : `${uids.length} Nachrichten`;
+        /*
+         * Zurückgeholt wird mit den Nummern im Papierkorb, nicht mit denen von vorher.
+         * Beim Verschieben vergibt der Server neue; mit den alten griffe man dort nach
+         * irgendetwas anderem. Nennt der Server keine (kein UIDPLUS), gibt es auch
+         * keinen Rückweg - dann bleibt es bei der schlichten Meldung.
+         */
+        if (imPapierkorb.length === uids.length) {
+          meldeMitRueckweg(`${was} in den Papierkorb`, undefined, {
+            text: 'Rückgängig',
+            tu: () => {
+              void api
+                .moveMessages(vonKonto, trashFolder!.path, imPapierkorb, vonOrdner)
+                .then(() => {
+                  setFolderReload((n) => n + 1);
+                  setReloadCounter((n) => n + 1);
+                })
+                .catch((err) => meldeFehler('Zurückholen misslungen', (err as Error).message));
+            },
+          });
+        } else {
+          meldeErfolg(`${was} in den Papierkorb`);
+        }
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -1214,6 +1254,14 @@ export default function App() {
   const waehleOrdner = (path: string) => {
     setGesamtAnsicht(false);
     setGesamtHerkunft(null);
+    /*
+     * Auf den Ordner zu klicken, in dem man schon steht, laedt neu.
+     *
+     * Vorher geschah dann nichts, weil sich der Zustand nicht aenderte. Nach einer
+     * Stoerung sass man damit vor einer leeren Liste: der erste Reflex - nochmal auf
+     * "Posteingang" - half nicht, nur der Umweg ueber einen anderen Ordner und zurueck.
+     */
+    if (path === selectedFolder && !gesamtAnsicht) setReloadCounter((n) => n + 1);
     setSelectedFolder(path);
     setSelectedCategory(null);
   };
@@ -1273,6 +1321,15 @@ export default function App() {
   /** Beendet die Suche und lädt den Ordner wieder normal. */
   const handleSearchClear = async () => {
     if (!selectedAccountId || !selectedFolder) return;
+    /*
+     * Zaehlt mit derselben Nummer wie das Suchen.
+     *
+     * Sonst gewinnt eine Suche, die schon unterwegs war, gegen das Aufraeumen danach -
+     * und der Nutzer steht mit leerem Feld vor Suchergebnissen.
+     */
+    const meine = ++sucheNummer.current;
+    const nochAktuell = () => meine === sucheNummer.current;
+
     setLoadingMessages(true);
     setCheckedUids(new Set());
     try {
@@ -1283,6 +1340,7 @@ export default function App() {
         selectedCategory,
         sortierung.schluessel === 'datum' && sortierung.richtung === 'auf',
       );
+      if (!nochAktuell()) return;
       setMessages(res.messages);
       setTotalMessages(res.total);
       setCursor(res.nextCursor);
@@ -1291,9 +1349,9 @@ export default function App() {
       setSearchFolder(null);
       setLokalerStand(null);
     } catch (err) {
-      setError((err as Error).message);
+      if (nochAktuell()) setError((err as Error).message);
     } finally {
-      setLoadingMessages(false);
+      if (nochAktuell()) setLoadingMessages(false);
     }
   };
 
@@ -1307,6 +1365,17 @@ export default function App() {
    */
   const handleSearch = async (eingabe: SucheEingabe, ohneAblage = false) => {
     if (!selectedAccountId || !selectedFolder) return;
+    /*
+     * Nur die jüngste Suche darf das Ergebnis setzen.
+     *
+     * Wer tippt und sofort wieder löscht, schickt in einem Wimpernschlag mehrere
+     * Suchen los. Ohne diese Nummer gewann die, die zufällig zuletzt antwortete:
+     * gemessen blieb ein leeres Feld mit der Überschrift "Suchergebnisse" und einer
+     * einzigen Zeile stehen, wo siebzehn hingehörten.
+     */
+    const meine = ++sucheNummer.current;
+    const nochAktuell = () => meine === sucheNummer.current;
+
     setLoadingMessages(true);
     setCheckedUids(new Set());
     setSelection(null);
@@ -1330,6 +1399,7 @@ export default function App() {
             eingabe.bereich === 'ordner' ? selectedFolder : undefined,
           );
           if (lokal.treffer.length > 0) {
+            if (!nochAktuell()) return;
             setMessages(lokal.treffer);
             setTotalMessages(lokal.treffer.length);
             setCursor(null);
@@ -1351,6 +1421,7 @@ export default function App() {
         const res = await api.searchMessages(selectedAccountId, selectedFolder, eingabe, {
           category: selectedCategory,
         });
+        if (!nochAktuell()) return;
         setMessages(res.messages);
         setTotalMessages(res.total);
         setCursor(res.nextCursor);
@@ -1361,17 +1432,19 @@ export default function App() {
           eingabe.bereich === 'konto'
             ? await api.searchAccount(selectedAccountId, eingabe)
             : await api.searchAll(eingabe);
+        if (!nochAktuell()) return;
         setMessages(res.hits);
         setTotalMessages(res.total);
         setCursor(null);
         setHasMore(false);
         setSearchFolder(null);
       }
+      if (!nochAktuell()) return;
       setSuche(eingabe);
     } catch (err) {
-      setError((err as Error).message);
+      if (nochAktuell()) setError((err as Error).message);
     } finally {
-      setLoadingMessages(false);
+      if (nochAktuell()) setLoadingMessages(false);
     }
   };
 
@@ -1417,7 +1490,7 @@ export default function App() {
   };
 
   const handleReply = (message: FullMessage, toAll: boolean) => {
-    const entwurf = buildReply(message, ownEmail, toAll);
+    const entwurf = buildReply(message, ownEmail, toAll, document);
     /**
      * Unter der Adresse antworten, an die geschrieben wurde. Post an "info@" privat zu
      * beantworten verwirrt den Empfänger, und die nächste Antwort landet wieder woanders.
@@ -1434,7 +1507,7 @@ export default function App() {
 
   const handleForward = (message: FullMessage) => {
     if (!selectedFolder) return;
-    const entwurf = buildForward(message);
+    const entwurf = buildForward(message, document);
     oeffneVerfassen('Weiterleiten', {
       ...entwurf,
       html: withSignature(entwurf.html ?? '', selectedAccount?.signature),
@@ -1793,6 +1866,7 @@ export default function App() {
             setSortierung(neu);
             localStorage.setItem('energy-mail:sortierung', alsText(neu));
           }}
+          onNeuLaden={() => setReloadCounter((n) => n + 1)}
           dichte={dichte}
           onDichte={(neu) => {
             setDichte(neu);

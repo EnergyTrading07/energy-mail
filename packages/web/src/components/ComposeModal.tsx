@@ -326,13 +326,21 @@ export function ComposeModal({
     // Die Beschriftungen sagen, was geschieht. Vorher stand hier "OK / Abbrechen" mit
     // einer Erklärung im Fließtext darüber, weil das Browserfenster nichts anderes
     // zuließ - und "Abbrechen" für "weiter bearbeiten" ist genau verkehrt herum.
-    const speichernJa = await bestaetige({
+    const wahl = await bestaetige({
       titel: 'Die Nachricht wurde geändert.',
       text: 'Soll sie als Entwurf gespeichert werden? Der Entwurf liegt danach im Entwürfe-Ordner und lässt sich jederzeit weiterschreiben.',
       ok: 'Als Entwurf speichern',
       abbrechen: 'Weiter bearbeiten',
+      // Ohne diesen dritten Weg sass man fest: ein aus Versehen getipptes Zeichen
+      // liess sich nicht mehr loswerden, ohne einen Entwurf im echten Postfach zu
+      // hinterlassen. Der einzige Ausweg war, den Text von Hand ganz zu loeschen.
+      verwerfen: 'Verwerfen',
     });
-    if (!speichernJa) return;
+    if (wahl === 'verwerfen') {
+      onClose();
+      return;
+    }
+    if (!wahl) return;
     if (await speichern()) onClose();
   };
 

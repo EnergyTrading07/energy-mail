@@ -1690,12 +1690,14 @@ export async function buildServer() {
     }
     const ordner = decodeURIComponent(request.params.folder);
     const uids = parseUids(request.body.uids);
-    await moveMessages(account, ordner, uids, request.body.targetFolder);
+    const { neueUids } = await moveMessages(account, ordner, uids, request.body.targetFolder);
     verwerfeStaende(account.id, ordner, request.body.targetFolder);
     // Im Quellordner gibt es diese UIDs nicht mehr; im Zielordner haben sie andere.
     for (const uid of uids) verwirfNachrichten(nachrichtenSchluessel(account.id, ordner, uid));
     ablageEntfernen(account.id, ordner, uids);
-    return { ok: true };
+    // Die neuen Nummern kommen mit zurück: nur mit ihnen lässt sich das Verschieben
+    // wieder rückgängig machen. Ohne UIDPLUS bleibt die Liste leer.
+    return { ok: true, neueUids };
   });
 
   app.post<{ Params: { id: string; folder: string }; Body: { uids?: unknown } }>(

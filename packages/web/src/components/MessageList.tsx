@@ -48,6 +48,8 @@ interface Props {
   /** Wonach sortiert wird - und in welche Richtung. */
   sortierung: Sortierung;
   onSortierung: (neu: Sortierung) => void;
+  /** Holt die Liste noch einmal vom Server. */
+  onNeuLaden: () => void;
   /** Wie eng die Zeilen stehen. */
   dichte: Dichte;
   onDichte: (neu: Dichte) => void;
@@ -267,6 +269,7 @@ export function MessageList({
   etiketten,
   sortierung,
   onSortierung,
+  onNeuLaden,
   dichte,
   onDichte,
   accountId,
@@ -297,7 +300,7 @@ export function MessageList({
    */
   const gruppieren = konversationen && !gesamtAnsicht;
   const gruppen = gruppieren
-    ? gruppiere(messages, sortierung.schluessel === 'datum' && sortierung.richtung === 'auf')
+    ? gruppiere(messages, sortierung)
     : null;
 
   const umschalten = (id: string) =>
@@ -493,6 +496,22 @@ export function MessageList({
       {/* Sortierung und Dichte. Beides Ansichtssache und deshalb hier statt in den
           Einstellungen - man will es sehen, waehrend man es aendert. */}
       <div className="listen-steuerung">
+        {/*
+          Ein Weg, nach neuer Post zu sehen. Es gab keinen: der Kreispfeil oben rechts
+          sucht nach Aktualisierungen des Programms, nicht nach Nachrichten. Nach einer
+          Stoerung stand man damit vor einer leeren Liste ohne einen Knopf zum Erneut-
+          Versuchen.
+        */}
+        <button
+          type="button"
+          className="link-btn neu-laden"
+          onClick={onNeuLaden}
+          disabled={loading}
+          title="Nach neuen Nachrichten sehen"
+        >
+          {loading ? 'Lädt…' : '↻ Neu laden'}
+        </button>
+
         <label className="steuerung-feld">
           <span>Sortieren</span>
           <select
@@ -594,7 +613,14 @@ export function MessageList({
             : messages.map((message) => zeile(message)))}
         {!loading && hasMore && (
           <button className="load-more" disabled={loadingMore} onClick={onLoadMore}>
-            {loadingMore ? 'Lade…' : `Weitere ${(total - messages.length).toLocaleString('de-DE')} laden`}
+            {/*
+              Der Knopf sagt, was er tut. Vorher stand "Weitere 31.932 laden" darauf,
+              geladen wurde eine Seite - wer bei 32.000 Nachrichten darauf drueckte,
+              rechnete mit einer langen Wartezeit und bekam 25 Zeilen.
+            */}
+            {loadingMore
+              ? 'Lade…'
+              : `Mehr laden (noch ${(total - messages.length).toLocaleString('de-DE')})`}
           </button>
         )}
       </div>

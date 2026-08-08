@@ -1,4 +1,5 @@
 import type { Listeneintrag } from './listenTypen.js';
+import { STANDARD_SORTIERUNG, vergleicheGespraeche, type Sortierung } from './sortierung.js';
 
 /**
  * Fasst Nachrichten zu Gesprächen zusammen.
@@ -75,8 +76,14 @@ function absenderName(nachricht: Listeneintrag): string {
 
 export function gruppiere(
   nachrichten: Listeneintrag[],
-  /** Aelteste Gespraeche zuerst - muss zur Sortierung der Liste passen. */
-  aeltesteZuerst = false,
+  /**
+   * Nach welcher Ordnung die Gespraeche untereinander stehen.
+   *
+   * Muss die ganze Sortierung sein, nicht nur die Datumsrichtung. Vorher nahm das
+   * Gruppieren immer das Datum, und "Absender A-Z" blieb wirkungslos - bei
+   * eingeschalteten Gespraechen, also im Normalfall.
+   */
+  sortierung: Sortierung = STANDARD_SORTIERUNG,
 ): Konversation[] {
   const verbund = new Verbund();
   const schluesselVon = new Map<Listeneintrag, string>();
@@ -145,11 +152,11 @@ export function gruppiere(
         beteiligte,
       };
     })
-    .sort((a, b) => {
-      // Die Richtung muss durchgereicht werden. Ohne sie ordnete das Gruppieren die
-      // Gespraeche immer nach der neuesten Nachricht absteigend - und machte damit
-      // "Aelteste zuerst" wirkungslos, obwohl Server und Liste laengst richtig lagen.
-      const abstand = alter(b.neueste) - alter(a.neueste);
-      return aeltesteZuerst ? -abstand : abstand;
-    });
+    .sort((a, b) =>
+      vergleicheGespraeche(
+        { erster: a.beteiligte[0] ?? '', neueste: a.neueste },
+        { erster: b.beteiligte[0] ?? '', neueste: b.neueste },
+        sortierung,
+      ),
+    );
 }

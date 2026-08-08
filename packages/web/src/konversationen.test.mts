@@ -165,5 +165,87 @@ pruefe('Treffer aus verschiedenen Ordnern kollidieren nicht', () => {
   assert.equal(gruppen.length, 2);
 });
 
+console.log('\nDie Sortierung gilt auch fuer Gespraeche:');
+
+/** Drei einzelne Nachrichten, deren Datumsfolge der Namensfolge widerspricht. */
+const dreiVerschiedene = () => [
+  mail({ from: [{ address: 'z@x.de', name: 'Zacharias' }], date: new Date(2026, 5, 3), subject: 'Zuletzt' }),
+  mail({ from: [{ address: 'a@x.de', name: 'Anna' }], date: new Date(2026, 5, 1), subject: 'Anfang' }),
+  mail({ from: [{ address: 'm@x.de', name: 'Martin' }], date: new Date(2026, 5, 2), subject: 'Mitte' }),
+];
+
+pruefe('nach Absender A-Z ordnen sich auch Gespraeche alphabetisch', () => {
+  /*
+   * Gemessen am echten Postfach: mit eingeschalteten Gespraechen stand unter
+   * "Absender A-Z" genau dieselbe Reihenfolge wie unter "Neueste zuerst". Das
+   * Gruppieren ordnete hinterher wieder nach Datum. Gespraeche sind von Haus aus an,
+   * also war die Sortierung fuer jeden Nutzer wirkungslos.
+   */
+  const g = gruppiere(dreiVerschiedene(), { schluessel: 'absender', richtung: 'auf' });
+  assert.deepEqual(
+    g.map((x) => x.beteiligte[0]),
+    ['Anna', 'Martin', 'Zacharias'],
+  );
+});
+
+pruefe('und andersherum bei Z-A', () => {
+  const g = gruppiere(dreiVerschiedene(), { schluessel: 'absender', richtung: 'ab' });
+  assert.deepEqual(
+    g.map((x) => x.beteiligte[0]),
+    ['Zacharias', 'Martin', 'Anna'],
+  );
+});
+
+pruefe('nach Betreff ebenso', () => {
+  const g = gruppiere(dreiVerschiedene(), { schluessel: 'betreff', richtung: 'auf' });
+  assert.deepEqual(
+    g.map((x) => x.neueste.subject),
+    ['Anfang', 'Mitte', 'Zuletzt'],
+  );
+});
+
+pruefe('nach Datum bleibt es beim Datum', () => {
+  const neueste = gruppiere(dreiVerschiedene(), { schluessel: 'datum', richtung: 'ab' });
+  assert.deepEqual(
+    neueste.map((x) => x.neueste.subject),
+    ['Zuletzt', 'Mitte', 'Anfang'],
+  );
+  const aelteste = gruppiere(dreiVerschiedene(), { schluessel: 'datum', richtung: 'auf' });
+  assert.deepEqual(
+    aelteste.map((x) => x.neueste.subject),
+    ['Anfang', 'Mitte', 'Zuletzt'],
+  );
+});
+
+pruefe('sortiert wird nach dem, was in der Zeile steht', () => {
+  // Bei einem Gespraech zeigt die Zeile vorn den, der es begonnen hat - nicht den
+  // letzten Absender. Danach muss sich die Reihenfolge richten, sonst sieht sie
+  // willkuerlich aus.
+  const anfang = mail({
+    from: [{ address: 'a@x.de', name: 'Anna' }],
+    subject: 'Projektplan',
+    messageId: '<eins@x.de>',
+    date: new Date(2026, 5, 1),
+  });
+  const antwort = mail({
+    from: [{ address: 'z@x.de', name: 'Zacharias' }],
+    subject: 'Re: Projektplan',
+    inReplyTo: '<eins@x.de>',
+    date: new Date(2026, 5, 9),
+  });
+  const allein = mail({
+    from: [{ address: 'm@x.de', name: 'Martin' }],
+    subject: 'Mitte',
+    date: new Date(2026, 5, 5),
+  });
+
+  const g = gruppiere([anfang, antwort, allein], { schluessel: 'absender', richtung: 'auf' });
+  assert.deepEqual(
+    g.map((x) => x.beteiligte[0]),
+    ['Anna', 'Martin'],
+  );
+  assert.equal(g[0].nachrichten.length, 2, 'das Gespraech wurde nicht zusammengefasst');
+});
+
 console.log(`\n${bestanden} von ${bestanden + gescheitert} Prüfungen bestanden`);
 if (gescheitert > 0) process.exit(1);

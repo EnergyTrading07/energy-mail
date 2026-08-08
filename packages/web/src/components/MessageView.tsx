@@ -141,6 +141,12 @@ function HtmlMailBody({ html }: { html: string }) {
       ref={ref}
       className="mail-bogen"
       title="Nachrichteninhalt"
+      /*
+       * Mit der Tastatur ansteuerbar. Ohne tabindex kam man in den Rahmen gar nicht
+       * hinein - wer nicht mit der Maus scrollen kann, konnte eine lange Nachricht
+       * damit nicht zu Ende lesen.
+       */
+      tabIndex={0}
       srcDoc={GRUNDSTIL + html}
       sandbox="allow-same-origin"
     />

@@ -3902,3 +3902,98 @@ input[type='file']::file-selector-button:hover {
   align-items: baseline;
   gap: var(--a-3);
 }
+
+/* Der Weg zurueck in einer Meldung - fuer alles, was aus Versehen passiert sein koennte. */
+.meldung-zurueck {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 3px var(--a-3);
+  border: 1px solid currentColor;
+  border-radius: var(--r-1);
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: var(--t-s);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--weich);
+}
+
+.meldung-zurueck:hover {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* Ein dritter Weg in einer Rueckfrage, der etwas wegwirft. Nicht in voller Warnfarbe -
+   er ist eine gleichwertige Wahl, keine Drohung. */
+.dialog .btn.gefahr-schlicht {
+  background: none;
+  border: 1px solid var(--fehler);
+  color: var(--fehler);
+}
+
+.dialog .btn.gefahr-schlicht:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--fehler) 12%, transparent);
+}
+
+/* --- Enge Fenster -------------------------------------------------------------
+   Ordnerliste und Nachrichtenliste hatten feste Breiten, die Nachricht bekam den Rest.
+   Gemessen blieben ihr bei 820px Fensterbreite noch 160px und bei 700px noch 40px -
+   ein Streifen, in dem nichts mehr zu lesen ist. Windows-Skalierung von 125 oder 150
+   Prozent hat denselben Effekt und ist auf Laptops die Regel. */
+
+/* Unter 1150px gibt zuerst die Nachrichtenliste nach - sie hat den festen Anteil, der
+   am ehesten entbehrlich ist. */
+@media (max-width: 1149px) {
+  .app {
+    grid-template-columns: 216px minmax(280px, 340px) minmax(0, 1fr);
+  }
+}
+
+/* Unter 900px reichen drei Spalten nicht mehr. Die Ordnerleiste weicht; erreichbar
+   bleibt sie ueber die Sprungmarken und die Tastatur. */
+@media (max-width: 899px) {
+  .app {
+    grid-template-columns: minmax(260px, 40%) minmax(0, 1fr);
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  /* Damit die Ordner nicht ganz verschwinden: die Kopfzeile der Liste nennt, wo man
+     ist, und der Weg zurueck fuehrt ueber das Anwendungsmenue. */
+  .message-pane {
+    grid-column: 1;
+  }
+
+  .reader-pane {
+    grid-column: 2;
+  }
+}
+
+/* Ganz schmal: nur noch eine Spalte. Gezeigt wird, woran man gerade arbeitet - die
+   Nachricht, wenn eine offen ist, sonst die Liste. */
+@media (max-width: 660px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .message-pane {
+    grid-column: 1;
+    border-right: 0;
+  }
+
+  .reader-pane {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* Ohne geoeffnete Nachricht steht die Liste vorn. */
+  .app:not(:has(.reader .mail-head)) .reader-pane {
+    display: none;
+  }
+
+  .app:has(.reader .mail-head) .message-pane {
+    display: none;
+  }
+}

@@ -67,8 +67,17 @@ export interface Kontakt extends Contact {
   weitereAdressen?: string[];
 }
 
+/**
+ * Wenn die Verbindung gar nicht erst zustande kommt, wirft fetch selbst - und zwar mit
+ * "Failed to fetch". Diese Zeichenkette stand bislang als einzige Auskunft in der
+ * Meldung: englisch, technisch, und ohne einen Hinweis darauf, woran es liegt.
+ */
+const KEINE_VERBINDUNG =
+  'Keine Verbindung zum Postfach. Prüfen Sie die Netzwerkverbindung – die Anwendung ' +
+  'versucht es beim nächsten Abruf erneut.';
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetchOderMelden(`${API_BASE}${path}`, {
     ...init,
     // Content-Type nur bei vorhandenem Inhalt: kündigt man JSON an und schickt nichts,
     // weist Fastify die Anfrage ab ("Body cannot be empty"). Das trifft alle Aufrufe
@@ -82,6 +91,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body.error ?? `Anfrage fehlgeschlagen (${res.status})`);
   }
   return res.json() as Promise<T>;
+}
+
+/** Wie fetch, nur mit einem Satz, den man lesen kann, wenn nichts durchkommt. */
+async function fetchOderMelden(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new Error(KEINE_VERBINDUNG);
+  }
 }
 
 export function fetchAccounts(): Promise<Account[]> {
@@ -551,7 +569,8 @@ export function moveMessages(
   folder: string,
   uids: number[],
   targetFolder: string,
-): Promise<{ ok: boolean }> {
+  /** Die Nummern im Zielordner - nur mit ihnen laesst sich das Verschieben zuruecknehmen. */
+): Promise<{ ok: boolean; neueUids: number[] }> {
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/move`, {
     method: 'POST',
     body: JSON.stringify({ uids, targetFolder }),

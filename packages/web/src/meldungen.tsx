@@ -24,6 +24,14 @@ interface Meldung {
   text?: string;
   /** Millisekunden bis zum selbsttätigen Verschwinden; 0 heißt: bleibt stehen. */
   dauer: number;
+  /**
+   * Ein Weg zurück, solange die Meldung steht.
+   *
+   * Löschen geschah bisher stumm: ein Tastendruck, die Nachricht war im Papierkorb, und
+   * nichts wies darauf hin. Beim Senden gibt es acht Sekunden Bedenkzeit - beim Löschen
+   * gab es nichts.
+   */
+  zurueck?: { text: string; tu: () => void };
 }
 
 /** Wie lange eine Meldung steht. Fehler gar nicht - sie wollen gelesen werden. */
@@ -40,18 +48,34 @@ const HOECHSTENS = 4;
 let anmelden: ((m: Meldung) => void) | null = null;
 let naechsteId = 1;
 
-function zeige(stufe: Stufe, titel: string, text?: string, dauer = DAUER[stufe]): void {
+function zeige(
+  stufe: Stufe,
+  titel: string,
+  text?: string,
+  dauer = DAUER[stufe],
+  zurueck?: Meldung['zurueck'],
+): void {
   if (!anmelden) {
     console.warn(`Meldungen nicht eingehängt: ${titel}`);
     return;
   }
-  anmelden({ id: naechsteId++, stufe, titel, text, dauer });
+  anmelden({ id: naechsteId++, stufe, titel, text, dauer, zurueck });
 }
 
 export const meldeFehler = (titel: string, text?: string) => zeige('fehler', titel, text);
 export const meldeWarnung = (titel: string, text?: string) => zeige('warnung', titel, text);
 export const meldeErfolg = (titel: string, text?: string) => zeige('gut', titel, text);
 export const meldeHinweis = (titel: string, text?: string) => zeige('hinweis', titel, text);
+
+/**
+ * Eine Meldung mit einem Weg zurück.
+ *
+ * Für alles, was der Nutzer aus Versehen ausgelöst haben könnte und was sich rückgängig
+ * machen lässt. Sie steht länger als eine gewöhnliche Erfolgsmeldung - man muss den
+ * Knopf ja noch treffen.
+ */
+export const meldeMitRueckweg = (titel: string, text: string | undefined, zurueck: { text: string; tu: () => void }) =>
+  zeige('gut', titel, text, 9000, zurueck);
 
 const ZEICHEN: Record<Stufe, () => JSX.Element> = {
   fehler: () => <Achtung groesse={18} />,
@@ -136,6 +160,17 @@ function Kasten({ meldung, weg }: { meldung: Meldung; weg: () => void }) {
         <div className="meldung-titel">{meldung.titel}</div>
         {meldung.text && <p>{meldung.text}</p>}
       </div>
+      {meldung.zurueck && (
+        <button
+          className="meldung-zurueck"
+          onClick={() => {
+            meldung.zurueck!.tu();
+            schliessen();
+          }}
+        >
+          {meldung.zurueck.text}
+        </button>
+      )}
       <button className="icon-btn" onClick={schliessen} title="Schließen" aria-label="Schließen">
         ×
       </button>

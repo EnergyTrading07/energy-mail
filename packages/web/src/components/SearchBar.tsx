@@ -102,7 +102,24 @@ export function SearchBar({
 
   const absenden = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (hatEinschraenkung(eingabe)) onSearch(eingabe);
+    if (hatEinschraenkung(eingabe)) {
+      onSearch(eingabe);
+      return;
+    }
+    /*
+     * Nichts eingegeben heisst: zurueck zum Ordner.
+     *
+     * Vorher geschah hier gar nichts. Wer das Feld leerte und die Eingabetaste drueckte,
+     * blieb in den Suchergebnissen stehen - mit leerem Feld und der Ueberschrift
+     * "Suchergebnisse" darueber. Der Weg zurueck war nur ueber "Suche aufheben" zu
+     * finden, und danach sucht man nicht, wenn man gerade meint, die Suche beendet zu
+     * haben.
+     *
+     * Ohne Bedingung auf searchActive: wer tippt und sofort wieder loescht, schickt
+     * alle drei Eingaben ab, bevor die erste Antwort da ist - searchActive stuende
+     * dann noch auf false, und das Aufraeumen unterbliebe.
+     */
+    onClear();
   };
 
   return (

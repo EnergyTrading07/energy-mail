@@ -1,6 +1,7 @@
 import type { EmailAddress, FullMessage } from '@energy-mail/mail-core';
 import type { Draft } from './api.js';
 import { escapeHtml, textToHtml } from './htmlText.js';
+import { raeumeZitatAuf } from './formatierung.js';
 
 function normalize(address: string): string {
   return address.trim().toLowerCase();
@@ -54,17 +55,28 @@ function formatDate(date: Date | null): string {
 }
 
 /**
+ * Der Inhalt der Originalnachricht, aufgeräumt.
+ *
+ * Vorher stand hier message.html unverändert. Gemessen an einer echten Werbenachricht
+ * hiess das: beim Lesen wurden elf Inhalte von fremden Servern zurückgehalten, beim
+ * Druck auf "Antworten" gingen genau diese elf hinaus - darunter ein Zählpixel. Der
+ * Zählpixelschutz war damit umgangen.
+ */
+function inhaltAlsHtml(message: FullMessage, dokument: Document): string {
+  if (typeof message.html === 'string' && message.html.trim()) {
+    return raeumeZitatAuf(message.html, dokument);
+  }
+  return textToHtml(message.text ?? '');
+}
+
+/**
  * Baut das Zitat der Originalnachricht als HTML. Liegt die Nachricht selbst als HTML
  * vor, wird sie in ein blockquote gesetzt und bleibt damit formatiert; sonst wird der
  * Textteil umgewandelt.
  */
-function quoteAsHtml(message: FullMessage): string {
+function quoteAsHtml(message: FullMessage, dokument: Document): string {
   const einleitung = `<p>Am ${formatDate(message.date)} schrieb ${escapeHtml(formatAddressList(message.from))}:</p>`;
-  const inhalt =
-    typeof message.html === 'string' && message.html.trim()
-      ? message.html
-      : textToHtml(message.text ?? '');
-  return `<p><br></p>${einleitung}<blockquote class="zitat">${inhalt}</blockquote>`;
+  return `<p><br></p>${einleitung}<blockquote class="zitat">${inhaltAlsHtml(message, dokument)}</blockquote>`;
 }
 
 /**
@@ -81,7 +93,16 @@ function threadHeaders(message: FullMessage): Pick<Draft, 'inReplyTo' | 'referen
   return { inReplyTo: message.messageId, references: trimmed };
 }
 
-export function buildReply(message: FullMessage, ownEmail: string, toAll: boolean): Partial<Draft> {
+export function buildReply(
+  message: FullMessage,
+  ownEmail: string,
+  toAll: boolean,
+  /**
+   * Wird gebraucht, um den zitierten Verlauf aufzuräumen. Ausdrücklich übergeben und
+   * nicht aus der Umgebung geholt, damit sich das hier ohne Browser prüfen lässt.
+   */
+  dokument: Document,
+): Partial<Draft> {
   // Reply-To hat Vorrang vor dem Absender - Verteiler setzen das bewusst.
   const primary = message.replyTo?.length ? message.replyTo : message.from;
 
@@ -94,12 +115,12 @@ export function buildReply(message: FullMessage, ownEmail: string, toAll: boolea
     to: to.length > 0 ? to : cleanRecipients(message.from, ownEmail),
     cc: cc.length > 0 ? cc : undefined,
     subject: withPrefix(message.subject, 'Re'),
-    html: quoteAsHtml(message),
+    html: quoteAsHtml(message, dokument),
     ...threadHeaders(message),
   };
 }
 
-export function buildForward(message: FullMessage): Partial<Draft> {
+export function buildForward(message: FullMessage, dokument: Document): Partial<Draft> {
   const kopf = [
     `<p><br></p><p>---------- Weitergeleitete Nachricht ----------<br>`,
     `Von: ${escapeHtml(formatAddressList(message.from))}<br>`,
@@ -110,14 +131,9 @@ export function buildForward(message: FullMessage): Partial<Draft> {
     `</p>`,
   ].join('');
 
-  const inhalt =
-    typeof message.html === 'string' && message.html.trim()
-      ? message.html
-      : textToHtml(message.text ?? '');
-
   return {
     subject: withPrefix(message.subject, 'Fwd'),
-    html: `${kopf}${inhalt}`,
+    html: `${kopf}${inhaltAlsHtml(message, dokument)}`,
     // Anhänge übernimmt der Aufrufer über attachOriginal; References bleiben bewusst
     // weg, da eine Weiterleitung einen neuen Verlauf beginnt.
   };

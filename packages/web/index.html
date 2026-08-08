@@ -6,6 +6,40 @@
     <title>Energy Mail</title>
 
     <!--
+      Was dieses Fenster überhaupt laden darf.
+
+      Ein Mailprogramm zeigt fremdes HTML an - da gehört eine Grenze hin, die nicht
+      davon abhängt, ob jede einzelne Stelle im Code richtig filtert. Electron hat
+      bisher in der Konsole selbst darauf hingewiesen, dass keine gesetzt war.
+
+      Erlaubt ist nur, was aus dem Programm selbst kommt:
+        default-src 'self'   nichts von fremden Servern
+        img-src            eigene Bilder, eingebettete Daten und die Anhänge, die der
+                           lokale Server ausliefert (blob:)
+        style-src          mit 'unsafe-inline', weil React Stilangaben unmittelbar an
+                           die Elemente schreibt
+        frame-src          der Nachrichtenrahmen kommt aus srcDoc, also aus 'self'
+        connect-src        nur der eigene Server, auch über die WebSocket-Verbindung
+        object-src 'none'  keine eingebetteten Fremdformate
+        base-uri 'none'    kein Umbiegen relativer Adressen
+        form-action 'none' nichts kann irgendwohin abgeschickt werden
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        img-src 'self' data: blob:;
+        style-src 'self' 'unsafe-inline';
+        font-src 'self' data:;
+        frame-src 'self';
+        connect-src 'self' ws: wss:;
+        object-src 'none';
+        base-uri 'none';
+        form-action 'none';
+      "
+    />
+
+    <!--
       Das Programmsymbol als Vektorgrafik unmittelbar in der Adresse. Keine eigene Datei:
       so ist es schon da, bevor irgendetwas nachgeladen wurde - im Browserbetrieb steht
       damit von der ersten Sekunde an der richtige Reiter da.

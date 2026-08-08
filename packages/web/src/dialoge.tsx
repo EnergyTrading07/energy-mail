@@ -38,6 +38,15 @@ interface BestaetigungAnfrage extends Grundangaben {
   /** Beschriftung des ausführenden Knopfes - sagt, was geschieht ("Löschen", nicht "OK"). */
   ok?: string;
   abbrechen?: string;
+  /**
+   * Ein dritter Weg, der etwas wegwirft.
+   *
+   * Gibt es eine Rückfrage nur mit "tun" und "zurück", sitzt man fest, wenn man weder
+   * das eine noch das andere will. Genau so war es beim Verfassen-Fenster: es blieb nur
+   * Speichern oder Weiterschreiben, und ein aus Versehen getipptes Zeichen zwang zu
+   * einem Entwurf im echten Postfach.
+   */
+  verwerfen?: string;
 }
 
 interface EingabeAnfrage extends Grundangaben {
@@ -92,9 +101,22 @@ function stelle<T>(anfrage: Anfrage): Promise<T> {
   });
 }
 
-/** Rückfrage mit zwei Möglichkeiten. Liefert true, wenn bestätigt wurde. */
-export function bestaetige(o: Omit<BestaetigungAnfrage, 'art'>): Promise<boolean> {
-  return stelle<boolean>({ ...o, art: 'bestaetigen' });
+/**
+ * Rückfrage. Liefert true, wenn bestätigt wurde.
+ *
+ * Mit `verwerfen` kommt ein dritter Knopf dazu; dann kann auch `'verwerfen'`
+ * herauskommen. Über die zwei Signaturen bekommen alle anderen Aufrufer weiterhin ein
+ * schlichtes `boolean` - sonst müssten sie alle auf einen Fall prüfen, den es bei
+ * ihnen gar nicht gibt.
+ */
+export function bestaetige(
+  o: Omit<BestaetigungAnfrage, 'art'> & { verwerfen: string },
+): Promise<boolean | 'verwerfen'>;
+export function bestaetige(o: Omit<BestaetigungAnfrage, 'art'>): Promise<boolean>;
+export function bestaetige(
+  o: Omit<BestaetigungAnfrage, 'art'>,
+): Promise<boolean | 'verwerfen'> {
+  return stelle<boolean | 'verwerfen'>({ ...o, art: 'bestaetigen' });
 }
 
 /** Einzeilige Eingabe. Liefert den Text oder null bei Abbruch. */
@@ -375,6 +397,11 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
           {anfrage.art !== 'meldung' && (
             <button type="button" className="btn secondary" onClick={abbruch}>
               {anfrage.art === 'bestaetigen' ? anfrage.abbrechen ?? 'Abbrechen' : 'Abbrechen'}
+            </button>
+          )}
+          {anfrage.art === 'bestaetigen' && anfrage.verwerfen && (
+            <button type="button" className="btn gefahr-schlicht" onClick={() => fertig('verwerfen')}>
+              {anfrage.verwerfen}
             </button>
           )}
           {anfrage.art !== 'zeitpunkt' && (

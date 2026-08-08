@@ -50,9 +50,20 @@ function absenderText(eintrag: Listeneintrag): string {
  * eigentlichen Thema - was das Sortieren nach Betreff wertlos machte.
  */
 export function betreffZumSortieren(betreff: string): string {
-  return betreff
-    .replace(/^\s*((re|aw|antw|antwort|fwd?|wg|weiterleitung)\s*(\[\d+\])?\s*:\s*)+/i, '')
-    .trim();
+  return (
+    betreff
+      .replace(/^\s*((re|aw|antw|antwort|fwd?|wg|weiterleitung)\s*(\[\d+\])?\s*:\s*)+/i, '')
+      /*
+       * Was vor dem ersten Buchstaben oder der ersten Ziffer steht, zaehlt nicht mit.
+       *
+       * Sonst stehen unter "Betreff A-Z" zuerst alle Betreffe, die mit einem Emoji
+       * oder einer Klammer anfangen - gemessen: "[AktienInsight]", "⏳ Don't miss",
+       * "📦BESTELLUNG" allesamt vor "A". Wer unter B nach "BESTELLUNG" sucht, findet
+       * es ganz oben und nirgends sonst.
+       */
+      .replace(/^[^\p{L}\p{N}]+/u, '')
+      .trim()
+  );
 }
 
 const zeit = (eintrag: Listeneintrag) =>
@@ -95,6 +106,32 @@ export function vergleiche(
 
   // Gleichstand: das Datum entscheidet - und zwar immer gleich herum.
   return zeit(b) - zeit(a);
+}
+
+/**
+ * Vergleicht zwei Gespräche nach derselben Ordnung.
+ *
+ * Nötig, weil ein Gespräch in der Zeile etwas anderes anzeigt als eine einzelne
+ * Nachricht: vorn stehen alle Beteiligten, nicht nur der letzte Absender. Sortiert wird
+ * nach dem, was dort steht - sonst sähe die Reihenfolge willkürlich aus.
+ *
+ * Vorher ordnete das Gruppieren die Gespräche immer nach Datum. Damit war "Absender
+ * A–Z" wirkungslos, solange Gespräche eingeschaltet waren - und das sind sie von
+ * Haus aus. Gemessen: dieselben acht Zeilen in derselben Reihenfolge wie unter
+ * "Neueste zuerst".
+ */
+export function vergleicheGespraeche(
+  a: { erster: string; neueste: Listeneintrag },
+  b: { erster: string; neueste: Listeneintrag },
+  sortierung: Sortierung,
+): number {
+  if (sortierung.schluessel === 'absender') {
+    const umdrehen = sortierung.richtung === 'ab' ? -1 : 1;
+    const v = a.erster.localeCompare(b.erster, 'de', { sensitivity: 'base', numeric: true });
+    if (v !== 0) return v * umdrehen;
+    return zeit(b.neueste) - zeit(a.neueste);
+  }
+  return vergleiche(a.neueste, b.neueste, sortierung);
 }
 
 /** Sortiert eine Liste, ohne die ursprüngliche anzufassen. */
