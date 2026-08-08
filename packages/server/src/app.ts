@@ -269,6 +269,26 @@ export async function buildServer() {
       reply.code(401).send({ error: (err as Error).message });
       return;
     }
+    /*
+     * Kein Netz ist kein Serverfehler.
+     *
+     * Vorher kam die Meldung des Betriebssystems durch, wörtlich bis in die Oberfläche:
+     * "getaddrinfo ENOTFOUND imap.gmx.net". Das sagt einem Nutzer nichts, und mit 500
+     * daneben sieht es aus, als sei das Programm kaputt - dabei fehlt nur die
+     * Verbindung. 503 heißt "gerade nicht erreichbar", und genau das ist der Fall.
+     *
+     * Bis hierher kommt es nur, wenn auch die lokale Ablage nichts hergab; sonst wäre
+     * weiter oben schon der letzte Stand geliefert worden.
+     */
+    if (istVerbindungsfehler(err)) {
+      app.log.warn(err);
+      reply.code(503).send({
+        error:
+          'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – ' +
+          'sobald sie wieder steht, lässt sich neu laden.',
+      });
+      return;
+    }
     app.log.error(err);
     // Lokale Einzelplatz-Anwendung: die konkrete Meldung ist hier deutlich hilfreicher
     // als ein generisches "Interner Fehler" - etwa bei Entschlüsselungsproblemen.

@@ -40,7 +40,15 @@ interface StructureNode {
  * das rund ein Drittel mehr als die eigentliche Datei - ohne Umrechnung zeigt die
  * Oberfläche durchweg zu große Werte an.
  */
-function decodedSize(node: StructureNode): number {
+/*
+ * Die folgenden vier Umwandlungen brauchen kein Netz und werden deshalb ausdruecklich
+ * herausgereicht - allein damit sie sich pruefen lassen. Sie stecken in dieser Datei,
+ * weil sie nur hier gebraucht werden; geprueft gehoeren sie trotzdem, denn an ihnen
+ * haengt, was der Nutzer als Absender, Anhang, Treffer und Fehlermeldung zu sehen
+ * bekommt.
+ */
+
+export function decodedSize(node: StructureNode): number {
   const size = node.size ?? 0;
   if (node.encoding?.toLowerCase() === 'base64') {
     return Math.floor((size * 3) / 4);
@@ -48,7 +56,7 @@ function decodedSize(node: StructureNode): number {
   return size;
 }
 
-function attachmentFilename(node: StructureNode): string | undefined {
+export function attachmentFilename(node: StructureNode): string | undefined {
   return node.dispositionParameters?.filename ?? node.parameters?.name;
 }
 
@@ -60,7 +68,7 @@ function attachmentFilename(node: StructureNode): string | undefined {
  * Dateinamen aufgenommen (disposition "inline"), etwa Bilder im HTML-Text. Die sind für
  * den Empfänger genauso Dateien, und gängige Mailprogramme zeigen sie ebenfalls an.
  */
-function collectAttachments(node: unknown, into: AttachmentInfo[] = []): AttachmentInfo[] {
+export function collectAttachments(node: unknown, into: AttachmentInfo[] = []): AttachmentInfo[] {
   if (!node || typeof node !== 'object') return into;
   const current = node as StructureNode;
 
@@ -160,7 +168,7 @@ function summarizeMessage(msg: FetchMessageObject): MessageSummary {
  * ImapFlow wirft für Login- wie Netzwerkfehler gleichermaßen "Command failed"; die
  * verwertbare Information steckt in responseText bzw. im Node-Fehlercode.
  */
-function describeImapError(err: unknown): string {
+export function describeImapError(err: unknown): string {
   const e = err as {
     responseText?: string;
     authenticationFailed?: boolean;
@@ -1144,7 +1152,7 @@ export async function deleteMessages(
  * dabei nur einmal vorkommen, deshalb werden deren Bestandteile zu einer Zeichenkette
  * zusammengesetzt.
  */
-function baueSuchbedingung(
+export function baueSuchbedingung(
   kriterien: SearchCriteria,
   gmailVerfuegbar: boolean,
 ): Record<string, unknown> {
