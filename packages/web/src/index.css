@@ -3380,3 +3380,226 @@ input[type='file']::file-selector-button:hover {
 .einladung-hinweis {
   margin: var(--a-3) 0 0;
 }
+
+/* --- OpenPGP ------------------------------------------------------------------
+   Nur der eine Fall, in dem wirklich alles stimmt, bekommt Gruen. Alles andere ist
+   Gelb oder Rot - auch eine Unterschrift, die aufgeht, aber von einer fremden Adresse
+   stammt. Die sieht wie Sicherheit aus und ist keine. */
+
+.pgp-band {
+  margin: var(--a-4) var(--a-6) 0;
+  padding: var(--a-3) var(--a-4);
+  border: 1px solid;
+  border-left-width: 3px;
+  border-radius: var(--r-2);
+  font-size: var(--t-m);
+}
+
+.pgp-band.gut {
+  border-color: var(--gut-rand);
+  border-left-color: var(--gut);
+  background: var(--gut-grund);
+  color: var(--gut);
+}
+
+.pgp-band.warnung {
+  border-color: var(--warn-rand);
+  border-left-color: var(--warn);
+  background: var(--warn-grund);
+  color: var(--warn);
+}
+
+.pgp-band.schlecht {
+  border-color: var(--fehler-rand);
+  border-left-color: var(--fehler);
+  background: var(--fehler-grund);
+  color: var(--fehler);
+}
+
+.pgp-band.pruefend {
+  border-color: var(--rand);
+  background: var(--flaeche-leise);
+  color: var(--text-3);
+}
+
+.pgp-kopf {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a-3);
+}
+
+.pgp-wort {
+  flex: 1;
+  font-weight: 600;
+}
+
+.pgp-warnung {
+  margin: var(--a-2) 0 0;
+  line-height: 1.5;
+  /* Erbt die Farbe des Bandes - eine Warnung in Grau neben rotem Rand liest sich falsch. */
+  color: inherit;
+}
+
+.pgp-naeheres {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--a-1) var(--a-4);
+  margin: var(--a-3) 0 0;
+  padding-top: var(--a-3);
+  border-top: 1px solid currentColor;
+  font-size: var(--t-s);
+}
+
+.pgp-naeheres dt {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.pgp-naeheres dd {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Der Fingerabdruck wird verglichen, nicht gelesen - dafuer braucht es gleiche
+   Zeichenbreiten, sonst uebersieht man einen Unterschied. */
+.pgp-fingerabdruck,
+.schluessel-abdruck {
+  font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.pgp-klartext {
+  margin-top: var(--a-3);
+  padding-top: var(--a-3);
+  border-top: 1px solid currentColor;
+}
+
+.pgp-klartext-kopf {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.pgp-klartext pre {
+  margin: var(--a-2) 0 0;
+  padding: var(--a-3);
+  border-radius: var(--r-1);
+  background: var(--erhoben);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--t-n);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 30em;
+  overflow-y: auto;
+}
+
+/* --- Der Schluesselbund --- */
+
+.schluessel-zeile {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding: var(--a-2) 0;
+  border-bottom: 1px solid var(--rand-fein);
+}
+
+.schluessel-zeile.hinfaellig {
+  opacity: 0.6;
+}
+
+.schluessel-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.schluessel-wer {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  font-size: var(--t-n);
+  font-weight: 500;
+}
+
+.schluessel-adresse {
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.schluessel-marke {
+  padding: 1px 6px;
+  border-radius: var(--r-voll);
+  font-size: var(--t-xs);
+  font-weight: 500;
+}
+
+.schluessel-marke.gefahr {
+  background: var(--fehler-grund);
+  color: var(--fehler);
+}
+
+.schluessel-abdruck {
+  margin-top: 2px;
+  color: var(--text-3);
+}
+
+.schluessel-anlegen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-3);
+  padding: var(--a-3) 0;
+}
+
+.schluessel-eingabe {
+  width: 100%;
+  font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+  font-size: var(--t-xs);
+}
+
+.schluessel-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  padding-top: var(--a-4);
+  margin-top: var(--a-3);
+  border-top: 1px solid var(--rand);
+}
+
+/* --- Die Wahl beim Verfassen --- */
+
+.pgp-wahl {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--a-3);
+  padding: var(--a-3) 0 0;
+  font-size: var(--t-m);
+  color: var(--text-2);
+}
+
+.pgp-wahl-titel {
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.pgp-wahl label {
+  display: flex;
+  align-items: center;
+  gap: var(--a-1);
+  cursor: pointer;
+}
+
+.pgp-wahl label.aus {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pgp-wahl-hinweis {
+  color: var(--warn);
+}

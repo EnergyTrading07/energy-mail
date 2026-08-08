@@ -826,6 +826,55 @@ export async function exportiereAlsMbox(
  * Server), um zu verstehen, warum etwas nicht dargestellt wird, und um sie als Datei
  * zu sichern. Jedes andere Mailprogramm kann das.
  */
+/**
+ * Die Nachricht als reine Bytes, ohne jede Umwandlung.
+ *
+ * Für das Prüfen einer Unterschrift ist das der einzig gangbare Weg. getRawMessage()
+ * deutet den Inhalt als UTF-8; bei einer Nachricht mit "Content-Transfer-Encoding: 8bit"
+ * und Zeichen, die kein gültiges UTF-8 ergeben, kämen dabei Ersatzzeichen heraus - und
+ * die Unterschrift schlüge fehl, obwohl mit der Nachricht alles in Ordnung ist. Eine
+ * grundlose Warnung ist schlimmer als keine.
+ */
+/**
+ * Die MIME-Struktur einer Nachricht, ohne ihren Inhalt zu laden.
+ *
+ * Daran erkennt man, ob eine Nachricht mit OpenPGP geschützt ist - und zwar bevor man
+ * sie überhaupt herunterlädt.
+ */
+export async function getBodyStructure(
+  config: AccountConfig,
+  folder: string,
+  uid: number,
+): Promise<unknown> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const nachricht = await client.fetchOne(String(uid), { bodyStructure: true }, { uid: true });
+      return nachricht ? nachricht.bodyStructure : undefined;
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+export async function getRawMessageBytes(
+  config: AccountConfig,
+  folder: string,
+  uid: number,
+): Promise<Buffer> {
+  return withClient(config, async (client) => {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const { content } = await client.download(String(uid), undefined, { uid: true });
+      const teile: Buffer[] = [];
+      for await (const stueck of content) teile.push(stueck as Buffer);
+      return Buffer.concat(teile);
+    } finally {
+      lock.release();
+    }
+  });
+}
+
 export async function getRawMessage(
   config: AccountConfig,
   folder: string,

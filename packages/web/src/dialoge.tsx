@@ -47,6 +47,11 @@ interface EingabeAnfrage extends Grundangaben {
   ok?: string;
   /** Prüfung vor dem Bestätigen; ein zurückgegebener Text erscheint als Fehler am Feld. */
   pruefe?: (wert: string) => string | null;
+  /**
+   * Verdeckte Eingabe - für Kennwörter. Ein Kennwort im Klartext auf dem Bildschirm ist
+   * kein Kennwort mehr, sobald jemand danebensteht.
+   */
+  geheim?: boolean;
 }
 
 interface MeldungAnfrage extends Grundangaben {
@@ -291,7 +296,7 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
           <div className="dialog-koerper">
             <input
               ref={feld}
-              type="text"
+              type={anfrage.geheim ? 'password' : 'text'}
               autoFocus
               value={wert}
               placeholder={anfrage.platzhalter}

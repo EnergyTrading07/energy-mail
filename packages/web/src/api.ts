@@ -176,6 +176,108 @@ export function ladeGesamtPosteingang(nach?: string | null): Promise<GesamtSeite
   return request(`/posteingang?${params}`);
 }
 
+// --- OpenPGP ---
+
+export interface SchluesselAngaben {
+  fingerabdruck: string;
+  kennung: string;
+  adressen: string[];
+  namen: string[];
+  geheim: boolean;
+  abgelaufen: boolean;
+  zurueckgezogen: boolean;
+  laeuftAb?: string;
+  erzeugtAm?: string;
+}
+
+export interface SchluesselEintrag {
+  fingerabdruck: string;
+  angaben: SchluesselAngaben;
+  fuerKonto?: string;
+  hinzugefuegtAm: string;
+}
+
+export type Vertrauen =
+  | 'gueltig'
+  | 'gueltig-fremde-adresse'
+  | 'schluessel-fehlt'
+  | 'ungueltig'
+  | 'schluessel-abgelaufen';
+
+export interface PgpBefund {
+  verschluesselt: boolean;
+  geoeffnet: boolean;
+  klartext?: string;
+  signatur?: {
+    vertrauen: Vertrauen;
+    fingerabdruck?: string;
+    schluesselAdressen?: string[];
+    grund?: string;
+  };
+  deckungGanzerText?: boolean;
+  grund?: string;
+  /** Gesetzt, wenn an der Nachricht gar nichts mit OpenPGP geschuetzt ist. */
+  ohnePgp?: boolean;
+}
+
+export function ladeSchluessel(): Promise<SchluesselEintrag[]> {
+  return request('/schluessel');
+}
+
+export function fuegeSchluesselHinzu(
+  armored: string,
+  fuerKonto?: string,
+): Promise<{ aufgenommen: SchluesselEintrag[]; ersetzt: number }> {
+  return request('/schluessel', { method: 'POST', body: JSON.stringify({ armored, fuerKonto }) });
+}
+
+export function entferneSchluessel(fingerabdruck: string, geheim: boolean): Promise<{ ok: boolean }> {
+  return request(`/schluessel/${fingerabdruck}?geheim=${geheim ? '1' : '0'}`, { method: 'DELETE' });
+}
+
+export const schluesselAusfuhrAdresse = (fingerabdruck: string) =>
+  `${API_BASE}/schluessel/${fingerabdruck}/ausfuhr`;
+
+export function erzeugeSchluesselpaar(
+  accountId: string,
+  kennwort?: string,
+  art?: 'curve25519' | 'rsa4096',
+): Promise<{ angaben: SchluesselAngaben; oeffentlich: string }> {
+  return request(`/accounts/${accountId}/schluesselpaar`, {
+    method: 'POST',
+    body: JSON.stringify({ kennwort, art }),
+  });
+}
+
+export interface PgpLage {
+  kannSignieren: boolean;
+  kannVerschluesseln: boolean;
+  ohneSchluessel: string[];
+}
+
+export function ladePgpLage(accountId: string, an: string[] = []): Promise<PgpLage> {
+  return request(`/accounts/${accountId}/pgp-lage?an=${encodeURIComponent(an.join(','))}`);
+}
+
+export function pruefePgpKennwort(accountId: string, kennwort: string): Promise<{ stimmt: boolean }> {
+  return request(`/accounts/${accountId}/pgp-kennwort`, {
+    method: 'POST',
+    body: JSON.stringify({ kennwort }),
+  });
+}
+
+export function pruefeNachrichtPgp(
+  accountId: string,
+  folder: string,
+  uid: number,
+  kennwort?: string,
+): Promise<PgpBefund> {
+  return request(
+    `/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}/pgp`,
+    { method: 'POST', body: JSON.stringify({ kennwort }) },
+  );
+}
+
 // --- Einladungen ---
 
 export type EinladungsAntwort = 'zusagen' | 'absagen' | 'vorbehalten';
@@ -813,6 +915,10 @@ export interface ForwardSource {
 
 export type Draft = Omit<OutgoingMessage, 'attachments'> & {
   attachments?: DraftAttachment[];
+  /** Ob die Nachricht mit OpenPGP geschuetzt hinausgehen soll. */
+  pgp?: 'signieren' | 'verschluesseln';
+  /** Kennwort des geheimen Schluessels. Wird nur mitgeschickt, nie gespeichert. */
+  pgpKennwort?: string;
   attachOriginal?: ForwardSource;
   /** Beim Senden: der zugehörige Entwurf wird danach entfernt. */
   draftFolder?: string;

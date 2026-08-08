@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import * as api from '../api.js';
 import type { Draft, DraftAttachment } from '../api.js';
 import type { Absender } from '../identitaeten.js';
 import { pruefeAnhaenge } from '../anhangErinnerung.js';
@@ -24,6 +25,8 @@ interface Props {
   onDiscardDraft?: () => Promise<void>;
   /** Alle eigenen Adressen des Kontos - die erste ist die des Kontos selbst. */
   absender?: Absender[];
+  /** Kennung des Kontos - fuer die Frage, was mit OpenPGP moeglich ist. */
+  accountId?: string | null;
 }
 
 /** Muss zum bodyLimit des Servers passen (40 MB inkl. Base64-Aufschlag). */
@@ -87,6 +90,7 @@ export function ComposeModal({
   draftLocation,
   onClose,
   onSend,
+  accountId,
   onSaveDraft,
   onDiscardDraft,
   absender,
@@ -98,6 +102,38 @@ export function ComposeModal({
   const [html, setHtml] = useState(initial?.html ?? '');
   const [attachments, setAttachments] = useState<DraftAttachment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** Ob und wie die Nachricht geschuetzt hinausgeht. */
+  const [pgp, setPgp] = useState<'signieren' | 'verschluesseln' | undefined>(undefined);
+  const [pgpLage, setPgpLage] = useState<api.PgpLage | null>(null);
+
+  /**
+   * Was mit OpenPGP moeglich waere - haengt am eigenen Schluessel und daran, ob fuer
+   * jeden Empfaenger einer vorliegt. Neu gefragt, sobald sich die Empfaenger aendern.
+   */
+  useEffect(() => {
+    if (!accountId) return;
+    // to/cc/bcc sind Eingabezeilen, keine Listen - erst zerlegen.
+    const alleEmpfaenger = [
+      ...parseAddresses(to),
+      ...parseAddresses(cc),
+      ...parseAddresses(bcc),
+    ];
+    const t = setTimeout(() => {
+      api
+        .ladePgpLage(accountId, alleEmpfaenger)
+        .then(setPgpLage)
+        .catch(() => setPgpLage(null));
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, to, cc, bcc]);
+
+  // Faellt die Moeglichkeit weg, faellt auch die Absicht weg - sonst schiene die
+  // Nachricht geschuetzt, waehrend der Versand sie unverschluesselt hinausliesse.
+  useEffect(() => {
+    if (pgp === 'verschluesseln' && pgpLage && !pgpLage.kannVerschluesseln) setPgp(undefined);
+    if (pgp === 'signieren' && pgpLage && !pgpLage.kannSignieren) setPgp(undefined);
+  }, [pgp, pgpLage]);
   const [busy, setBusy] = useState(false);
   const [showCopyFields, setShowCopyFields] = useState(
     Boolean(initial?.cc?.length || initial?.bcc?.length),
@@ -213,11 +249,42 @@ export function ComposeModal({
       if (!trotzdem) return;
     }
 
+    /**
+     * Das Kennwort des geheimen Schluessels - bei jedem geschuetzten Versand neu.
+     *
+     * Es wird weder gespeichert noch im Entwurf abgelegt: sonst laege es im
+     * Entwuerfe-Ordner auf dem Server des Anbieters, und der Sinn der Sache waere dahin.
+     */
+    let kennwort: string | undefined;
+    if (pgp) {
+      const eingabe = await frage({
+        titel: 'Kennwort Ihres Schlüssels',
+        text:
+          pgp === 'verschluesseln'
+            ? 'Zum Verschlüsseln und Unterschreiben wird Ihr geheimer Schlüssel gebraucht. Das Kennwort wird nicht gespeichert.'
+            : 'Zum Unterschreiben wird Ihr geheimer Schlüssel gebraucht. Das Kennwort wird nicht gespeichert.',
+        ok: 'Senden',
+        geheim: true,
+      });
+      if (eingabe === null) return;
+      kennwort = eingabe || undefined;
+
+      if (accountId) {
+        const { stimmt } = await api.pruefePgpKennwort(accountId, kennwort ?? '');
+        if (!stimmt) {
+          setError('Das Kennwort des Schlüssels stimmt nicht.');
+          return;
+        }
+      }
+    }
+
     setBusy(true);
     try {
       await onSend(
         {
           ...buildDraft(),
+          pgp,
+          pgpKennwort: kennwort,
           // Nach dem Versand entfernt der Server den zugehörigen Entwurf.
           draftFolder: location.current?.folder,
           draftUid: location.current?.uid ?? undefined,
@@ -451,6 +518,45 @@ export function ComposeModal({
                     ? 'Nicht gespeicherte Änderungen'
                     : ''}
             </span>
+            {pgpLage?.kannSignieren && (
+              <div className="pgp-wahl">
+                <span className="pgp-wahl-titel">Schutz</span>
+                {(
+                  [
+                    [undefined, 'ohne'],
+                    ['signieren', 'unterschreiben'],
+                    ['verschluesseln', 'verschlüsseln'],
+                  ] as const
+                ).map(([wert, wort]) => (
+                  <label
+                    key={wort}
+                    className={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln ? 'aus' : ''}
+                    title={
+                      wert === 'verschluesseln' && !pgpLage.kannVerschluesseln
+                        ? pgpLage.ohneSchluessel.length > 0
+                          ? `Kein Schlüssel für: ${pgpLage.ohneSchluessel.join(', ')}`
+                          : 'Zuerst einen Empfänger angeben'
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="pgp-schutz"
+                      checked={pgp === wert}
+                      disabled={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln}
+                      onChange={() => setPgp(wert)}
+                    />
+                    {wort}
+                  </label>
+                ))}
+                {pgp && attachments.length > 0 && (
+                  <span className="pgp-wahl-hinweis">
+                    Anhänge lassen sich noch nicht mitschützen – bitte ohne senden.
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="compose-actions">
               {location.current?.uid && (
                 <button type="button" className="btn danger" onClick={() => void verwerfen()} disabled={busy}>

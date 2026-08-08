@@ -6,6 +6,7 @@ import { moveTargets } from '../folderTargets.js';
 import { Auffangnetz } from './Auffangnetz.js';
 import { Einladung } from './Einladung.js';
 import { EtikettMarken, EtikettMenue } from './Etiketten.js';
+import { PgpBefund } from './PgpBefund.js';
 import { LeererKorb } from './Symbole.js';
 
 function formatSize(bytes: number): string {
@@ -53,6 +54,23 @@ interface Props {
   /** Fuer die Antwort auf eine Einladung: wo die Nachricht liegt und wer man selbst ist. */
   accountId: string | null;
   eigeneAdressen: string[];
+}
+
+/**
+ * Sieht die Nachricht nach OpenPGP aus?
+ *
+ * Nur eine schnelle Vorpruefung im Fenster, damit nicht jede geoeffnete Nachricht eine
+ * zusaetzliche Anfrage an den Server ausloest. Das Urteil faellt dort - hier wird nur
+ * entschieden, ob ueberhaupt gefragt wird.
+ */
+function siehtNachPgpAus(message: FullMessage): boolean {
+  const anhaenge = message.attachments.some((a) =>
+    /application\/pgp-(signature|encrypted)/i.test(a.contentType ?? ''),
+  );
+  if (anhaenge) return true;
+  const text = typeof message.text === 'string' ? message.text : '';
+  return text.includes('-----BEGIN PGP MESSAGE-----') ||
+    text.includes('-----BEGIN PGP SIGNED MESSAGE-----');
 }
 
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
@@ -327,6 +345,27 @@ export function MessageView({
           </span>
         </div>
       </div>
+
+      {/* Ganz oben: ob dem Inhalt zu trauen ist, muss man wissen, BEVOR man ihn liest. */}
+      {accountId && currentFolder && (
+        <Auffangnetz
+          schluessel={`pgp:${accountId}:${currentFolder}:${message.uid}`}
+          ersatz={(fehler) => (
+            <div className="pgp-band warnung">
+              <span className="pgp-wort">
+                Der OpenPGP-Befund liess sich nicht darstellen ({fehler.message}).
+              </span>
+            </div>
+          )}
+        >
+          <PgpBefund
+            accountId={accountId}
+            ordner={currentFolder}
+            uid={message.uid}
+            verdacht={siehtNachPgpAus(message)}
+          />
+        </Auffangnetz>
+      )}
 
       {/* Ueber der Werkzeugleiste: eine Einladung ist das Wichtigste an so einer
           Nachricht, und die Antwort darauf gehoert nicht unter den Text. */}

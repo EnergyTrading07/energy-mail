@@ -38,6 +38,11 @@ import {
   getRawMessage,
   offeneVorgaenge,
   baueAntwort,
+  baueSigniertenTeil,
+  erzeugeSchluesselpaar,
+  signiereAbgetrennt,
+  verschluessle,
+  getBodyStructure,
   pruefeEtikettenUnterstuetzung,
   senderUebersicht,
   setzeEtiketten,
@@ -95,6 +100,18 @@ import {
   regelnVerwerfen,
   wendeRegelnAn,
 } from './rules.js';
+import {
+  alleSchluessel,
+  entferneSchluessel,
+  fuegeSchluesselHinzu,
+  geheimeFuer,
+  hatGeheimen,
+  kennwortStimmt,
+  oeffentlicheFuer,
+  oeffentlicherText,
+  SchluesselFehler,
+} from './schluesselbund.js';
+import { pruefePgp } from './pgpNachricht.js';
 import {
   holeGesamtPosteingang,
   markeAlsText,
@@ -405,6 +422,122 @@ export async function buildServer() {
       return { ...seite, nextCursor: seite.nextCursor ? markeAlsText(seite.nextCursor) : null };
     },
   );
+
+  // --- OpenPGP: der Schluesselbund ---
+
+  app.get('/schluessel', async () => alleSchluessel());
+
+  app.post<{ Body: { armored?: string; fuerKonto?: string } }>('/schluessel', async (request) => {
+    const armored = request.body?.armored;
+    if (typeof armored !== 'string' || !armored.trim()) {
+      throw new HttpError(400, 'Es wurde kein Schlüssel übergeben');
+    }
+    try {
+      return await fuegeSchluesselHinzu(armored, request.body?.fuerKonto);
+    } catch (err) {
+      if (err instanceof SchluesselFehler) throw new HttpError(400, err.message);
+      throw new HttpError(400, (err as Error).message);
+    }
+  });
+
+  app.delete<{ Params: { fingerabdruck: string }; Querystring: { geheim?: string } }>(
+    '/schluessel/:fingerabdruck',
+    async (request) => {
+      const weg = entferneSchluessel(
+        request.params.fingerabdruck.toUpperCase(),
+        request.query.geheim === '1',
+      );
+      if (!weg) throw new HttpError(404, 'Schlüssel nicht gefunden');
+      return { ok: true };
+    },
+  );
+
+  /** Den eigenen oeffentlichen Schluessel zum Weitergeben. */
+  app.get<{ Params: { fingerabdruck: string } }>(
+    '/schluessel/:fingerabdruck/ausfuhr',
+    async (request, reply) => {
+      const text = oeffentlicherText(request.params.fingerabdruck.toUpperCase());
+      if (!text) throw new HttpError(404, 'Schlüssel nicht gefunden');
+      reply.type('application/pgp-keys; charset=utf-8');
+      reply.header(
+        'content-disposition',
+        `attachment; filename="${request.params.fingerabdruck.slice(-16)}.asc"`,
+      );
+      return text;
+    },
+  );
+
+  /** Ein neues Schluesselpaar. Der geheime Teil landet gleich im Bund. */
+  app.post<{ Params: { id: string }; Body: { kennwort?: string; art?: 'curve25519' | 'rsa4096' } }>(
+    '/accounts/:id/schluesselpaar',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const erzeugt = await erzeugeSchluesselpaar({
+        name: account.displayName,
+        adresse: account.email,
+        kennwort: request.body?.kennwort,
+        art: request.body?.art,
+      });
+      await fuegeSchluesselHinzu(erzeugt.geheim, account.id);
+      await fuegeSchluesselHinzu(erzeugt.oeffentlich);
+      return { angaben: erzeugt.angaben, oeffentlich: erzeugt.oeffentlich };
+    },
+  );
+
+  /**
+   * Was fuer ein Konto moeglich ist: eigener Schluessel vorhanden, und fuer welche
+   * Empfaenger einer vorliegt. Danach richtet sich, was die Oberflaeche anbietet.
+   */
+  app.get<{ Params: { id: string }; Querystring: { an?: string } }>(
+    '/accounts/:id/pgp-lage',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+      const empfaenger = (request.query.an ?? '')
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean);
+
+      return {
+        kannSignieren: hatGeheimen(account.id, adressen),
+        // Verschluesselt wird nur, wenn fuer JEDEN Empfaenger ein Schluessel vorliegt -
+        // einen zu uebergehen hiesse, ihm eine unlesbare Nachricht zu schicken.
+        kannVerschluesseln:
+          empfaenger.length > 0 && empfaenger.every((a) => oeffentlicheFuer(a).length > 0),
+        ohneSchluessel: empfaenger.filter((a) => oeffentlicheFuer(a).length === 0),
+      };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { kennwort?: string } }>(
+    '/accounts/:id/pgp-kennwort',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+      return { stimmt: await kennwortStimmt(account.id, adressen, request.body?.kennwort ?? '') };
+    },
+  );
+
+  /**
+   * Prueft und oeffnet, was an einer Nachricht mit OpenPGP geschuetzt ist.
+   *
+   * Eigener Aufruf statt Teil des Nachrichtenabrufs: das Pruefen holt die Nachricht ein
+   * zweites Mal im Original und kann bei einem verschlossenen Schluessel nach dem
+   * Kennwort verlangen. Beides gehoert nicht in den Weg, den jede Nachricht nimmt.
+   */
+  app.post<{
+    Params: { id: string; folder: string; uid: string };
+    Body: { kennwort?: string };
+  }>('/accounts/:id/folders/:folder/messages/:uid/pgp', async (request) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const uid = Number(request.params.uid);
+
+    const nachricht = await getMessage(account, ordner, uid);
+    const struktur = await getBodyStructure(account, ordner, uid);
+    const befund = await pruefePgp(account, ordner, nachricht, struktur, request.body?.kennwort);
+    return befund ?? { verschluesselt: false, geoeffnet: true, ohnePgp: true };
+  });
 
   // --- Etiketten: das Verzeichnis von Namen und Farben ---
 
@@ -1725,6 +1858,10 @@ export async function buildServer() {
   type SendBody = Omit<OutgoingMessage, 'attachments'> & {
     attachments?: WireAttachment[];
     attachOriginal?: ForwardSource;
+    /** Ob mit OpenPGP geschuetzt versendet wird. */
+    pgp?: 'signieren' | 'verschluesseln';
+    /** Kennwort des geheimen Schluessels - wird nur benutzt, nie abgelegt. */
+    pgpKennwort?: string;
   };
 
   type Attachment = NonNullable<OutgoingMessage['attachments']>[number];
@@ -1773,13 +1910,115 @@ export async function buildServer() {
    * verzögert gesendete Nachricht landete etwa nicht im Gesendet-Ordner oder ließe
    * ihren Entwurf stehen.
    */
+  /** Aus HTML wird Text - für den Fall, dass nur eine formatierte Fassung vorliegt. */
+  const entferneHtml = (html: string) =>
+    html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .trim();
+
+  /**
+   * Baut die geschützte Fassung einer Nachricht - oder null, wenn kein Schutz gewünscht ist.
+   *
+   * Verschlüsselt wird nur, wenn für JEDEN Empfänger ein Schlüssel vorliegt. Einen zu
+   * übergehen hieße, ihm etwas Unlesbares zu schicken, ohne dass es jemandem auffiele.
+   */
+  async function baueGeschuetzt(
+    account: AccountConfig,
+    message: Omit<SendBody, 'attachments' | 'attachOriginal'>,
+    attachments: Attachment[],
+    pgp: 'signieren' | 'verschluesseln' | undefined,
+    kennwort: string | undefined,
+  ): Promise<OutgoingMessage | null> {
+    if (!pgp) return null;
+
+    const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+    const eigene = geheimeFuer(account.id, adressen);
+    if (eigene.length === 0) {
+      throw new HttpError(400, 'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.');
+    }
+    if (attachments.length > 0) {
+      throw new HttpError(
+        400,
+        'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.',
+      );
+    }
+
+    const klartext = message.text?.trim() || entferneHtml(message.html ?? '');
+    if (!klartext) throw new HttpError(400, 'Eine leere Nachricht lässt sich nicht schützen.');
+    const eigener = { armored: eigene[0]!, kennwort };
+
+    if (pgp === 'verschluesseln') {
+      const empfaenger = [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])];
+      const schluessel: string[] = [];
+      const fehlend: string[] = [];
+      for (const adresse of empfaenger) {
+        const gefunden = oeffentlicheFuer(adresse);
+        if (gefunden.length === 0) fehlend.push(adresse);
+        else schluessel.push(gefunden[gefunden.length - 1]!.armored);
+      }
+      if (fehlend.length > 0) {
+        throw new HttpError(
+          400,
+          `Kein Schlüssel vorhanden für: ${fehlend.join(', ')}. Diese Empfänger könnten die Nachricht nicht lesen.`,
+        );
+      }
+      return {
+        ...message,
+        text: undefined,
+        html: undefined,
+        pgpGeheimtext: await verschluessle(klartext, schluessel, eigener),
+      };
+    }
+
+    // Unterschrieben wird der fertige MIME-Teil, nicht der nackte Text: genau diese
+    // Bytes gehen hinaus, und genau sie prueft der Empfaenger.
+    const teil = baueSigniertenTeil(klartext);
+    return {
+      ...message,
+      text: klartext,
+      html: undefined,
+      pgpSignierterTeil: teil,
+      pgpSignatur: await signiereAbgetrennt(teil, eigener.armored, eigener.kennwort),
+    };
+  }
+
   async function fuehreVersandAus(
     account: AccountConfig,
     koerper: SendBody & { draftFolder?: string; draftUid?: number },
   ) {
-    const { attachOriginal, attachments: wire, draftFolder, draftUid, ...message } = koerper;
+    const {
+      attachOriginal,
+      attachments: wire,
+      draftFolder,
+      draftUid,
+      pgp,
+      pgpKennwort,
+      ...message
+    } = koerper as SendBody & {
+      draftFolder?: string;
+      draftUid?: number;
+      pgp?: 'signieren' | 'verschluesseln';
+      pgpKennwort?: string;
+    };
     const attachments = await collectAttachments(account, wire, attachOriginal);
-    const result = await sendMessage(account, { ...message, attachments });
+
+    /**
+     * Mit OpenPGP geschützt versenden.
+     *
+     * Bewusst eng gefasst: geschützt wird der Text, und zwar als Ganzes. Anhänge bleiben
+     * außen vor - sie mitzunehmen wäre möglich, ist aber eine eigene Baustelle, und ein
+     * klarer Hinweis ist besser als eine Nachricht, bei der niemand weiß, was nun
+     * geschützt ist und was nicht.
+     */
+    const geschuetzt = await baueGeschuetzt(account, message, attachments, pgp, pgpKennwort);
+
+    const result = await sendMessage(account, geschuetzt ?? { ...message, attachments });
 
     // Nach erfolgreichem Versand hat der Entwurf ausgedient.
     if (draftFolder && draftUid) {

@@ -21,6 +21,7 @@ import { AccountSettingsModal } from './components/AccountSettingsModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { AdressbuchModal } from './components/AdressbuchModal.js';
+import { SchluesselModal } from './components/SchluesselModal.js';
 import { RulesModal } from './components/RulesModal.js';
 import { QuelltextModal } from './components/QuelltextModal.js';
 import { absenderFuerAntwort, alleAbsender } from './identitaeten.js';
@@ -140,6 +141,8 @@ export default function App() {
   const [etikettenDauerhaft, setEtikettenDauerhaft] = useState<boolean | null>(null);
   /** Gespeicherte Suchen - Ordner, die es gar nicht gibt. */
   const [suchen, setSuchen] = useState<api.GespeicherteSuche[]>([]);
+  /** Ob der Schluesselbund offen ist. */
+  const [schluesselOffen, setSchluesselOffen] = useState(false);
   /** Von aussen in die Suchleiste gesetzte Eingabe - aus einer gemerkten Suche. */
   const [sucheVorgabe, setSucheVorgabe] = useState<SucheEingabe | null>(null);
   /** Ob der Posteingang aller Konten in einer Liste steht. */
@@ -1613,6 +1616,7 @@ export default function App() {
           wartendAnzahl={wartendAnzahl}
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onOpenAdressbuch={() => setAdressbuch({})}
+          onOpenSchluessel={() => setSchluesselOffen(true)}
           gesamtAnsicht={gesamtAnsicht}
           onGesamtAnsicht={waehleGesamt}
           suchen={suchen}
@@ -1786,6 +1790,7 @@ export default function App() {
             onSaveDraft={handleSaveDraft}
             onDiscardDraft={handleDiscardDraft}
             absender={selectedAccount ? alleAbsender(selectedAccount) : undefined}
+            accountId={selectedAccountId}
           />
         )}
         {settingsFor && (
@@ -1851,6 +1856,9 @@ export default function App() {
         )}
         {showOAuthSetup && (
           <OAuthSetupModal onClose={() => setShowOAuthSetup(false)} onChanged={setOauthClients} />
+        )}
+        {schluesselOffen && (
+          <SchluesselModal accounts={accounts} onClose={() => setSchluesselOffen(false)} />
         )}
         {adressbuch && (
           <AdressbuchModal

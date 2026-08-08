@@ -16,3 +16,5 @@ export * from './vcard.js';
 export * from './etiketten.js';
 export * from './zusammenfuehren.js';
 export * from './ics.js';
+export * from './pgpErkennung.js';
+export * from './pgp.js';

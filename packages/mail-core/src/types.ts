@@ -210,6 +210,21 @@ export interface OutgoingMessage {
    * Text hinaus, nicht als Anhang - nur so trägt der Organisator die Zusage ein.
    */
   kalenderAntwort?: string;
+  /**
+   * Eine abgetrennte OpenPGP-Unterschrift. Ist sie gesetzt, wird die Nachricht als
+   * "multipart/signed" nach RFC 3156 gebaut.
+   */
+  pgpSignatur?: string;
+  /**
+   * Der unterschriebene Teil, wie er unterschrieben wurde. Wird unverändert übernommen -
+   * ihn hier neu zu bauen hieße, die Unterschrift zu brechen.
+   */
+  pgpSignierterTeil?: string;
+  /**
+   * Der Geheimtext einer verschlüsselten Nachricht. Ist er gesetzt, wird sie als
+   * "multipart/encrypted" gebaut, und "text" wie "html" bleiben leer.
+   */
+  pgpGeheimtext?: string;
 }
 
 /**

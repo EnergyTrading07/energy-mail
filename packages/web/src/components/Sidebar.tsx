@@ -36,6 +36,7 @@ interface Props {
   wartendAnzahl: number;
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
+  onOpenSchluessel: () => void;
   /** Ob gerade der Posteingang aller Konten angezeigt wird. */
   gesamtAnsicht: boolean;
   onGesamtAnsicht: () => void;
@@ -157,6 +158,7 @@ export function Sidebar({
   wartendAnzahl,
   onOpenWartend,
   onOpenAdressbuch,
+  onOpenSchluessel,
   gesamtAnsicht,
   onGesamtAnsicht,
   suchen,
@@ -557,6 +559,9 @@ export function Sidebar({
         </button>
         <button className="link-btn" onClick={onOpenAdressbuch}>
           Adressbuch
+        </button>
+        <button className="link-btn" onClick={onOpenSchluessel} title="OpenPGP-Schlüssel verwalten">
+          Schlüssel
         </button>
         <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
           {formSichtbar ? '× Konto hinzufügen abbrechen' : '+ Konto hinzufügen'}
