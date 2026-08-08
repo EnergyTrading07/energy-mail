@@ -311,6 +311,116 @@ await pruefe('eine abgelehnte Anmeldung bleibt davon unberührt', async () => {
   assert.equal(istVerbindungsfehler(abgelehnt), false);
 });
 
+console.log('\nSicherung und Umzug - der ganze Weg:');
+
+await pruefe('die Sicherung enthaelt kein Geheimnis', async () => {
+  /*
+   * Die eine Zusicherung, auf der alles beruht. Geprueft am tatsaechlichen Inhalt der
+   * Antwort, nicht an der Absicht: das Konto oben wurde mit dem Kennwort "geheim"
+   * angelegt, und genau danach wird hier gesucht.
+   */
+  const a = await ruf('GET', '/sicherung');
+  assert.equal(a.statusCode, 200);
+  const text = a.body;
+  assert.ok(!text.includes('geheim'), 'das Kennwort steht in der Sicherung');
+  assert.ok(!/"pass"|"accessToken"|"refreshToken"/.test(text), text.slice(0, 200));
+  // Was gebraucht wird, ist aber drin.
+  assert.ok(text.includes('probe@beispiel.de'));
+  assert.ok(text.includes('imap.beispiel.invalid'));
+});
+
+await pruefe('sie nennt in der Datei selbst, was fehlt', async () => {
+  // Sonst liest jemand sie ein und wundert sich, warum nichts abgerufen wird.
+  const d = (await ruf('GET', '/sicherung')).json() as { hinweis: string };
+  assert.match(d.hinweis, /Kennw/);
+  assert.match(d.hinweis, /neu angemeldet/);
+});
+
+await pruefe('der Rundlauf: einlesen bringt an, was fehlt', async () => {
+  const fremd = {
+    fassung: 1,
+    erstelltAm: new Date().toISOString(),
+    programm: 'Energy Mail',
+    konten: [
+      {
+        email: 'umzug@beispiel.de',
+        imapHost: 'imap.umzug.invalid',
+        imapPort: 993,
+        imapSecure: true,
+        smtpHost: 'smtp.umzug.invalid',
+        smtpPort: 465,
+        smtpSecure: true,
+        displayName: 'Umgezogen',
+        anmeldung: 'password',
+      },
+    ],
+    etiketten: [{ name: 'Umzugskiste', farbe: '#123456' }],
+    regeln: { 'umzug@beispiel.de': [{ name: 'Werbung', bedingungen: { von: 'x@' }, aktionen: {} }] },
+    kontakte: [{ address: 'nachbar@beispiel.de', name: 'Neuer Nachbar' }],
+    suchen: [],
+    hinweis: 'x',
+  };
+
+  const a = await ruf('POST', '/sicherung', fremd);
+  assert.equal(a.statusCode, 200, a.body);
+  const b = a.json() as Record<string, { uebernommen: number; schonDa: number }>;
+  assert.equal(b.konten!.uebernommen, 1, JSON.stringify(b));
+  assert.equal(b.etiketten!.uebernommen, 1, JSON.stringify(b));
+  assert.equal(b.kontakte!.uebernommen, 1, JSON.stringify(b));
+
+  // Und jetzt der Nachweis, dass es wirklich angekommen ist.
+  const konten = (await ruf('GET', '/accounts')).json() as { email: string; needsReauth?: boolean }[];
+  const neu = konten.find((k) => k.email === 'umzug@beispiel.de');
+  assert.ok(neu, JSON.stringify(konten));
+  // Ohne Kennwort kommt es nirgendwohin - der Nutzer muss es sehen und anmelden.
+  assert.equal(neu.needsReauth, true, 'das Konto ist nicht als anzumelden gekennzeichnet');
+
+  const etiketten = (await ruf('GET', '/etiketten')).json() as { name: string }[];
+  assert.ok(etiketten.some((e) => e.name === 'Umzugskiste'), JSON.stringify(etiketten));
+});
+
+await pruefe('zweimal einlesen legt nichts doppelt an', async () => {
+  /*
+   * Wer unsicher ist, klickt zweimal. Wuerde dabei alles verdoppelt, waere das
+   * Einlesen selbst der Schaden - zwei Konten derselben Adresse, jedes Etikett zweimal.
+   */
+  const vorherKonten = ((await ruf('GET', '/accounts')).json() as unknown[]).length;
+  const vorherEtiketten = ((await ruf('GET', '/etiketten')).json() as unknown[]).length;
+
+  const nochmal = await ruf('POST', '/sicherung', {
+    fassung: 1,
+    konten: [
+      {
+        email: 'umzug@beispiel.de',
+        imapHost: 'imap.umzug.invalid',
+        imapPort: 993,
+        imapSecure: true,
+        smtpHost: 'smtp.umzug.invalid',
+        smtpPort: 465,
+        smtpSecure: true,
+        anmeldung: 'password',
+      },
+    ],
+    etiketten: [{ name: 'Umzugskiste', farbe: '#123456' }],
+  });
+  assert.equal(nochmal.statusCode, 200);
+  const b = nochmal.json() as Record<string, { uebernommen: number; schonDa: number }>;
+  assert.equal(b.konten!.uebernommen, 0);
+  assert.equal(b.konten!.schonDa, 1);
+  assert.equal(b.etiketten!.uebernommen, 0);
+
+  assert.equal(((await ruf('GET', '/accounts')).json() as unknown[]).length, vorherKonten);
+  assert.equal(((await ruf('GET', '/etiketten')).json() as unknown[]).length, vorherEtiketten);
+});
+
+await pruefe('eine Datei, die keine Sicherung ist, wird abgelehnt', async () => {
+  for (const unfug of [{ irgendwas: true }, { fassung: 'zwei' }, { fassung: 99 }]) {
+    const a = await ruf('POST', '/sicherung', unfug);
+    assert.equal(a.statusCode, 400, `${JSON.stringify(unfug)} kam durch`);
+    assert.ok(String(a.json().error).length > 10, 'keine brauchbare Begruendung');
+  }
+});
+
 await app.close();
 try {
   fs.rmSync(ORDNER, { recursive: true, force: true });

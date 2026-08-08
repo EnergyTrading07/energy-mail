@@ -72,6 +72,7 @@ import {
   getAccount,
   listAccounts,
   saveAccount,
+  setAuthExpired,
   updateAccountAuth,
   updateAccountSettings,
 } from './accountStore.js';
@@ -175,6 +176,13 @@ import { clearFlow, getFlow, startOAuthFlow } from './oauthFlow.js';
 import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStore.js';
 import { installTokenRefresh } from './tokenRefresh.js';
 import { fastifyProtokollZiel } from './protokollDatei.js';
+import {
+  HINWEIS,
+  SICHERUNG_FASSUNG,
+  nurNeue,
+  ohneGeheimnisse,
+  pruefeSicherung,
+} from './sicherung.js';
 import {
   meldeAktualisierung,
   meldeFortschritt,
@@ -2267,6 +2275,141 @@ export async function buildServer() {
   installTokenRefresh((msg) => app.log.warn(msg));
 
   syncWatchers();
+
+  /*
+   * Sicherung der Einstellungen.
+   *
+   * Im Benutzerordner liegen zwoelf Dateien, und wer den Rechner wechselt, weiss nicht,
+   * welche davon er braucht: die 4,3 MB grosse ablage.db sieht wichtig aus und ist es
+   * nicht, die 48 Byte kleine regeln.json sieht nach nichts aus und enthaelt Arbeit von
+   * Stunden. Was mitkommt und was nicht, steht in sicherung.ts - mit Begruendung.
+   */
+  app.get('/sicherung', async () => {
+    const konten = listAccounts();
+    const regeln: Record<string, unknown[]> = {};
+    for (const k of konten) {
+      const eigene = regelnFuer(k.id);
+      if (eigene.length > 0) regeln[k.email] = eigene;
+    }
+    return {
+      fassung: SICHERUNG_FASSUNG,
+      erstelltAm: new Date().toISOString(),
+      programm: 'Energy Mail',
+      konten: konten.map(ohneGeheimnisse),
+      etiketten: alleEtiketten(),
+      // Regeln haengen am Konto, aber dessen Kennung wird auf dem neuen Rechner eine
+      // andere sein - deshalb ueber die Adresse zugeordnet.
+      regeln,
+      /*
+       * Auch die nebenbei aufgelesenen Adressen.
+       *
+       * Zuerst hatte ich nur die gepflegten genommen - mit dem Gedanken, die anderen
+       * bauten sich von selbst wieder auf. Gemessen waren das 269 gegen 0: die
+       * Vervollstaendigung waere auf dem neuen Rechner leer, und zwar so lange, bis
+       * wieder hunderte Nachrichten gelesen sind. Das ist ein spuerbarer Verlust fuer
+       * eine Ersparnis von wenigen Kilobyte.
+       *
+       * Dafuer enthaelt die Datei nun Mailadressen, und der Hinweis beim Sichern sagt
+       * das auch - statt Unbedenklichkeit zu versprechen, die nicht mehr gilt.
+       */
+      kontakte: listeKontakte({ limit: 100_000, auchAufgelesene: true }).eintraege,
+      suchen: alleSuchen(),
+      hinweis: HINWEIS,
+    };
+  });
+
+  app.post<{ Body: unknown }>('/sicherung', async (request) => {
+    const gepruef = pruefeSicherung(request.body);
+    if (!gepruef.ok) throw new HttpError(400, gepruef.grund);
+    const daten = gepruef.daten;
+
+    const bericht = {
+      konten: { uebernommen: 0, schonDa: 0 },
+      etiketten: { uebernommen: 0, schonDa: 0 },
+      kontakte: { uebernommen: 0, schonDa: 0 },
+      suchen: { uebernommen: 0, schonDa: 0 },
+      regeln: { uebernommen: 0 },
+    };
+
+    /*
+     * Konten ohne Zugangsdaten: sie stehen danach in der Liste und sind gekennzeichnet,
+     * bis sie einmal angemeldet wurden. Das ist besser, als sie wegzulassen - so sieht
+     * der Nutzer, was ihn erwartet, statt jedes Konto von Hand nachzubauen.
+     */
+    const vorhandeneKonten = listAccounts();
+    const neueKonten = nurNeue(
+      vorhandeneKonten.map((k) => k.email),
+      daten.konten,
+      (k) => k.email,
+    );
+    bericht.konten.schonDa = neueKonten.schonDa;
+    for (const k of neueKonten.neue) {
+      const angelegt = buildPasswordAccount({
+        email: k.email,
+        password: '',
+        overrides: {
+          imapHost: k.imapHost,
+          imapPort: k.imapPort,
+          imapSecure: k.imapSecure,
+          smtpHost: k.smtpHost,
+          smtpPort: k.smtpPort,
+          smtpSecure: k.smtpSecure,
+        },
+      });
+      saveAccount({ ...angelegt, displayName: k.displayName, signature: k.signature } as never);
+      if (k.identitaeten) {
+        updateAccountSettings(angelegt.id, { identitaeten: k.identitaeten } as never);
+      }
+      // Ohne Zugangsdaten kommt das Konto nirgendwohin - der Nutzer wird zum Anmelden
+      // aufgefordert, wie nach einer abgelaufenen Marke.
+      setAuthExpired(angelegt.id, true);
+
+      const ausSicherung = daten.regeln?.[k.email];
+      if (Array.isArray(ausSicherung)) {
+        for (const regel of ausSicherung) {
+          regelSpeichern(angelegt.id, regel as never);
+          bericht.regeln.uebernommen++;
+        }
+      }
+      bericht.konten.uebernommen++;
+    }
+
+    const neueEtiketten = nurNeue(
+      alleEtiketten().map((e) => e.name),
+      daten.etiketten as { name: string }[],
+      (e) => e.name,
+    );
+    bericht.etiketten.schonDa = neueEtiketten.schonDa;
+    for (const e of neueEtiketten.neue) {
+      speichereEtikett(e as never);
+      bericht.etiketten.uebernommen++;
+    }
+
+    const neueKontakte = nurNeue(
+      listeKontakte({ limit: 100_000, auchAufgelesene: true }).eintraege.map((k) => k.address),
+      daten.kontakte as { address: string }[],
+      (k) => k.address,
+    );
+    bericht.kontakte.schonDa = neueKontakte.schonDa;
+    for (const k of neueKontakte.neue) {
+      speichereKontakt(k as never);
+      bericht.kontakte.uebernommen++;
+    }
+
+    const neueSuchen = nurNeue(
+      alleSuchen().map((s2) => s2.name),
+      daten.suchen as { name: string }[],
+      (s2) => s2.name,
+    );
+    bericht.suchen.schonDa = neueSuchen.schonDa;
+    for (const s2 of neueSuchen.neue) {
+      speichereSuche(s2 as never);
+      bericht.suchen.uebernommen++;
+    }
+
+    syncWatchers();
+    return bericht;
+  });
 
   return app;
 }

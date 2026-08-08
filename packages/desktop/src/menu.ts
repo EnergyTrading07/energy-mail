@@ -1,7 +1,15 @@
 import { BrowserWindow, Menu, app, shell, type MenuItemConstructorOptions } from 'electron';
 import { sucheAktualisierung } from './autoUpdate.js';
 import { zeigeUeber } from './kleineFenster.js';
-import { erzeugeFehlerbericht, oeffneProtokollordner } from './diagnose.js';
+import {
+  erzeugeFehlerbericht,
+  leseEinstellungen,
+  oeffneProtokollordner,
+  sichereEinstellungen,
+} from './diagnose.js';
+
+/** Der eingebettete Server - dieselbe Adresse, unter der auch die Oberfläche läuft. */
+const SERVER = 'http://127.0.0.1:4000';
 
 /**
  * Deutsches Anwendungsmenü.
@@ -108,6 +116,22 @@ export function setzeMenue(): void {
         eintrag('Offen (Liegengebliebenes & Geplantes)…', 'wartet'),
         eintrag('Postfach aufräumen…', 'aufraeumen'),
         eintrag('Regeln…', 'regeln'),
+        { type: 'separator' },
+        /*
+         * Der Weg auf einen neuen Rechner.
+         *
+         * Im Benutzerordner liegen zwölf Dateien; welche davon Arbeit enthalten und
+         * welche nur Zwischenspeicher sind, sieht man ihnen nicht an. Diese beiden
+         * Punkte nehmen einem die Entscheidung ab.
+         */
+        {
+          label: 'Einstellungen sichern…',
+          click: () => void sichereEinstellungen(SERVER),
+        },
+        {
+          label: 'Sicherung einlesen…',
+          click: () => void leseEinstellungen(SERVER),
+        },
       ],
     },
     {

@@ -179,3 +179,136 @@ export function horcheAufFensterfehler(fenster: BrowserWindow): void {
     protokolliere('info', 'anzeige', 'Das Fenster antwortet wieder');
   });
 }
+
+/**
+ * Schreibt die Einstellungen in eine Datei zum Mitnehmen.
+ *
+ * Im Benutzerordner liegen zwölf Dateien, und wer den Rechner wechselt, weiß nicht,
+ * welche davon er braucht. Diese eine genügt - was darin steht und was bewusst nicht,
+ * entscheidet sicherung.ts auf der Serverseite.
+ */
+export async function sichereEinstellungen(basis: string): Promise<void> {
+  let inhalt: string;
+  try {
+    const antwort = await fetch(`${basis}/sicherung`);
+    if (!antwort.ok) throw new Error(`Der Server antwortete mit ${antwort.status}.`);
+    inhalt = JSON.stringify(await antwort.json(), null, 2);
+  } catch (err) {
+    dialog.showErrorBox('Sicherung nicht möglich', (err as Error).message);
+    return;
+  }
+
+  const marke = new Date().toISOString().slice(0, 10);
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    title: 'Einstellungen sichern',
+    defaultPath: path.join(app.getPath('documents'), `energy-mail-einstellungen-${marke}.json`),
+    filters: [{ name: 'Energy-Mail-Sicherung', extensions: ['json'] }],
+  });
+  if (canceled || !filePath) return;
+
+  try {
+    fs.writeFileSync(filePath, inhalt, 'utf8');
+  } catch (err) {
+    dialog.showErrorBox('Sicherung nicht geschrieben', (err as Error).message);
+    return;
+  }
+
+  protokolliere('info', 'sicherung', `Einstellungen gesichert nach ${path.basename(filePath)}`);
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    title: 'Einstellungen gesichert',
+    message: 'Die Datei ist geschrieben.',
+    detail:
+      `${path.basename(filePath)}\n\n` +
+      'Sie enthält Konten, Etiketten, Regeln, das Adressbuch und die gemerkten Suchen – ' +
+      'aber keine Kennwörter. Die sind an dieses Windows-Benutzerkonto gebunden und ' +
+      'müssen auf einem anderen Rechner einmal neu eingegeben werden.\n\n' +
+      'In der Datei stehen alle Mailadressen aus dem Adressbuch. Sie gehört deshalb an ' +
+      'einen Ort, den nur Sie erreichen.',
+    buttons: ['Ordner öffnen', 'Schließen'],
+    defaultId: 1,
+    cancelId: 1,
+  });
+  if (response === 0) shell.showItemInFolder(filePath);
+}
+
+/** Liest eine Sicherung ein - was schon da ist, bleibt unangetastet. */
+export async function leseEinstellungen(basis: string): Promise<void> {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Sicherung einlesen',
+    filters: [{ name: 'Energy-Mail-Sicherung', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (canceled || filePaths.length === 0) return;
+
+  let roh: unknown;
+  try {
+    roh = JSON.parse(fs.readFileSync(filePaths[0]!, 'utf8'));
+  } catch (err) {
+    dialog.showErrorBox('Datei nicht lesbar', (err as Error).message);
+    return;
+  }
+
+  /*
+   * Vorher fragen, was geschieht.
+   *
+   * Einlesen fügt hinzu und überschreibt nichts - aber das weiß der Nutzer nicht, und
+   * "Einstellungen einlesen" klingt nach Ersetzen. Wer sich unsicher ist, bricht hier ab.
+   */
+  const { response: weiter } = await dialog.showMessageBox({
+    type: 'question',
+    title: 'Sicherung einlesen',
+    message: 'Soll die Sicherung eingelesen werden?',
+    detail:
+      'Was auf diesem Rechner schon eingerichtet ist, bleibt unverändert – es kommt nur ' +
+      'hinzu, was hier noch fehlt. Konten aus der Sicherung müssen danach einmal ' +
+      'angemeldet werden, weil Kennwörter nicht mitgesichert werden.',
+    buttons: ['Einlesen', 'Abbrechen'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (weiter !== 0) return;
+
+  try {
+    const antwort = await fetch(`${basis}/sicherung`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(roh),
+    });
+    const ergebnis = (await antwort.json()) as
+      | { error: string }
+      | Record<string, { uebernommen: number; schonDa?: number }>;
+
+    if (!antwort.ok) {
+      dialog.showErrorBox('Sicherung nicht eingelesen', (ergebnis as { error: string }).error);
+      return;
+    }
+
+    const b = ergebnis as Record<string, { uebernommen: number; schonDa?: number }>;
+    const zeile = (name: string, feld: string) =>
+      `${name}: ${b[feld]?.uebernommen ?? 0} übernommen` +
+      (b[feld]?.schonDa ? `, ${b[feld]!.schonDa} waren schon da` : '');
+
+    protokolliere('info', 'sicherung', `Sicherung eingelesen: ${JSON.stringify(b)}`);
+    await dialog.showMessageBox({
+      type: 'info',
+      title: 'Sicherung eingelesen',
+      message: 'Fertig.',
+      detail:
+        [
+          zeile('Konten', 'konten'),
+          zeile('Etiketten', 'etiketten'),
+          zeile('Adressbuch', 'kontakte'),
+          zeile('Gemerkte Suchen', 'suchen'),
+          zeile('Regeln', 'regeln'),
+        ].join('\n') +
+        ((b.konten?.uebernommen ?? 0) > 0
+          ? '\n\nDie neuen Konten sind noch nicht angemeldet – in der Seitenleiste steht ' +
+            'bei ihnen ein Knopf dafür.'
+          : ''),
+      buttons: ['Schließen'],
+    });
+  } catch (err) {
+    dialog.showErrorBox('Sicherung nicht eingelesen', (err as Error).message);
+  }
+}
