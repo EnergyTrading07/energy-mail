@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { fortschrittsText, useFortschritt } from '../useFortschritt.js';
+import { Fenster } from './Fenster.js';
 
 /**
  * Was noch aussteht: geplante Nachrichten, zurückgestellte Post und Liegengebliebenes.
@@ -174,118 +175,115 @@ export function WartendModal({
   );
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Offen — {account.email}</h3>
+    <Fenster titel={`Offen — ${account.email}`} onClose={onClose}>
 
-        {fehler && <div className="error-banner">{fehler}</div>}
-        {laeuft && <div className="empty-state">Wird geladen…</div>}
-        {!laeuft && leer && (
-          <div className="empty-state">
-            Nichts geplant und nichts zurückgestellt.
-          </div>
-        )}
-
-        {sendungen.length > 0 && (
-          <>
-            <h4 className="wartend-titel">Geplante Nachrichten</h4>
-            {sendungen.map((s) => (
-              <div key={s.id} className="wartend-zeile">
-                <div className="wartend-text">
-                  <strong>{s.betreff || '(kein Betreff)'}</strong>
-                  <span>
-                    an {s.empfaenger.join(', ') || '(niemand)'} · geht {wann(s.faellig)} raus
-                  </span>
-                </div>
-                <button className="link-btn" onClick={() => void zurueckholen(s.id)}>
-                  Zurückholen
-                </button>
-              </div>
-            ))}
-          </>
-        )}
-
-        {wiedervorlagen.length > 0 && (
-          <>
-            <h4 className="wartend-titel">Zurückgestellt</h4>
-            {wiedervorlagen.map((w) => (
-              <div key={w.id} className="wartend-zeile">
-                <div className="wartend-text">
-                  <strong>{w.betreff || '(kein Betreff)'}</strong>
-                  <span>
-                    kommt {wann(w.faellig)} zurück nach „{w.ursprung}"
-                    {w.uidImOrdner === undefined && ' · Achtung: der Server hat keine Kennung gemeldet'}
-                  </span>
-                </div>
-                <button className="link-btn" onClick={() => void sofortVorlegen(w.id)}>
-                  Jetzt zurück
-                </button>
-              </div>
-            ))}
-          </>
-        )}
-
-        <h4 className="wartend-titel">Liegengeblieben</h4>
-        {/* Standardmäßig nur Gespräche mit Bekannten und solche mit Hin und Her - sonst
-            steht hier vor allem Versandbestätigung und Rechnung. Wer alles sehen will,
-            schaltet es an. */}
-        <label className="wartend-schalter">
-          <input
-            type="checkbox"
-            checked={auchUnbekannte}
-            onChange={(e) => {
-              setAuchUnbekannte(e.target.checked);
-              ladeOffene(e.target.checked);
-            }}
-          />
-          Auch einzelne Nachrichten von Unbekannten
-        </label>
-        {offeneFehler && <div className="error-banner">{offeneFehler}</div>}
-        {offeneLaeuft && (
-          <div className="empty-state">
-            {fortschrittsText(stand, 'Wird durchgesehen…')}
-            <span className="fortschritt-hinweis">
-              Bei großen Postfächern dauert das einen Moment.
-            </span>
-          </div>
-        )}
-        {!offeneLaeuft && !offeneFehler && offene?.length === 0 && (
-          <div className="empty-state">Nichts liegengeblieben — alles beantwortet.</div>
-        )}
-
-        {wartetAufAntwort.length > 0 && (
-          <>
-            <div className="wartend-untertitel">Du wartest auf Antwort</div>
-            {wartetAufAntwort.map((v) =>
-              vorgangsZeile(v, 'Nachfassen', () => {
-                onNachfassen(v.gegenueber, v.betreff);
-                onClose();
-              }),
-            )}
-          </>
-        )}
-
-        {nichtBeantwortet.length > 0 && (
-          <>
-            <div className="wartend-untertitel">Du hast noch nicht geantwortet</div>
-            {nichtBeantwortet.map((v) =>
-              vorgangsZeile(v, 'Öffnen', () => {
-                onOeffnen(v.ordner, v.uid);
-                onClose();
-              }),
-            )}
-          </>
-        )}
-
-        <div className="form-row regel-knoepfe">
-          <button className="btn secondary" disabled={laeuft || offeneLaeuft} onClick={laden}>
-            Neu laden
-          </button>
-          <button className="link-btn" onClick={onClose}>
-            Schließen
-          </button>
+      {fehler && <div className="error-banner">{fehler}</div>}
+      {laeuft && <div className="empty-state">Wird geladen…</div>}
+      {!laeuft && leer && (
+        <div className="empty-state">
+          Nichts geplant und nichts zurückgestellt.
         </div>
+      )}
+
+      {sendungen.length > 0 && (
+        <>
+          <h4 className="wartend-titel">Geplante Nachrichten</h4>
+          {sendungen.map((s) => (
+            <div key={s.id} className="wartend-zeile">
+              <div className="wartend-text">
+                <strong>{s.betreff || '(kein Betreff)'}</strong>
+                <span>
+                  an {s.empfaenger.join(', ') || '(niemand)'} · geht {wann(s.faellig)} raus
+                </span>
+              </div>
+              <button className="link-btn" onClick={() => void zurueckholen(s.id)}>
+                Zurückholen
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+
+      {wiedervorlagen.length > 0 && (
+        <>
+          <h4 className="wartend-titel">Zurückgestellt</h4>
+          {wiedervorlagen.map((w) => (
+            <div key={w.id} className="wartend-zeile">
+              <div className="wartend-text">
+                <strong>{w.betreff || '(kein Betreff)'}</strong>
+                <span>
+                  kommt {wann(w.faellig)} zurück nach „{w.ursprung}"
+                  {w.uidImOrdner === undefined && ' · Achtung: der Server hat keine Kennung gemeldet'}
+                </span>
+              </div>
+              <button className="link-btn" onClick={() => void sofortVorlegen(w.id)}>
+                Jetzt zurück
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+
+      <h4 className="wartend-titel">Liegengeblieben</h4>
+      {/* Standardmäßig nur Gespräche mit Bekannten und solche mit Hin und Her - sonst
+          steht hier vor allem Versandbestätigung und Rechnung. Wer alles sehen will,
+          schaltet es an. */}
+      <label className="wartend-schalter">
+        <input
+          type="checkbox"
+          checked={auchUnbekannte}
+          onChange={(e) => {
+            setAuchUnbekannte(e.target.checked);
+            ladeOffene(e.target.checked);
+          }}
+        />
+        Auch einzelne Nachrichten von Unbekannten
+      </label>
+      {offeneFehler && <div className="error-banner">{offeneFehler}</div>}
+      {offeneLaeuft && (
+        <div className="empty-state">
+          {fortschrittsText(stand, 'Wird durchgesehen…')}
+          <span className="fortschritt-hinweis">
+            Bei großen Postfächern dauert das einen Moment.
+          </span>
+        </div>
+      )}
+      {!offeneLaeuft && !offeneFehler && offene?.length === 0 && (
+        <div className="empty-state">Nichts liegengeblieben — alles beantwortet.</div>
+      )}
+
+      {wartetAufAntwort.length > 0 && (
+        <>
+          <div className="wartend-untertitel">Du wartest auf Antwort</div>
+          {wartetAufAntwort.map((v) =>
+            vorgangsZeile(v, 'Nachfassen', () => {
+              onNachfassen(v.gegenueber, v.betreff);
+              onClose();
+            }),
+          )}
+        </>
+      )}
+
+      {nichtBeantwortet.length > 0 && (
+        <>
+          <div className="wartend-untertitel">Du hast noch nicht geantwortet</div>
+          {nichtBeantwortet.map((v) =>
+            vorgangsZeile(v, 'Öffnen', () => {
+              onOeffnen(v.ordner, v.uid);
+              onClose();
+            }),
+          )}
+        </>
+      )}
+
+      <div className="form-row regel-knoepfe">
+        <button className="btn secondary" disabled={laeuft || offeneLaeuft} onClick={laden}>
+          Neu laden
+        </button>
+        <button className="link-btn" onClick={onClose}>
+          Schließen
+        </button>
       </div>
-    </div>
+    </Fenster>
   );
 }

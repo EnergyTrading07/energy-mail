@@ -79,9 +79,15 @@ export function Meldungen() {
 
   const entfernen = (id: number) => setListe((bisher) => bisher.filter((m) => m.id !== id));
 
-  if (liste.length === 0) return null;
+  /*
+   * Der Behälter bleibt stehen, auch wenn nichts darin steht.
+   *
+   * Eine Vorlesesoftware liest einen Bereich nur dann vor, wenn er schon da war und
+   * sich sein Inhalt ändert. Wurde er zusammen mit der Meldung eingehängt, blieb die
+   * Meldung stumm - sichtbar war sie, hörbar nicht.
+   */
   return (
-    <div className="meldungen" aria-live="polite">
+    <div className="meldungen" role="status" aria-live="polite">
       {liste.map((m) => (
         <Kasten key={m.id} meldung={m} weg={() => entfernen(m.id)} />
       ))}

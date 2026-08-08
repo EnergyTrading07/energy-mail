@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { Account, Identitaet } from '../api.js';
 import { pruefeIdentitaet } from '../identitaeten.js';
 import { RichTextEditor } from './RichTextEditor.js';
+import { Fenster } from './Fenster.js';
 
 interface Props {
   account: Account;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export function AccountSettingsModal({ account, onClose, onSave }: Props) {
+  // Eine Kennung je Feld, damit die Beschriftung daneben darauf zeigen kann.
+  const felder = useId();
   const [displayName, setDisplayName] = useState(account.displayName ?? '');
   const [signature, setSignature] = useState(account.signature ?? '');
   const [identitaeten, setIdentitaeten] = useState<Identitaet[]>(account.identitaeten ?? []);
@@ -54,95 +57,98 @@ export function AccountSettingsModal({ account, onClose, onSave }: Props) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <h3>Einstellungen für {account.email}</h3>
-        <form onSubmit={submit}>
-          <div className="form-row">
-            <label>Angezeigter Name</label>
-            <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="z.B. Hendrik Zeuch"
-              disabled={busy}
-            />
-            <p className="hint">
-              Empfänger sehen diesen Namen statt der nackten Adresse. Leer lassen, um nur die
-              Adresse anzuzeigen.
-            </p>
-          </div>
+    <Fenster titel={`Einstellungen für ${account.email}`} onClose={onClose} klasse="modal-wide">
+      <form onSubmit={submit}>
+        <div className="form-row">
+          <label htmlFor={`${felder}-name`}>Angezeigter Name</label>
+          <input
+            id={`${felder}-name`}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="z.B. Hendrik Zeuch"
+            disabled={busy}
+          />
+          <p className="hint">
+            Empfänger sehen diesen Namen statt der nackten Adresse. Leer lassen, um nur die
+            Adresse anzuzeigen.
+          </p>
+        </div>
 
-          <div className="form-row">
-            <label>Signatur</label>
-            <RichTextEditor html={signature} onChange={setSignature} disabled={busy} />
-            <p className="hint">
-              Wird beim Verfassen automatisch eingesetzt – bei Antworten oberhalb des zitierten
-              Verlaufs, damit sie nicht darunter verschwindet.
-            </p>
-          </div>
+        <div className="form-row">
+          <span className="feld-titel">Signatur</span>
+          <RichTextEditor
+            html={signature}
+            onChange={setSignature}
+            disabled={busy}
+            beschriftung="Signatur"
+          />
+          <p className="hint">
+            Wird beim Verfassen automatisch eingesetzt – bei Antworten oberhalb des zitierten
+            Verlaufs, damit sie nicht darunter verschwindet.
+          </p>
+        </div>
 
-          <div className="form-row">
-            <label>Weitere Absenderadressen</label>
-            <p className="hint">
-              Aliase und Adressen, die auf dasselbe Postfach zeigen. Verschickt wird immer über
-              denselben Server – nur der Absender ist ein anderer. Auf Post an eine dieser
-              Adressen antwortet Energy Mail von selbst unter ihr.
-            </p>
+        <div className="form-row">
+          <span className="feld-titel">Weitere Absenderadressen</span>
+          <p className="hint">
+            Aliase und Adressen, die auf dasselbe Postfach zeigen. Verschickt wird immer über
+            denselben Server – nur der Absender ist ein anderer. Auf Post an eine dieser
+            Adressen antwortet Energy Mail von selbst unter ihr.
+          </p>
 
-            {identitaeten.map((i) => (
-              <div key={i.id} className="identitaet-zeile">
-                <div className="identitaet-text">
-                  <strong>{i.email}</strong>
-                  <span>{i.displayName || `Name wie beim Konto${account.displayName ? ` (${account.displayName})` : ''}`}</span>
-                </div>
-                <button
-                  type="button"
-                  className="link-btn"
-                  disabled={busy}
-                  onClick={() => setIdentitaeten((v) => v.filter((x) => x.id !== i.id))}
-                >
-                  Entfernen
-                </button>
+          {identitaeten.map((i) => (
+            <div key={i.id} className="identitaet-zeile">
+              <div className="identitaet-text">
+                <strong>{i.email}</strong>
+                <span>{i.displayName || `Name wie beim Konto${account.displayName ? ` (${account.displayName})` : ''}`}</span>
               </div>
-            ))}
-
-            <div className="form-row identitaet-neu">
-              <input
-                value={neueAdresse}
-                onChange={(e) => {
-                  setNeueAdresse(e.target.value);
-                  setAdressFehler(null);
-                }}
-                placeholder="info@meine-firma.de"
-                aria-label="Weitere Adresse"
+              <button
+                type="button"
+                className="link-btn"
                 disabled={busy}
-              />
-              <input
-                value={neuerName}
-                onChange={(e) => setNeuerName(e.target.value)}
-                placeholder="Name (freilassen für den des Kontos)"
-                aria-label="Name für diese Adresse"
-                disabled={busy}
-              />
-              <button type="button" className="btn secondary" disabled={busy} onClick={hinzufuegen}>
-                Hinzufügen
+                onClick={() => setIdentitaeten((v) => v.filter((x) => x.id !== i.id))}
+              >
+                Entfernen
               </button>
             </div>
-            {adressFehler && <p className="hint hinweis-fehler">{adressFehler}</p>}
-          </div>
+          ))}
 
-          {error && <div className="error-banner">{error}</div>}
-
-          <div className="form-row" style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-            <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>
-              Abbrechen
-            </button>
-            <button type="submit" className="btn" disabled={busy}>
-              {busy ? 'Speichere…' : 'Speichern'}
+          <div className="form-row identitaet-neu">
+            <input
+              value={neueAdresse}
+              onChange={(e) => {
+                setNeueAdresse(e.target.value);
+                setAdressFehler(null);
+              }}
+              placeholder="info@meine-firma.de"
+              aria-label="Weitere Adresse"
+              disabled={busy}
+            />
+            <input
+              value={neuerName}
+              onChange={(e) => setNeuerName(e.target.value)}
+              placeholder="Name (freilassen für den des Kontos)"
+              aria-label="Name für diese Adresse"
+              disabled={busy}
+            />
+            <button type="button" className="btn secondary" disabled={busy} onClick={hinzufuegen}>
+              Hinzufügen
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+          {adressFehler && <p className="hint hinweis-fehler">{adressFehler}</p>}
+        </div>
+
+        {error && <div className="error-banner">{error}</div>}
+
+        <div className="form-row" style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>
+            Abbrechen
+          </button>
+          <button type="submit" className="btn" disabled={busy}>
+            {busy ? 'Speichere…' : 'Speichern'}
+          </button>
+        </div>
+      </form>
+    </Fenster>
   );
 }

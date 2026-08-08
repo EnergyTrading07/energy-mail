@@ -106,9 +106,10 @@ export function SearchBar({
   };
 
   return (
-    <form className="search-bar" onSubmit={absenden}>
+    <form className="search-bar" onSubmit={absenden} role="search">
       <input
         type="search"
+        aria-label="Nachrichten durchsuchen"
         placeholder="Suchen…"
         value={eingabe.text}
         onChange={(e) => setze('text', e.target.value)}
@@ -123,6 +124,7 @@ export function SearchBar({
             setEingabe((v) => ({ ...v, bereich }));
             if (hatEinschraenkung(eingabe)) onSearch({ ...eingabe, bereich });
           }}
+          aria-label="Wo gesucht wird"
           title="Wo gesucht wird"
         >
           <option value="ordner">Dieser Ordner</option>
@@ -130,7 +132,12 @@ export function SearchBar({
           {mehrereKonten && <option value="alle">Alle Konten</option>}
         </select>
 
-        <button type="button" className="link-btn" onClick={() => setOffen((v) => !v)}>
+        <button
+          type="button"
+          className="link-btn"
+          aria-expanded={zeigeFelder}
+          onClick={() => setOffen((v) => !v)}
+        >
           {zeigeFelder ? 'Weniger' : 'Mehr…'}
         </button>
 

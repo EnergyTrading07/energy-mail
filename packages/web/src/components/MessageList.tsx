@@ -1,6 +1,7 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import type { Etikett } from '@energy-mail/mail-core';
 import { gruppiere, type Konversation } from '../konversationen.js';
+import { kaestchenBeschriftung, zeilenBeschriftung } from '../barrierefrei.js';
 import type { Listeneintrag } from '../listenTypen.js';
 import {
   DICHTEN,
@@ -138,6 +139,18 @@ function LokalHinweis({
  * sind nicht gleich (Suchtreffer tragen eine Zeile mehr, Gespräche klappen auf), und ein
  * springender Bildlauf wäre schlimmer als der Gewinn.
  */
+
+/**
+ * Die Kennung einer Zeile im Baum.
+ *
+ * aria-activedescendant muss darauf zeigen koennen. Eine UID ist nur innerhalb ihres
+ * Ordners eindeutig - in der Gesamtliste gaebe es die 34 sonst zweimal -, und in einer
+ * Kennung darf kein Schraegstrich stehen.
+ */
+function zeilenId(m: Listeneintrag): string {
+  return `zeile-${(m.folder ?? '').replace(/[^\w-]/g, '_')}-${m.uid}`;
+}
+
 const MessageRow = memo(function MessageRow({
   message,
   aktiv,
@@ -168,6 +181,7 @@ const MessageRow = memo(function MessageRow({
 }) {
   return (
     <div
+      id={zeilenId(message)}
       className={
         `message-row` +
         (aktiv ? ' active' : '') +
@@ -175,6 +189,21 @@ const MessageRow = memo(function MessageRow({
         (angekreuzt ? ' checked' : '') +
         (eingerueckt ? ' im-gespraech' : '')
       }
+      // Was hier eine Zeile ist, ist fuer eine Vorlesesoftware ein Eintrag in einer
+      // Auswahlliste. Ohne diese Angabe blieb die ganze Liste eine Folge von Kaesten
+      // ohne Zusammenhang - und dass eine davon ausgewaehlt ist, war nicht zu hoeren.
+      role="option"
+      aria-selected={aktiv}
+      aria-label={zeilenBeschriftung({
+        absender: absender(message),
+        betreff: message.subject,
+        datum: kurzesDatum(message.date),
+        gelesen: message.seen,
+        mitAnhang: message.hasAttachments,
+        herkunft: zeigeHerkunft && message.folder
+          ? (nurKonto ? message.email ?? message.folder : message.folder)
+          : undefined,
+      })}
       onClick={() => onSelect(message)}
       draggable={Boolean(onZiehen)}
       onDragStart={onZiehen ? (e) => onZiehen(e, message) : undefined}
@@ -183,6 +212,7 @@ const MessageRow = memo(function MessageRow({
         <input
           type="checkbox"
           className="row-check"
+          aria-label={kaestchenBeschriftung(message.subject)}
           checked={angekreuzt}
           // Klick nicht bis zur Zeile durchreichen - sonst würde das Ankreuzen die
           // Nachricht öffnen und als gelesen markieren.
@@ -340,15 +370,29 @@ export function MessageList({
     return (
       <div key={gruppe.id}>
         <div
+          id={zeilenId(gruppe.neueste)}
           className={
             `message-row gespraech` +
             (enthaeltAuswahl && !aufgeklappt ? ' active' : '') +
             (gruppe.ungelesen ? ' unread' : '')
           }
+          role="option"
+          aria-selected={enthaeltAuswahl && !aufgeklappt}
+          aria-expanded={aufgeklappt}
+          aria-label={zeilenBeschriftung({
+            absender: gruppe.beteiligte.join(', '),
+            betreff: gruppe.neueste.subject,
+            datum: kurzesDatum(gruppe.neueste.date),
+            gelesen: !gruppe.ungelesen,
+            mitAnhang: gruppe.mitAnhang,
+            imGespraech: gruppe.nachrichten.length,
+          })}
           onClick={() => onSelect(gruppe.neueste)}
         >
           <button
             className="gespraech-schalter"
+            aria-label={aufgeklappt ? 'Gespräch zuklappen' : 'Alle Nachrichten des Gesprächs zeigen'}
+            aria-expanded={aufgeklappt}
             title={aufgeklappt ? 'Gespräch zuklappen' : 'Alle Nachrichten des Gesprächs zeigen'}
             onClick={(e) => {
               e.stopPropagation();
@@ -378,10 +422,26 @@ export function MessageList({
     );
   };
 
+  /**
+   * Welche Zeile gerade gilt.
+   *
+   * Eine UID ist nur innerhalb ihres Ordners eindeutig, deshalb gehoert er in die
+   * Kennung; und weil in einer Kennung kein Schraegstrich stehen darf, wird alles
+   * Ungewoehnliche ersetzt.
+   */
+  const aktiveZeile = (() => {
+    const treffer = messages.find((m) => m.uid === selectedUid);
+    return treffer ? zeilenId(treffer) : undefined;
+  })();
+
   return (
     // Die Dichte haengt an der ganzen Flaeche - so wirkt sie auf Zeilen, Gespraeche und
     // Kopfzeile zugleich, ohne dass jede Stelle sie einzeln kennen muesste.
-    <div className={`message-pane dichte-${dichte}`}>
+    <section
+      className={`message-pane dichte-${dichte}`}
+      id="nachrichtenliste"
+      aria-label="Nachrichtenliste"
+    >
       <div className="list-head">
         {/* In der Gesamtliste gibt es kein Ankreuzen. Eine UID gilt nur innerhalb
             ihres Postfachs: die 34 von GMX und die 34 von Gmail sind verschiedene
@@ -391,13 +451,14 @@ export function MessageList({
           <label className="select-all" title="Alle auf dieser Seite auswählen">
             <input
               type="checkbox"
+              aria-label="Alle Nachrichten auf dieser Seite auswählen"
               checked={alleAngekreuzt}
               disabled={messages.length === 0}
               onChange={(e) => onToggleAll(e.target.checked)}
             />
           </label>
         )}
-        <span className="list-title">{searchActive ? 'Suchergebnisse' : folderLabel}</span>
+        <h2 className="list-title">{searchActive ? 'Suchergebnisse' : folderLabel}</h2>
         {!gesamtAnsicht && (
           <button
             className={`gruppieren-schalter${konversationen ? ' an' : ''}`}
@@ -504,7 +565,20 @@ export function MessageList({
         <LokalHinweis stand={lokalerStand} onVollstaendig={onVollstaendigSuchen} />
       )}
 
-      <div className="message-scroll">
+      {/*
+        Erreichbar mit der Tabulatortaste und als Auswahlliste angekuendigt. Die
+        Pfeiltasten wandern schon immer durch die Liste (siehe useBefehle) - nur wusste
+        davon nichts ausserhalb des Bildschirms. aria-activedescendant sagt, welche
+        Zeile gerade gilt, ohne dass der Fokus die Liste verlassen muesste.
+      */}
+      <div
+        className="message-scroll"
+        role="listbox"
+        tabIndex={0}
+        aria-label={searchActive ? 'Suchergebnisse' : `Nachrichten in ${folderLabel}`}
+        aria-busy={loading || undefined}
+        aria-activedescendant={aktiveZeile}
+      >
         {loading && <div className="empty-state">Lade Nachrichten…</div>}
         {!loading && messages.length === 0 && (
           <div className="empty-state">
@@ -524,6 +598,6 @@ export function MessageList({
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 }

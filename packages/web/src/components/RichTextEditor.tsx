@@ -12,6 +12,11 @@ interface Props {
   html: string;
   onChange: (html: string) => void;
   disabled?: boolean;
+  /**
+   * Wie das Feld heißt. Ein <label> daneben hilft hier nichts - es gibt kein <input>,
+   * auf das es zeigen könnte.
+   */
+  beschriftung?: string;
 }
 
 /**
@@ -25,7 +30,7 @@ interface Props {
  * beides für sich geprüft, weil das eine eine Tabelle und das andere eine
  * Sicherheitsfrage ist.
  */
-export function RichTextEditor({ html, onChange, disabled }: Props) {
+export function RichTextEditor({ html, onChange, disabled, beschriftung = 'Nachrichtentext' }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   /** Welche Auszeichnungen an der Schreibmarke gerade gelten - für die Knöpfe. */
   const [aktiv, setAktiv] = useState<Set<string>>(new Set());
@@ -129,7 +134,7 @@ export function RichTextEditor({ html, onChange, disabled }: Props) {
 
   return (
     <div className="editor">
-      <div className="editor-toolbar" role="toolbar" aria-label="Formatierung">
+      <div className="editor-toolbar" role="toolbar" aria-label={`Formatierung: ${beschriftung}`}>
         {WERKZEUGE.map((gruppe, i) => (
           <div className="werkzeug-gruppe" key={i}>
             {gruppe.map((w) => (
@@ -191,7 +196,7 @@ export function RichTextEditor({ html, onChange, disabled }: Props) {
         contentEditable={!disabled}
         role="textbox"
         aria-multiline="true"
-        aria-label="Nachrichtentext"
+        aria-label={beschriftung}
         suppressContentEditableWarning
         onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
         onKeyUp={standAblesen}

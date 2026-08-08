@@ -1705,6 +1705,18 @@ export default function App() {
           }}
         />
       )}
+      {/*
+        Zwei Sprungmarken, unsichtbar bis sie den Fokus bekommen.
+        Mit der Tastatur liegen sonst ueber dreissig Ordnerzeilen vor der
+        Nachrichtenliste und die ganze Liste vor der geoeffneten Nachricht - jedes Mal
+        aufs Neue.
+      */}
+      <a className="sprungmarke" href="#nachrichtenliste">
+        Zur Nachrichtenliste
+      </a>
+      <a className="sprungmarke" href="#nachricht">
+        Zur geöffneten Nachricht
+      </a>
       <div className="app">
         <Sidebar
           accounts={accounts}
@@ -1830,7 +1842,7 @@ export default function App() {
           onSearch={handleSearch}
           onClear={() => void handleSearchClear()}
         />
-        <div className="reader-pane">
+        <main className="reader-pane" id="nachricht" tabIndex={-1} aria-label="Geöffnete Nachricht">
           <BulkActionBar
             count={checkedUids.size}
             folders={folders}
@@ -1887,7 +1899,7 @@ export default function App() {
                 : []
             }
           />
-        </div>
+        </main>
         {quelltextFuer && selectedAccountId && selectedFolder && (
           <QuelltextModal
             accountId={selectedAccountId}

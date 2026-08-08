@@ -3,6 +3,7 @@ import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { bestaetige, frage } from '../dialoge.js';
 import { meldeErfolg, meldeFehler, meldeWarnung } from '../meldungen.js';
+import { Fenster } from './Fenster.js';
 
 /**
  * Der Schlüsselbund.
@@ -158,90 +159,87 @@ export function SchluesselModal({ accounts, onClose }: Props) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide schluesselbund" onClick={(e) => e.stopPropagation()}>
-        <h3>OpenPGP-Schlüssel</h3>
+    <Fenster titel="OpenPGP-Schlüssel" onClose={onClose} klasse="modal-wide schluesselbund">
+      <p className="hint">
+        Mit OpenPGP lässt sich Post unterschreiben und verschlüsseln. Ihr geheimer Schlüssel
+        bleibt auf diesem Rechner und liegt verschlüsselt – die öffentlichen der anderen sind
+        zur Weitergabe gemacht.
+      </p>
+
+      {fehler && <div className="error-banner">{fehler}</div>}
+
+      <h4>Ihre eigenen</h4>
+      {eigene.length === 0 ? (
+        <div className="empty-state">Noch kein eigener Schlüssel.</div>
+      ) : (
+        eigene.map(zeile)
+      )}
+
+      {ohneSchluessel.length > 0 && (
+        <div className="schluessel-anlegen">
+          {ohneSchluessel.map((konto) => (
+            <button
+              key={konto.id}
+              className="btn secondary"
+              disabled={busy}
+              onClick={() => void neuesPaar(konto)}
+            >
+              Paar für {konto.email} erzeugen
+            </button>
+          ))}
+        </div>
+      )}
+
+      <h4>Schlüssel anderer</h4>
+      {fremde.length === 0 ? (
+        <div className="empty-state">Noch keine fremden Schlüssel.</div>
+      ) : (
+        fremde.map(zeile)
+      )}
+
+      <h4>Aufnehmen</h4>
+      <div className="form-row">
+        <textarea
+          rows={4}
+          className="schluessel-eingabe"
+          placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;…"
+          value={einfuegen}
+          onChange={(e) => setEinfuegen(e.target.value)}
+          disabled={busy}
+        />
         <p className="hint">
-          Mit OpenPGP lässt sich Post unterschreiben und verschlüsseln. Ihr geheimer Schlüssel
-          bleibt auf diesem Rechner und liegt verschlüsselt – die öffentlichen der anderen sind
-          zur Weitergabe gemacht.
+          Einen Schlüssel hier einfügen oder eine Datei wählen. Geheime Schlüssel werden
+          verschlüsselt abgelegt; ihr Kennwort wird nicht gespeichert.
         </p>
-
-        {fehler && <div className="error-banner">{fehler}</div>}
-
-        <h4>Ihre eigenen</h4>
-        {eigene.length === 0 ? (
-          <div className="empty-state">Noch kein eigener Schlüssel.</div>
-        ) : (
-          eigene.map(zeile)
-        )}
-
-        {ohneSchluessel.length > 0 && (
-          <div className="schluessel-anlegen">
-            {ohneSchluessel.map((konto) => (
-              <button
-                key={konto.id}
-                className="btn secondary"
-                disabled={busy}
-                onClick={() => void neuesPaar(konto)}
-              >
-                Paar für {konto.email} erzeugen
-              </button>
-            ))}
-          </div>
-        )}
-
-        <h4>Schlüssel anderer</h4>
-        {fremde.length === 0 ? (
-          <div className="empty-state">Noch keine fremden Schlüssel.</div>
-        ) : (
-          fremde.map(zeile)
-        )}
-
-        <h4>Aufnehmen</h4>
-        <div className="form-row">
-          <textarea
-            rows={4}
-            className="schluessel-eingabe"
-            placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;…"
-            value={einfuegen}
-            onChange={(e) => setEinfuegen(e.target.value)}
-            disabled={busy}
-          />
-          <p className="hint">
-            Einen Schlüssel hier einfügen oder eine Datei wählen. Geheime Schlüssel werden
-            verschlüsselt abgelegt; ihr Kennwort wird nicht gespeichert.
-          </p>
-        </div>
-
-        <div className="schluessel-knoepfe">
-          <input
-            ref={dateiwahl}
-            type="file"
-            accept=".asc,.gpg,.pgp,.key,application/pgp-keys,text/plain"
-            hidden
-            onChange={async (e) => {
-              const datei = e.target.files?.[0];
-              if (datei) await aufnehmen(await datei.text());
-              if (dateiwahl.current) dateiwahl.current.value = '';
-            }}
-          />
-          <button
-            className="btn"
-            disabled={busy || !einfuegen.trim()}
-            onClick={() => void aufnehmen(einfuegen)}
-          >
-            Aus dem Feld aufnehmen
-          </button>
-          <button className="btn secondary" disabled={busy} onClick={() => dateiwahl.current?.click()}>
-            Aus einer Datei
-          </button>
-          <span className="adressbuch-fueller" />
-          <button className="btn" onClick={onClose}>
-            Schließen
-          </button>
-        </div>
       </div>
-    </div>
+
+      <div className="schluessel-knoepfe">
+        <input
+          ref={dateiwahl}
+          type="file"
+          accept=".asc,.gpg,.pgp,.key,application/pgp-keys,text/plain"
+          hidden
+          onChange={async (e) => {
+            const datei = e.target.files?.[0];
+            if (datei) await aufnehmen(await datei.text());
+            if (dateiwahl.current) dateiwahl.current.value = '';
+          }}
+        />
+        <button
+          className="btn"
+          disabled={busy || !einfuegen.trim()}
+          onClick={() => void aufnehmen(einfuegen)}
+        >
+          Aus dem Feld aufnehmen
+        </button>
+        <button className="btn secondary" disabled={busy} onClick={() => dateiwahl.current?.click()}>
+          Aus einer Datei
+        </button>
+        <span className="adressbuch-fueller" />
+        <button className="btn" onClick={onClose}>
+          Schließen
+        </button>
+      </div>
+    </Fenster>
   );
 }

@@ -56,13 +56,15 @@ export function Titelleiste({
       : `Ansicht: ${wahl} – klicken zum Umschalten`;
 
   return (
-    <div
+    <header
       className={`titelleiste${zustand.imVordergrund ? '' : ' abwesend'}`}
       style={{ ['--konto-farbe' as string]: kontoFarbe }}
     >
       <div className="titelleiste-marke">
         <Marke groesse={18} className="marke-symbol" />
-        <span className="marke-wort">Energy Mail</span>
+        {/* Die einzige Ueberschrift erster Ordnung - eine Vorlesesoftware nennt sie,
+            wenn man fragt, wo man ueberhaupt ist. */}
+        <h1 className="marke-wort">Energy Mail</h1>
       </div>
 
       <div className="titelleiste-mitte">
@@ -89,6 +91,6 @@ export function Titelleiste({
           {ansicht === 'dunkel' ? <Mond groesse={14} /> : <Sonne groesse={14} />}
         </button>
       </div>
-    </div>
+    </header>
   );
 }

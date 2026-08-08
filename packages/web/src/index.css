@@ -404,6 +404,9 @@ input[type='file']::file-selector-button:hover {
 }
 
 .marke-wort {
+  /* Eine Ueberschrift statt eines span - der Browser braecht dafuer Abstand und eine
+     eigene Groesse ein, die in eine Titelleiste nicht passen. */
+  margin: 0;
   font-family: var(--sf-gross);
   font-size: var(--t-m);
   font-weight: 600;
@@ -648,12 +651,29 @@ input[type='file']::file-selector-button:hover {
   display: flex;
   align-items: center;
   gap: var(--a-3);
+  /*
+   * Ein echter Knopf, damit die Zeile mit der Tastatur erreichbar ist - seine
+   * mitgebrachte Gestalt muss dafuer weichen.
+   *
+   * Ein Knopf fuellt seine Zeile nicht von selbst aus, auch nicht als display:flex - er
+   * schrumpft auf seinen Inhalt. Die Breite muss also stehen, und der Abstand nach
+   * rechts kommt als durchsichtiger Rand statt als Aussenabstand: bei border-box liegt
+   * er innerhalb der 100 % und kann nie ueberstehen. Mit margin-right ragte die Leiste
+   * um vier Pixel hinaus und bekam eine Bildlaufleiste.
+   */
+  width: 100%;
+  border: 0;
+  border-right: var(--a-3) solid transparent;
+  background: none;
+  /* Sonst liefe die Einfaerbung unter den durchsichtigen Rand und der Abstand waere weg. */
+  background-clip: padding-box;
+  text-align: left;
+  font-family: inherit;
   padding: 6px 10px 6px var(--a-4);
   cursor: pointer;
   font-size: var(--t-n);
   color: var(--text-2);
   border-radius: 0 var(--r-voll) var(--r-voll) 0;
-  margin-right: var(--a-3);
   transition: background var(--weich), color var(--weich);
 }
 
@@ -723,7 +743,9 @@ input[type='file']::file-selector-button:hover {
 
 .unread-badge {
   background: var(--marke);
-  color: #fff;
+  /* Nicht weiss: im dunklen Erscheinungsbild ist die Marke ein helles Blau, und weisse
+     Schrift darauf kam auf 2.39:1. */
+  color: var(--auf-marke);
   font-size: var(--t-s);
   font-weight: 600;
   border-radius: var(--r-voll);
@@ -838,6 +860,9 @@ input[type='file']::file-selector-button:hover {
 }
 
 .list-title {
+  /* Eine Ueberschrift statt eines span - der Browser braecht dafuer Abstand ein, den
+     die Zeile nicht hat. */
+  margin: 0;
   font-family: var(--sf-gross);
   font-weight: 600;
   font-size: var(--t-xl);
@@ -1104,7 +1129,7 @@ input[type='file']::file-selector-button:hover {
 
 .message-row.unread .gespraech-anzahl {
   background: var(--marke);
-  color: #fff;
+  color: var(--auf-marke);
 }
 
 /* Nachrichten innerhalb eines aufgeklappten Gesprächs. */
@@ -2090,7 +2115,11 @@ input[type='file']::file-selector-button:hover {
   padding: var(--a-3) 0;
 }
 
-.form-row label {
+/* .feld-titel steht dort, wo ein <label> nichts zu zeigen haette: der Editor und die
+   Adressgruppe sind keine <input>. Sie tragen ihren Namen selbst - hier geht es nur
+   noch um die Schrift, die daneben gleich aussehen muss. */
+.form-row label,
+.form-row .feld-titel {
   display: flex;
   align-items: baseline;
   font-size: var(--t-m);
@@ -3236,6 +3265,12 @@ input[type='file']::file-selector-button:hover {
    keinem - deshalb etwas kräftiger und mit einer Trennung darunter. */
 .gesamt-zeile {
   margin: 0 var(--a-2) var(--a-2);
+  /* Sie bringt eigene seitliche Abstaende mit; die 100 % von .folder-row kaemen oben
+     drauf und schoeben die Leiste um zwoelf Pixel hinaus. */
+  width: calc(100% - 2 * var(--a-2));
+  /* Der durchsichtige Rand von .folder-row erzeugt hier nur eine Luecke - dieser
+     Kasten ist rundum abgesetzt, nicht rechts angeschnitten. */
+  border-right-width: 0;
   padding-left: 10px;
   border-bottom: 1px solid var(--rand-fein);
   border-radius: var(--r-1);
@@ -3800,4 +3835,70 @@ input[type='file']::file-selector-button:hover {
 .editor-body ol {
   margin: var(--a-2) 0;
   padding-left: var(--a-6);
+}
+
+/* --- Barrierefreiheit ---------------------------------------------------------- */
+
+/* Sprungmarken: unsichtbar, bis sie den Fokus bekommen. Nicht display:none - was
+   ausgeblendet ist, laesst sich auch nicht anspringen. */
+.sprungmarke {
+  position: absolute;
+  top: var(--a-2);
+  left: var(--a-2);
+  z-index: 900;
+  padding: var(--a-3) var(--a-4);
+  border-radius: var(--r-2);
+  background: var(--marke);
+  color: var(--auf-marke);
+  font-size: var(--t-n);
+  font-weight: 600;
+  text-decoration: none;
+  /* Aus dem Bild heraus, aber im Baum und im Fokuslauf. */
+  transform: translateY(-200%);
+  transition: transform var(--weich);
+}
+
+.sprungmarke:focus {
+  transform: translateY(0);
+}
+
+/* Ein Bereich, den man angesprungen hat, soll keinen dauerhaften Umriss tragen -
+   erkennbar bleibt er trotzdem, weil der Sprung ihn sichtbar macht. */
+.reader-pane:focus {
+  outline: none;
+}
+
+/* Die Nachrichtenliste ist mit der Tabulatortaste erreichbar; dann muss zu sehen sein,
+   dass die Pfeiltasten jetzt dort wirken. */
+.message-scroll:focus-visible {
+  outline: 2px solid var(--marke);
+  outline-offset: -2px;
+}
+
+/* Wer sich mit der Tastatur bewegt, muss sehen, wo er steht. Der Umriss kommt zum
+   vorhandenen Schatten dazu: ein Schatten allein verschwindet im Kontrastmodus von
+   Windows, ein Umriss bleibt. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--marke);
+  outline-offset: 1px;
+}
+
+/* Wer angibt, weniger Bewegung sehen zu wollen, bekommt sie auch nicht. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Etikett und ein Knopf daneben - der Knopf lag frueher im Etikett, wodurch ein Klick
+   auf ihn zugleich ins Feld sprang. */
+.form-row .etikett-zeile {
+  display: flex;
+  align-items: baseline;
+  gap: var(--a-3);
 }

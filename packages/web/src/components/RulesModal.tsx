@@ -4,6 +4,7 @@ import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { bestaetige } from '../dialoge.js';
 import { meldeErfolg, meldeHinweis } from '../meldungen.js';
+import { Fenster } from './Fenster.js';
 
 /**
  * Verwaltung der Regeln eines Kontos.
@@ -148,199 +149,196 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <h3>Regeln für {account.email}</h3>
-        <p className="hint">
-          Regeln greifen, sobald neue Post eintrifft. Für bereits vorhandene Nachrichten
-          lassen sie sich unten von Hand anwenden.
-        </p>
+    <Fenster titel={`Regeln für ${account.email}`} onClose={onClose} klasse="modal-wide">
+      <p className="hint">
+        Regeln greifen, sobald neue Post eintrifft. Für bereits vorhandene Nachrichten
+        lassen sie sich unten von Hand anwenden.
+      </p>
 
-        {fehler && <div className="error-banner">{fehler}</div>}
+      {fehler && <div className="error-banner">{fehler}</div>}
 
-        {regeln.length === 0 && !entwurf && (
-          <div className="empty-state">Noch keine Regeln angelegt.</div>
-        )}
+      {regeln.length === 0 && !entwurf && (
+        <div className="empty-state">Noch keine Regeln angelegt.</div>
+      )}
 
-        {regeln.map((regel) => (
-          <div key={regel.id} className={`regel-zeile${regel.aktiv ? '' : ' inaktiv'}`}>
-            <label className="regel-schalter" title={regel.aktiv ? 'Regel ist aktiv' : 'Regel ruht'}>
-              <input
-                type="checkbox"
-                checked={regel.aktiv}
-                onChange={async (e) => {
-                  await api.saveRule(account.id, { ...regel, aktiv: e.target.checked });
-                  await laden();
-                }}
-              />
-            </label>
-            <div className="regel-text">
-              <strong>{regel.name}</strong>
-              <span>{beschreibe(regel)}</span>
-            </div>
-            <button className="link-btn" onClick={() => setEntwurf(regel)}>
-              Bearbeiten
-            </button>
-            <button
-              className="link-btn gefaehrlich"
-              onClick={async () => {
-                const ja = await bestaetige({
-                  titel: `Regel „${regel.name}“ löschen?`,
-                  text: 'Bereits verschobene Nachrichten bleiben, wo sie sind – die Regel greift nur künftig nicht mehr.',
-                  stil: 'gefahr',
-                  ok: 'Regel löschen',
-                });
-                if (!ja) return;
-                await api.deleteRule(account.id, regel.id);
+      {regeln.map((regel) => (
+        <div key={regel.id} className={`regel-zeile${regel.aktiv ? '' : ' inaktiv'}`}>
+          <label className="regel-schalter" title={regel.aktiv ? 'Regel ist aktiv' : 'Regel ruht'}>
+            <input
+              type="checkbox"
+              checked={regel.aktiv}
+              onChange={async (e) => {
+                await api.saveRule(account.id, { ...regel, aktiv: e.target.checked });
                 await laden();
               }}
-            >
-              Löschen
-            </button>
+            />
+          </label>
+          <div className="regel-text">
+            <strong>{regel.name}</strong>
+            <span>{beschreibe(regel)}</span>
           </div>
-        ))}
+          <button className="link-btn" onClick={() => setEntwurf(regel)}>
+            Bearbeiten
+          </button>
+          <button
+            className="link-btn gefaehrlich"
+            onClick={async () => {
+              const ja = await bestaetige({
+                titel: `Regel „${regel.name}“ löschen?`,
+                text: 'Bereits verschobene Nachrichten bleiben, wo sie sind – die Regel greift nur künftig nicht mehr.',
+                stil: 'gefahr',
+                ok: 'Regel löschen',
+              });
+              if (!ja) return;
+              await api.deleteRule(account.id, regel.id);
+              await laden();
+            }}
+          >
+            Löschen
+          </button>
+        </div>
+      ))}
 
-        {entwurf ? (
-          <div className="regel-form">
-            <div className="form-row">
+      {entwurf ? (
+        <div className="regel-form">
+          <div className="form-row">
+            <input
+              type="text"
+              placeholder="Name der Regel, z.B. „Pinterest wegsortieren“"
+              value={entwurf.name}
+              onChange={(e) => setEntwurf({ ...entwurf, name: e.target.value })}
+            />
+          </div>
+
+          <div className="regel-block">
+            <strong>Wenn …</strong>
+            <label>
+              <span>Absender</span>
               <input
                 type="text"
-                placeholder="Name der Regel, z.B. „Pinterest wegsortieren“"
-                value={entwurf.name}
-                onChange={(e) => setEntwurf({ ...entwurf, name: e.target.value })}
+                placeholder="enthält…"
+                value={entwurf.bedingungen.von ?? ''}
+                onChange={(e) => setzeBedingung('von', e.target.value)}
               />
-            </div>
+            </label>
+            <label>
+              <span>Betreff</span>
+              <input
+                type="text"
+                placeholder="enthält…"
+                value={entwurf.bedingungen.betreff ?? ''}
+                onChange={(e) => setzeBedingung('betreff', e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Empfänger</span>
+              <input
+                type="text"
+                placeholder="enthält…"
+                value={entwurf.bedingungen.an ?? ''}
+                onChange={(e) => setzeBedingung('an', e.target.value)}
+              />
+            </label>
+            <label className="regel-kasten">
+              <input
+                type="checkbox"
+                checked={Boolean(entwurf.bedingungen.nurRundmail)}
+                onChange={(e) => setzeBedingung('nurRundmail', e.target.checked)}
+              />
+              nur Rundmails (erkennbar an der Abmelde-Kopfzeile)
+            </label>
+            <p className="hint">Alles Angegebene muss zutreffen.</p>
+          </div>
 
-            <div className="regel-block">
-              <strong>Wenn …</strong>
-              <label>
-                <span>Absender</span>
-                <input
-                  type="text"
-                  placeholder="enthält…"
-                  value={entwurf.bedingungen.von ?? ''}
-                  onChange={(e) => setzeBedingung('von', e.target.value)}
-                />
-              </label>
-              <label>
-                <span>Betreff</span>
-                <input
-                  type="text"
-                  placeholder="enthält…"
-                  value={entwurf.bedingungen.betreff ?? ''}
-                  onChange={(e) => setzeBedingung('betreff', e.target.value)}
-                />
-              </label>
-              <label>
-                <span>Empfänger</span>
-                <input
-                  type="text"
-                  placeholder="enthält…"
-                  value={entwurf.bedingungen.an ?? ''}
-                  onChange={(e) => setzeBedingung('an', e.target.value)}
-                />
-              </label>
-              <label className="regel-kasten">
-                <input
-                  type="checkbox"
-                  checked={Boolean(entwurf.bedingungen.nurRundmail)}
-                  onChange={(e) => setzeBedingung('nurRundmail', e.target.checked)}
-                />
-                nur Rundmails (erkennbar an der Abmelde-Kopfzeile)
-              </label>
-              <p className="hint">Alles Angegebene muss zutreffen.</p>
-            </div>
-
-            <div className="regel-block">
-              <strong>… dann</strong>
-              <label>
-                <span>Verschieben</span>
-                <select
-                  value={entwurf.aktionen.verschiebeNach ?? ''}
-                  onChange={(e) => setzeAktion('verschiebeNach', e.target.value)}
-                >
-                  <option value="">(nicht verschieben)</option>
-                  {ziele.map((f) => (
-                    <option key={f.path} value={f.path}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="regel-kasten">
-                <input
-                  type="checkbox"
-                  checked={Boolean(entwurf.aktionen.alsGelesen)}
-                  onChange={(e) => setzeAktion('alsGelesen', e.target.checked)}
-                />
-                als gelesen markieren
-              </label>
-              <label className="regel-kasten">
-                <input
-                  type="checkbox"
-                  checked={Boolean(entwurf.aktionen.markieren)}
-                  onChange={(e) => setzeAktion('markieren', e.target.checked)}
-                />
-                markieren
-              </label>
-              <label className="regel-kasten">
-                <input
-                  type="checkbox"
-                  checked={Boolean(entwurf.aktionen.inDenPapierkorb)}
-                  onChange={(e) => setzeAktion('inDenPapierkorb', e.target.checked)}
-                />
-                in den Papierkorb
-              </label>
-            </div>
-
-            {vorschau && (
-              <div className="regel-vorschau">
-                <strong>
-                  {vorschau.treffer} von {vorschau.geprueft} geprüften Nachrichten würden
-                  zutreffen
-                </strong>
-                {vorschau.beispiele.map((b, i) => (
-                  <div key={i}>
-                    {b.from} — {b.subject}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="form-row regel-knoepfe">
-              <button className="btn secondary" disabled={busy} onClick={() => void vorfuehren()}>
-                Vorführen
-              </button>
-              <button className="btn" disabled={busy || !entwurf.name.trim()} onClick={() => void speichern()}>
-                Speichern
-              </button>
-              <button
-                className="link-btn"
-                onClick={() => {
-                  setEntwurf(null);
-                  setVorschau(null);
-                }}
+          <div className="regel-block">
+            <strong>… dann</strong>
+            <label>
+              <span>Verschieben</span>
+              <select
+                value={entwurf.aktionen.verschiebeNach ?? ''}
+                onChange={(e) => setzeAktion('verschiebeNach', e.target.value)}
               >
-                Abbrechen
-              </button>
+                <option value="">(nicht verschieben)</option>
+                {ziele.map((f) => (
+                  <option key={f.path} value={f.path}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="regel-kasten">
+              <input
+                type="checkbox"
+                checked={Boolean(entwurf.aktionen.alsGelesen)}
+                onChange={(e) => setzeAktion('alsGelesen', e.target.checked)}
+              />
+              als gelesen markieren
+            </label>
+            <label className="regel-kasten">
+              <input
+                type="checkbox"
+                checked={Boolean(entwurf.aktionen.markieren)}
+                onChange={(e) => setzeAktion('markieren', e.target.checked)}
+              />
+              markieren
+            </label>
+            <label className="regel-kasten">
+              <input
+                type="checkbox"
+                checked={Boolean(entwurf.aktionen.inDenPapierkorb)}
+                onChange={(e) => setzeAktion('inDenPapierkorb', e.target.checked)}
+              />
+              in den Papierkorb
+            </label>
+          </div>
+
+          {vorschau && (
+            <div className="regel-vorschau">
+              <strong>
+                {vorschau.treffer} von {vorschau.geprueft} geprüften Nachrichten würden
+                zutreffen
+              </strong>
+              {vorschau.beispiele.map((b, i) => (
+                <div key={i}>
+                  {b.from} — {b.subject}
+                </div>
+              ))}
             </div>
-          </div>
-        ) : (
+          )}
+
           <div className="form-row regel-knoepfe">
-            <button className="btn" onClick={() => setEntwurf({ ...LEER })}>
-              + Regel anlegen
+            <button className="btn secondary" disabled={busy} onClick={() => void vorfuehren()}>
+              Vorführen
             </button>
-            {regeln.some((r) => r.aktiv) && (
-              <button className="btn secondary" disabled={busy} onClick={() => void anwenden()}>
-                Auf Posteingang anwenden
-              </button>
-            )}
-            <button className="link-btn" onClick={onClose}>
-              Schließen
+            <button className="btn" disabled={busy || !entwurf.name.trim()} onClick={() => void speichern()}>
+              Speichern
+            </button>
+            <button
+              className="link-btn"
+              onClick={() => {
+                setEntwurf(null);
+                setVorschau(null);
+              }}
+            >
+              Abbrechen
             </button>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      ) : (
+        <div className="form-row regel-knoepfe">
+          <button className="btn" onClick={() => setEntwurf({ ...LEER })}>
+            + Regel anlegen
+          </button>
+          {regeln.some((r) => r.aktiv) && (
+            <button className="btn secondary" disabled={busy} onClick={() => void anwenden()}>
+              Auf Posteingang anwenden
+            </button>
+          )}
+          <button className="link-btn" onClick={onClose}>
+            Schließen
+          </button>
+        </div>
+      )}
+    </Fenster>
   );
 }

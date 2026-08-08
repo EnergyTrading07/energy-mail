@@ -91,7 +91,9 @@
 
   --text: #131a24;
   --text-2: #4d5867;
-  --text-3: #7c8797;
+  /* Gemessen: 4.86 auf weiss, 4.57 auf der leisen Flaeche. Vorher 3.64 - zu wenig
+     fuer gewoehnlichen Text, und daran haengen Betreff und Datum jeder Zeile. */
+  --text-3: #697280;
   --text-aus: #aeb6c2;
 
   --marke: #2f5fd8;
@@ -148,7 +150,8 @@
 
   --text: #e6ecf4;
   --text-2: #a2b0c1;
-  --text-3: #6e7c8e;
+  /* Gemessen: 5.47 auf der Flaeche, vorher 4.07. */
+  --text-3: #8592a3;
   --text-aus: #4c5766;
 
   --marke: #7ea6ff;

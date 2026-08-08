@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import * as api from '../api.js';
 import type { Contact } from '../api.js';
 
@@ -8,6 +8,8 @@ interface Props {
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
+  /** Kennung des inneren Feldes, damit eine Beschriftung darauf zeigen kann. */
+  id?: string;
 }
 
 /** Zerlegt "a@b.de, c@" in bereits fertige Adressen und den Teil, der gerade getippt wird. */
@@ -17,7 +19,7 @@ function splitInput(value: string): { fertig: string[]; aktuell: string } {
   return { fertig: teile.map((t) => t.trim()).filter(Boolean), aktuell: aktuell.trim() };
 }
 
-export function AddressInput({ value, onChange, placeholder, required, disabled }: Props) {
+export function AddressInput({ value, onChange, placeholder, required, disabled, id }: Props) {
   const [vorschlaege, setVorschlaege] = useState<Contact[]>([]);
   const [markiert, setMarkiert] = useState(0);
   const [offen, setOffen] = useState(false);
@@ -64,15 +66,27 @@ export function AddressInput({ value, onChange, placeholder, required, disabled 
   };
 
   const sichtbar = offen && vorschlaege.length > 0;
+  const listeId = useId();
 
   return (
     <div className="address-input" ref={container}>
+      {/*
+        Ein Feld mit Vorschlagsliste - fuer eine Vorlesesoftware ein eigenes Muster.
+        Ohne diese Angaben blieb die Liste unbemerkt: sie erschien, die Pfeiltasten
+        wanderten hindurch, und zu hoeren war nichts davon.
+      */}
       <input
+        id={id}
         value={value}
         placeholder={placeholder}
         required={required}
         disabled={disabled}
         autoComplete="off"
+        role="combobox"
+        aria-expanded={sichtbar}
+        aria-controls={listeId}
+        aria-autocomplete="list"
+        aria-activedescendant={sichtbar ? `${listeId}-${markiert}` : undefined}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => vorschlaege.length > 0 && setOffen(true)}
         onKeyDown={(e) => {
@@ -93,10 +107,13 @@ export function AddressInput({ value, onChange, placeholder, required, disabled 
         }}
       />
       {sichtbar && (
-        <ul className="suggestions">
+        <ul className="suggestions" id={listeId} role="listbox" aria-label="Vorschläge">
           {vorschlaege.map((contact, i) => (
             <li
               key={contact.address}
+              id={`${listeId}-${i}`}
+              role="option"
+              aria-selected={i === markiert}
               className={i === markiert ? 'active' : undefined}
               onMouseDown={(e) => {
                 e.preventDefault();

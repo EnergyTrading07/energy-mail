@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import * as api from '../api.js';
 import type { Draft, DraftAttachment } from '../api.js';
 import type { Absender } from '../identitaeten.js';
@@ -8,6 +8,7 @@ import { bestaetige, frage, sendeVorschlaege, waehleZeitpunkt } from '../dialoge
 import { htmlToText } from '../htmlText.js';
 import { AddressInput } from './AddressInput.js';
 import { RichTextEditor } from './RichTextEditor.js';
+import { Fenster } from './Fenster.js';
 import {
   bausteinLoeschen,
   bausteinSichern,
@@ -96,6 +97,8 @@ export function ComposeModal({
   onDiscardDraft,
   absender,
 }: Props) {
+  // Eine Kennung je Feld, damit die Beschriftung daneben darauf zeigen kann.
+  const felder = useId();
   const [to, setTo] = useState(initial?.to?.join(', ') ?? '');
   const [cc, setCc] = useState(initial?.cc?.join(', ') ?? '');
   const [bcc, setBcc] = useState(initial?.bcc?.join(', ') ?? '');
@@ -333,20 +336,6 @@ export function ComposeModal({
     if (await speichern()) onClose();
   };
 
-  /**
-   * Esc schließt das Fenster - über denselben Weg wie der Klick daneben, also mit
-   * Rückfrage und Angebot, als Entwurf zu sichern. Bewusst hier und nicht in der
-   * allgemeinen Tastaturbehandlung: nur an dieser Stelle ist bekannt, ob überhaupt
-   * etwas geschrieben wurde, das verlorengehen könnte.
-   */
-  useEffect(() => {
-    const beiTaste = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') void schliessen();
-    };
-    window.addEventListener('keydown', beiTaste);
-    return () => window.removeEventListener('keydown', beiTaste);
-  });
-
   const verwerfen = async () => {
     const ja = await bestaetige({
       titel: 'Entwurf verwerfen?',
@@ -367,326 +356,345 @@ export function ComposeModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={() => void schliessen()}>
-      <div
-        className={`modal modal-wide${ueberDatei > 0 ? ' datei-ueber' : ''}`}
-        onClick={(e) => e.stopPropagation()}
-        onDragEnter={(e) => {
+    /*
+     * Der Weg hinaus ist hier ein eigener: nur an dieser Stelle ist bekannt, ob etwas
+     * geschrieben wurde, das verlorengehen könnte. Escape und der Klick daneben nehmen
+     * deshalb denselben Weg wie der Schließen-Knopf - mit Rückfrage und dem Angebot,
+     * als Entwurf zu sichern.
+     */
+    <Fenster
+      titel={title}
+      onClose={() => void schliessen()}
+      klasse={`modal-wide${ueberDatei > 0 ? ' datei-ueber' : ''}`}
+      rahmenZusatz={{
+        onDragEnter: (e: React.DragEvent) => {
           if (bringtDateien([...e.dataTransfer.types])) setUeberDatei((n) => n + 1);
-        }}
-        onDragOver={(e) => {
+        },
+        onDragOver: (e: React.DragEvent) => {
           // Ohne preventDefault oeffnet der Browser die Datei einfach im Fenster - und
           // die Nachricht, an der man gerade schreibt, ist weg.
           if (bringtDateien([...e.dataTransfer.types])) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
           }
-        }}
-        onDragLeave={() => setUeberDatei((n) => Math.max(0, n - 1))}
-        onDrop={(e) => {
+        },
+        onDragLeave: () => setUeberDatei((n) => Math.max(0, n - 1)),
+        onDrop: (e: React.DragEvent) => {
           if (!bringtDateien([...e.dataTransfer.types])) return;
           e.preventDefault();
           setUeberDatei(0);
           void addFiles(e.dataTransfer.files);
-        }}
-      >
-        {ueberDatei > 0 && (
-          <div className="datei-flaeche" aria-hidden="true">
-            Dateien hier ablegen, um sie anzuhängen
+        },
+      }}
+    >
+      {ueberDatei > 0 && (
+        <div className="datei-flaeche" aria-hidden="true">
+          Dateien hier ablegen, um sie anzuhängen
+        </div>
+      )}
+      <form onSubmit={submit}>
+        {/* Nur zeigen, wenn es etwas zu wählen gibt - bei einem Konto ohne weitere
+            Adressen wäre die Zeile bloßes Beiwerk. */}
+        {auswahl.length > 1 && (
+          <div className="form-row">
+            <label htmlFor="absenderwahl">Von</label>
+            <select
+              id="absenderwahl"
+              value={absenderId}
+              disabled={busy}
+              onChange={(e) => {
+                setAbsenderId(e.target.value);
+                markDirty();
+              }}
+            >
+              {auswahl.map((a) => (
+                <option key={a.id ?? ''} value={a.id ?? ''}>
+                  {a.displayName ? `${a.displayName} <${a.email}>` : a.email}
+                </option>
+              ))}
+            </select>
           </div>
         )}
-        <h3>{title}</h3>
-        <form onSubmit={submit}>
-          {/* Nur zeigen, wenn es etwas zu wählen gibt - bei einem Konto ohne weitere
-              Adressen wäre die Zeile bloßes Beiwerk. */}
-          {auswahl.length > 1 && (
+        <div className="form-row">
+          {/* Der Knopf stand im Etikett - ein Klick darauf sprang zugleich ins Feld
+              daneben. Nebeneinander bleiben sie trotzdem. */}
+          <div className="etikett-zeile">
+            <label htmlFor={`${felder}-an`}>An</label>
+            {!showCopyFields && (
+              <button
+                type="button"
+                className="link-btn"
+                aria-expanded={false}
+                onClick={() => setShowCopyFields(true)}
+              >
+                + Kopie / Blindkopie
+              </button>
+            )}
+          </div>
+          <AddressInput
+            id={`${felder}-an`}
+            value={to}
+            onChange={(v) => {
+              setTo(v);
+              markDirty();
+            }}
+            required
+            disabled={busy}
+            placeholder="a@b.de, c@d.de"
+          />
+        </div>
+
+        {showCopyFields && (
+          <>
             <div className="form-row">
-              <label htmlFor="absenderwahl">Von</label>
-              <select
-                id="absenderwahl"
-                value={absenderId}
-                disabled={busy}
-                onChange={(e) => {
-                  setAbsenderId(e.target.value);
+              <label htmlFor={`${felder}-cc`}>Kopie (CC)</label>
+              <AddressInput
+                id={`${felder}-cc`}
+                value={cc}
+                onChange={(v) => {
+                  setCc(v);
                   markDirty();
                 }}
-              >
-                {auswahl.map((a) => (
-                  <option key={a.id ?? ''} value={a.id ?? ''}>
-                    {a.displayName ? `${a.displayName} <${a.email}>` : a.email}
-                  </option>
-                ))}
-              </select>
+                disabled={busy}
+                placeholder="sichtbar für alle"
+              />
             </div>
+            <div className="form-row">
+              <label htmlFor={`${felder}-bcc`}>Blindkopie (BCC)</label>
+              <AddressInput
+                id={`${felder}-bcc`}
+                value={bcc}
+                onChange={(v) => {
+                  setBcc(v);
+                  markDirty();
+                }}
+                disabled={busy}
+                placeholder="für andere Empfänger nicht sichtbar"
+              />
+            </div>
+          </>
+        )}
+
+        <div className="form-row">
+          <label htmlFor={`${felder}-betreff`}>Betreff</label>
+          <input
+            id={`${felder}-betreff`}
+            value={subject}
+            onChange={(e) => {
+              setSubject(e.target.value);
+              markDirty();
+            }}
+            required
+            disabled={busy}
+          />
+        </div>
+
+        <div className="form-row">
+          <span className="feld-titel">Nachricht</span>
+          <RichTextEditor
+            beschriftung="Nachricht"
+            html={html}
+            disabled={busy}
+            onChange={(v) => {
+              setHtml(v);
+              markDirty();
+            }}
+          />
+        </div>
+
+        <div className="form-row">
+          <label htmlFor={`${felder}-anhaenge`}>
+            Anhänge{attachments.length > 0 && ` (${attachments.length}, ${formatSize(totalBytes)})`}
+          </label>
+          <input
+            id={`${felder}-anhaenge`}
+            type="file"
+            multiple
+            disabled={busy}
+            onChange={(e) => {
+              void addFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          {initial?.attachOriginal && initial.attachOriginal.filenames.length > 0 && (
+            <ul className="draft-attachments">
+              {initial.attachOriginal.filenames.map((name, i) => (
+                <li key={`orig-${i}`}>
+                  <span className="draft-attachment-name">{name}</span>
+                  <span className="attachment-size">aus der Originalnachricht</span>
+                </li>
+              ))}
+            </ul>
           )}
-          <div className="form-row">
-            <label>
-              An
-              {!showCopyFields && (
-                <button type="button" className="link-btn" onClick={() => setShowCopyFields(true)}>
-                  + Kopie / Blindkopie
-                </button>
-              )}
-            </label>
-            <AddressInput
-              value={to}
-              onChange={(v) => {
-                setTo(v);
-                markDirty();
-              }}
-              required
-              disabled={busy}
-              placeholder="a@b.de, c@d.de"
-            />
-          </div>
-
-          {showCopyFields && (
-            <>
-              <div className="form-row">
-                <label>Kopie (CC)</label>
-                <AddressInput
-                  value={cc}
-                  onChange={(v) => {
-                    setCc(v);
-                    markDirty();
-                  }}
-                  disabled={busy}
-                  placeholder="sichtbar für alle"
-                />
-              </div>
-              <div className="form-row">
-                <label>Blindkopie (BCC)</label>
-                <AddressInput
-                  value={bcc}
-                  onChange={(v) => {
-                    setBcc(v);
-                    markDirty();
-                  }}
-                  disabled={busy}
-                  placeholder="für andere Empfänger nicht sichtbar"
-                />
-              </div>
-            </>
-          )}
-
-          <div className="form-row">
-            <label>Betreff</label>
-            <input
-              value={subject}
-              onChange={(e) => {
-                setSubject(e.target.value);
-                markDirty();
-              }}
-              required
-              disabled={busy}
-            />
-          </div>
-
-          <div className="form-row">
-            <label>Nachricht</label>
-            <RichTextEditor
-              html={html}
-              disabled={busy}
-              onChange={(v) => {
-                setHtml(v);
-                markDirty();
-              }}
-            />
-          </div>
-
-          <div className="form-row">
-            <label>
-              Anhänge{attachments.length > 0 && ` (${attachments.length}, ${formatSize(totalBytes)})`}
-            </label>
-            <input
-              type="file"
-              multiple
-              disabled={busy}
-              onChange={(e) => {
-                void addFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-            {initial?.attachOriginal && initial.attachOriginal.filenames.length > 0 && (
-              <ul className="draft-attachments">
-                {initial.attachOriginal.filenames.map((name, i) => (
-                  <li key={`orig-${i}`}>
-                    <span className="draft-attachment-name">{name}</span>
-                    <span className="attachment-size">aus der Originalnachricht</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {attachments.length > 0 && (
-              <ul className="draft-attachments">
-                {attachments.map((att, i) => (
-                  <li key={`${att.filename}-${i}`}>
-                    <span className="draft-attachment-name">{att.filename}</span>
-                    <span className="attachment-size">{formatSize(att.size)}</span>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      title="Anhang entfernen"
-                      disabled={busy}
-                      onClick={() => {
-                        setAttachments((prev) => prev.filter((_, index) => index !== i));
-                        markDirty();
-                      }}
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {error && <div className="error-banner">{error}</div>}
-
-          <div className="compose-footer">
-            <span className="draft-state">
-              {saving
-                ? 'Entwurf wird gespeichert…'
-                : savedAt
-                  ? `Entwurf gespeichert um ${savedAt.toLocaleTimeString('de-DE')}`
-                  : dirty
-                    ? 'Nicht gespeicherte Änderungen'
-                    : ''}
-            </span>
-            {pgpLage?.kannSignieren && (
-              <div className="pgp-wahl">
-                <span className="pgp-wahl-titel">Schutz</span>
-                {(
-                  [
-                    [undefined, 'ohne'],
-                    ['signieren', 'unterschreiben'],
-                    ['verschluesseln', 'verschlüsseln'],
-                  ] as const
-                ).map(([wert, wort]) => (
-                  <label
-                    key={wort}
-                    className={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln ? 'aus' : ''}
-                    title={
-                      wert === 'verschluesseln' && !pgpLage.kannVerschluesseln
-                        ? pgpLage.ohneSchluessel.length > 0
-                          ? `Kein Schlüssel für: ${pgpLage.ohneSchluessel.join(', ')}`
-                          : 'Zuerst einen Empfänger angeben'
-                        : undefined
-                    }
+          {attachments.length > 0 && (
+            <ul className="draft-attachments">
+              {attachments.map((att, i) => (
+                <li key={`${att.filename}-${i}`}>
+                  <span className="draft-attachment-name">{att.filename}</span>
+                  <span className="attachment-size">{formatSize(att.size)}</span>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    title="Anhang entfernen"
+                    disabled={busy}
+                    onClick={() => {
+                      setAttachments((prev) => prev.filter((_, index) => index !== i));
+                      markDirty();
+                    }}
                   >
-                    <input
-                      type="radio"
-                      name="pgp-schutz"
-                      checked={pgp === wert}
-                      disabled={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln}
-                      onChange={() => setPgp(wert)}
-                    />
-                    {wort}
-                  </label>
-                ))}
-                {pgp && attachments.length > 0 && (
-                  <span className="pgp-wahl-hinweis">
-                    Anhänge lassen sich noch nicht mitschützen – bitte ohne senden.
-                  </span>
-                )}
-              </div>
-            )}
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-            <div className="compose-actions">
-              {location.current?.uid && (
-                <button type="button" className="btn danger" onClick={() => void verwerfen()} disabled={busy}>
-                  Verwerfen
-                </button>
+        {error && <div className="error-banner">{error}</div>}
+
+        <div className="compose-footer">
+          <span className="draft-state">
+            {saving
+              ? 'Entwurf wird gespeichert…'
+              : savedAt
+                ? `Entwurf gespeichert um ${savedAt.toLocaleTimeString('de-DE')}`
+                : dirty
+                  ? 'Nicht gespeicherte Änderungen'
+                  : ''}
+          </span>
+          {pgpLage?.kannSignieren && (
+            <div className="pgp-wahl">
+              <span className="pgp-wahl-titel">Schutz</span>
+              {(
+                [
+                  [undefined, 'ohne'],
+                  ['signieren', 'unterschreiben'],
+                  ['verschluesseln', 'verschlüsseln'],
+                ] as const
+              ).map(([wert, wort]) => (
+                <label
+                  key={wort}
+                  className={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln ? 'aus' : ''}
+                  title={
+                    wert === 'verschluesseln' && !pgpLage.kannVerschluesseln
+                      ? pgpLage.ohneSchluessel.length > 0
+                        ? `Kein Schlüssel für: ${pgpLage.ohneSchluessel.join(', ')}`
+                        : 'Zuerst einen Empfänger angeben'
+                      : undefined
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="pgp-schutz"
+                    checked={pgp === wert}
+                    disabled={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln}
+                    onChange={() => setPgp(wert)}
+                  />
+                  {wort}
+                </label>
+              ))}
+              {pgp && attachments.length > 0 && (
+                <span className="pgp-wahl-hinweis">
+                  Anhänge lassen sich noch nicht mitschützen – bitte ohne senden.
+                </span>
               )}
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => void speichern()}
-                disabled={busy || saving}
-              >
-                Als Entwurf speichern
-              </button>
-              <button type="button" className="btn secondary" onClick={() => void schliessen()} disabled={busy}>
-                Schließen
-              </button>
-              <select
-                className="baustein-wahl"
-                value=""
-                disabled={busy}
-                title="Textbaustein einfügen oder verwalten"
-                onChange={(e) => {
-                  const wert = e.target.value;
-                  if (!wert) return;
-
-                  if (wert === '__sichern') {
-                    void frage({
-                      titel: 'Text als Baustein sichern',
-                      text: 'Unter diesem Namen steht er künftig in der Auswahl.',
-                      platzhalter: 'z. B. Freundlicher Gruß',
-                      ok: 'Sichern',
-                    }).then((name) => name && setBausteine(bausteinSichern(name, html)));
-                    return;
-                  }
-
-                  if (wert === '__loeschen') {
-                    // Die vorhandenen Namen stehen mit in der Frage, und die Prüfung
-                    // meldet einen Tippfehler am Feld. Vorher kam dafür ein zweites
-                    // Fenster ("… gibt es nicht"), nachdem das erste schon zu war.
-                    const treffer = (name: string) =>
-                      bausteine.find((b) => b.name.toLowerCase() === name.toLowerCase());
-                    void frage({
-                      titel: 'Welchen Baustein löschen?',
-                      text: `Vorhanden:\n${bausteine.map((b) => `· ${b.name}`).join('\n')}`,
-                      stil: 'gefahr',
-                      ok: 'Löschen',
-                      pruefe: (name) =>
-                        name && !treffer(name) ? `"${name}" gibt es nicht.` : null,
-                    }).then((name) => {
-                      const b = name && treffer(name);
-                      if (b) setBausteine(bausteinLoeschen(b.id));
-                    });
-                    return;
-                  }
-
-                  const baustein = bausteine.find((b) => b.id === wert);
-                  if (baustein) {
-                    // Anhängen statt ersetzen: der Baustein ergaenzt das Geschriebene,
-                    // er tritt nicht an seine Stelle.
-                    setHtml((vorher) => vorher + baustein.html);
-                    markDirty();
-                  }
-                }}
-              >
-                <option value="">Baustein…</option>
-                {bausteine.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-                <option value="__sichern">— Text als Baustein sichern</option>
-                {bausteine.length > 0 && <option value="__loeschen">— Baustein löschen</option>}
-              </select>
-              <button
-                type="button"
-                className="btn secondary"
-                disabled={busy}
-                title="Zu einem späteren Zeitpunkt senden"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void frageZeitpunkt().then((zeitpunkt) => {
-                    if (zeitpunkt) void submit(e, zeitpunkt);
-                  });
-                }}
-              >
-                Später…
-              </button>
-              <button type="submit" className="btn" disabled={busy}>
-                {busy ? 'Sende…' : 'Senden'}
-              </button>
             </div>
+          )}
+
+          <div className="compose-actions">
+            {location.current?.uid && (
+              <button type="button" className="btn danger" onClick={() => void verwerfen()} disabled={busy}>
+                Verwerfen
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={() => void speichern()}
+              disabled={busy || saving}
+            >
+              Als Entwurf speichern
+            </button>
+            <button type="button" className="btn secondary" onClick={() => void schliessen()} disabled={busy}>
+              Schließen
+            </button>
+            <select
+              className="baustein-wahl"
+              value=""
+              disabled={busy}
+              title="Textbaustein einfügen oder verwalten"
+              onChange={(e) => {
+                const wert = e.target.value;
+                if (!wert) return;
+
+                if (wert === '__sichern') {
+                  void frage({
+                    titel: 'Text als Baustein sichern',
+                    text: 'Unter diesem Namen steht er künftig in der Auswahl.',
+                    platzhalter: 'z. B. Freundlicher Gruß',
+                    ok: 'Sichern',
+                  }).then((name) => name && setBausteine(bausteinSichern(name, html)));
+                  return;
+                }
+
+                if (wert === '__loeschen') {
+                  // Die vorhandenen Namen stehen mit in der Frage, und die Prüfung
+                  // meldet einen Tippfehler am Feld. Vorher kam dafür ein zweites
+                  // Fenster ("… gibt es nicht"), nachdem das erste schon zu war.
+                  const treffer = (name: string) =>
+                    bausteine.find((b) => b.name.toLowerCase() === name.toLowerCase());
+                  void frage({
+                    titel: 'Welchen Baustein löschen?',
+                    text: `Vorhanden:\n${bausteine.map((b) => `· ${b.name}`).join('\n')}`,
+                    stil: 'gefahr',
+                    ok: 'Löschen',
+                    pruefe: (name) =>
+                      name && !treffer(name) ? `"${name}" gibt es nicht.` : null,
+                  }).then((name) => {
+                    const b = name && treffer(name);
+                    if (b) setBausteine(bausteinLoeschen(b.id));
+                  });
+                  return;
+                }
+
+                const baustein = bausteine.find((b) => b.id === wert);
+                if (baustein) {
+                  // Anhängen statt ersetzen: der Baustein ergaenzt das Geschriebene,
+                  // er tritt nicht an seine Stelle.
+                  setHtml((vorher) => vorher + baustein.html);
+                  markDirty();
+                }
+              }}
+            >
+              <option value="">Baustein…</option>
+              {bausteine.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+              <option value="__sichern">— Text als Baustein sichern</option>
+              {bausteine.length > 0 && <option value="__loeschen">— Baustein löschen</option>}
+            </select>
+            <button
+              type="button"
+              className="btn secondary"
+              disabled={busy}
+              title="Zu einem späteren Zeitpunkt senden"
+              onClick={(e) => {
+                e.preventDefault();
+                void frageZeitpunkt().then((zeitpunkt) => {
+                  if (zeitpunkt) void submit(e, zeitpunkt);
+                });
+              }}
+            >
+              Später…
+            </button>
+            <button type="submit" className="btn" disabled={busy}>
+              {busy ? 'Sende…' : 'Senden'}
+            </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Fenster>
   );
 }

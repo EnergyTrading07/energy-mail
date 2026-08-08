@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api.js';
+import { Fenster } from './Fenster.js';
 
 /**
  * Die Nachricht im Original.
@@ -77,46 +78,43 @@ export function QuelltextModal({ accountId, ordner, uid, betreff, onClose }: Pro
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-breit" onClick={(e) => e.stopPropagation()}>
-        <h3>Quelltext — {betreff || '(kein Betreff)'}</h3>
+    <Fenster titel={`Quelltext — ${betreff || '(kein Betreff)'}`} onClose={onClose} klasse="modal-breit">
 
-        {fehler && <div className="error-banner">{fehler}</div>}
-        {!roh && !fehler && <div className="empty-state">Wird geholt…</div>}
+      {fehler && <div className="error-banner">{fehler}</div>}
+      {!roh && !fehler && <div className="empty-state">Wird geholt…</div>}
 
-        {roh && (
-          <>
-            <h4 className="wartend-titel">Kopfzeilen</h4>
-            <pre className="quelltext">
-              {kopf.split(/\r?\n/).map((zeile, i) => (
-                <div key={i} className={PRUEFZEILEN.test(zeile) ? 'quell-pruefzeile' : undefined}>
-                  {zeile || ' '}
-                </div>
-              ))}
-            </pre>
+      {roh && (
+        <>
+          <h4 className="wartend-titel">Kopfzeilen</h4>
+          <pre className="quelltext">
+            {kopf.split(/\r?\n/).map((zeile, i) => (
+              <div key={i} className={PRUEFZEILEN.test(zeile) ? 'quell-pruefzeile' : undefined}>
+                {zeile || ' '}
+              </div>
+            ))}
+          </pre>
 
-            <h4 className="wartend-titel">
-              Rumpf{' '}
-              <button className="link-btn" onClick={() => setRumpfOffen((v) => !v)}>
-                {rumpfOffen ? 'einklappen' : `anzeigen (${Math.round(rumpf.length / 1024)} KB)`}
-              </button>
-            </h4>
-            {rumpfOffen && <pre className="quelltext quelltext-rumpf">{rumpf}</pre>}
-          </>
-        )}
+          <h4 className="wartend-titel">
+            Rumpf{' '}
+            <button className="link-btn" onClick={() => setRumpfOffen((v) => !v)}>
+              {rumpfOffen ? 'einklappen' : `anzeigen (${Math.round(rumpf.length / 1024)} KB)`}
+            </button>
+          </h4>
+          {rumpfOffen && <pre className="quelltext quelltext-rumpf">{rumpf}</pre>}
+        </>
+      )}
 
-        <div className="form-row regel-knoepfe">
-          <button className="btn secondary" disabled={!roh} onClick={() => void kopieren()}>
-            {kopiert ? 'Kopiert' : 'Alles kopieren'}
-          </button>
-          <button className="btn secondary" disabled={!roh} onClick={sichern}>
-            Als Datei sichern
-          </button>
-          <button className="link-btn" onClick={onClose}>
-            Schließen
-          </button>
-        </div>
+      <div className="form-row regel-knoepfe">
+        <button className="btn secondary" disabled={!roh} onClick={() => void kopieren()}>
+          {kopiert ? 'Kopiert' : 'Alles kopieren'}
+        </button>
+        <button className="btn secondary" disabled={!roh} onClick={sichern}>
+          Als Datei sichern
+        </button>
+        <button className="link-btn" onClick={onClose}>
+          Schließen
+        </button>
       </div>
-    </div>
+    </Fenster>
   );
 }

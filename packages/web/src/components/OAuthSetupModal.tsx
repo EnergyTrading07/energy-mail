@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import * as api from '../api.js';
 import type { OAuthClients, OAuthProvider } from '../api.js';
 import { bestaetige } from '../dialoge.js';
+import { Fenster } from './Fenster.js';
 
 interface Props {
   onClose: () => void;
@@ -50,6 +51,8 @@ const ANLEITUNG: Record<OAuthProvider, Anleitung> = {
 };
 
 export function OAuthSetupModal({ onClose, onChanged }: Props) {
+  // Eine Kennung je Feld, damit die Beschriftung daneben darauf zeigen kann.
+  const felder = useId();
   const [clients, setClients] = useState<OAuthClients | null>(null);
   const [provider, setProvider] = useState<OAuthProvider>('google');
   const [clientId, setClientId] = useState('');
@@ -117,99 +120,97 @@ export function OAuthSetupModal({ onClose, onChanged }: Props) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <h3>Gmail und Outlook einrichten</h3>
+    <Fenster titel="Gmail und Outlook einrichten" onClose={onClose} klasse="modal-wide">
 
-        <p className="hint" style={{ padding: '0 0 12px' }}>
-          Google und Microsoft lassen IMAP nur noch mit OAuth zu. Dafür braucht jede Anwendung
-          eigene Zugangsdaten, die du selbst beim Anbieter anlegen musst – das kann kein
-          Programm für dich tun. Es ist einmalig pro Anbieter nötig.
-        </p>
+      <p className="hint" style={{ padding: '0 0 12px' }}>
+        Google und Microsoft lassen IMAP nur noch mit OAuth zu. Dafür braucht jede Anwendung
+        eigene Zugangsdaten, die du selbst beim Anbieter anlegen musst – das kann kein
+        Programm für dich tun. Es ist einmalig pro Anbieter nötig.
+      </p>
 
-        <div className="provider-tabs">
-          {(Object.keys(ANLEITUNG) as OAuthProvider[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={p === provider ? 'active' : undefined}
-              onClick={() => setProvider(p)}
-            >
-              {ANLEITUNG[p].titel}
-              {clients?.[p]?.configured && <span className="badge-ok">eingerichtet</span>}
-            </button>
-          ))}
+      <div className="provider-tabs">
+        {(Object.keys(ANLEITUNG) as OAuthProvider[]).map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={p === provider ? 'active' : undefined}
+            onClick={() => setProvider(p)}
+          >
+            {ANLEITUNG[p].titel}
+            {clients?.[p]?.configured && <span className="badge-ok">eingerichtet</span>}
+          </button>
+        ))}
+      </div>
+
+      <ol className="setup-steps">
+        <li>
+          Öffne die{' '}
+          <a href={anleitung.konsoleUrl} target="_blank" rel="noreferrer">
+            {anleitung.konsole}
+          </a>
+          .
+        </li>
+        {anleitung.schritte.map((schritt, i) => (
+          <li key={i}>{schritt}</li>
+        ))}
+      </ol>
+
+      <p className="hint" style={{ padding: '0 0 12px' }}>
+        <strong>Rückleitungsadresse:</strong> {anleitung.redirect}
+        <br />
+        Energy Mail wählt bei jeder Anmeldung einen freien Port und leitet dorthin zurück.
+      </p>
+
+      <form onSubmit={speichern}>
+        <div className="form-row">
+          <label htmlFor={`${felder}-id`}>Client-ID</label>
+          <input
+            id={`${felder}-id`}
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            required
+            disabled={busy}
+            placeholder="z.B. 1234-abcd.apps.googleusercontent.com"
+          />
+        </div>
+        <div className="form-row">
+          <label>
+            Client-Schlüssel
+            {anleitung.secretNoetig === 'optional' && ' (bei öffentlichem Client leer lassen)'}
+          </label>
+          <input
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            disabled={busy}
+            placeholder={
+              clients?.[provider]?.configured ? 'unverändert lassen oder neu eingeben' : ''
+            }
+          />
         </div>
 
-        <ol className="setup-steps">
-          <li>
-            Öffne die{' '}
-            <a href={anleitung.konsoleUrl} target="_blank" rel="noreferrer">
-              {anleitung.konsole}
-            </a>
-            .
-          </li>
-          {anleitung.schritte.map((schritt, i) => (
-            <li key={i}>{schritt}</li>
-          ))}
-        </ol>
+        {error && <div className="error-banner">{error}</div>}
+        {hinweis && <div className="success-banner">{hinweis}</div>}
 
-        <p className="hint" style={{ padding: '0 0 12px' }}>
-          <strong>Rückleitungsadresse:</strong> {anleitung.redirect}
-          <br />
-          Energy Mail wählt bei jeder Anmeldung einen freien Port und leitet dorthin zurück.
-        </p>
-
-        <form onSubmit={speichern}>
-          <div className="form-row">
-            <label>Client-ID</label>
-            <input
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              required
-              disabled={busy}
-              placeholder="z.B. 1234-abcd.apps.googleusercontent.com"
-            />
-          </div>
-          <div className="form-row">
-            <label>
-              Client-Schlüssel
-              {anleitung.secretNoetig === 'optional' && ' (bei öffentlichem Client leer lassen)'}
-            </label>
-            <input
-              type="password"
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
-              disabled={busy}
-              placeholder={
-                clients?.[provider]?.configured ? 'unverändert lassen oder neu eingeben' : ''
-              }
-            />
-          </div>
-
-          {error && <div className="error-banner">{error}</div>}
-          {hinweis && <div className="success-banner">{hinweis}</div>}
-
-          <div className="compose-footer">
-            <span className="draft-state">
-              Die Zugangsdaten werden verschlüsselt gespeichert, wie die Kontopasswörter.
-            </span>
-            <div className="compose-actions">
-              {clients?.[provider]?.configured && (
-                <button type="button" className="btn danger" onClick={() => void entfernen()} disabled={busy}>
-                  Entfernen
-                </button>
-              )}
-              <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>
-                Schließen
+        <div className="compose-footer">
+          <span className="draft-state">
+            Die Zugangsdaten werden verschlüsselt gespeichert, wie die Kontopasswörter.
+          </span>
+          <div className="compose-actions">
+            {clients?.[provider]?.configured && (
+              <button type="button" className="btn danger" onClick={() => void entfernen()} disabled={busy}>
+                Entfernen
               </button>
-              <button type="submit" className="btn" disabled={busy}>
-                {busy ? 'Speichere…' : 'Speichern'}
-              </button>
-            </div>
+            )}
+            <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>
+              Schließen
+            </button>
+            <button type="submit" className="btn" disabled={busy}>
+              {busy ? 'Speichere…' : 'Speichern'}
+            </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Fenster>
   );
 }

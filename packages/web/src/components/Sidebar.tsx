@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CategoryInfo, Etikett, FolderInfo, GmailCategory } from '@energy-mail/mail-core';
 import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
+import { ordnerBeschriftung } from '../barrierefrei.js';
 import { FRACHT_ART, ausFracht, darfAblegen, type Fracht } from '../ziehen.js';
 import type {
   Account,
@@ -108,12 +109,20 @@ function FolderRow({
   }
 
   return (
-    <div
+    // Ein echter Knopf, kein angeklicktes div: nur so ist die Zeile mit der Tabulator-
+    // taste erreichbar und laesst sich mit Eingabe und Leertaste ausloesen, ohne dass
+    // beides hier nachgebaut werden muesste.
+    <button
+      type="button"
       className={
         `folder-row${active ? ' active' : ''}` +
         (ueber === 'ja' ? ' ablegbar' : ueber === 'nein' ? ' nicht-ablegbar' : '')
       }
       style={{ paddingLeft: 10 + tiefe * 14 }}
+      // Der Hinweis beim Ueberfahren nennt den Pfad auf dem Server; vorgelesen wird der
+      // angezeigte Name samt der Zahl daneben - "3" allein sagt nicht, wovon.
+      aria-label={ordnerBeschriftung(label, zaehler)}
+      aria-current={active ? 'true' : undefined}
       onClick={() => onSelect(folder.path)}
       onContextMenu={(e) => onContextMenu?.(e, folder)}
       onDragOver={(e) => {
@@ -140,7 +149,7 @@ function FolderRow({
       <FolderIcon role={folder.specialUse} />
       <span className={zaehler ? 'folder-name unread' : 'folder-name'}>{label}</span>
       {zaehler ? <span className="unread-badge">{badge(zaehler)}</span> : null}
-    </div>
+    </button>
   );
 }
 
@@ -159,10 +168,13 @@ function CategoryRow({
   onSelect: (category: GmailCategory) => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={`folder-row category-row${active ? ' active' : ''}`}
       style={{ paddingLeft: 24 }}
       onClick={() => onSelect(info.id)}
+      aria-label={ordnerBeschriftung(categoryLabel(info.id), info.unseen)}
+      aria-current={active ? 'true' : undefined}
       title={`${categoryDescription(info.id)} · ${info.total} Nachrichten`}
     >
       <FolderIcon role={info.id} />
@@ -170,7 +182,7 @@ function CategoryRow({
         {categoryLabel(info.id)}
       </span>
       {info.unseen ? <span className="unread-badge">{badge(info.unseen)}</span> : null}
-    </div>
+    </button>
   );
 }
 
@@ -355,7 +367,7 @@ export function Sidebar({
   };
 
   return (
-    <div className="sidebar">
+    <nav className="sidebar" aria-label="Konten und Ordner">
       {menue && (
         <FolderMenu
           x={menue.x}
@@ -374,14 +386,16 @@ export function Sidebar({
         {/* Nur bei mehreren Konten: bei einem einzigen waere es derselbe Posteingang
             zweimal, und die Liste faenge mit einer Doppelung an. */}
         {accounts.length > 1 && (
-          <div
+          <button
+            type="button"
             className={`folder-row gesamt-zeile${gesamtAnsicht ? ' active' : ''}`}
             onClick={onGesamtAnsicht}
+            aria-current={gesamtAnsicht ? 'true' : undefined}
             title="Die Posteingänge aller Konten in einer Liste"
           >
             <FolderIcon role="\Inbox" />
             <span className="folder-name">Alle Posteingänge</span>
-          </div>
+          </button>
         )}
 
         {accounts.map((account) => {
@@ -666,6 +680,6 @@ export function Sidebar({
           </div>
         )}
       </div>
-    </div>
+    </nav>
   );
 }

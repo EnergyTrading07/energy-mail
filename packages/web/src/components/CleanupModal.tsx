@@ -3,6 +3,7 @@ import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { bestaetige } from '../dialoge.js';
 import { fortschrittsText, useFortschritt } from '../useFortschritt.js';
+import { Fenster } from './Fenster.js';
 
 /**
  * Postfach aufräumen.
@@ -106,88 +107,85 @@ export function CleanupModal({ account, onClose, onRegelAnlegen, onGeaendert }: 
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <h3>Postfach aufräumen — {account.email}</h3>
+    <Fenster titel={`Postfach aufräumen — ${account.email}`} onClose={onClose} klasse="modal-wide">
 
-        {daten && (
-          <p className="hint">
-            Aus den jüngsten {daten.stichprobe.toLocaleString('de-DE')} Nachrichten ermittelt;
-            die Anzahlen gelten für den gesamten Posteingang
-            ({daten.imOrdner.toLocaleString('de-DE')} Nachrichten).
-          </p>
-        )}
+      {daten && (
+        <p className="hint">
+          Aus den jüngsten {daten.stichprobe.toLocaleString('de-DE')} Nachrichten ermittelt;
+          die Anzahlen gelten für den gesamten Posteingang
+          ({daten.imOrdner.toLocaleString('de-DE')} Nachrichten).
+        </p>
+      )}
 
-        {fehler && <div className="error-banner">{fehler}</div>}
-        {meldung && <div className="regel-vorschau">{meldung}</div>}
-        {laeuft && (
-          <div className="empty-state">{fortschrittsText(stand, 'Absender werden ermittelt…')}</div>
-        )}
+      {fehler && <div className="error-banner">{fehler}</div>}
+      {meldung && <div className="regel-vorschau">{meldung}</div>}
+      {laeuft && (
+        <div className="empty-state">{fortschrittsText(stand, 'Absender werden ermittelt…')}</div>
+      )}
 
-        {daten && !laeuft && (
-          <table className="absender-tabelle">
-            <thead>
-              <tr>
-                <th>Absender</th>
-                <th className="zahl">Nachrichten</th>
-                <th className="zahl">ungelesen</th>
-                <th></th>
+      {daten && !laeuft && (
+        <table className="absender-tabelle">
+          <thead>
+            <tr>
+              <th>Absender</th>
+              <th className="zahl">Nachrichten</th>
+              <th className="zahl">ungelesen</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {daten.eintraege.map((e) => (
+              <tr key={e.adresse}>
+                <td>
+                  <div className="absender-name">{e.name || e.adresse}</div>
+                  <div className="absender-adresse">{e.adresse}</div>
+                </td>
+                <td className="zahl">{e.gesamt.toLocaleString('de-DE')}</td>
+                <td className="zahl">{e.ungelesen.toLocaleString('de-DE')}</td>
+                <td className="absender-aktionen">
+                  <button
+                    className="link-btn"
+                    disabled={!e.listUnsubscribe || busy !== null}
+                    title={
+                      e.listUnsubscribe
+                        ? e.einKlickAbmeldung
+                          ? 'Abmeldung mit einem Klick - der Absender hat das zugesagt'
+                          : 'Abmelden über den vom Absender angegebenen Weg'
+                        : 'Dieser Absender gibt keinen Abmeldeweg an'
+                    }
+                    onClick={() => void abmelden(e)}
+                  >
+                    {busy === e.adresse ? '…' : 'Abmelden'}
+                  </button>
+                  <button
+                    className="link-btn gefaehrlich"
+                    disabled={busy !== null}
+                    onClick={() => void wegraeumen(e)}
+                  >
+                    Alle wegräumen
+                  </button>
+                  <button
+                    className="link-btn"
+                    disabled={busy !== null}
+                    onClick={() => onRegelAnlegen(e.adresse, e.name || e.adresse)}
+                  >
+                    Regel…
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {daten.eintraege.map((e) => (
-                <tr key={e.adresse}>
-                  <td>
-                    <div className="absender-name">{e.name || e.adresse}</div>
-                    <div className="absender-adresse">{e.adresse}</div>
-                  </td>
-                  <td className="zahl">{e.gesamt.toLocaleString('de-DE')}</td>
-                  <td className="zahl">{e.ungelesen.toLocaleString('de-DE')}</td>
-                  <td className="absender-aktionen">
-                    <button
-                      className="link-btn"
-                      disabled={!e.listUnsubscribe || busy !== null}
-                      title={
-                        e.listUnsubscribe
-                          ? e.einKlickAbmeldung
-                            ? 'Abmeldung mit einem Klick - der Absender hat das zugesagt'
-                            : 'Abmelden über den vom Absender angegebenen Weg'
-                          : 'Dieser Absender gibt keinen Abmeldeweg an'
-                      }
-                      onClick={() => void abmelden(e)}
-                    >
-                      {busy === e.adresse ? '…' : 'Abmelden'}
-                    </button>
-                    <button
-                      className="link-btn gefaehrlich"
-                      disabled={busy !== null}
-                      onClick={() => void wegraeumen(e)}
-                    >
-                      Alle wegräumen
-                    </button>
-                    <button
-                      className="link-btn"
-                      disabled={busy !== null}
-                      onClick={() => onRegelAnlegen(e.adresse, e.name || e.adresse)}
-                    >
-                      Regel…
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+          </tbody>
+        </table>
+      )}
 
-        <div className="form-row regel-knoepfe">
-          <button className="btn secondary" disabled={laeuft} onClick={laden}>
-            Neu ermitteln
-          </button>
-          <button className="link-btn" onClick={onClose}>
-            Schließen
-          </button>
-        </div>
+      <div className="form-row regel-knoepfe">
+        <button className="btn secondary" disabled={laeuft} onClick={laden}>
+          Neu ermitteln
+        </button>
+        <button className="link-btn" onClick={onClose}>
+          Schließen
+        </button>
       </div>
-    </div>
+    </Fenster>
   );
 }
