@@ -18,6 +18,8 @@ import { setzeMenue } from './menu.js';
 import { starteBenachrichtigungen } from './notifications.js';
 import { richteRechtschreibungEin } from './rechtschreibung.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
+import { horcheAufFensterfehler, richteAbsturzbehandlungEin } from './diagnose.js';
+import { protokolliere } from '@energy-mail/server/protokoll';
 
 // Gleicher Port wie der Standalone-Server (siehe packages/server), damit der ohne
 // zusätzliche Konfiguration gebaute Web-Client (Default VITE_API_URL) auch hier passt.
@@ -241,6 +243,15 @@ app.whenReady().then(async () => {
   // Servercode wäre dort nicht beschreibbar.
   setDataDir(app.getPath('userData'));
 
+  /*
+   * Ab hier wird protokolliert und nichts geht mehr lautlos verloren.
+   *
+   * Muss nach setDataDir stehen, weil das Protokoll in den Benutzerordner schreibt -
+   * und so früh wie irgend möglich, denn was davor abbricht, bleibt unbemerkt.
+   */
+  richteAbsturzbehandlungEin();
+  protokolliere('info', 'start', `Energy Mail ${app.getVersion()} startet`);
+
   // Als Allererstes, noch vor dem Server: von hier an dauert es je nach Rechner ein bis
   // drei Sekunden, und in dieser Zeit soll etwas zu sehen sein.
   const startbild = zeigeStartbild();
@@ -267,6 +278,7 @@ app.whenReady().then(async () => {
   richteBrueckeEin();
 
   const fenster = createWindow(url);
+  horcheAufFensterfehler(fenster);
 
   /**
    * Erst tauschen, wenn tatsächlich etwas zu sehen ist.

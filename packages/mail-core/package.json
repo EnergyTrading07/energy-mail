@@ -11,7 +11,8 @@
     "./etiketten": "./dist/etiketten.js",
     "./vcard": "./dist/vcard.js",
     "./mbox": "./dist/mbox.js",
-    "./ics": "./dist/ics.js"
+    "./ics": "./dist/ics.js",
+    "./protokoll": "./dist/protokoll.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

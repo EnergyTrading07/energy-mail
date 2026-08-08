@@ -11,7 +11,8 @@
     "./paths": "./dist/paths.js",
     "./events": "./dist/watcherRegistry.js",
     "./sendqueue": "./dist/sendQueue.js",
-    "./kontakte": "./dist/contactStore.js"
+    "./kontakte": "./dist/contactStore.js",
+    "./protokoll": "./dist/protokollDatei.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

@@ -174,6 +174,7 @@ import {
 import { clearFlow, getFlow, startOAuthFlow } from './oauthFlow.js';
 import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStore.js';
 import { installTokenRefresh } from './tokenRefresh.js';
+import { fastifyProtokollZiel } from './protokollDatei.js';
 import {
   meldeAktualisierung,
   meldeFortschritt,
@@ -225,7 +226,18 @@ class HttpError extends Error {
 }
 
 export async function buildServer() {
-  const app = Fastify({ logger: true, bodyLimit: BODY_LIMIT_BYTES });
+  /*
+   * Das Protokoll geht zusaetzlich in eine Datei.
+   *
+   * Nach stdout allein sieht es in der ausgelieferten Anwendung niemand - sagt dort
+   * jemand "es geht nicht", gaebe es nichts zum Nachsehen. Das Ziel schreibt weiterhin
+   * nach stdout und zusaetzlich in den Benutzerordner; alles geht vorher durch die
+   * Reinigung in protokoll.ts.
+   */
+  const app = Fastify({
+    logger: { stream: fastifyProtokollZiel() },
+    bodyLimit: BODY_LIMIT_BYTES,
+  });
 
   await app.register(cors, { origin: true });
   await app.register(websocketPlugin);

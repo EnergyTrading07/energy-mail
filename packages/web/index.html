@@ -61,20 +61,13 @@
       gespeicherte Wahl liest und den Grund entsprechend setzt. Sie muss inline stehen
       und vor allem anderen kommen; eine nachgeladene Datei wäre schon zu spät.
     -->
-    <script>
-      (function () {
-        try {
-          var wahl = localStorage.getItem('energy-mail:thema');
-          var dunkel =
-            wahl === 'dunkel' ||
-            ((!wahl || wahl === 'system') &&
-              window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.dataset.thema = dunkel ? 'dunkel' : 'hell';
-        } catch (e) {
-          // Ohne lesbaren Speicher bleibt es bei hell - kein Grund, den Start abzubrechen.
-        }
-      })();
-    </script>
+    <!--
+      Setzt das Erscheinungsbild vor dem ersten Bild - siehe public/thema-vorab.js.
+      Ohne "defer" und ohne "async": es soll das Zeichnen aufhalten, genau dafür ist es
+      da. Als eigene Datei, weil das Schutzregelwerk oben keine eingebetteten Skripte
+      zulässt.
+    -->
+    <script src="/thema-vorab.js"></script>
 
     <style>
       :root[data-thema='hell'] {

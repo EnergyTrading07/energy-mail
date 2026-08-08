@@ -1,6 +1,7 @@
 import { BrowserWindow, Menu, app, shell, type MenuItemConstructorOptions } from 'electron';
 import { sucheAktualisierung } from './autoUpdate.js';
 import { zeigeUeber } from './kleineFenster.js';
+import { erzeugeFehlerbericht, oeffneProtokollordner } from './diagnose.js';
 
 /**
  * Deutsches Anwendungsmenü.
@@ -119,6 +120,22 @@ export function setzeMenue(): void {
         {
           label: 'Projektseite öffnen',
           click: () => void shell.openExternal('https://github.com/EnergyTrading07/energy-mail'),
+        },
+        { type: 'separator' },
+        /*
+         * Der Weg, einen Fehler zu melden.
+         *
+         * Ohne ihn bleibt es bei "es geht nicht" - und damit lässt sich nichts
+         * anfangen. Der Bericht enthält das Protokoll und die Angaben zur Umgebung,
+         * ohne Kennwörter, Zugangsmarken und Mailadressen.
+         */
+        {
+          label: 'Fehlerbericht erzeugen…',
+          click: () => void erzeugeFehlerbericht(),
+        },
+        {
+          label: 'Protokollordner öffnen',
+          click: () => oeffneProtokollordner(),
         },
         { type: 'separator' },
         // Ein eigenes Fenster statt einer gesperrten Zeile mit der Fassungsnummer: dort
