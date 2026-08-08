@@ -2,6 +2,7 @@ import { type FetchMessageObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { withClient, withThrowawayClient } from './connectionPool.js';
 import { nimmtEtikettenAn } from './etiketten.js';
+import { leseEinladung, type Einladung } from './ics.js';
 import { alsMboxEintrag } from './mbox.js';
 import { findeOffeneVorgaenge, type OffenerVorgang } from './nachfassen.js';
 import {
@@ -575,6 +576,7 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
 
       return {
         ...summary,
+        einladung: findeEinladung(parsed.attachments),
         text: typeof parsed.text === 'string' ? parsed.text : undefined,
         html: parsed.html,
         // Aus der Struktur statt aus parsed.attachments - so gehen keine Anhangsbytes
@@ -589,6 +591,35 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       lock.release();
     }
   });
+}
+
+/**
+ * Sucht in den Teilen einer Nachricht die Kalenderdatei.
+ *
+ * Eine Besprechungseinladung steckt als Teil vom Typ "text/calendar" in der Nachricht -
+ * mal mit Dateinamen ("invite.ics"), mal ohne. mailparser reicht beides unter den
+ * Anhängen durch, weil es weder Text noch HTML ist.
+ *
+ * Eine Antwort auf eine Einladung (METHOD:REPLY) wird bewusst mit ausgewertet: dann
+ * steht in der Nachricht, wer zu- oder abgesagt hat, und das gehört angezeigt.
+ */
+function findeEinladung(
+  teile: { contentType?: string; filename?: string; content?: Buffer }[] | undefined,
+): Einladung | undefined {
+  for (const teil of teile ?? []) {
+    const istKalender =
+      (teil.contentType ?? '').toLowerCase().startsWith('text/calendar') ||
+      (teil.filename ?? '').toLowerCase().endsWith('.ics');
+    if (!istKalender || !teil.content) continue;
+
+    try {
+      const gelesen = leseEinladung(teil.content.toString('utf8'));
+      if (gelesen.termine.length > 0) return gelesen;
+    } catch {
+      // Eine unlesbare Kalenderdatei ist kein Grund, die Nachricht nicht zu zeigen.
+    }
+  }
+  return undefined;
 }
 
 export interface DownloadedAttachment {

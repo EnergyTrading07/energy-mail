@@ -176,6 +176,23 @@ export function ladeGesamtPosteingang(nach?: string | null): Promise<GesamtSeite
   return request(`/posteingang?${params}`);
 }
 
+// --- Einladungen ---
+
+export type EinladungsAntwort = 'zusagen' | 'absagen' | 'vorbehalten';
+
+export function beantworteEinladung(
+  accountId: string,
+  folder: string,
+  uid: number,
+  antwort: EinladungsAntwort,
+  bemerkung?: string,
+): Promise<{ ok: boolean; an: string; als: string }> {
+  return request(
+    `/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}/einladung`,
+    { method: 'POST', body: JSON.stringify({ antwort, bemerkung }) },
+  );
+}
+
 // --- Etiketten ---
 
 export function ladeEtiketten(): Promise<Etikett[]> {

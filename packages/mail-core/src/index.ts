@@ -15,3 +15,4 @@ export * from './mbox.js';
 export * from './vcard.js';
 export * from './etiketten.js';
 export * from './zusammenfuehren.js';
+export * from './ics.js';

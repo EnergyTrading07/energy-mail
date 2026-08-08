@@ -1,3 +1,4 @@
+import type { Einladung } from './ics.js';
 export interface PasswordAuth {
   type: 'password';
   user: string;
@@ -167,6 +168,11 @@ export interface FullMessage extends MessageSummary {
   html?: string | false;
   attachments: AttachmentInfo[];
   /**
+   * Eine Besprechungseinladung, sofern die Nachricht eine trägt. Ohne das Auswerten
+   * bekäme der Nutzer nur eine Datei namens "invite.ics" zu sehen.
+   */
+  einladung?: Einladung;
+  /**
    * Message-ID dieser Nachricht. Grundlage dafür, dass eine Antwort beim Empfänger im
    * richtigen Gesprächsverlauf einsortiert wird - Mailprogramme gehen über diese
    * Kopfzeilen, nicht über den Betreff.
@@ -199,6 +205,11 @@ export interface OutgoingMessage {
    * Der Sendeserver bleibt in jedem Fall derselbe.
    */
   absender?: { email: string; displayName?: string };
+  /**
+   * Eine iCalendar-Antwort (METHOD:REPLY). Geht als gleichrangige Fassung neben dem
+   * Text hinaus, nicht als Anhang - nur so trägt der Organisator die Zusage ein.
+   */
+  kalenderAntwort?: string;
 }
 
 /**

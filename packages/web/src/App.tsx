@@ -1749,6 +1749,19 @@ export default function App() {
             etikettenDauerhaft={etikettenDauerhaft}
             onEtikettSetzen={(uid, schluessel, an) => setzeEtikett(uid, schluessel, an)}
             onEtikettenGeaendert={setEtiketten}
+            accountId={arbeitsKonto}
+            eigeneAdressen={
+              // Auch die weiteren Adressen: eine Einladung kann an einen Alias gegangen
+              // sein, und dann steht man unter diesem in der Teilnehmerliste.
+              arbeitsKonto
+                ? (() => {
+                    const konto = accounts.find((k) => k.id === arbeitsKonto);
+                    return konto
+                      ? [konto.email, ...(konto.identitaeten ?? []).map((i) => i.email)]
+                      : [];
+                  })()
+                : []
+            }
           />
         </div>
         {quelltextFuer && selectedAccountId && selectedFolder && (

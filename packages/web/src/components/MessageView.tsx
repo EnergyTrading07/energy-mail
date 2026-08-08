@@ -3,6 +3,8 @@ import type { Etikett, FolderInfo, FullMessage } from '@energy-mail/mail-core';
 import { entschaerfeExterneInhalte } from '../externeInhalte.js';
 import { escapeHtml } from '../htmlText.js';
 import { moveTargets } from '../folderTargets.js';
+import { Auffangnetz } from './Auffangnetz.js';
+import { Einladung } from './Einladung.js';
 import { EtikettMarken, EtikettMenue } from './Etiketten.js';
 import { LeererKorb } from './Symbole.js';
 
@@ -48,6 +50,9 @@ interface Props {
   etikettenDauerhaft: boolean | null;
   onEtikettSetzen: (uid: number, schluessel: string, an: boolean) => void | Promise<void>;
   onEtikettenGeaendert: (etiketten: Etikett[]) => void;
+  /** Fuer die Antwort auf eine Einladung: wo die Nachricht liegt und wer man selbst ist. */
+  accountId: string | null;
+  eigeneAdressen: string[];
 }
 
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
@@ -232,6 +237,8 @@ export function MessageView({
   etikettenDauerhaft,
   onEtikettSetzen,
   onEtikettenGeaendert,
+  accountId,
+  eigeneAdressen,
 }: Props) {
   /** Ob das Etikettenmenü offen ist. Rein örtlich - es überdauert keinen Wechsel. */
   const [etikettMenue, setEtikettMenue] = useState(false);
@@ -320,6 +327,32 @@ export function MessageView({
           </span>
         </div>
       </div>
+
+      {/* Ueber der Werkzeugleiste: eine Einladung ist das Wichtigste an so einer
+          Nachricht, und die Antwort darauf gehoert nicht unter den Text. */}
+      {message.einladung && accountId && currentFolder && (
+        <Auffangnetz
+          schluessel={`${accountId}:${currentFolder}:${message.uid}`}
+          ersatz={(fehler) => (
+            <div className="einladung">
+              <span className="einladung-art">Einladung</span>
+              <p className="hint einladung-hinweis">
+                Diese Einladung liess sich nicht darstellen ({fehler.message}). Die Nachricht
+                selbst steht unten; die Kalenderdatei laesst sich als Anhang oeffnen.
+              </p>
+            </div>
+          )}
+        >
+          <Einladung
+            einladung={message.einladung}
+            accountId={accountId}
+            ordner={currentFolder}
+            uid={message.uid}
+            eigeneAdressen={eigeneAdressen}
+          />
+        </Auffangnetz>
+      )}
+
       <div className="toolbar">
         {isDraft ? (
           <button className="btn" onClick={() => onEditDraft(message)}>

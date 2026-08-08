@@ -3245,3 +3245,138 @@ input[type='file']::file-selector-button:hover {
 .gesamt-zeile.active {
   background: var(--auswahl);
 }
+
+/* --- Einladungen -------------------------------------------------------------
+   Eine Besprechungseinladung ist das Wichtigste an ihrer Nachricht. Sie bekommt
+   deshalb eine eigene Fläche über der Werkzeugleiste, abgesetzt vom Nachrichtentext. */
+
+.einladung {
+  margin: var(--a-4) var(--a-6) 0;
+  padding: var(--a-5);
+  border: 1px solid var(--marke-rand);
+  border-left: 3px solid var(--marke);
+  border-radius: var(--r-2);
+  background: var(--marke-leise);
+}
+
+/* Eine Absage ist keine Einladung mehr - sie soll auch nicht so aussehen. */
+.einladung.abgesagt {
+  border-color: var(--fehler-rand);
+  border-left-color: var(--fehler);
+  background: var(--fehler-grund);
+}
+
+.einladung-kopf {
+  margin-bottom: var(--a-4);
+}
+
+.einladung-art {
+  display: block;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--marke);
+}
+
+.einladung.abgesagt .einladung-art {
+  color: var(--fehler);
+}
+
+.einladung-kopf h3 {
+  margin: var(--a-1) 0 0;
+  font-family: var(--sf-gross);
+  font-size: var(--t-xl);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.einladung.abgesagt .einladung-kopf h3 {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--text-2);
+}
+
+/* Bezeichnung links, Angabe rechts - so lässt sich die Karte überfliegen. */
+.einladung-daten {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--a-2) var(--a-4);
+  margin: 0;
+  font-size: var(--t-n);
+}
+
+.einladung-daten dt {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.einladung-daten dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.einladung-wiederholung {
+  color: var(--text-3);
+}
+
+.einladung-teilnehmer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-2) var(--a-4);
+}
+
+.teilnehmer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.teilnehmer-stand {
+  font-size: var(--t-xs);
+  color: var(--text-3);
+}
+
+.teilnehmer.zugesagt .teilnehmer-stand {
+  color: var(--gut);
+}
+
+.teilnehmer.abgesagt .teilnehmer-stand {
+  color: var(--fehler);
+}
+
+.teilnehmer.abgesagt {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.einladung-text {
+  margin: var(--a-4) 0 0;
+  padding-top: var(--a-4);
+  border-top: 1px solid var(--rand-fein);
+  font-size: var(--t-m);
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Eine ausführliche Tagesordnung soll die Karte nicht ins Uferlose treiben. */
+  max-height: 12em;
+  overflow-y: auto;
+}
+
+.einladung-knoepfe {
+  display: flex;
+  gap: var(--a-3);
+  margin-top: var(--a-5);
+}
+
+/* Was gerade beantwortet wurde, bleibt sichtbar hervorgehoben. */
+.einladung-knoepfe .btn.gewaehlt {
+  outline: 2px solid var(--marke);
+  outline-offset: 1px;
+}
+
+.einladung-hinweis {
+  margin: var(--a-3) 0 0;
+}

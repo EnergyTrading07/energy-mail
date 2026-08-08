@@ -37,6 +37,7 @@ import {
   getProviderPreset,
   getRawMessage,
   offeneVorgaenge,
+  baueAntwort,
   pruefeEtikettenUnterstuetzung,
   senderUebersicht,
   setzeEtiketten,
@@ -55,6 +56,7 @@ import {
   type OutgoingMessage,
   type Regel,
   type RegelBedingung,
+  type Antwort,
   type SearchCriteria,
 } from '@energy-mail/mail-core';
 import Fastify from 'fastify';
@@ -1826,6 +1828,74 @@ export async function buildServer() {
 
     try {
       return { ok: true, ...(await fuehreVersandAus(account, request.body)) };
+    } catch (err) {
+      reply.code(502);
+      return { error: (err as Error).message };
+    }
+  });
+
+  /**
+   * Antwortet auf eine Besprechungseinladung.
+   *
+   * Die Einladung wird dabei frisch aus der Nachricht gelesen und nicht vom Fenster
+   * entgegengenommen: alles, was in die Antwort geht - Kennung, Fassung, Beginn,
+   * Organisator - muss mit dem Original übereinstimmen, und was durch die Oberfläche
+   * gelaufen ist, muss man erst wieder prüfen.
+   */
+  app.post<{
+    Params: { id: string; folder: string; uid: string };
+    Body: { antwort?: Antwort; bemerkung?: string };
+  }>('/accounts/:id/folders/:folder/messages/:uid/einladung', async (request, reply) => {
+    const account = requireAccount(request.params.id);
+    const antwort = request.body?.antwort;
+    if (antwort !== 'zusagen' && antwort !== 'absagen' && antwort !== 'vorbehalten') {
+      throw new HttpError(400, 'Feld "antwort" muss zusagen, absagen oder vorbehalten sein');
+    }
+
+    const ordner = decodeURIComponent(request.params.folder);
+    const nachricht = await getMessage(account, ordner, Number(request.params.uid));
+    const termin = nachricht.einladung?.termine[0];
+    if (!termin) throw new HttpError(400, 'Diese Nachricht enthält keine Einladung');
+    if (!termin.organisator?.adresse) {
+      throw new HttpError(400, 'Die Einladung nennt niemanden, an den eine Antwort ginge');
+    }
+
+    /**
+     * Unter welcher Adresse geantwortet wird.
+     *
+     * Die Einladung ging an eine bestimmte Adresse - womöglich an einen Alias und nicht
+     * an die des Kontos. Der Organisator ordnet die Antwort über die Adresse zu; kommt
+     * sie unter einer anderen, steht der Eingeladene weiterhin auf "offen".
+     */
+    const eigene = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+    const eingeladen = termin.teilnehmer.find((t) =>
+      eigene.some((e) => e.toLowerCase() === t.adresse.toLowerCase()),
+    );
+    const alsWer = eingeladen?.adresse ?? account.email;
+    const identitaet = (account.identitaeten ?? []).find(
+      (i) => i.email.toLowerCase() === alsWer.toLowerCase(),
+    );
+
+    const wort = { zusagen: 'Zusage', absagen: 'Absage', vorbehalten: 'Mit Vorbehalt' }[antwort];
+    const ics = baueAntwort(
+      termin,
+      { adresse: alsWer, name: identitaet?.displayName ?? account.displayName },
+      antwort,
+    );
+
+    try {
+      const ergebnis = await sendMessage(account, {
+        to: [termin.organisator.adresse],
+        subject: `${wort}: ${termin.titel || nachricht.subject}`,
+        text:
+          `${wort} zu „${termin.titel || nachricht.subject}“.` +
+          (request.body?.bemerkung ? `\n\n${request.body.bemerkung}` : ''),
+        absender: identitaet
+          ? { email: identitaet.email, displayName: identitaet.displayName }
+          : undefined,
+        kalenderAntwort: ics,
+      });
+      return { ok: true, an: termin.organisator.adresse, als: alsWer, ...ergebnis };
     } catch (err) {
       reply.code(502);
       return { error: (err as Error).message };

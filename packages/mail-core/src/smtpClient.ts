@@ -62,6 +62,25 @@ export async function buildRawMessage(
     inReplyTo: message.inReplyTo,
     references: message.references,
     attachments: message.attachments,
+    /**
+     * Die Antwort auf eine Besprechungseinladung.
+     *
+     * Sie muss als gleichrangige Fassung neben dem Text stehen ("multipart/alternative"),
+     * nicht als Anhang: nur dann erkennt das Programm des Organisators sie als Antwort
+     * und trägt die Zu- oder Absage im Termin ein. Als Anhang beigelegt bekäme er eine
+     * Datei, die er von Hand öffnen müsste.
+     *
+     * Der Zusatz "method=REPLY" gehört in den Typ - ohne ihn nimmt Outlook die Datei
+     * zwar an, deutet sie aber als neue Einladung.
+     */
+    alternatives: message.kalenderAntwort
+      ? [
+          {
+            contentType: 'text/calendar; charset=utf-8; method=REPLY',
+            content: message.kalenderAntwort,
+          },
+        ]
+      : undefined,
   });
   return composer.compile().build();
 }

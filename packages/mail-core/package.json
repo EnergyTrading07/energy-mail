@@ -10,7 +10,8 @@
     ".": "./dist/index.js",
     "./etiketten": "./dist/etiketten.js",
     "./vcard": "./dist/vcard.js",
-    "./mbox": "./dist/mbox.js"
+    "./mbox": "./dist/mbox.js",
+    "./ics": "./dist/ics.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
