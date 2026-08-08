@@ -232,7 +232,44 @@ app.setName(USER_DATA_NAME);
  */
 app.setAppUserModelId('de.energymail.desktop');
 
+/*
+ * Nur eine Ausfertigung zur Zeit.
+ *
+ * Vorher scheiterte der zweite Start am belegten Port 4000, und der Nutzer bekam ein
+ * Fehlerfenster zu sehen - fuer ein voellig gewoehnliches Verhalten. Auf einem Symbol
+ * wird nun einmal zweimal geklickt, und wer die Anwendung in der Taskleiste nicht
+ * findet, startet sie eben neu.
+ *
+ * Wer das Schloss nicht bekommt, ist der Zweite: er beendet sich sofort, und der Erste
+ * holt sein Fenster nach vorn. Muss vor whenReady stehen, damit der Zweite gar nicht
+ * erst anfaengt, einen Server hochzufahren.
+ */
+const alleinig = app.requestSingleInstanceLock();
+if (!alleinig) {
+  /*
+   * exit statt quit: quit beendet erst nach dem Aufraeumen, und bis dahin laeuft
+   * whenReady weiter. Gemessen hiess das, dass der Zweite noch einen Server hochfuhr
+   * und Verbindungen zu den Postfaechern aufbaute, bevor er verschwand - unnoetige Last
+   * beim Anbieter, und zwei Prozesse an derselben Ablagedatei.
+   */
+  app.exit(0);
+} else {
+  app.on('second-instance', () => {
+    const fenster = hauptfenster ?? BrowserWindow.getAllWindows()[0];
+    if (!fenster) return;
+    // Minimiert oder hinter anderen Fenstern - beides kommt vor, und beides soll der
+    // zweite Klick aufloesen.
+    if (fenster.isMinimized()) fenster.restore();
+    fenster.show();
+    fenster.focus();
+  });
+}
+
 app.whenReady().then(async () => {
+  // Zweiter Gurt zum exit oben: sollte das Beenden doch einen Wimpernschlag brauchen,
+  // faengt diese Zeile alles ab, was danach kaeme.
+  if (!alleinig) return;
+
   // Der lokale Server liefert auch das gebaute Frontend aus, daher wird die UI über
   // http:// geladen (nicht file://) - der Vite-Build referenziert /assets absolut.
   // ENERGY_MAIL_WEB_URL zeigt bei Bedarf stattdessen auf den Vite-Dev-Server.

@@ -186,6 +186,16 @@ export function zeigeUeber(): BrowserWindow {
          <a class="btn" href="https://github.com/EnergyTrading07/energy-mail" target="_blank">Projektseite</a>
          <button class="still" onclick="window.close()">Schließen</button>
        </div>
+       <!--
+         Die Lizenz gehört hierher: das ist die Stelle, an der jemand nachsieht, ob und
+         wie er das Programm weitergeben darf. Der Installer fragt bewusst nicht danach
+         - bei MIT gibt es nichts zuzustimmen, und eine Seite zum Wegklicken wäre nur
+         Reibung.
+       -->
+       <p class="fein">
+         <a href="https://github.com/EnergyTrading07/energy-mail/blob/main/LICENSE" target="_blank">MIT-Lizenz</a>
+         · © ${new Date().getFullYear()} Hendrik Zeuch
+       </p>
        <p class="fein">Electron ${process.versions.electron} · Chromium ${process.versions.chrome}</p>`,
       '320px',
     ),
