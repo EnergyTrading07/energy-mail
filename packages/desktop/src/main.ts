@@ -744,6 +744,18 @@ function mitFrist<T>(arbeit: Promise<T>, ms: number): Promise<T | 'zeitueberschr
  *    connections" - ein Verbindungsfehler, den das Programm selbst verursacht hatte.
  */
 async function fahreHerunter(): Promise<void> {
+  /*
+   * Anfang und Ende ausdrücklich protokollieren.
+   *
+   * Vorher schrieb dieser Weg nur im Fehlerfall etwas - ein geordnetes Beenden
+   * hinterließ gar keine Spur. Bei einem paketierten Programm ist das Protokoll das
+   * einzige Werkzeug zum Nachsehen, und "lief das Beenden sauber durch?" ist die erste
+   * Frage nach einer beschädigten Ablage oder einem Postfach, das beim nächsten Start
+   * "zu viele Verbindungen" meldet. Fehlt die Schlusszeile, hat es unterwegs gehangen -
+   * und genau das sieht man sonst nirgends.
+   */
+  protokolliere('info', 'beenden', 'Beenden angefordert - Ablage und Verbindungen werden geschlossen.');
+
   // Adressen werden gebündelt geschrieben - die letzten Sekunden sonst verloren.
   speichereKontakteSofort();
 
@@ -777,6 +789,8 @@ async function fahreHerunter(): Promise<void> {
   // Sonst bleibt ein totes Symbol im Infobereich stehen, bis Windows von selbst
   // aufräumt - was es erst tut, wenn jemand mit der Maus darüberfährt.
   raeumeInfobereichAb();
+
+  protokolliere('info', 'beenden', 'Geordnet beendet.');
 }
 
 app.on('before-quit', (event) => {
