@@ -5,6 +5,7 @@ import {
   collectAttachments,
   decodedSize,
   describeImapError,
+  findeTextteile,
 } from './imapClient.js';
 
 /**
@@ -247,6 +248,112 @@ pruefe('Systemcodes werden übersetzt', () => {
 pruefe('für alles Unbekannte bleibt die eigene Meldung', () => {
   assert.equal(describeImapError({ message: 'Etwas Seltsames' }), 'Etwas Seltsames');
   assert.equal(describeImapError({}), 'Unbekannter Verbindungsfehler');
+});
+
+/*
+ * Welche Teile den Nachrichtentext ausmachen.
+ *
+ * Daran haengt, dass beim Oeffnen einer Nachricht nur noch der Text geholt wird und
+ * nicht die vollstaendige Nachricht samt Anhaengen. Faende diese Auswahl das Falsche,
+ * saehe der Nutzer eine leere Nachricht - oder den Inhalt einer weitergeleiteten Mail
+ * als vermeintlichen Text.
+ */
+console.log('\nWelche Teile den Text tragen:');
+
+/** Baut einen Strukturknoten, wie ihn imapflow liefert. */
+const teil = (part: string, type: string, extra: Record<string, unknown> = {}) => ({
+  part,
+  type,
+  ...extra,
+});
+
+pruefe('eine Nachricht aus Text und HTML', () => {
+  const struktur = {
+    type: 'multipart/alternative',
+    childNodes: [teil('1', 'text/plain'), teil('2', 'text/html')],
+  };
+  assert.deepEqual(findeTextteile(struktur), { text: '1', html: '2' });
+});
+
+pruefe('eine Textdatei im Anhang ist KEIN Nachrichtentext', () => {
+  /*
+   * Der Fall, den man leicht falsch macht: ein Anhang kann text/plain sein. Wuerde er
+   * als Koerper genommen, staende der Inhalt einer beigelegten Datei da, wo die
+   * Nachricht stehen sollte.
+   */
+  const struktur = {
+    type: 'multipart/mixed',
+    childNodes: [
+      teil('1', 'text/plain'),
+      teil('2', 'text/plain', { dispositionParameters: { filename: 'notizen.txt' } }),
+      teil('3', 'text/plain', { disposition: 'attachment' }),
+    ],
+  };
+  assert.deepEqual(findeTextteile(struktur), { text: '1' });
+});
+
+pruefe('eine weitergeleitete Nachricht steuert ihren Text nicht bei', () => {
+  // message/rfc822 ist ein Anhang. Sein Text gehoert nicht in den Koerper dieser Mail.
+  const struktur = {
+    type: 'multipart/mixed',
+    childNodes: [
+      teil('1', 'text/plain'),
+      {
+        part: '2',
+        type: 'message/rfc822',
+        childNodes: [teil('2.1', 'text/plain'), teil('2.2', 'text/html')],
+      },
+    ],
+  };
+  assert.deepEqual(findeTextteile(struktur), { text: '1' });
+});
+
+pruefe('eine Einladung wird gefunden', () => {
+  const struktur = {
+    type: 'multipart/mixed',
+    childNodes: [teil('1', 'text/plain'), teil('2', 'text/calendar')],
+  };
+  assert.deepEqual(findeTextteile(struktur), { text: '1', einladung: '2' });
+});
+
+pruefe('bei mehreren gleichartigen gewinnt der erste', () => {
+  // Die Reihenfolge, in der der Absender sie angeboten hat.
+  const struktur = {
+    type: 'multipart/mixed',
+    childNodes: [teil('1', 'text/html'), teil('2', 'text/html')],
+  };
+  assert.deepEqual(findeTextteile(struktur), { html: '1' });
+});
+
+pruefe('tief verschachtelt wird trotzdem gefunden', () => {
+  const struktur = {
+    type: 'multipart/mixed',
+    childNodes: [
+      {
+        type: 'multipart/related',
+        childNodes: [
+          { type: 'multipart/alternative', childNodes: [teil('1.1.1', 'text/plain'), teil('1.1.2', 'text/html')] },
+          teil('1.2', 'image/png', { dispositionParameters: { filename: 'logo.png' } }),
+        ],
+      },
+      teil('2', 'application/pdf', { dispositionParameters: { filename: 'rechnung.pdf' } }),
+    ],
+  };
+  assert.deepEqual(findeTextteile(struktur), { text: '1.1.1', html: '1.1.2' });
+});
+
+pruefe('ohne Struktur oder ohne Textteil kommt nichts heraus', () => {
+  // Dann greift der Rueckfall in getMessage - die Nachricht wird ganz geladen.
+  assert.deepEqual(findeTextteile(undefined), {});
+  assert.deepEqual(findeTextteile(null), {});
+  assert.deepEqual(findeTextteile({ type: 'text/plain' }), {}, 'ohne part-Kennung nicht abrufbar');
+  assert.deepEqual(
+    findeTextteile({
+      type: 'multipart/mixed',
+      childNodes: [teil('1', 'application/pdf', { dispositionParameters: { filename: 'x.pdf' } })],
+    }),
+    {},
+  );
 });
 
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);

@@ -92,6 +92,74 @@ export function collectAttachments(node: unknown, into: AttachmentInfo[] = []): 
   return into;
 }
 
+/**
+ * Bis zu dieser Größe wird eine Nachricht ohne einzeln abrufbare Teile noch vollständig
+ * geladen.
+ *
+ * Ohne Mehrteiligkeit gibt es keine Anhänge - solche Nachrichten sind praktisch immer
+ * klein. Die Grenze fängt den seltenen Rest: eine einzelne große Datei, die jemand ohne
+ * MIME-Umschlag verschickt hat. Sie ganz zu laden hieße, den Server für alle anzuhalten.
+ */
+const RUECKFALL_HOECHSTGROESSE = 25 * 1024 * 1024;
+
+/** Welche Teile einer Nachricht ihren Text ausmachen - und welcher die Einladung ist. */
+export interface Textteile {
+  /** Part-ID des reinen Texts, falls vorhanden. */
+  text?: string;
+  /** Part-ID der HTML-Fassung, falls vorhanden. */
+  html?: string;
+  /** Part-ID einer Termineinladung (text/calendar). */
+  einladung?: string;
+}
+
+/**
+ * Sucht in der Struktur die Teile heraus, die den Nachrichtentext tragen.
+ *
+ * Der Grund für diese Funktion: bisher wurde die VOLLSTÄNDIGE Nachricht geladen und
+ * durch den MIME-Leser geschickt, nur um Text und HTML herauszuholen. Bei einer Mail mit
+ * einem 80-MB-Anhang belegte allein das Öffnen ein Vielfaches davon im Arbeitsspeicher -
+ * Rohbytes, dekodierte Anhänge und Textteile nebeneinander. Zwei gleichzeitige Zugriffe
+ * genügten, um den Serverprozess mit "JavaScript heap out of memory" zu beenden. Bei
+ * einem Nutzer ist das ein Absturz; bei fünfzig nimmt einer alle mit.
+ *
+ * Die Anhänge kommen ohnehin schon aus der Struktur (collectAttachments) - ihre Bytes
+ * wurden also geladen, wieder verworfen und später bei Bedarf einzeln erneut geholt.
+ *
+ * Was ein "Textteil" ist und was ein Anhang, entscheidet dieselbe Regel wie bei den
+ * Anhängen: ein Teil mit Dateinamen oder mit disposition "attachment" ist eine Datei,
+ * auch wenn er text/plain ist. Eine beigelegte Textdatei gehört nicht in den
+ * Nachrichtenkörper.
+ *
+ * Bei mehreren Teilen derselben Art gewinnt der erste - das ist bei multipart/alternative
+ * die Reihenfolge, in der der Absender sie angeboten hat.
+ */
+export function findeTextteile(node: unknown, gefunden: Textteile = {}): Textteile {
+  if (!node || typeof node !== 'object') return gefunden;
+  const current = node as StructureNode;
+
+  const typ = current.type?.toLowerCase();
+  const istDatei = Boolean(attachmentFilename(current)) || current.disposition === 'attachment';
+
+  if (current.part && !istDatei) {
+    if (typ === 'text/plain' && !gefunden.text) gefunden.text = current.part;
+    else if (typ === 'text/html' && !gefunden.html) gefunden.html = current.part;
+    else if (typ === 'text/calendar' && !gefunden.einladung) gefunden.einladung = current.part;
+  }
+
+  /*
+   * In eine eingebettete Nachricht wird NICHT hineingestiegen.
+   *
+   * message/rfc822 ist eine weitergeleitete Mail. Ihr Text ist nicht der Text dieser
+   * Nachricht - er würde sonst als Körper erscheinen, obwohl er zu einem Anhang gehört.
+   */
+  if (typ === 'message/rfc822') return gefunden;
+
+  for (const child of current.childNodes ?? []) {
+    findeTextteile(child, gefunden);
+  }
+  return gefunden;
+}
+
 function toAddresses(list: { name?: string; address?: string }[] | undefined) {
   return (list ?? [])
     .map((a) => ({ name: a.name || undefined, address: a.address ?? '' }))
@@ -570,6 +638,9 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
     try {
       let summary: MessageSummary | null = null;
       let structure: unknown = null;
+      let replyTo: { name?: string; address: string }[] = [];
+      /** Für den Rückfall unten: nur die Größe entscheidet, ob er noch vertretbar ist. */
+      let groesse = 0;
       for await (const msg of client.fetch(
         String(uid),
         {
@@ -578,6 +649,9 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       uid: true,
       bodyStructure: true,
       threadId: true,
+      // Nur fuer den Rueckfall unten gebraucht: er entscheidet daran, ob das Laden der
+      // vollstaendigen Nachricht noch vertretbar ist.
+      size: true,
       // Nur diese wenigen Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg,
       // Verteilerkennung und Gespraechsfaden - Grundlage fuer Abmeldung, Regeln und
       // die Suche nach Liegengebliebenem.
@@ -587,40 +661,96 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       )) {
         summary = summarizeMessage(msg);
         structure = msg.bodyStructure;
+        replyTo = toAddresses(msg.envelope?.replyTo);
+        groesse = msg.size ?? 0;
       }
       if (!summary) throw new Error(`Nachricht ${uid} nicht gefunden in ${folder}`);
 
-      const { content } = await client.download(String(uid), undefined, { uid: true });
-      // keepCidLinks: sonst ersetzt mailparser jeden "cid:"-Verweis durch die
-      // Bilddaten selbst. Bei einer Nachricht mit sechs eingebetteten Bildern machte
-      // das 197 von 215 KB der Antwort aus - Daten, die der Browser ohnehin einzeln
-      // und bei Bedarf laden kann.
-      const parsed = await simpleParser(content, { keepCidLinks: true });
+      /*
+       * Nur die Teile holen, die gebraucht werden - nicht die ganze Nachricht.
+       *
+       * Vorher lud diese Stelle die vollständige Nachricht herunter und schickte sie
+       * durch den MIME-Leser, nur um Text und HTML herauszuholen. Die Anhänge kamen
+       * ohnehin schon aus der Struktur; ihre Bytes wurden also geladen, wieder verworfen
+       * und später bei Bedarf einzeln erneut geholt.
+       *
+       * Bei einer Mail mit einem 80-MB-Anhang belegte allein das Öffnen ein Vielfaches
+       * davon: Rohbytes, dekodierte Anhänge und Textteile nebeneinander im Speicher.
+       * Zwei gleichzeitige Zugriffe genügten für "JavaScript heap out of memory" - bei
+       * einem Nutzer ein Absturz, bei fünfzig nimmt einer alle mit.
+       *
+       * imapflow dekodiert einen einzeln geholten Teil vollständig: Transfer-Encoding,
+       * format=flowed und den Zeichensatz nach UTF-8. Was hier ankommt, ist fertiger
+       * Text.
+       */
+      const teile = findeTextteile(structure);
 
-      // References kann als einzelner Wert oder als Liste kommen - vereinheitlichen.
-      const references = Array.isArray(parsed.references)
-        ? parsed.references
-        : parsed.references
-          ? [parsed.references]
-          : undefined;
+      const holeTeil = async (part: string | undefined): Promise<string | undefined> => {
+        if (!part) return undefined;
+        try {
+          const { content } = await client.download(String(uid), part, { uid: true });
+          if (!content) return undefined;
+          const stuecke: Buffer[] = [];
+          for await (const stueck of content) stuecke.push(stueck as Buffer);
+          return Buffer.concat(stuecke).toString('utf-8');
+        } catch {
+          // Ein Teil, den der Server nicht herausgibt, darf nicht die ganze Nachricht
+          // kosten - lieber ohne HTML anzeigen als gar nicht.
+          return undefined;
+        }
+      };
 
-      const replyTo = parsed.replyTo?.value?.map((a) => ({
-        name: a.name || undefined,
-        address: a.address ?? '',
-      }));
+      const [text, html, kalender] = await Promise.all([
+        holeTeil(teile.text),
+        holeTeil(teile.html),
+        holeTeil(teile.einladung),
+      ]);
 
+      /*
+       * Rückfall für Nachrichten ohne brauchbare Struktur.
+       *
+       * Eine Nachricht ohne Mehrteiligkeit hat keine Teil-Kennung, die sich einzeln
+       * abrufen ließe. Solche Nachrichten sind aber genau die kleinen: ohne Mehrteiligkeit
+       * gibt es keine Anhänge. Der alte Weg bleibt also für den billigen Fall - und mit
+       * einer Obergrenze, damit eine einzelne riesige Datei ohne Umschlag nicht doch
+       * durchrutscht.
+       */
+      let rueckfall: Awaited<ReturnType<typeof simpleParser>> | null = null;
+      if (text === undefined && html === undefined) {
+        if (groesse > RUECKFALL_HOECHSTGROESSE) {
+          throw new Error(
+            `Diese Nachricht ist ${Math.round(groesse / 1024 / 1024)} MB groß und hat keine ` +
+              'einzeln abrufbaren Teile. Sie lässt sich über "Quelltext" ansehen oder als ' +
+              'Datei sichern.',
+          );
+        }
+        const { content } = await client.download(String(uid), undefined, { uid: true });
+        // keepCidLinks: sonst ersetzt mailparser jeden "cid:"-Verweis durch die
+        // Bilddaten selbst. Bei einer Nachricht mit sechs eingebetteten Bildern machte
+        // das 197 von 215 KB der Antwort aus - Daten, die der Browser ohnehin einzeln
+        // und bei Bedarf laden kann.
+        rueckfall = await simpleParser(content, { keepCidLinks: true });
+      }
+
+      /*
+       * Message-ID, In-Reply-To und References stehen bereits in `summary`.
+       *
+       * Sie kommen aus dem Umschlag und den wenigen ausdrücklich geholten Kopfzeilen -
+       * summarizeMessage liest sie ohnehin. Der MIME-Leser hat sie bisher nur noch
+       * einmal ermittelt und überschrieben: die ganze Nachricht zu laden war damit auch
+       * der teuerste denkbare Weg zu vier Zeichenketten.
+       */
       return {
         ...summary,
-        einladung: findeEinladung(parsed.attachments),
-        text: typeof parsed.text === 'string' ? parsed.text : undefined,
-        html: parsed.html,
-        // Aus der Struktur statt aus parsed.attachments - so gehen keine Anhangsbytes
+        einladung: kalender
+          ? findeEinladung([{ contentType: 'text/calendar', content: Buffer.from(kalender) }])
+          : findeEinladung(rueckfall?.attachments),
+        text: text ?? (typeof rueckfall?.text === 'string' ? rueckfall.text : undefined),
+        html: html ?? rueckfall?.html ?? undefined,
+        // Aus der Struktur statt aus den geladenen Teilen - so gehen keine Anhangsbytes
         // mit in die Antwort.
         attachments: collectAttachments(structure),
-        messageId: parsed.messageId,
-        references,
-        inReplyTo: parsed.inReplyTo,
-        replyTo: replyTo?.filter((a) => a.address),
+        replyTo: replyTo.length > 0 ? replyTo : undefined,
       };
     } finally {
       lock.release();
