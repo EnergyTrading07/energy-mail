@@ -1,0 +1,29 @@
+# Was nicht in den Bau-Zusammenhang gehört.
+#
+# Jede Datei hier wird vor dem Bauen an den Docker-Dienst übertragen. Ohne diese Liste
+# wären das die 400 MB node_modules und der Ordner "release" mit fertigen Installern -
+# bei jedem einzelnen Bau, und alles davon wird im Abbild neu erzeugt oder gar nicht
+# gebraucht.
+
+node_modules/
+packages/*/node_modules/
+packages/*/dist/
+release/
+.git/
+.github/
+
+# Zugangsdaten, Schlüssel und Kontakte. Sie liegen im Betrieb im Benutzerordner; was
+# hier noch liegt, ist ein Rückstand - und darf unter keinen Umständen in ein Abbild,
+# das anschließend irgendwohin geschoben wird.
+packages/server/data/
+betrieb/.env
+betrieb/daten/
+betrieb/sicherungen/
+
+# Nur für die Hülle, nicht für den Dienst.
+build/
+electron-builder.yml
+
+*.log
+.DS_Store
+Thumbs.db

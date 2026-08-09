@@ -47,6 +47,20 @@ Herausgeber nicht kennt.
 Über „Weitere Informationen“ → „Trotzdem ausführen“ lässt es sich starten. Wer das nicht
 möchte, baut die Anwendung aus dem Quelltext (siehe unten) – das Ergebnis ist dasselbe.
 
+### Oder als Dienst, im Browser erreichbar
+
+Statt auf jedem Rechner installiert, lässt sich Energy Mail auch auf einem eigenen
+Rechner betreiben und von überall im Browser benutzen – mit Anmeldung, mehreren Nutzern
+und einem Zertifikat von Let's Encrypt. Zwei Container, eine Zeile zum Starten:
+
+```bash
+cp betrieb/.env.beispiel betrieb/.env   # Name und Verwalteradresse eintragen
+docker compose up -d --build
+```
+
+Alles Weitere – Nutzer anlegen, Sicherung, Wiederherstellung, was schiefgehen kann –
+steht in **[BETRIEB.md](BETRIEB.md)**.
+
 ---
 
 ## Erste Schritte

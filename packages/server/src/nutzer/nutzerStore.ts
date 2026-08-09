@@ -231,6 +231,33 @@ export function setzeKennwort(id: string, neuesKennwort: string): void {
   schreiben(ablage);
 }
 
+/**
+ * Sperrt einen Nutzer oder gibt ihn wieder frei.
+ *
+ * Der Unterschied zum Entfernen ist der Punkt: gesperrt kommt er nicht mehr herein, seine
+ * Daten bleiben aber lesbar. Das ist, was man in der Testphase tatsächlich braucht -
+ * jemand hört auf, oder etwas ist unklar und soll bis zur Klärung ruhen. Entfernen ist
+ * endgültig: mit dem Eintrag geht sein Schlüssel, und danach sind seine Geheimnisse in
+ * jeder Sicherung nur noch Bytes.
+ *
+ * `gesperrt` wurde in pruefeAnmeldung() schon abgefragt, seit es das Feld gibt - nur
+ * konnte es niemand setzen. Die Abfrage lief also ins Leere.
+ */
+export function setzeSperre(id: string, gesperrt: boolean): void {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  if (!nutzer) throw new NutzerFehler('Diesen Nutzer gibt es nicht.');
+  if (gesperrt) nutzer.gesperrt = true;
+  else delete nutzer.gesperrt;
+  schreiben(ablage);
+  protokolliere('info', 'nutzer', `Nutzer "${id}" ${gesperrt ? 'gesperrt' : 'wieder freigegeben'}.`);
+}
+
+/** Ob ein Nutzer gesperrt ist - für die Anzeige im Verwaltungswerkzeug. */
+export function istGesperrt(id: string): boolean {
+  return Boolean(findeNutzer(id)?.gesperrt);
+}
+
 /** Trägt eine neue Schlüsselgeneration ein - für den Wechsel des Nutzerschlüssels. */
 export function setzeSchluesselGeneration(id: string, generation: string, verpackt: string): void {
   const ablage = lesen();

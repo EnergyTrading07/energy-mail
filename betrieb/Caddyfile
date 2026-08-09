@@ -1,0 +1,87 @@
+# Der Vorbau.
+#
+# Caddy holt das Zertifikat bei Let's Encrypt selbst, erneuert es selbst und leitet 80
+# auf 443 um - ohne eine Zeile dafür. Das ist der Grund, warum hier Caddy steht und
+# nicht nginx: bei nginx wären dafür certbot, ein Zeitplan und eine Neuladelogik nötig,
+# und genau die vergisst man, bis das Zertifikat nach 90 Tagen abläuft.
+#
+# TLS endet HIER, auf dem eigenen Rechner. Zwischen Browser und diesem Container sieht
+# niemand die Post - kein Dienstleister, kein Netzbetreiber.
+
+{$DOMAIN} {
+	# Wohin Let's Encrypt schreibt, wenn ein Zertifikat abzulaufen droht.
+	tls {$ADMIN_MAIL}
+
+	encode zstd gzip
+
+	# Der Gesundheitsweg bleibt drinnen.
+	#
+	# Er verlangt bewusst keine Anmeldung, damit die Container-Prüfung ihn abfragen kann
+	# - und er verrät die laufende Fassung. Beides ist innen richtig und außen unnötig:
+	# wer von außen fragt, hat damit nichts zu tun.
+	@gesundheit path /gesundheit
+	respond @gesundheit 404
+
+	header {
+		# Ein Jahr lang nur noch verschlüsselt - auch wenn jemand http:// eintippt.
+		# Beim allerersten Aufbau bewusst kürzer halten (siehe BETRIEB.md), sonst
+		# sperrt man sich bei einem Fehler im Zertifikat für ein Jahr aus.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# Kein Erraten des Inhaltstyps. Bei einem Programm, das fremde Anhänge
+		# ausliefert, die wichtigste der Kopfzeilen hier: sonst kann eine als Text
+		# deklarierte Datei im Browser als Skript enden.
+		X-Content-Type-Options nosniff
+
+		# Diese Seite gehört in kein fremdes Fenster.
+		#
+		# Die Oberfläche hat in ihrer eigenen Richtlinie "frame-ancestors 'none'" stehen
+		# - nur steht die als <meta> in der Seite, und dort wird frame-ancestors von
+		# jedem Browser ignoriert. Die Regel wirkt ausschließlich als echte Kopfzeile,
+		# und das ist genau die Stelle hier.
+		X-Frame-Options DENY
+
+		# Keine Adresse verraten, wenn jemand einem Link aus einer Nachricht folgt.
+		Referrer-Policy no-referrer
+
+		# Nichts davon braucht ein Mailprogramm.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+		# Ein geöffnetes Fenster bekommt keinen Zugriff zurück auf dieses hier.
+		Cross-Origin-Opener-Policy same-origin
+
+		# Welcher Server hier steht, geht niemanden etwas an.
+		-Server
+	}
+
+	# Ausdrücklich KEINE Content-Security-Policy an dieser Stelle.
+	#
+	# Die Oberfläche bringt eine eigene mit (packages/web/index.html), und sie ist dort
+	# ausführlich begründet - sie erlaubt zum Beispiel Bilder von https:, weil sonst
+	# "Absender immer erlauben" wirkungslos wäre. Eine zweite Richtlinie hier würde sich
+	# mit jener NICHT ersetzen, sondern schneiden: es gilt dann die jeweils strengere
+	# Angabe beider. Das Ergebnis wäre eine Oberfläche, an der Dinge fehlen, und eine
+	# Fehlersuche an der falschen Stelle.
+
+	reverse_proxy dienst:4000 {
+		# Anhänge dürfen groß sein: der Dienst nimmt bis 40 MB an, Base64 bläht sie
+		# unterwegs um rund ein Drittel auf. Etwas Luft darüber, damit die Grenze der
+		# Dienst zieht - der kann eine verständliche Meldung dazu schicken, der Vorbau
+		# nur eine nackte Fehlerzahl.
+		request_body {
+			max_size 45MB
+		}
+
+		# WebSocket braucht hier nichts weiter: Caddy erkennt die Umschaltung von selbst
+		# und lässt die Verbindung offen. Ein "Upgrade"-Block, wie man ihn aus nginx
+		# kennt, wäre wirkungslos.
+
+		# Ein Postfach mit 30.000 Nachrichten zu durchsuchen dauert. Die Voreinstellung
+		# von Caddy wäre kein Zeitlimit - das ist richtig, wird aber hier ausdrücklich
+		# festgehalten, damit es niemand versehentlich anders einstellt.
+		transport http {
+			read_timeout 10m
+			write_timeout 10m
+		}
+	}
+}

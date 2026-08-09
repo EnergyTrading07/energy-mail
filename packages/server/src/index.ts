@@ -2,10 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildServer } from './app.js';
-import { getWurzelDir } from './paths.js';
+import { getWurzelDir, setDataDir } from './paths.js';
 import { createPassphraseKeyProvider, setKeyProvider } from './secretCrypto.js';
 import { masterSchluesselAusDatei } from './nutzer/einrichten.js';
-import { setzeZugangsgeheimnis } from './zugang.js';
+import { setzeOeffentlicheAdresse, setzeZugangsgeheimnis } from './zugang.js';
 
 /**
  * Der Masterschlüssel des Standalone-Servers.
@@ -64,7 +64,24 @@ function richteAuffangbehaelterEin(): void {
   });
 }
 
+/**
+ * Wo die Daten liegen.
+ *
+ * Ohne Angabe ein "data"-Ordner neben dem Servercode - für den Betrieb aus dem
+ * Quellbaum richtig, für einen Container falsch: dort liegt der Code in einer Schicht,
+ * die bei jeder Aktualisierung ersetzt wird. Wer den Ordner nicht ausdrücklich nach
+ * außen legt, verliert bei der ersten Aktualisierung sämtliche Konten - und merkt es
+ * erst danach.
+ */
+function richteDatenordnerEin(): void {
+  const ordner = process.env.ENERGY_MAIL_DATEN?.trim();
+  if (!ordner) return;
+  fs.mkdirSync(ordner, { recursive: true, mode: 0o700 });
+  setDataDir(ordner);
+}
+
 richteAuffangbehaelterEin();
+richteDatenordnerEin();
 configureEncryption();
 
 const port = Number(process.env.PORT ?? 4000);
@@ -83,22 +100,82 @@ const port = Number(process.env.PORT ?? 4000);
  */
 const host = process.env.ENERGY_MAIL_HOST ?? '127.0.0.1';
 
+const nachAussen = host !== '127.0.0.1' && host !== 'localhost' && host !== '::1';
+
 /**
- * Im Standalone-Betrieb wird das Zugangsgeheimnis von außen vorgegeben, damit der
- * Client es kennen kann. Ohne Angabe bleibt die Prüfung aus - vertretbar, solange nur
- * auf 127.0.0.1 gelauscht wird, und genau dann warnen wir, wenn das nicht der Fall ist.
+ * Die Adresse, unter der der Dienst im Browser steht.
+ *
+ * Pflicht, sobald nach außen gelauscht wird - und zwar nicht aus Ordnungsliebe: der
+ * Herkunftsriegel (zugang.ts) kennt sonst nur 127.0.0.1 und weist jede Anfrage der
+ * eigenen Oberfläche mit 403 ab, das Anmelden eingeschlossen. Der Dienst liefe, wäre
+ * aber unbedienbar - eine Fehlersuche, die einen Abend kostet.
+ *
+ * Absichtlich nicht aus dem Host-Kopf der Anfrage abgeleitet: den bestimmt der
+ * Anfragende, damit wäre die Prüfung wirkungslos.
  */
-if (process.env.ENERGY_MAIL_ZUGANG) {
-  setzeZugangsgeheimnis(process.env.ENERGY_MAIL_ZUGANG);
-} else if (host !== '127.0.0.1' && host !== 'localhost') {
-  console.warn(
-    '[energy-mail] ENERGY_MAIL_HOST zeigt nach außen, aber ENERGY_MAIL_ZUGANG ist nicht ' +
-      'gesetzt. Der Server wäre damit für jeden im Netz ohne Anmeldung erreichbar.',
+try {
+  setzeOeffentlicheAdresse(process.env.ENERGY_MAIL_OEFFENTLICHE_ADRESSE);
+} catch (err) {
+  console.error(`[energy-mail] ENERGY_MAIL_OEFFENTLICHE_ADRESSE: ${(err as Error).message}`);
+  process.exit(1);
+}
+
+if (nachAussen && !process.env.ENERGY_MAIL_OEFFENTLICHE_ADRESSE) {
+  console.error(
+    '[energy-mail] ENERGY_MAIL_HOST zeigt nach außen, aber ENERGY_MAIL_OEFFENTLICHE_ADRESSE ' +
+      'fehlt. Ohne sie weist der Herkunftsriegel die eigene Oberfläche ab. Beispiel: ' +
+      'ENERGY_MAIL_OEFFENTLICHE_ADRESSE=https://mail.beispiel.de',
   );
   process.exit(1);
 }
 
-const app = await buildServer({ port });
+/**
+ * Das Zugangsgeheimnis - im Serverbetrieb ausdrücklich NICHT gesetzt.
+ *
+ * Es stammt aus der Zeit vor der Anmeldung und weist seinen Träger als der eine
+ * Einplatznutzer aus. Auf einem Server mit mehreren Menschen wäre das ein Generalschlüssel
+ * auf ein einziges, geteiltes Postfach - deshalb die Warnung. Geschützt wird der
+ * Serverbetrieb durch die Anmeldung: ohne Sitzung kommt keine Anfrage an einer Route
+ * vorbei (siehe nutzer/haken.ts).
+ *
+ * Früher stand hier statt der Warnung ein `process.exit(1)`, wenn nach außen gelauscht
+ * und kein Geheimnis gesetzt war. Das war richtig, solange es keine Anmeldung gab - und
+ * hätte jetzt genau den vorgesehenen Serverbetrieb verhindert.
+ */
+if (process.env.ENERGY_MAIL_ZUGANG) {
+  setzeZugangsgeheimnis(process.env.ENERGY_MAIL_ZUGANG);
+  if (nachAussen) {
+    console.warn(
+      '[energy-mail] ENERGY_MAIL_ZUGANG ist gesetzt und es wird nach außen gelauscht. Wer ' +
+        'das Geheimnis kennt, gilt damit als der Einplatznutzer - ohne Anmeldung und für ' +
+        'alle dasselbe Postfach. Für einen Dienst mit mehreren Nutzern gehört die Variable weg.',
+    );
+  }
+}
+
+/**
+ * Hinter dem Reverse Proxy: den weitergereichten Angaben glauben - aber nur ihm.
+ *
+ * Ohne das ist `request.ip` die Adresse des Proxys. Zwei Folgen, beide unangenehm: die
+ * Bremse gegen Kennwort-Durchprobieren zählt dann alle Versuche aller Menschen in
+ * denselben Topf - zehn Fehlversuche irgendwo sperren alle anderen mit aus -, und das
+ * Protokoll nennt bei jedem Vorfall dieselbe nichtssagende Adresse.
+ *
+ * `1` heißt: genau dem nächsten Proxy glauben. Wer weiter vorne noch etwas stehen hat
+ * (Cloudflare, ein zweiter Vorbau), trägt die entsprechende Zahl oder das Netz ein.
+ * Bewusst nicht `true` als Voreinstellung: das glaubt der gesamten Kette, und die kann
+ * der Anfragende selbst verlängern.
+ */
+function proxyVertrauen(): boolean | number | string {
+  const wert = (process.env.ENERGY_MAIL_PROXY ?? '').trim();
+  if (!wert || wert === '0' || wert === 'false' || wert === 'nein') return false;
+  if (wert === 'true' || wert === 'ja') return 1;
+  if (/^\d+$/.test(wert)) return Number(wert);
+  // Alles andere ist eine Adresse oder ein Netz in CIDR-Schreibweise, ggf. mehrere.
+  return wert;
+}
+
+const app = await buildServer({ port, proxyVertrauen: proxyVertrauen() });
 
 app
   .listen({ port, host })

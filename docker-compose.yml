@@ -1,0 +1,92 @@
+#
+# Energy Mail als Dienst - zwei Container.
+#
+#   vorbau  Caddy: nimmt 80 und 443 an, holt das Zertifikat und erneuert es
+#   dienst  Energy Mail selbst, ausschließlich über das interne Netz erreichbar
+#
+# Der Dienst veröffentlicht bewusst KEINEN Port auf dem Rechner. Ein "ports: 4000:4000"
+# hier wäre der häufigste Fehler dieses Aufbaus: Docker trägt seine Freigaben unterhalb
+# der Firewall ein, der Dienst stünde damit unverschlüsselt im ganzen Netz - und die
+# ganze Verschlüsselung davor wäre eine Umleitung, die man umgehen kann.
+#
+# Vor dem ersten Start: betrieb/.env.beispiel nach betrieb/.env kopieren und ausfüllen.
+#
+
+name: energy-mail
+
+services:
+  dienst:
+    build:
+      context: .
+      args:
+        FASSUNG: ${FASSUNG:-selbst-gebaut}
+    image: energy-mail:${FASSUNG:-selbst-gebaut}
+    restart: unless-stopped
+    env_file: betrieb/.env
+    environment:
+      # Ohne diese Angabe weist der Herkunftsriegel die eigene Oberfläche ab - und der
+      # Dienst startet gar nicht erst. Siehe packages/server/src/zugang.ts.
+      ENERGY_MAIL_OEFFENTLICHE_ADRESSE: https://${DOMAIN}
+      # Genau einem Proxy glauben: dem Vorbau. Sonst wäre die Absenderadresse jeder
+      # Anfrage die des Vorbaus - und die Bremse gegen Kennwort-Durchprobieren zählte
+      # alle Menschen in denselben Topf.
+      ENERGY_MAIL_PROXY: "1"
+      # Zeitzone: geplante Sendungen und Wiedervorlagen rechnen zwar in Zeitstempeln,
+      # aber Protokoll und Anzeige lesen sich ohne das in UTC.
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      # Die einzige Stelle, an der Daten liegen. Was hier nicht drin ist, ist beim
+      # nächsten Aktualisieren weg - und das ist so gewollt.
+      - ./betrieb/daten:/daten
+    networks:
+      - innen
+    # Kein Recht, das der Dienst nicht braucht. Er bindet Port 4000 (über 1024), also
+    # kommt er ohne jede besondere Fähigkeit aus.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Ohne Begrenzung wächst die Protokolldatei von Docker, bis die Platte voll ist -
+    # bei einem Dienst, der Jahre läuft, keine ferne Sorge.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  vorbau:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # QUIC/HTTP3. Ohne die Zeile läuft alles über HTTP/2 weiter - es ist kein Muss.
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      # An diese Adresse schreibt Let's Encrypt, bevor ein Zertifikat abläuft.
+      ADMIN_MAIL: ${ADMIN_MAIL}
+    volumes:
+      - ./betrieb/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Hier liegen die Zertifikate. Geht dieser Bereich verloren, holt Caddy neue -
+      # aber Let's Encrypt begrenzt das auf 5 je Woche und Name. Gehört in die Sicherung.
+      - caddy-daten:/data
+      - caddy-konfig:/config
+    networks:
+      - innen
+    depends_on:
+      - dienst
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  innen:
+    # Kein Zugang von außen; die beiden Container sprechen über ihre Namen miteinander.
+    driver: bridge
+
+volumes:
+  caddy-daten:
+  caddy-konfig:

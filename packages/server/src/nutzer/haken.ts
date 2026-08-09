@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { alsNutzer, istGueltigeNutzerId } from './kontext.js';
 import { OFFENE_PFADE } from './anmelden.js';
-import { istOberflaeche } from '../zugang.js';
+import { GESUNDHEITS_PFAD, istOberflaeche } from '../zugang.js';
 
 /**
  * Setzt für jede Anfrage den Nutzerkontext.
@@ -46,6 +46,18 @@ export function registriereNutzerkontext(app: FastifyInstance, ermittle: NutzerE
      * Postfach ist darüber nicht erreichbar.
      */
     if (istOberflaeche(pfad)) {
+      fertig();
+      return;
+    }
+
+    /*
+     * Der Gesundheitsweg gehört keinem Nutzer.
+     *
+     * Die Container-Prüfung und eine spätere Überwachung fragen ihn ohne Sitzung ab -
+     * hinge er am Nutzerkontext, meldete er dauerhaft 401, und Docker hielte den
+     * gesunden Dienst für krank und startete ihn im Kreis neu.
+     */
+    if (pfad === GESUNDHEITS_PFAD) {
       fertig();
       return;
     }

@@ -19,8 +19,15 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-zugang-test-'
 setDataDir(tempDir);
 process.on('exit', () => fs.rmSync(tempDir, { recursive: true, force: true }));
 
-const { ZUGANG_KOPFZEILE, erzeugeZugangsgeheimnis, registriereZugangspruefung, setzeZugangsgeheimnis } =
-  await import('./zugang.js');
+const {
+  GESUNDHEITS_PFAD,
+  ZUGANG_KOPFZEILE,
+  erzeugeZugangsgeheimnis,
+  oeffentlicheAdressen,
+  registriereZugangspruefung,
+  setzeOeffentlicheAdresse,
+  setzeZugangsgeheimnis,
+} = await import('./zugang.js');
 
 let ok = 0;
 let gesamt = 0;
@@ -37,13 +44,17 @@ async function pruefe(name: string, fn: () => Promise<void> | void): Promise<voi
 }
 
 /** Ein kleiner Server mit demselben Riegel wie der echte. */
-function baueProbe(geheimnis: string | null) {
+function baueProbe(geheimnis: string | null, oeffentlich?: string) {
   setzeZugangsgeheimnis(geheimnis);
+  // Der Riegel merkt sich die oeffentliche Adresse im Modul - vor jeder Probe neu setzen,
+  // sonst faerbt eine Pruefung auf die naechste ab.
+  setzeOeffentlicheAdresse(oeffentlich ?? null);
   const app = Fastify();
   registriereZugangspruefung(app, 4000);
   app.get('/accounts', async () => [{ id: '1', email: 'a@b.de' }]);
   app.get('/', async () => 'Oberflaeche');
   app.get('/assets/haupt.js', async () => 'skript');
+  app.get(GESUNDHEITS_PFAD, async () => ({ ok: true }));
   app.post('/accounts/1/send', async () => ({ ok: true }));
   return app;
 }
@@ -166,6 +177,105 @@ console.log('\nOhne Geheimnis (Entwicklungsbetrieb):');
 await pruefe('bleibt alles offen - sonst liesse sich nicht entwickeln', async () => {
   const app = baueProbe(null);
   assert.equal((await app.inject({ method: 'GET', url: '/accounts' })).statusCode, 200);
+  await app.close();
+});
+
+console.log('\nHinter einem Reverse Proxy (Serverbetrieb):');
+
+/*
+ * Der Fall, der den ganzen Serverbetrieb aufgehalten hat.
+ *
+ * Der Riegel kannte nur 127.0.0.1. Steht der Dienst unter einem eigenen Namen, schickt
+ * der Browser bei jeder Anfrage seiner EIGENEN Oberflaeche `Origin: https://mail...` -
+ * und bekam 403. Auch beim Anmelden. Der Dienst lief und war unbedienbar.
+ */
+await pruefe('die eigene oeffentliche Adresse geht durch', async () => {
+  const app = baueProbe(null, 'https://mail.beispiel.de');
+  const antwort = await app.inject({
+    method: 'POST',
+    url: '/accounts/1/send',
+    headers: { origin: 'https://mail.beispiel.de' },
+    payload: {},
+  });
+  assert.equal(antwort.statusCode, 200);
+  await app.close();
+});
+
+await pruefe('eine fremde bleibt trotzdem drausssen', async () => {
+  // Die Adresse zu setzen darf den Riegel nicht zur Tuer machen.
+  const app = baueProbe(null, 'https://mail.beispiel.de');
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/accounts',
+    headers: { origin: 'https://boese.example' },
+  });
+  assert.equal(antwort.statusCode, 403);
+  await app.close();
+});
+
+await pruefe('ein aehnlich aussehender Name reicht nicht', async () => {
+  // "mail.beispiel.de.boese.example" faengt gleich an - verglichen wird die ganze Origin.
+  const app = baueProbe(null, 'https://mail.beispiel.de');
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/accounts',
+    headers: { origin: 'https://mail.beispiel.de.boese.example' },
+  });
+  assert.equal(antwort.statusCode, 403);
+  await app.close();
+});
+
+await pruefe('ohne Schema ist https gemeint', () => {
+  setzeOeffentlicheAdresse('mail.beispiel.de');
+  assert.deepEqual([...oeffentlicheAdressen()], ['https://mail.beispiel.de']);
+});
+
+await pruefe('ein Pfad am Ende faellt weg - eine Herkunft hat keinen', () => {
+  setzeOeffentlicheAdresse('https://mail.beispiel.de/post/');
+  assert.deepEqual([...oeffentlicheAdressen()], ['https://mail.beispiel.de']);
+});
+
+await pruefe('mehrere Adressen durch Komma', () => {
+  setzeOeffentlicheAdresse('https://mail.beispiel.de, https://post.beispiel.de');
+  assert.deepEqual(
+    [...oeffentlicheAdressen()],
+    ['https://mail.beispiel.de', 'https://post.beispiel.de'],
+  );
+});
+
+await pruefe('eine unbrauchbare Angabe wirft, statt still zu verschwinden', () => {
+  /*
+   * Absichtlich laut. Ein Tippfehler in der Umgebungsvariablen wuerde sonst als Regen
+   * von 403ern ankommen, und niemand vermutet die Ursache in der .env-Datei.
+   */
+  assert.throws(() => setzeOeffentlicheAdresse('mail beispiel de/?'), /brauchbare Adresse/);
+  assert.throws(() => setzeOeffentlicheAdresse('ftp://mail.beispiel.de'), /http und https/);
+});
+
+await pruefe('leer setzt zurueck - der Einzelplatz kennt keine oeffentliche Adresse', () => {
+  setzeOeffentlicheAdresse('https://mail.beispiel.de');
+  setzeOeffentlicheAdresse(null);
+  assert.deepEqual([...oeffentlicheAdressen()], []);
+});
+
+console.log('\nDer Gesundheitsweg:');
+
+await pruefe('kommt ohne Geheimnis durch - die Containerpruefung hat keines', async () => {
+  /*
+   * Haenge er am Geheimnis, meldete er dauerhaft 401: Docker hielte den gesunden Dienst
+   * fuer krank und startete ihn im Kreis neu.
+   */
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({ method: 'GET', url: GESUNDHEITS_PFAD });
+  assert.equal(antwort.statusCode, 200);
+  await app.close();
+});
+
+await pruefe('oeffnet aber sonst nichts', async () => {
+  // Die Ausnahme gilt genau diesem einen Weg, nicht allem, was so anfaengt.
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({ method: 'GET', url: `${GESUNDHEITS_PFAD}/../accounts` });
+  assert.notEqual(antwort.statusCode, 200);
   await app.close();
 });
 

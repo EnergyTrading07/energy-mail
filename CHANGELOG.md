@@ -11,7 +11,48 @@ was sich geändert hat.
 
 ## Unveröffentlicht
 
-Ergebnis einer vollständigen Durchsicht des Programms auf Produktionsreife.
+Zweierlei: das Ergebnis einer vollständigen Durchsicht auf Produktionsreife – und der
+Umbau vom Einzelplatzprogramm zu einem Dienst, der von überall über den Browser
+erreichbar ist.
+
+### Vom Programm zum Dienst
+
+Bis hierher war Energy Mail an einen Rechner gebunden: ein Mensch, ein Windows-Konto,
+ein Datenordner. Damit dasselbe Postfach vom Laptop, vom Handy und aus dem Browser
+erreichbar ist, musste der Server lernen, wessen Post er gerade in der Hand hat.
+
+- **Jede Anfrage gehört einem Nutzer.** Konten, Adressbuch, Regeln, Etiketten, Ablage
+  und Zwischenspeicher liegen je Nutzer getrennt. Eine Stelle, die vergisst zu sagen,
+  für wen sie arbeitet, bekommt einen lauten Fehler – nicht fremde Post. Es gibt
+  bewusst keinen stillen Rückfall auf „irgendeinen“ Nutzer.
+- **Anmeldung mit Adresse und Kennwort.** Das Kennwort wird mit scrypt geprüft, die
+  Sitzung liegt auf dem Server und lässt sich damit auch wieder zurücknehmen – anders
+  als eine signierte Marke im Keks, die bis zum Ablauf gilt, auch wenn sie gestohlen
+  wurde. Der Keks ist für Skript unerreichbar und wird bei fremden Anfragen nicht
+  mitgeschickt.
+- **Ein eigener Schlüssel je Nutzer**, verpackt mit dem des Servers. Wird ein Nutzer
+  gelöscht, ist seine Post damit unlesbar – auch in jeder bestehenden Sicherung.
+- **Die Ablage wird umgestellt statt geleert.** Vorher wurde bei jeder Änderung am
+  Aufbau die gesamte lokale Datenbank verworfen und neu geladen. Bei 31.700 Nachrichten
+  sind das Stunden – und bei einem Dienst gleichzeitig für alle.
+- **Eine Nachricht zu öffnen lädt nicht mehr ihre Anhänge.** Vorher wurde die
+  vollständige Nachricht in den Speicher geholt, nur um Text und HTML herauszulösen; bei
+  einer Nachricht mit 500 kB Bild kostete das Bild dabei zweimal Übertragung. Jetzt
+  werden gezielt nur die Textteile abgerufen.
+- **Betrieb im Container.** `docker compose up -d` startet den Dienst hinter Caddy, das
+  sein Zertifikat bei Let's Encrypt selbst holt und erneuert. Die Verschlüsselung endet
+  auf dem eigenen Rechner – niemand dazwischen sieht die Post. Beschrieben in
+  [BETRIEB.md](BETRIEB.md).
+- **Nutzer werden auf dem Server angelegt**, nicht über eine Selbstanmeldung – sonst
+  könnte sich jeder aus dem Netz ein Postfach auf fremder Hardware einrichten.
+- **Hintergrundarbeit für alle Nutzer.** Beim Start bekam nur der Einplatznutzer seine
+  Überwachung, seine geplanten Sendungen und seine Wiedervorlagen zurück. Auf einem
+  Server hieß das: nach jedem Neustart kam für alle anderen keine Post mehr von selbst,
+  eine für Dienstag geplante Sendung ging nie hinaus, und eine auf morgen gelegte
+  Nachricht kam nicht wieder – ohne eine einzige Fehlermeldung.
+- **Hinter einem Reverse Proxy zählt die Anmeldebremse wieder je Person.** Ohne das war
+  die Absenderadresse jeder Anfrage die des Proxys: zehn Fehlversuche irgendwo hätten
+  alle anderen mit ausgesperrt.
 
 ### Sicherheit
 

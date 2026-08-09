@@ -6,11 +6,14 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocketPlugin from '@fastify/websocket';
 import {
+  GESUNDHEITS_PFAD,
   ZUGANG_KOPFZEILE,
   geheimnisAusAnfrage,
   holeZugangsgeheimnis,
   registriereZugangspruefung,
 } from './zugang.js';
+import { getWurzelDir } from './paths.js';
+import { alleNutzer, istGesperrt } from './nutzer/nutzerStore.js';
 import { KEKS_NAME, registriereAnmeldung } from './nutzer/anmelden.js';
 import { nutzerZurSitzung } from './nutzer/sitzung.js';
 import { alsNutzer } from './nutzer/kontext.js';
@@ -270,6 +273,11 @@ export type ServerOptionen = {
    * übrige Server merkt davon nichts. Ohne Angabe gilt der Einplatzbetrieb.
    */
   nutzerErmitteln?: NutzerErmitteln;
+  /**
+   * Ob den Kopfzeilen eines vorgelagerten Proxys geglaubt wird (X-Forwarded-For und
+   * Verwandte). `false` im Desktop-Betrieb - dort steht nichts davor. Siehe index.ts.
+   */
+  proxyVertrauen?: boolean | number | string;
 };
 
 /** Der Nutzer, unter dem der Einplatzbetrieb läuft. */
@@ -308,6 +316,12 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   const app = Fastify({
     logger: { stream: fastifyProtokollZiel() },
     bodyLimit: BODY_LIMIT_BYTES,
+    /*
+     * Voreinstellung false: im Desktop-Betrieb steht nichts vor dem Server, und wer den
+     * Kopfzeilen dort glaubte, ließe sich von jedem Absender eine beliebige Herkunft
+     * vorschreiben. Im Serverbetrieb setzt index.ts den Wert bewusst.
+     */
+    trustProxy: optionen.proxyVertrauen ?? false,
   });
 
   /*
@@ -367,6 +381,40 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   await app.register(cookie);
 
   registriereZugangspruefung(app, port);
+
+  /*
+   * Lebt der Dienst noch?
+   *
+   * Docker fragt das im Minutentakt; ohne eine solche Auskunft weiß der Container nur,
+   * ob der Prozess läuft - und ein Prozess, der läuft, aber auf keine Anfrage mehr
+   * antwortet, ist der häufigere Fall.
+   *
+   * Geprüft wird deshalb etwas, das tatsächlich schiefgehen kann: ob sich in den
+   * Datenordner schreiben lässt. Ein volles Laufwerk oder eine Einbindung mit falschen
+   * Rechten ist die Störung, die im Betrieb wirklich auftritt - und eine, bei der ein
+   * bloßes "ok" lügen würde, weil der Dienst zwar antwortet, aber nichts mehr sichern
+   * kann.
+   *
+   * Herausgegeben wird nichts, was jemanden angeht: keine Nutzer, keine Konten, keine
+   * Zahlen über den Bestand.
+   */
+  const gestartet = Date.now();
+  app.get(GESUNDHEITS_PFAD, async (_request, reply) => {
+    const fassung = process.env.ENERGY_MAIL_FASSUNG ?? 'unbekannt';
+    const laeuftSeit = Math.round((Date.now() - gestartet) / 1000);
+    try {
+      fs.accessSync(getWurzelDir(), fs.constants.W_OK);
+    } catch (err) {
+      app.log.error(`Gesundheitsprüfung: Datenordner nicht beschreibbar - ${(err as Error).message}`);
+      return reply.code(503).send({
+        ok: false,
+        grund: 'Der Datenordner ist nicht beschreibbar.',
+        fassung,
+        laeuftSeit,
+      });
+    }
+    return { ok: true, fassung, laeuftSeit, verschluesselung: istVerschluesselungVerfuegbar() };
+  });
 
   registriereAnmeldung(app, nutzerErmitteln);
 
@@ -2458,25 +2506,59 @@ export async function buildServer(optionen: ServerOptionen = {}) {
    * Sendungen und Wiedervorlagen entstehen INNERHALB dieses Blocks und behalten ihn
    * deshalb bis zu ihrem Auslösen - auch Wochen später.
    *
-   * Sobald es mehrere Nutzer gibt, wird aus dem einen Aufruf eine Schleife über alle.
-   * Deshalb steht die Liste schon jetzt hier und nicht der nackte Name.
+   * Hier stand einmal `[EINPLATZ_NUTZER]` mit der Notiz, daraus werde später eine
+   * Schleife über alle. Der Zeitpunkt ist gekommen, und es war keine Formsache: im
+   * Serverbetrieb bekam nach jedem Neustart nur der Nutzer "lokal" seine
+   * Hintergrundarbeit zurück - und der hat dort gar keine Konten. Für alle anderen hieß
+   * das: keine Überwachung (also keine neue Post, bis jemand von Hand nachlädt), eine
+   * für Dienstag geplante Sendung, die nie hinausgeht, und eine auf morgen gelegte
+   * Nachricht, die nicht wiederkommt. Alles still, ohne eine einzige Fehlermeldung.
+   *
+   * Auf dem Einzelplatz ändert sich nichts: dort ist "lokal" der einzige Eintrag.
    */
-  for (const nutzer of [EINPLATZ_NUTZER]) {
-    alsNutzer(nutzer, () => {
-      syncWatchers();
+  const hintergrundNutzer = alleNutzer()
+    .map((n) => n.id)
+    .filter((id) => !istGesperrt(id));
 
-      /*
-       * Erst hier, ganz am Ende - und das ist eine Behebung, keine Umsortierung.
-       *
-       * Vorher standen beide weiter oben im Aufbau, VOR installTokenRefresh. Überfällige
-       * Einträge werden mit Wartezeit 0 eingeplant, konnten also losfeuern, bevor die
-       * Markenerneuerung eingerichtet war. Bei einem OAuth-Konto scheiterte dann genau
-       * der überfällige Versand an einer abgelaufenen Marke - und wurde nach fünf
-       * Versuchen aufgegeben.
-       */
-      ladeWiedervorlagen();
-      ladeGeplanteSendungen();
-    });
+  if (hintergrundNutzer.length === 0) {
+    app.log.warn(
+      'Kein Nutzer eingetragen - es läuft keine Überwachung. Bei einem neuen Server ist ' +
+        'das normal, bis der erste Nutzer angelegt ist (nutzerWerkzeug.js anlegen).',
+    );
+  }
+
+  for (const nutzer of hintergrundNutzer) {
+    /*
+     * Jeder für sich. Ein Nutzer, dessen Konten sich nicht entschlüsseln lassen oder
+     * dessen Ablage beschädigt ist, darf nicht die Hintergrundarbeit aller anderen
+     * verhindern - beim Einzelplatz war das egal, hier ist es der Unterschied zwischen
+     * "einer hat ein Problem" und "der Dienst tut nichts mehr".
+     */
+    try {
+      alsNutzer(nutzer, () => {
+        syncWatchers();
+
+        /*
+         * Erst hier, ganz am Ende - und das ist eine Behebung, keine Umsortierung.
+         *
+         * Vorher standen beide weiter oben im Aufbau, VOR installTokenRefresh. Überfällige
+         * Einträge werden mit Wartezeit 0 eingeplant, konnten also losfeuern, bevor die
+         * Markenerneuerung eingerichtet war. Bei einem OAuth-Konto scheiterte dann genau
+         * der überfällige Versand an einer abgelaufenen Marke - und wurde nach fünf
+         * Versuchen aufgegeben.
+         */
+        ladeWiedervorlagen();
+        ladeGeplanteSendungen();
+      });
+    } catch (err) {
+      app.log.error(
+        `Hintergrundarbeit für "${nutzer}" ließ sich nicht starten: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  if (hintergrundNutzer.length > 1) {
+    app.log.info(`Hintergrundarbeit für ${hintergrundNutzer.length} Nutzer gestartet.`);
   }
 
   /*
