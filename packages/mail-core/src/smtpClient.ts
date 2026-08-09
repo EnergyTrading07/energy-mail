@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import { resolveAccessToken } from './oauth/tokenAccess.js';
@@ -21,6 +22,24 @@ async function createTransport(config: AccountConfig) {
     host: config.smtpHost,
     port: config.smtpPort,
     secure: config.smtpSecure,
+    /*
+     * Verschlüsselung erzwingen, wenn nicht ohnehin von der ersten Sekunde an
+     * verschlüsselt wird.
+     *
+     * Ohne diese Zeile entscheidet nodemailer allein anhand der EHLO-Antwort, ob es auf
+     * TLS hochstuft - kündigt der Server kein STARTTLS an, sendet es STILL im Klartext
+     * weiter. Ein Angreifer im Netzpfad (offenes WLAN, untergeschobener Router) braucht
+     * also nur die Zeile "250-STARTTLS" aus der Antwort zu streichen, und schon geht
+     * "AUTH LOGIN" mit dem Postfachkennwort unverschlüsselt über die Leitung.
+     *
+     * Das trifft nicht die Ausnahme, sondern den Regelfall: outlook.com, hotmail.com,
+     * live.com, gmx.net, gmx.de, web.de und icloud.com stehen in providerPresets.ts
+     * alle auf Port 587 mit smtpSecure:false, und buildPasswordAccount faellt ebenfalls
+     * darauf zurueck. Mit requireTLS scheitert ein solcher Server sichtbar, statt
+     * lautlos das Kennwort preiszugeben.
+     */
+    requireTLS: !config.smtpSecure,
+    tls: { minVersion: 'TLSv1.2', servername: config.smtpHost },
     auth: await buildSmtpAuth(config),
   });
 }
@@ -47,9 +66,66 @@ export async function verifySmtpConnection(config: AccountConfig): Promise<void>
  * solche Kopfzeilen abweisen oder verstümmeln.
  */
 function kodiereKopfzeile(text: string): string {
+  const sicher = sichereKopfzeile(text);
   // eslint-disable-next-line no-control-regex
-  if (!/[^\x00-\x7F]/.test(text)) return text;
-  return `=?UTF-8?B?${Buffer.from(text, 'utf8').toString('base64')}?=`;
+  if (!/[^\x20-\x7E]/.test(sicher)) return sicher;
+  /*
+   * Kodierte Wörter sind auf 75 Zeichen begrenzt (RFC 2047). Ein langer Betreff mit
+   * Umlauten ergab bisher EIN Wort beliebiger Länge; zusammen mit der fehlenden Faltung
+   * überschritt die Kopfzeile die 998 Zeichen aus RFC 5322. Strenge Server antworten
+   * darauf mit "500 line too long", mildere schneiden ab - und bei einer
+   * unterschriebenen Nachricht bricht damit die Prüfsumme.
+   *
+   * 45 Bytes je Stück, damit "=?UTF-8?B?" + Base64 + "?=" unter 75 Zeichen bleibt.
+   */
+  const stuecke: string[] = [];
+  const bytes = Buffer.from(sicher, 'utf8');
+  let ab = 0;
+  while (ab < bytes.length) {
+    let bis = Math.min(ab + 45, bytes.length);
+    // Nie mitten in einer UTF-8-Folge trennen: Fortsetzungsbytes beginnen mit 10xxxxxx.
+    while (bis < bytes.length && (bytes[bis]! & 0xc0) === 0x80) bis--;
+    stuecke.push(`=?UTF-8?B?${bytes.subarray(ab, bis).toString('base64')}?=`);
+    ab = bis;
+  }
+  // Fortsetzungszeilen werden mit CRLF + Leerzeichen angehängt (RFC 5322, Faltung).
+  return stuecke.join('\r\n ');
+}
+
+/**
+ * Nimmt einer Kopfzeile die Möglichkeit, den Kopf zu verlassen.
+ *
+ * Der Angriff geht so: Ein fremder Absender schickt eine Nachricht mit
+ * `Subject: =?UTF-8?B?<base64 von "Rechnung\r\nBcc: angreifer@example.org">?=`.
+ * imapflow dekodiert das kodierte Wort - der Betreff enthält danach ein echtes CRLF.
+ * Antwortet der Nutzer, übernimmt composeHelpers ihn mitsamt "Re: " in den Entwurf, und
+ * beim Versand entsteht daraus eine zusätzliche, echte Kopfzeile.
+ *
+ * Auf dem üblichen Weg fängt MailComposer das ab. Der handgebaute PGP/MIME-Zweig
+ * darunter tut es ausdrücklich nicht - er darf am geschützten Teil nichts anfassen -,
+ * und genau dort wäre der Schaden am größten: eine mit OpenPGP unterschriebene, also für
+ * den Empfänger besonders vertrauenswürdige Nachricht ginge mit eingeschleustem Bcc an
+ * einen Dritten, oder der Kopf würde vorzeitig beendet und der ganze Text ersetzt.
+ *
+ * Ersetzt statt abzuweisen: ein Betreff mit einem Zeilenumbruch ist kein Angriff,
+ * sondern meistens ein Versehen beim Einfügen - und die Nachricht deshalb gar nicht zu
+ * senden wäre die schlechtere Antwort.
+ */
+export function sichereKopfzeile(wert: string): string {
+  // eslint-disable-next-line no-control-regex
+  return wert.replace(/[\r\n\x00]+/g, ' ').trim();
+}
+
+/**
+ * Dasselbe für Adressfelder - hier wird verworfen statt ersetzt.
+ *
+ * Eine Empfängeradresse mit einem Zeilenumbruch darin ist keine Adresse. Sie mit einem
+ * Leerzeichen zu reparieren ergäbe eine, die es nicht gibt; sie wegzulassen ist ehrlicher
+ * und fällt beim Senden auf.
+ */
+function sichereAdressen(adressen: readonly string[]): string[] {
+  // eslint-disable-next-line no-control-regex
+  return adressen.filter((a) => !/[\r\n\x00]/.test(a));
 }
 
 /**
@@ -65,7 +141,16 @@ function baueGeschuetzteNachricht(
   kopfzeilen: string[],
   message: OutgoingMessage,
 ): Buffer | null {
-  const grenze = `=_EnergyMail_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  /*
+   * Die Trennmarke aus echtem Zufall statt aus Date.now() und Math.random().
+   *
+   * Beides war vorhersagbar. Wer den Inhalt der Nachricht teilweise steuert - bei einer
+   * Weiterleitung oder einem Zitat ist das der Normalfall -, konnte die Marke damit
+   * erraten und sie in den Text schreiben: die MIME-Struktur zerfällt dann an einer
+   * Stelle, die der Absender bestimmt, und das ausgerechnet in einer unterschriebenen
+   * Nachricht.
+   */
+  const grenze = `=_EnergyMail_${randomBytes(18).toString('base64url')}`;
 
   if (message.pgpGeheimtext) {
     const teile = [
@@ -134,16 +219,30 @@ export async function buildRawMessage(
   const name = message.absender?.displayName ?? config.displayName;
 
   if (message.pgpSignatur || message.pgpGeheimtext) {
-    const alsAdresse = (a: string) => a;
+    const empfaenger = sichereAdressen(message.to);
+    const kopie = sichereAdressen(message.cc ?? []);
+    /*
+     * Die Domain für die Message-ID. Ohne "@" in der Absenderadresse stand hier bislang
+     * "<...@undefined>" - eine syntaktisch ungültige Kennung, an der Empfänger die
+     * Nachricht nicht in den Gesprächsfaden einsortieren können und die manche
+     * Spamfilter abwerten.
+     */
+    const domain = (absender.split('@')[1] ?? config.email.split('@')[1] ?? 'localhost').trim();
     const kopfzeilen = [
-      `From: ${name ? `${name} <${absender}>` : absender}`,
-      `To: ${message.to.map(alsAdresse).join(', ')}`,
-      ...(message.cc?.length ? [`Cc: ${message.cc.map(alsAdresse).join(', ')}`] : []),
+      `From: ${name ? `${kodiereKopfzeile(name)} <${sichereKopfzeile(absender)}>` : sichereKopfzeile(absender)}`,
+      `To: ${empfaenger.join(', ')}`,
+      ...(kopie.length ? [`Cc: ${kopie.join(', ')}`] : []),
       `Subject: ${kodiereKopfzeile(message.subject)}`,
-      `Date: ${new Date().toUTCString()}`,
-      `Message-ID: <${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@${absender.split('@')[1]}>`,
-      ...(message.inReplyTo ? [`In-Reply-To: ${message.inReplyTo}`] : []),
-      ...(message.references?.length ? [`References: ${message.references.join(' ')}`] : []),
+      // toUTCString() endet auf "GMT"; RFC 5322 verlangt "+0000". nodemailer macht
+      // dieselbe Ersetzung im Normalweg - der handgebaute Zweig hatte sie nicht.
+      `Date: ${new Date().toUTCString().replace(/GMT$/, '+0000')}`,
+      // Aus crypto statt aus Math.random: Letzteres ist vorhersagbar, und zusammen mit
+      // Date.now() gäbe die Kennung zusätzlich die Sendezeit preis.
+      `Message-ID: <${randomBytes(12).toString('hex')}@${domain}>`,
+      ...(message.inReplyTo ? [`In-Reply-To: ${sichereKopfzeile(message.inReplyTo)}`] : []),
+      ...(message.references?.length
+        ? [`References: ${message.references.map(sichereKopfzeile).join(' ')}`]
+        : []),
       'MIME-Version: 1.0',
     ];
     const gebaut = baueGeschuetzteNachricht(kopfzeilen, message);

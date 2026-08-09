@@ -29,13 +29,18 @@ if (url.includes('DEIN-GITHUB-NAME')) {
   );
 }
 
-if (!process.env.GH_TOKEN && !process.env.GITHUB_TOKEN) {
-  fehler.push(
-    'GH_TOKEN ist nicht gesetzt - ohne Zugriffsschlüssel darf niemand veröffentlichen.\n' +
-      '   Schlüssel anlegen: https://github.com/settings/tokens (Bereich "public_repo")\n' +
-      '   Danach in PowerShell:  $env:GH_TOKEN = "ghp_..."',
-  );
-}
+/*
+ * Hier stand einmal die Forderung nach einem GH_TOKEN.
+ *
+ * Sie ist entfallen, weil von diesem Rechner nichts mehr hochgeladen wird: der lokale
+ * Schritt setzt nur noch die Marke, und dafür genügen die Zugangsdaten, mit denen auch
+ * sonst gepusht wird. Gebaut und hochgeladen wird in der CI, und den Schlüssel dafür
+ * stellt GitHub selbst bereit (secrets.GITHUB_TOKEN).
+ *
+ * Das ist nebenbei die vollständige Lösung eines alten Problems: Der Schlüssel ging
+ * vorher als Argument an git und stand damit in der Prozessliste, für jeden anderen
+ * Prozess desselben Nutzers lesbar. Jetzt gibt es ihn hier gar nicht mehr.
+ */
 
 /**
  * Führt einen Befehl aus und sagt, ob er durchlief.
@@ -57,7 +62,21 @@ function laeuft(befehlszeile) {
  * nicht mehr heraus.
  */
 const stand = laeuft('git status --porcelain');
-if (stand.ok && stand.ausgabe.trim()) {
+if (!stand.ok) {
+  /*
+   * Ein fehlgeschlagenes "git status" galt vorher als sauberer Arbeitsbaum.
+   *
+   * Die Bedingung lautete `stand.ok && stand.ausgabe.trim()` - lief der Befehl nicht
+   * durch (kein git im PATH, beschädigtes Repository), wurde sie nie wahr und die
+   * Prüfung stillschweigend übersprungen. Genau diese Lücke wird ein paar Zeilen
+   * weiter unten für den fehlenden Gegenpart ausdrücklich geschlossen; hier stand sie
+   * noch offen.
+   */
+  fehler.push(
+    '"git status" ließ sich nicht ausführen - der Arbeitsbaum ist damit nicht prüfbar.\n' +
+      `   Ausgabe: ${stand.ausgabe.trim().split('\n')[0] ?? '(keine)'}`,
+  );
+} else if (stand.ausgabe.trim()) {
   fehler.push(
     'Es liegen ungespeicherte Änderungen im Arbeitsbaum.\n' +
       '   Erst einchecken, dann veröffentlichen - sonst zeigt die Fassung auf einen\n' +
@@ -104,18 +123,57 @@ if (!unversandt.ok) {
  * Selbstaktualisierung jedes Nutzers.
  */
 if (fehler.length === 0) {
+  /*
+   * Auch die Typen, nicht nur die Prüfungen.
+   *
+   * Der erklärte Zweck dieses Skripts ist, alles VOR dem Bau abzufangen. Der Typcheck
+   * fehlte trotzdem: ein Typfehler fiel erst im "npm run build" danach auf - also nach
+   * der Marke, nach dem Push und nach der angelegten Veröffentlichung. Übrig blieb eine
+   * leere Veröffentlichung auf GitHub, die von Hand wegzuräumen war.
+   */
+  console.log('Typen prüfen…');
+  const typen = laeuft('npm run typecheck');
+  if (!typen.ok) {
+    const meldungen = typen.ausgabe
+      .split('\n')
+      .filter((z) => z.includes('error TS'))
+      .slice(0, 10);
+    fehler.push(
+      'Die Typprüfung ist nicht durchgelaufen.\n' +
+        (meldungen.length > 0
+          ? meldungen.map((z) => `   ${z.trim()}`).join('\n')
+          : '   ("npm run typecheck" von Hand ausführen)'),
+    );
+  }
+}
+
+if (fehler.length === 0) {
   console.log('Prüfungen laufen…');
   const pruefungen = laeuft('npm test');
   if (!pruefungen.ok) {
+    /*
+     * Zwei Wege, den Fehlschlag zu benennen.
+     *
+     * Die Zeilen mit "FEHL" kommen aus den Prüfdateien selbst - eine Vereinbarung, die
+     * nirgends erzwungen wird und deshalb allein nicht tragen darf. Die Zusammenfassung
+     * von "node --test" ("# fail 3") kommt dagegen vom Läufer und gilt immer.
+     */
     const gescheitert = pruefungen.ausgabe
       .split('\n')
-      .filter((z) => z.startsWith('  FEHL'))
+      .filter((z) => z.includes('FEHL'))
       .slice(0, 10);
+    const zusammenfassung = pruefungen.ausgabe
+      .split('\n')
+      .filter((z) => /^(ℹ|#)?\s*(fail|tests)\s+\d+/.test(z.trim()))
+      .map((z) => z.trim());
+
     fehler.push(
       'Die Prüfungen sind nicht durchgelaufen.\n' +
         (gescheitert.length > 0
           ? gescheitert.map((z) => `   ${z.trim()}`).join('\n')
-          : '   (kein einzelner Fehlschlag erkennbar - "npm test" von Hand ausführen)'),
+          : zusammenfassung.length > 0
+            ? zusammenfassung.map((z) => `   ${z}`).join('\n')
+            : '   (kein einzelner Fehlschlag erkennbar - "npm test" von Hand ausführen)'),
     );
   }
 }
@@ -123,11 +181,8 @@ if (fehler.length === 0) {
 if (fehler.length > 0) {
   console.error('\nVeröffentlichen noch nicht möglich:\n');
   fehler.forEach((f, i) => console.error(` ${i + 1}. ${f}\n`));
-  console.error(
-    'Der Zugriffsschlüssel wird nur zum Hochladen gebraucht. In die ausgelieferte\n' +
-      'Anwendung kommt er nicht - das Repository ist öffentlich lesbar.\n',
-  );
   process.exit(1);
 }
 
-console.log(`Veröffentliche ${pkg.productName} ${pkg.version} nach ${url}`);
+console.log(`\n${pkg.productName} ${pkg.version} ist bereit für die Marke.`);
+console.log(`Gebaut und hochgeladen wird danach in der CI - nicht auf diesem Rechner.\n`);

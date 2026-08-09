@@ -97,7 +97,9 @@ export function ohneGeheimnisse(konto: AccountConfig): GesichertesKonto {
  * darf angefasst werden; alles andere wird mit einem Satz abgelehnt, der sagt, woran
  * es liegt.
  */
-export function pruefeSicherung(roh: unknown): { ok: true; daten: Sicherung } | { ok: false; grund: string } {
+export function pruefeSicherung(
+  roh: unknown,
+): { ok: true; daten: Sicherung; uebergangen: Record<string, number> } | { ok: false; grund: string } {
   if (!roh || typeof roh !== 'object') {
     return { ok: false, grund: 'Die Datei enthält keine lesbaren Daten.' };
   }
@@ -128,17 +130,54 @@ export function pruefeSicherung(roh: unknown): { ok: true; daten: Sicherung } | 
     }
   }
 
+  /*
+   * Jetzt die Eintraege selbst.
+   *
+   * Vorher endete die Pruefung eine Zeile darueber: geprueft wurde nur, DASS die
+   * Abschnitte Listen sind, nie WAS darin steht. Die Eintraege gingen mit `as never` in
+   * die Ablage. Eine Sicherung mit gueltiger Huelle und Unfug darin - etwa
+   * `etiketten: [{ name: 12345 }]` - fuehrte deshalb zu einer 500 mit dem rohen
+   * englischen Satz "kennung(...).toLowerCase is not a function", und zwar MITTEN im
+   * Einlesen: das Konto davor war bereits angelegt, die Etiketten dahinter nicht. Der
+   * Nutzer stand vor einer halb eingelesenen Sicherung und erfuhr nicht, welche Haelfte.
+   *
+   * Unbrauchbare Eintraege werden jetzt gezaehlt und ausgelassen, statt die ganze
+   * Einfuhr zu stuerzen. Das ist dieselbe Haltung wie bei einfuhrVisitenkarten: was
+   * lesbar ist, kommt an; was nicht, wird benannt.
+   */
+  const uebergangen: Record<string, number> = {};
+  function nurBrauchbare<T>(name: string, liste: unknown[] | undefined, taugt: (e: unknown) => boolean): T[] {
+    if (!liste) return [];
+    const gut = liste.filter(taugt);
+    if (gut.length < liste.length) uebergangen[name] = liste.length - gut.length;
+    return gut as T[];
+  }
+
+  const text = (w: unknown): w is string => typeof w === 'string' && w.trim().length > 0;
+  const objekt = (e: unknown): e is Record<string, unknown> =>
+    Boolean(e) && typeof e === 'object' && !Array.isArray(e);
+
   return {
     ok: true,
+    uebergangen,
     daten: {
       fassung: d.fassung,
       erstelltAm: d.erstelltAm ?? '',
       programm: d.programm ?? '',
-      konten: d.konten ?? [],
-      etiketten: d.etiketten ?? [],
-      regeln: d.regeln ?? {},
-      kontakte: d.kontakte ?? [],
-      suchen: d.suchen ?? [],
+      konten: nurBrauchbare('konten', d.konten, (e) => objekt(e) && text(e.email)),
+      etiketten: nurBrauchbare('etiketten', d.etiketten, (e) => objekt(e) && text(e.name)),
+      // Regeln sind ein Verzeichnis, keine Liste - hier genuegt die grobe Form.
+      regeln: d.regeln && typeof d.regeln === 'object' && !Array.isArray(d.regeln) ? d.regeln : {},
+      kontakte: nurBrauchbare(
+        'kontakte',
+        d.kontakte,
+        (e) => objekt(e) && text(e.address) && (e.address as string).includes('@'),
+      ),
+      suchen: nurBrauchbare(
+        'suchen',
+        d.suchen,
+        (e) => objekt(e) && text(e.name) && objekt(e.kriterien),
+      ),
       hinweis: d.hinweis ?? HINWEIS,
     },
   };

@@ -108,6 +108,47 @@ pruefe('dieselbe Adresse mehrfach zaehlt einmal', () => {
 });
 
 
+/*
+ * Drei Wege, die ohne jedes Skript nach draussen fuehren - und die deshalb lange
+ * uebersehen wurden. Sie standen ausserhalb dessen, was als "ladendes Attribut" galt.
+ */
+console.log('\nWege, die ohne Skript nach draussen fuehren:');
+
+pruefe('eine Weiterleitung per meta refresh wird angehalten', () => {
+  const { html, anzahl } = entschaerfeExterneInhalte(
+    '<meta http-equiv="refresh" content="0;url=https://zaehler.example/pixel?id=OPFER">Text',
+  );
+  assert.equal(anzahl, 1, 'sie wird auch mitgezaehlt - die Leiste soll nicht luegen');
+  assert.ok(!html.includes('content="0;url=https://zaehler.example'));
+  assert.ok(html.includes('data-extern-refresh'), 'der Wert bleibt nachvollziehbar erhalten');
+});
+
+pruefe('ein base-Element wird entfernt', () => {
+  // Es biegt ALLE relativen Adressen um, auch die schon umgeschriebenen cid:-Bilder.
+  const { html } = entschaerfeExterneInhalte('<base href="https://boese.example/"><p>Text</p>');
+  assert.ok(!html.includes('<base'));
+  assert.ok(html.includes('Text'));
+});
+
+pruefe('@import ohne url() wird ebenfalls entschaerft', () => {
+  const { html, anzahl } = entschaerfeExterneInhalte(
+    '<style>@import "https://boese.example/x.css"; p { color: red }</style>',
+  );
+  assert.equal(anzahl, 1);
+  assert.ok(!html.includes('boese.example'));
+  assert.ok(html.includes('color: red'), 'der uebrige Stil bleibt stehen');
+});
+
+pruefe('Stilbloecke aus dem Kopf gehen nicht mehr verloren', () => {
+  // Die meisten Rundmails sind vollstaendige Dokumente; ihre <style> liegen im <head>.
+  // Vorher gab die Funktion nur den Rumpf zurueck - die Nachricht erschien unformatiert.
+  const { html } = entschaerfeExterneInhalte(
+    '<html><head><style>p { color: red }</style></head><body><p>Text</p></body></html>',
+  );
+  assert.ok(html.includes('color: red'), 'der Stil aus dem Kopf ist noch da');
+  assert.ok(html.includes('Text'));
+});
+
 console.log('\nWas bleiben muss:');
 
 pruefe('eingebettete Bilder der Nachricht selbst', () => {

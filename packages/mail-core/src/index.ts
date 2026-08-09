@@ -9,6 +9,7 @@ export * from './drafts.js';
 export * from './oauth/provider.js';
 export * from './oauth/tokenAccess.js';
 export * from './unsubscribe.js';
+export * from './mailto.js';
 export * from './nachfassen.js';
 export * from './autoconfig.js';
 export * from './mbox.js';

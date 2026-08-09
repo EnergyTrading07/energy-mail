@@ -46,6 +46,14 @@ function fuehrtNachDraussen(wert: string): boolean {
 const URL_IM_CSS = /url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi;
 
 /**
+ * "@import" ohne url() - die kurze Schreibweise.
+ *
+ * `@import "https://boese/x.css";` lädt genauso wie `@import url(...)`, wurde aber vom
+ * Muster darüber nicht erfasst und blieb deshalb stehen.
+ */
+const IMPORT_IM_CSS = /@import\s+(['"])([^'"]+)\1/gi;
+
+/**
  * Ersetzt jede nach draußen führende Adresse in einem Stück CSS.
  *
  * Gibt getrennt zurück, ob etwas geändert wurde - und stützt das nicht auf das Wachsen
@@ -59,13 +67,19 @@ function cssEntschaerfen(
   gesehen: Set<string>,
 ): { css: string; geaendert: boolean } {
   let geaendert = false;
-  const neu = css.replace(URL_IM_CSS, (ganzes, anfuehrung, adresse) => {
+  let neu = css.replace(URL_IM_CSS, (ganzes, anfuehrung, adresse) => {
     if (!fuehrtNachDraussen(adresse)) return ganzes;
     gesehen.add(adresse.trim());
     geaendert = true;
     // Der Wert bleibt lesbar erhalten, verweist aber ins Nichts: so bleibt das
     // Seitenlayout erhalten, ohne dass etwas geladen wird.
     return `url(${anfuehrung}about:blank${anfuehrung})`;
+  });
+  neu = neu.replace(IMPORT_IM_CSS, (ganzes, anfuehrung, adresse) => {
+    if (!fuehrtNachDraussen(adresse)) return ganzes;
+    gesehen.add(adresse.trim());
+    geaendert = true;
+    return `@import ${anfuehrung}about:blank${anfuehrung}`;
   });
   return { css: neu, geaendert };
 }
@@ -125,7 +139,46 @@ export function entschaerfeExterneInhalte(html: string): EntschaerftesErgebnis {
     block.textContent = cssEntschaerfen(block.textContent ?? '', gesehen).css;
   }
 
-  return { html: doc.body.innerHTML, anzahl: gesehen.size };
+  /*
+   * Die Weiterleitung per <meta http-equiv="refresh">.
+   *
+   * Sie braucht kein Skript und stand deshalb außerhalb von allem, was hier bisher
+   * geprüft wurde: das Ziel steht im "content"-Attribut, und das ist kein ladendes
+   * Attribut im obigen Sinn. Eine Werbemail konnte damit beim bloßen Öffnen einen Abruf
+   * nach draußen auslösen - während die Leiste dem Nutzer meldete, es sei nichts
+   * zurückgehalten worden.
+   */
+  for (const meta of Array.from(doc.querySelectorAll('meta'))) {
+    if (meta.getAttribute('http-equiv')?.toLowerCase() !== 'refresh') continue;
+    const inhalt = meta.getAttribute('content') ?? '';
+    const ziel = inhalt.match(/url\s*=\s*(['"]?)([^'";]+)\1/i)?.[2];
+    if (ziel && fuehrtNachDraussen(ziel)) gesehen.add(ziel.trim());
+    meta.setAttribute('data-extern-refresh', inhalt);
+    meta.removeAttribute('content');
+  }
+
+  /*
+   * <base href> biegt ALLE relativen Adressen um - auch die cid:-Bilder, die der Server
+   * bereits auf sich selbst umgeschrieben hat. Ein einziges solches Element hebelt die
+   * gesamte Entschärfung aus. Es gibt keinen Grund, warum eine E-Mail eines braucht.
+   */
+  for (const base of Array.from(doc.querySelectorAll('base'))) {
+    const wert = base.getAttribute('href');
+    if (wert && fuehrtNachDraussen(wert)) gesehen.add(wert.trim());
+    base.remove();
+  }
+
+  /*
+   * Kopf UND Rumpf zurückgeben.
+   *
+   * Vorher stand hier nur doc.body.innerHTML. Die meisten Rundmails sind vollständige
+   * Dokumente, deren <style>-Blöcke nach dem Einlesen im <head> liegen - sie gingen
+   * damit verloren, und die entschärfte Fassung erschien als unformatierter Textklumpen.
+   * Nach einer Freigabe wurde dagegen das rohe HTML samt Kopf gezeigt: dieselbe
+   * Nachricht sah vor und nach "Einmal laden" völlig verschieden aus. Die Stilblöcke im
+   * Kopf sind oben bereits entschärft worden.
+   */
+  return { html: doc.head.innerHTML + doc.body.innerHTML, anzahl: gesehen.size };
 }
 
 /**

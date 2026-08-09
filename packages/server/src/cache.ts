@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getDataDir } from './paths.js';
+import { schreibeAtomar } from './atomar.js';
 
 /**
  * Zwischenspeicher für alles, was der Server sonst bei jedem Klick neu über IMAP holt:
@@ -56,14 +57,29 @@ function planeSpeichern(): void {
   if (schreibTimer) return;
   schreibTimer = setTimeout(() => {
     schreibTimer = undefined;
-    try {
-      fs.mkdirSync(getDataDir(), { recursive: true });
-      fs.writeFileSync(dateiPfad(), JSON.stringify(Object.fromEntries(speicher)), 'utf-8');
-    } catch {
-      // Der Zwischenspeicher ist Beiwerk; scheitert das Schreiben, arbeitet alles weiter.
-    }
+    schreibeSofort();
   }, 3000);
   schreibTimer.unref?.();
+}
+
+/**
+ * Schreibt den Zwischenspeicher augenblicklich.
+ *
+ * Der Zeitgeber oben ist unref'd, damit er das Beenden nicht aufhält - dadurch ging ein
+ * gerade eingeplanter Schreibvorgang beim Herunterfahren aber verloren. Folge war nur
+ * ein kalter Start, also nichts Schlimmes; die Asymmetrie zu speichereKontakteSofort()
+ * war trotzdem eine Falle für den Nächsten, der hier etwas Wichtigeres ablegt.
+ */
+export function schreibeSofort(): void {
+  if (schreibTimer) {
+    clearTimeout(schreibTimer);
+    schreibTimer = undefined;
+  }
+  try {
+    schreibeAtomar(dateiPfad(), JSON.stringify(Object.fromEntries(speicher)));
+  } catch {
+    // Der Zwischenspeicher ist Beiwerk; scheitert das Schreiben, arbeitet alles weiter.
+  }
 }
 
 export function lies<T>(schluessel: string): Eintrag<T> | null {

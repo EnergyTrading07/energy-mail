@@ -7,6 +7,8 @@ import {
   type Etikett,
 } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
+import { liesJson, schreibeAtomar } from './atomar.js';
+import { protokolliere } from './protokollDatei.js';
 
 /**
  * Das Verzeichnis der Etiketten: welche es gibt, wie sie heißen und welche Farbe sie
@@ -39,18 +41,21 @@ interface Ablage {
  * fünf sind ohnehin schon da - Thunderbird setzt sie unter denselben Schlüsselwörtern.
  */
 function lesen(): Ablage {
-  try {
-    const roh = JSON.parse(fs.readFileSync(getPfad(), 'utf-8')) as Ablage;
-    if (Array.isArray(roh?.etiketten)) return roh;
-  } catch {
-    // Keine Datei oder beschädigt - dann die Voreinstellung.
+  const befund = liesJson<Ablage | null>(getPfad(), null);
+  if (befund.beschaedigt) {
+    protokolliere(
+      'fehler',
+      'etiketten',
+      `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +
+        (befund.beschaedigt.beiseite ? ` Beiseite gelegt: ${befund.beschaedigt.beiseite}` : ''),
+    );
   }
+  if (Array.isArray(befund.wert?.etiketten)) return befund.wert;
   return { etiketten: STANDARD_ETIKETTEN.map((e) => ({ ...e })) };
 }
 
 function schreiben(ablage: Ablage): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
-  fs.writeFileSync(getPfad(), JSON.stringify(ablage, null, 2), 'utf-8');
+  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function alleEtiketten(): Etikett[] {

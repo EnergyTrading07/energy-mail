@@ -1,0 +1,136 @@
+# Baut und veröffentlicht eine Fassung - ausgelöst durch eine Marke.
+#
+# Vorher lief das auf dem Arbeitsplatzrechner: "npm run publish" baute dort und lud von
+# dort hoch. Die ausgelieferte Datei war damit das Ergebnis eines Rechners, dessen Zustand
+# niemand nachvollziehen kann - welche node_modules, welche Node-Fassung, welche
+# versehentlich herumliegenden Dateien. Bei einer Anwendung mit Selbstaktualisierung ist
+# der Bauplatz die empfindlichste Stelle der ganzen Kette: was dort hineingerät, landet
+# auf jedem Rechner, der aktualisiert.
+#
+# Jetzt entsteht die Datei aus einem sauberen Checkout mit "npm ci" - jedes Mal gleich,
+# und jeder kann nachsehen, woraus.
+#
+# Von Hand bleibt genau ein Schritt: "npm run veroeffentlichen" setzt die Marke.
+name: Veröffentlichen
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Für den Fall, dass ein Lauf abgebrochen ist und für eine bestehende Marke wiederholt
+  # werden soll. Die Marke selbst wird dabei nie verschoben.
+  workflow_dispatch:
+    inputs:
+      marke:
+        description: 'Marke, die gebaut werden soll (z. B. v0.2.2)'
+        required: true
+
+# Zum Anlegen der Veröffentlichung und zum Hochladen der Dateien. Mehr braucht der Lauf
+# nicht - und mehr soll er auch nicht dürfen.
+permissions:
+  contents: write
+
+# Zwei Läufe auf derselben Marke würden sich beim Hochladen in die Quere kommen.
+# Hier NICHT abbrechen: ein halb hochgeladener Release ist schlimmer als ein Lauf zu viel.
+concurrency:
+  group: veroeffentlichen-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  veroeffentlichen:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.marke || github.ref }}
+          # Die Marken werden gebraucht, um die Fassung gegenzuprüfen.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          # Dieselbe Fassung wie im Prüf-Workflow und wie die, die Electron mitbringt.
+          node-version: '22'
+          cache: npm
+
+      # Der wichtigste Schritt des ganzen Laufs.
+      #
+      # Marke und package.json müssen dieselbe Fassung nennen. Ohne diese Prüfung könnte
+      # eine Marke "v0.3.0" ein Paket erzeugen, das sich selbst für 0.2.9 hält - die
+      # Selbstaktualisierung entscheidet anhand der Fassung IM Paket, nicht anhand des
+      # Markennamens. Das Ergebnis wäre eine Fassung, die sich nie wieder aktualisiert
+      # oder sich im Kreis aktualisiert.
+      - name: Fassung gegen die Marke prüfen
+        shell: bash
+        run: |
+          MARKE="${{ github.event.inputs.marke || github.ref_name }}"
+          IN_PAKET="v$(node -p "require('./package.json').version")"
+          echo "Marke:         $MARKE"
+          echo "In package.json: $IN_PAKET"
+          if [ "$MARKE" != "$IN_PAKET" ]; then
+            echo "FEHLER: Die Marke und die Fassung in package.json stimmen nicht überein."
+            echo "Die Selbstaktualisierung richtet sich nach der Fassung im Paket."
+            exit 1
+          fi
+
+      - name: Abhängigkeiten holen
+        run: npm ci
+
+      - name: Typen
+        run: npm run typecheck
+
+      - name: Bau
+        run: npm run build
+
+      - name: Prüfungen
+        run: npm test
+
+      # Eine Fassung mit einer bekannten Lücke hinauszugeben wäre das Gegenteil dessen,
+      # wofür die Selbstaktualisierung da ist.
+      - name: Abhängigkeiten auf Lücken prüfen
+        run: npm audit --audit-level=high
+
+      # Erst die Veröffentlichung anlegen, dann hochladen - sonst legen mehrere
+      # gleichzeitige Hochlade-Vorgänge sie jeder für sich an, und einer scheitert.
+      - name: Veröffentlichung anlegen
+        run: node scripts/veroeffentlichung-anlegen.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Bewusst nur das Installationsprogramm: für die Selbstaktualisierung wird die
+      # portable Fassung nicht gebraucht, und sie würde den Lauf verdoppeln.
+      #
+      # Hier wäre auch die Stelle für die Codesignierung. Sobald ein Zertifikat da ist,
+      # kommen die beiden Zeilen darunter dazu (siehe README, "Was noch fehlt"):
+      #   CSC_LINK: ${{ secrets.WINDOWS_ZERTIFIKAT_BASE64 }}
+      #   CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_ZERTIFIKAT_KENNWORT }}
+      - name: Paket bauen und hochladen
+        run: npx electron-builder --win nsis --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Nachsehen, was ausgeliefert wurde
+        shell: bash
+        run: |
+          npx asar list release/win-unpacked/resources/app.asar > paketinhalt.txt
+          echo "Dateien im Paket: $(wc -l < paketinhalt.txt)"
+          if grep -q '\.test\.' paketinhalt.txt; then
+            echo "FEHLER: Prüfdateien sind im Paket gelandet."
+            grep '\.test\.' paketinhalt.txt
+            exit 1
+          fi
+          if ! grep -q 'icon.png' paketinhalt.txt; then
+            echo "FEHLER: build/icon.png fehlt im Paket."
+            exit 1
+          fi
+          echo "Paketinhalt in Ordnung."
+
+      # Damit sich hinterher nachvollziehen lässt, was genau ausgeliefert wurde.
+      - name: Paketinhalt aufheben
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paketinhalt-${{ github.event.inputs.marke || github.ref_name }}
+          path: paketinhalt.txt
+          if-no-files-found: ignore

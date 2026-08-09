@@ -4,5 +4,10 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Pruefdateien gehoeren nicht nach dist/. Vorher landeten 24 uebersetzte
+  // *.test.mjs samt Quellkarten im ausgelieferten app.asar - nachgewiesen mit
+  // "asar list". Ausgelieferter Code, den niemand geprueft hat, und in
+  // routen.test.mjs steht eine vollstaendige Serverkonfiguration samt festem Schluessel.
+  "exclude": ["src/**/*.test.mts"]
 }

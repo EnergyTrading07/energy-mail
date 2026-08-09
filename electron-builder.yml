@@ -48,12 +48,71 @@ files:
   - '!packages/*/tsconfig*.json'
   - '!node_modules/@energy-mail/*/src/**'
   - '!node_modules/@energy-mail/*/tsconfig*.json'
+  # Übersetzte Prüfdateien. Die Ausschlüsse darüber greifen nur für src/**; die
+  # Prüfungen landeten aber als dist/*.test.mjs im Paket - nachgewiesen mit
+  # "asar list": 24 Dateien, darunter routen.test.mjs mit einer vollständigen
+  # Serverkonfiguration samt festem Schlüssel. Der Ausschluss in den tsconfig-Dateien
+  # verhindert sie bereits an der Quelle; dieser hier ist der zweite Riegel, damit ein
+  # veraltetes dist/ aus einem früheren Bau nicht doch etwas mitnimmt.
+  - '!**/*.test.*'
+
+# Das Programmsymbol als echte Datei neben dem Archiv, nicht darin.
+#
+# Es wird zur Laufzeit von zwei Stellen gebraucht: von den Windows-Meldungen und vom
+# Symbol im Infobereich. Beide reichen den Pfad an die Windows-Shell weiter, und die
+# kennt das asar-Archiv nicht - sie sieht dort nur eine Datei, in die sie nicht
+# hineinschauen kann. Entpackt liegt es als gewöhnliche Datei daneben und lässt sich
+# von überall öffnen.
+asarUnpack:
+  - build/icon.png
 
 win:
   target:
-    - nsis
-    - portable
+    - target: nsis
+      # arm64 dazu: ohne Angabe baut electron-builder nur x64, und auf den
+      # Snapdragon-Notebooks läuft die Anwendung dann in der Emulation - spürbar
+      # langsamerer Start und mehr Akkuverbrauch bei einem Programm, das den ganzen Tag
+      # offen ist.
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64]
   icon: build/icon.png
+
+# Damit sich Energy Mail als Standard-E-Mail-Programm einstellen lässt.
+#
+# Ohne diesen Abschnitt kennt Windows die Anwendung gar nicht als Kandidaten: ein Klick
+# auf eine mailto:-Adresse im Browser, "Senden an → E-Mail-Empfänger" im Explorer und
+# ein Doppelklick auf eine .eml-Datei gingen weiterhin an Outlook oder ins Leere. Für
+# ein E-Mail-Programm ist das keine Feinheit - es ist die Stelle, an der die Nutzung im
+# Alltag abbricht.
+protocols:
+  - name: E-Mail
+    schemes:
+      - mailto
+
+fileAssociations:
+  - ext: eml
+    name: E-Mail-Nachricht
+    description: E-Mail-Nachricht
+    icon: build/icon.png
+
+# Electron-Sicherungen ("Fuses") - Schalter im ausgelieferten Binärprogramm.
+#
+# Ohne sie bleibt RunAsNode aktiv, und "Energy Mail.exe" lässt sich mit
+# ELECTRON_RUN_AS_NODE=1 als beliebiger Node-Interpreter missbrauchen. Zusammen mit
+# perMachine:false - installiert wird nach %LOCALAPPDATA%\Programs, und dort darf jeder
+# Prozess im Nutzerkontext ohne Rechteerhöhung schreiben - wäre das ein bequemer Weg,
+# app.asar auszutauschen und über die Hülle an safeStorage zu kommen: also genau an die
+# Zugangsdaten, deren Schutz das Programm verspricht.
+#
+# Die Integritätsprüfung des Archivs braucht eine Codesignierung, um vollen Wert zu
+# haben (siehe README, Abschnitt "Was noch fehlt"); sie ist auch ohne sie kein Schaden.
+electronFuses:
+  runAsNode: false
+  enableNodeCliInspectArguments: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 
 nsis:
   # Kein Ein-Klick-Installer: der Nutzer soll sehen, wohin installiert wird, und die

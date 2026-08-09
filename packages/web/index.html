@@ -19,22 +19,45 @@
         style-src          mit 'unsafe-inline', weil React Stilangaben unmittelbar an
                            die Elemente schreibt
         frame-src          der Nachrichtenrahmen kommt aus srcDoc, also aus 'self'
-        connect-src        nur der eigene Server, auch über die WebSocket-Verbindung
+        connect-src        nur der eigene Server, auch über die WebSocket-Verbindung -
+                           und zwar namentlich. Vorher stand hier "ws: wss:", und das
+                           erlaubt WebSocket-Verbindungen zu JEDEM Host: genau die
+                           Grenze, die nach einem Fehler anderswo noch greifen müsste,
+                           war damit offen. Der Kommentar behauptete bereits das
+                           Richtige, die Zeile darunter tat es nicht.
+        script-src 'self'  ausdrücklich, statt es nur von default-src zu erben
+        frame-ancestors    diese Seite gehört in kein fremdes Fenster
         object-src 'none'  keine eingebetteten Fremdformate
         base-uri 'none'    kein Umbiegen relativer Adressen
         form-action 'none' nichts kann irgendwohin abgeschickt werden
+
+      Zu img-src: https: steht hier, und das ist Absicht.
+
+      Vorher stand es nicht da - mit der Folge, dass "Einmal laden" und "Absender immer
+      erlauben" wirkungslos waren. Ein srcdoc-Rahmen erbt die Richtlinie des
+      Elterndokuments, also blieben die Bilder auch nach der Freigabe leer, und die
+      Leiste verschwand trotzdem. Der Nutzer bekam eine Zusage, die die Anwendung nicht
+      einlöste, und suchte den Fehler bei sich.
+
+      Der Schutz liegt dort, wo er hingehört: entschaerfeExterneInhalte() nimmt jeder
+      Nachricht die ladenden Adressen, BEVOR sie angezeigt wird. Erst wenn der Nutzer
+      ausdrücklich freigibt, wird das unveränderte HTML gezeigt. Die Richtlinie ist hier
+      der zweite Riegel, nicht der erste - und ein zweiter Riegel, der eine gewollte
+      Handlung verhindert, ist keiner.
     -->
     <meta
       http-equiv="Content-Security-Policy"
       content="
         default-src 'self';
-        img-src 'self' data: blob:;
+        script-src 'self';
+        img-src 'self' data: blob: https:;
         style-src 'self' 'unsafe-inline';
         font-src 'self' data:;
         frame-src 'self';
-        connect-src 'self' ws: wss:;
+        connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 ws://127.0.0.1:4000 ws://localhost:4000 http://localhost:5173 ws://localhost:5173;
         object-src 'none';
         base-uri 'none';
+        frame-ancestors 'none';
         form-action 'none';
       "
     />

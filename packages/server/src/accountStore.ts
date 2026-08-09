@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { AccountAuth, AccountConfig } from '@energy-mail/mail-core';
 import { getProviderPreset, type GefundeneEinstellungen } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
+import { liesJson, schreibeAtomar } from './atomar.js';
+import { protokolliere } from './protokollDatei.js';
 import { decryptSecret, encryptSecret } from './secretCrypto.js';
 
 // Bei jedem Zugriff neu gebildet statt einmalig beim Laden: der Ablageort wird von der
@@ -69,10 +70,35 @@ function isPlaintext(auth: StoredAuth | AccountAuth): boolean {
   return !('secret' in auth);
 }
 
+/**
+ * Liest die Konten.
+ *
+ * Die Datei mit den Konten ist die empfindlichste im ganzen Benutzerordner: geht sie
+ * verloren, sind alle Zugangsdaten weg und die Anwendung ist nicht mehr benutzbar.
+ * Frueher stand hier ein blankes JSON.parse - eine abgeschnittene Datei liess damit
+ * jeden Aufruf werfen, und zwar dauerhaft: /accounts antwortete mit 500, requireAccount
+ * scheiterte, die Watcher stiegen aus. Es gab ueber die Oberflaeche keinen Weg zurueck.
+ *
+ * liesJson versucht bei einer unlesbaren Datei zuerst die Sicherungskopie und legt das
+ * Beschaedigte zur Seite, statt es beim naechsten Schreiben endgueltig zu ueberschreiben.
+ */
 function readAccounts(): AccountConfig[] {
   const storePath = getStorePath();
-  if (!fs.existsSync(storePath)) return [];
-  const stored = JSON.parse(fs.readFileSync(storePath, 'utf-8')) as StoredAccount[];
+  const befund = liesJson<StoredAccount[]>(storePath, []);
+  if (befund.beschaedigt) {
+    protokolliere(
+      'fehler',
+      'konten',
+      `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}). ` +
+        (befund.beschaedigt.beiseite
+          ? `Die Datei liegt jetzt unter ${befund.beschaedigt.beiseite}. `
+          : '') +
+        (befund.wert.length
+          ? 'Die Konten kommen aus der Sicherungskopie.'
+          : 'Es konnten keine Konten wiederhergestellt werden.'),
+    );
+  }
+  const stored = Array.isArray(befund.wert) ? befund.wert : [];
 
   // Einmalige Migration: bestehende Klartext-Konten werden beim ersten Lesen
   // verschlüsselt zurückgeschrieben.
@@ -86,12 +112,13 @@ function readAccounts(): AccountConfig[] {
 }
 
 function writeAccounts(accounts: AccountConfig[]): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
   const stored: StoredAccount[] = accounts.map((account) => ({
     ...account,
     auth: encryptAuth(account.auth),
   }));
-  fs.writeFileSync(getStorePath(), JSON.stringify(stored, null, 2), 'utf-8');
+  // Atomar: die Datei wird bei jeder Token-Erneuerung neu geschrieben, also im
+  // Stundentakt. Ein Abbruch dabei darf sie nicht halb hinterlassen.
+  schreibeAtomar(getStorePath(), JSON.stringify(stored, null, 2));
 }
 
 type ConnectionOverrides = Partial<

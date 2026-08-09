@@ -11,6 +11,8 @@ import {
   type Regel,
 } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
+import { liesJson, schreibeAtomar } from './atomar.js';
+import { protokolliere } from './protokollDatei.js';
 
 /**
  * Regeln, die beim Eintreffen einer Nachricht angewendet werden.
@@ -29,17 +31,30 @@ const getPfad = () => path.join(getDataDir(), 'regeln.json');
 /** Regeln je Konto. Getrennt, weil Zielordner von Konto zu Konto verschieden heißen. */
 type Ablage = Record<string, Regel[]>;
 
+/**
+ * Liest die Regeln.
+ *
+ * Die 48 Byte kleine regeln.json enthaelt Arbeit von Stunden. Frueher fing hier ein
+ * leeres catch jeden Lesefehler ab und lieferte ein leeres Verzeichnis - der naechste
+ * Schreibvorgang schrieb genau das ueber die noch teilweise vorhandene Datei, und alle
+ * uebrigen Regeln waren unwiederbringlich weg. liesJson trennt "gibt es noch nicht" von
+ * "ist beschaedigt" und legt Letzteres zur Seite, statt es ueberschreiben zu lassen.
+ */
 function lesen(): Ablage {
-  try {
-    return JSON.parse(fs.readFileSync(getPfad(), 'utf-8')) as Ablage;
-  } catch {
-    return {};
+  const befund = liesJson<Ablage>(getPfad(), {});
+  if (befund.beschaedigt) {
+    protokolliere(
+      'fehler',
+      'regeln',
+      `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +
+        (befund.beschaedigt.beiseite ? ` Beiseite gelegt: ${befund.beschaedigt.beiseite}` : ''),
+    );
   }
+  return befund.wert && typeof befund.wert === 'object' ? befund.wert : {};
 }
 
 function schreiben(ablage: Ablage): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
-  fs.writeFileSync(getPfad(), JSON.stringify(ablage, null, 2), 'utf-8');
+  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function regelnFuer(accountId: string): Regel[] {

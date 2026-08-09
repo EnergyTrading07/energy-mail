@@ -126,14 +126,69 @@ function HtmlMailBody({ html }: { html: string }) {
   useEffect(() => {
     const iframe = ref.current;
     if (!iframe) return;
-    const resize = () => {
+
+    // Beim Wechsel auf einen Anfangswert: sonst steht bis zum load-Ereignis die Höhe der
+    // vorigen Nachricht, und kurze Mails hinterlassen eine große Lücke.
+    iframe.style.height = '120px';
+
+    const messen = () => {
       const doc = iframe.contentDocument;
-      if (doc?.body) {
-        iframe.style.height = `${doc.body.scrollHeight + 4}px`;
+      if (doc?.body) iframe.style.height = `${doc.body.scrollHeight + 4}px`;
+    };
+
+    /**
+     * Links aus einer Mail in den Systembrowser bringen.
+     *
+     * Vorher tat ein Klick auf einen Link schlicht NICHTS. Der Rahmen ist ein Sandkasten
+     * ohne `allow-popups`, also blockiert der Browser `target="_blank"`, bevor Electrons
+     * setWindowOpenHandler überhaupt gefragt wird; und eine Navigation des Rahmens selbst
+     * unterbindet `frame-src 'self'` aus der Richtlinie in index.html. Für den Nutzer
+     * hieß das: Bestätigungslinks, Rechnungen und Abmeldelinks waren unerreichbar, ohne
+     * jede Rückmeldung - nur ein Eintrag in der Entwicklerkonsole.
+     *
+     * Statt die Sandkastenregeln zu lockern, wird der Klick hier abgefangen: window.open
+     * läuft im Zusammenhang des ELTERNdokuments, nicht im Sandkasten, und geht damit
+     * durch setWindowOpenHandler nach draußen. Der Sandkasten bleibt so eng wie er war.
+     */
+    const beiKlick = (e: MouseEvent) => {
+      const ziel = (e.target as Element | null)?.closest?.('a');
+      const roh = ziel?.getAttribute('href');
+      if (!roh) return;
+      e.preventDefault();
+      let adresse: URL;
+      try {
+        adresse = new URL(roh, 'about:blank');
+      } catch {
+        return;
+      }
+      // Ausdrücklich nur http und https. javascript:, data: und file: bleiben draußen -
+      // sie sind hier zwar wirkungslos, aber das soll nicht von der Sandkastenregel
+      // allein abhängen.
+      if (adresse.protocol === 'http:' || adresse.protocol === 'https:') {
+        window.open(adresse.href, '_blank', 'noopener,noreferrer');
       }
     };
-    iframe.addEventListener('load', resize);
-    return () => iframe.removeEventListener('load', resize);
+
+    const beiLaden = () => {
+      messen();
+      iframe.contentDocument?.addEventListener('click', beiKlick);
+    };
+
+    iframe.addEventListener('load', beiLaden);
+    /*
+     * Nachmessen, wenn sich der Inhalt später noch ändert - eine Schrift oder ein
+     * freigegebenes Bild lädt nach dem load-Ereignis und macht die Nachricht höher.
+     * Ohne das wurde der Text unten abgeschnitten.
+     */
+    const beobachter = new ResizeObserver(messen);
+    const koerper = iframe.contentDocument?.body;
+    if (koerper) beobachter.observe(koerper);
+
+    return () => {
+      iframe.removeEventListener('load', beiLaden);
+      iframe.contentDocument?.removeEventListener('click', beiKlick);
+      beobachter.disconnect();
+    };
   }, [html]);
 
   return (
@@ -148,7 +203,22 @@ function HtmlMailBody({ html }: { html: string }) {
        */
       tabIndex={0}
       srcDoc={GRUNDSTIL + html}
+      /*
+       * allow-same-origin und sonst NICHTS.
+       *
+       * Ohne allow-scripts läuft in diesem Rahmen kein Skript - weder ein <script> aus
+       * der Mail noch ein onerror-Attribut noch eine javascript:-Adresse. Genau das ist
+       * die tragende Zusicherung dieser Ansicht.
+       *
+       * allow-scripts darf hier NIEMALS hinzukommen. Zusammen mit allow-same-origin
+       * (das für das Höhenmessen und den Klick-Abfänger oben gebraucht wird) liefe
+       * fremdes Mail-HTML sonst in der Herkunft der Anwendung: mit Zugriff auf den
+       * lokalen Server und auf window.energyMail. Wer die Höhenmessung umbaut und dabei
+       * über allow-scripts nachdenkt: der Klick-Abfänger und der ResizeObserver oben
+       * kommen ohne aus.
+       */
       sandbox="allow-same-origin"
+      referrerPolicy="no-referrer"
     />
   );
 }

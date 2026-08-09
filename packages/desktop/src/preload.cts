@@ -41,8 +41,19 @@ function hoeren<T>(kanal: string, rueckruf: (wert: T) => void): () => void {
 const FASSUNG =
   process.argv.find((a) => a.startsWith('--energy-mail-fassung='))?.split('=')[1] ?? '';
 
+/**
+ * Das Zugangsgeheimnis des lokalen Servers, auf demselben Weg hereingereicht.
+ *
+ * Ohne es beantwortet der Server keine Anfrage (siehe server/src/zugang.ts). Es steht
+ * bewusst nur hier und in der Hülle - nicht in einer Datei, nicht in localStorage, und
+ * es überdauert den Programmlauf nicht.
+ */
+const ZUGANG =
+  process.argv.find((a) => a.startsWith('--energy-mail-zugang='))?.split('=')[1] ?? '';
+
 contextBridge.exposeInMainWorld('energyMail', {
   fassung: FASSUNG,
+  zugang: ZUGANG,
   plattform: process.platform,
 
   minimieren: () => ipcRenderer.send('fenster:minimieren'),
