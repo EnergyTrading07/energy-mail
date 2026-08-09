@@ -4,10 +4,12 @@ import { fileURLToPath } from 'node:url';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocketPlugin from '@fastify/websocket';
+import { ZUGANG_KOPFZEILE, registriereZugangspruefung } from './zugang.js';
 import {
   ATTACHMENT_SEARCH_UNSUPPORTED,
   CATEGORY_UNSUPPORTED,
   GMAIL_CATEGORIES,
+  closeAllConnections,
   closeConnection,
   createFolder,
   deleteFolder,
@@ -76,7 +78,13 @@ import {
   updateAccountAuth,
   updateAccountSettings,
 } from './accountStore.js';
-import { ausSpeicherOderHolen, schluessel, verwerfe, verwerfeKonto } from './cache.js';
+import {
+  ausSpeicherOderHolen,
+  schluessel,
+  schreibeSofort as schreibeCacheSofort,
+  verwerfe,
+  verwerfeKonto,
+} from './cache.js';
 import {
   WIEDERVORLAGE_ORDNER,
   ladeWiedervorlagen,
@@ -151,6 +159,7 @@ import {
   merkeInhalt,
   merkeKopfdaten,
   pruefeUidGueltigkeit,
+  schliesseAblage,
   setzeGelesen as ablageGelesen,
   entferneNachrichten as ablageEntfernen,
   suchbestand,
@@ -189,6 +198,7 @@ import {
   meldeAnsicht,
   restartWatcher,
   setRegistryLogger,
+  stopAllWatchers,
   subscribe,
   syncWatchers,
 } from './watcherRegistry.js';
@@ -233,7 +243,16 @@ class HttpError extends Error {
   }
 }
 
-export async function buildServer() {
+export type ServerOptionen = {
+  /**
+   * Der Port, unter dem der Server erreichbar sein wird. Der Herkunftsriegel in
+   * zugang.ts braucht ihn, um die eigene Origin von einer fremden zu unterscheiden.
+   */
+  port?: number;
+};
+
+export async function buildServer(optionen: ServerOptionen = {}) {
+  const port = optionen.port ?? 4000;
   /*
    * Das Protokoll geht zusaetzlich in eine Datei.
    *
@@ -247,7 +266,64 @@ export async function buildServer() {
     bodyLimit: BODY_LIMIT_BYTES,
   });
 
-  await app.register(cors, { origin: true });
+  /*
+   * CORS nur fuer den Entwicklungsbetrieb, und dort mit benannter Herkunft.
+   *
+   * Vorher stand hier `{ origin: true }` - das spiegelt JEDE Origin zurueck und erlaubt
+   * damit jeder beliebigen Webseite, die Antworten dieses Servers zu lesen. Paketiert
+   * wird die Oberflaeche vom selben Server ausgeliefert; dort ist CORS schlicht
+   * ueberfluessig. Gebraucht wird es nur, solange Vite auf 5173 laeuft.
+   */
+  if (!fs.existsSync(webDistDir)) {
+    await app.register(cors, {
+      origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      credentials: true,
+      allowedHeaders: ['content-type', ZUGANG_KOPFZEILE],
+    });
+  }
+
+  registriereZugangspruefung(app, port);
+
+  /*
+   * Geordnet zumachen.
+   *
+   * stopAllWatchers und schliesseAblage waren beide geschrieben und exportiert - nur
+   * rief sie niemand. Die IMAP-Verbindungen der Überwachung (bis zu drei je Konto)
+   * wurden beim Beenden ohne LOGOUT abgerissen; Anbieter halten die Sitzung danach noch
+   * minutenlang, und GMX wie Gmail begrenzen die Zahl gleichzeitiger Verbindungen. Ein
+   * schneller Neustart scheiterte dann an einer Meldung, die nach einem Serverproblem
+   * aussah, aber vom eigenen Programm verursacht war. Die SQLite-Ablage blieb
+   * ihrerseits mit -wal und -shm liegen.
+   *
+   * Der Haken hängt am Server statt an der Hülle, damit auch der Standalone-Betrieb und
+   * die Prüfungen ihn bekommen - dort schließt app.close() jetzt genauso auf.
+   */
+  app.addHook('onClose', async () => {
+    try {
+      stopAllWatchers();
+    } catch (err) {
+      app.log.warn(`Überwachung ließ sich nicht sauber beenden: ${(err as Error).message}`);
+    }
+    try {
+      closeAllConnections();
+    } catch (err) {
+      app.log.warn(`IMAP-Verbindungen ließen sich nicht schließen: ${(err as Error).message}`);
+    }
+    try {
+      // Noch nicht geschriebener Zwischenspeicher - sonst kostet es beim nächsten Start
+      // einen kalten Anlauf.
+      schreibeCacheSofort();
+    } catch {
+      // Der Zwischenspeicher ist entbehrlich; ein Fehler hier darf das Beenden nicht
+      // aufhalten.
+    }
+    try {
+      schliesseAblage();
+    } catch (err) {
+      app.log.warn(`Lokale Ablage ließ sich nicht schließen: ${(err as Error).message}`);
+    }
+  });
+
   await app.register(websocketPlugin);
 
   function requireAccount(id: string): AccountConfig {
@@ -2324,12 +2400,34 @@ export async function buildServer() {
     const daten = gepruef.daten;
 
     const bericht = {
-      konten: { uebernommen: 0, schonDa: 0 },
-      etiketten: { uebernommen: 0, schonDa: 0 },
-      kontakte: { uebernommen: 0, schonDa: 0 },
-      suchen: { uebernommen: 0, schonDa: 0 },
+      konten: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.konten ?? 0 },
+      etiketten: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.etiketten ?? 0 },
+      kontakte: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.kontakte ?? 0 },
+      suchen: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.suchen ?? 0 },
       regeln: { uebernommen: 0 },
+      /** Was im Einzelnen nicht ging - der Nutzer soll es benennen können. */
+      hinweise: [] as string[],
     };
+
+    /*
+     * Jeder Eintrag für sich.
+     *
+     * Vorher lief die ganze Schleife ungeschützt: warf ein einziger Eintrag - ein Konto,
+     * zu dem sich keine Serveradressen ermitteln ließen, ein Kontakt ohne "@" -, brach
+     * die Route mit 500 ab. Der Nutzer hatte danach die halbe Sicherung eingelesen und
+     * erfuhr nicht, welche Hälfte. Jetzt wird der einzelne Fehlschlag vermerkt, und der
+     * Rest kommt an.
+     */
+    function versuche(was: string, tue: () => void): boolean {
+      try {
+        tue();
+        return true;
+      } catch (err) {
+        bericht.hinweise.push(`${was}: ${(err as Error).message}`);
+        app.log.warn(`Sicherung einlesen - ${was}: ${(err as Error).message}`);
+        return false;
+      }
+    }
 
     /*
      * Konten ohne Zugangsdaten: sie stehen danach in der Liste und sind gekennzeichnet,
@@ -2344,34 +2442,38 @@ export async function buildServer() {
     );
     bericht.konten.schonDa = neueKonten.schonDa;
     for (const k of neueKonten.neue) {
-      const angelegt = buildPasswordAccount({
-        email: k.email,
-        password: '',
-        overrides: {
-          imapHost: k.imapHost,
-          imapPort: k.imapPort,
-          imapSecure: k.imapSecure,
-          smtpHost: k.smtpHost,
-          smtpPort: k.smtpPort,
-          smtpSecure: k.smtpSecure,
-        },
-      });
-      saveAccount({ ...angelegt, displayName: k.displayName, signature: k.signature } as never);
-      if (k.identitaeten) {
-        updateAccountSettings(angelegt.id, { identitaeten: k.identitaeten } as never);
-      }
-      // Ohne Zugangsdaten kommt das Konto nirgendwohin - der Nutzer wird zum Anmelden
-      // aufgefordert, wie nach einer abgelaufenen Marke.
-      setAuthExpired(angelegt.id, true);
-
-      const ausSicherung = daten.regeln?.[k.email];
-      if (Array.isArray(ausSicherung)) {
-        for (const regel of ausSicherung) {
-          regelSpeichern(angelegt.id, regel as never);
-          bericht.regeln.uebernommen++;
+      versuche(`Konto ${k.email}`, () => {
+        const angelegt = buildPasswordAccount({
+          email: k.email,
+          password: '',
+          overrides: {
+            imapHost: k.imapHost,
+            imapPort: k.imapPort,
+            imapSecure: k.imapSecure,
+            smtpHost: k.smtpHost,
+            smtpPort: k.smtpPort,
+            smtpSecure: k.smtpSecure,
+          },
+        });
+        saveAccount({ ...angelegt, displayName: k.displayName, signature: k.signature } as never);
+        if (Array.isArray(k.identitaeten)) {
+          updateAccountSettings(angelegt.id, { identitaeten: k.identitaeten } as never);
         }
-      }
-      bericht.konten.uebernommen++;
+        // Ohne Zugangsdaten kommt das Konto nirgendwohin - der Nutzer wird zum Anmelden
+        // aufgefordert, wie nach einer abgelaufenen Marke.
+        setAuthExpired(angelegt.id, true);
+
+        const ausSicherung = daten.regeln?.[k.email];
+        if (Array.isArray(ausSicherung)) {
+          for (const regel of ausSicherung) {
+            if (!regel || typeof regel !== 'object') continue;
+            if (versuche(`Regel in ${k.email}`, () => regelSpeichern(angelegt.id, regel as never))) {
+              bericht.regeln.uebernommen++;
+            }
+          }
+        }
+        bericht.konten.uebernommen++;
+      });
     }
 
     const neueEtiketten = nurNeue(
@@ -2381,8 +2483,9 @@ export async function buildServer() {
     );
     bericht.etiketten.schonDa = neueEtiketten.schonDa;
     for (const e of neueEtiketten.neue) {
-      speichereEtikett(e as never);
-      bericht.etiketten.uebernommen++;
+      if (versuche(`Etikett "${e.name}"`, () => speichereEtikett(e as never))) {
+        bericht.etiketten.uebernommen++;
+      }
     }
 
     const neueKontakte = nurNeue(
@@ -2392,8 +2495,9 @@ export async function buildServer() {
     );
     bericht.kontakte.schonDa = neueKontakte.schonDa;
     for (const k of neueKontakte.neue) {
-      speichereKontakt(k as never);
-      bericht.kontakte.uebernommen++;
+      if (versuche(`Kontakt ${k.address}`, () => speichereKontakt(k as never))) {
+        bericht.kontakte.uebernommen++;
+      }
     }
 
     const neueSuchen = nurNeue(
@@ -2403,8 +2507,9 @@ export async function buildServer() {
     );
     bericht.suchen.schonDa = neueSuchen.schonDa;
     for (const s2 of neueSuchen.neue) {
-      speichereSuche(s2 as never);
-      bericht.suchen.uebernommen++;
+      if (versuche(`Suche "${s2.name}"`, () => speichereSuche(s2 as never))) {
+        bericht.suchen.uebernommen++;
+      }
     }
 
     syncWatchers();

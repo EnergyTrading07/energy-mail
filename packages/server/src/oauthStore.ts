@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { OAuthClientCredentials, OAuthProviderId } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
+import { liesJson, schreibeAtomar } from './atomar.js';
+import { protokolliere } from './protokollDatei.js';
 import { decryptSecret, encryptSecret } from './secretCrypto.js';
 
 const getStorePath = () => path.join(getDataDir(), 'oauth-clients.json');
@@ -15,18 +17,20 @@ interface StoredClient {
 type StoreFile = Partial<Record<OAuthProviderId, StoredClient>>;
 
 function read(): StoreFile {
-  const storePath = getStorePath();
-  if (!fs.existsSync(storePath)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(storePath, 'utf-8')) as StoreFile;
-  } catch {
-    return {};
+  const befund = liesJson<StoreFile>(getStorePath(), {});
+  if (befund.beschaedigt) {
+    protokolliere(
+      'fehler',
+      'oauth',
+      `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}). ` +
+        'Die hinterlegten Anbieter-Zugangsdaten muessen neu eingetragen werden.',
+    );
   }
+  return befund.wert && typeof befund.wert === 'object' ? befund.wert : {};
 }
 
 function write(data: StoreFile): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
-  fs.writeFileSync(getStorePath(), JSON.stringify(data, null, 2), 'utf-8');
+  schreibeAtomar(getStorePath(), JSON.stringify(data, null, 2));
 }
 
 export function setOAuthClient(

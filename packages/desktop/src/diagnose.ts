@@ -4,6 +4,20 @@ import path from 'node:path';
 import { BrowserWindow, app, dialog, shell } from 'electron';
 import { enthaeltGeheimnisse } from '@energy-mail/mail-core/protokoll';
 import { lesProtokoll, protokolliere } from '@energy-mail/server/protokoll';
+import { ZUGANG_KOPFZEILE, holeZugangsgeheimnis } from '@energy-mail/server/zugang';
+
+/**
+ * Auch die Hülle muss sich beim eigenen Server ausweisen.
+ *
+ * Sicherung und Einlesen gehen über HTTP, damit sie genau denselben Weg nehmen wie die
+ * Oberfläche - dieselbe Prüfung, dieselben Fehlermeldungen. Seit der Server ein
+ * Geheimnis verlangt, gehört es hier mit dazu; ohne dieses Zutun brächen die beiden
+ * Menüpunkte mit "Kein Zugang".
+ */
+function zugangskopfzeile(): Record<string, string> {
+  const geheimnis = holeZugangsgeheimnis();
+  return geheimnis ? { [ZUGANG_KOPFZEILE]: geheimnis } : {};
+}
 
 /**
  * Was passiert, wenn etwas schiefgeht - und wie der Nutzer davon berichten kann.
@@ -21,9 +35,36 @@ import { lesProtokoll, protokolliere } from '@energy-mail/server/protokoll';
  * weiterhin verloren.
  */
 export function richteAbsturzbehandlungEin(): void {
+  /**
+   * Zählt mit, damit aus einem wiederkehrenden Fehler keine Kette von Meldungsfenstern
+   * wird. Tritt die Ausnahme in einem Zeitgeber auf, feuert sie sonst im Takt - und
+   * jedes modale Fenster blockiert die Oberfläche aufs Neue.
+   */
+  let schonGemeldet = false;
+
   process.on('uncaughtException', (fehler) => {
     protokolliere('fehler', 'hauptprozess', `${fehler.stack ?? fehler.message}`);
+    if (schonGemeldet) {
+      app.exit(1);
+      return;
+    }
+    schonGemeldet = true;
     zeigeAbsturz(fehler);
+    /*
+     * Danach wirklich beenden.
+     *
+     * Ein eigener uncaughtException-Behandler UNTERDRÜCKT Electrons Standardverhalten:
+     * der Prozess lief nach der Ausnahme weiter, in unbestimmtem Zustand. Die Box sagte
+     * dabei "Energy Mail wurde beendet" und "Beim nächsten Start…" - der Nutzer klickte
+     * OK und fand ein Programm vor, das noch da war, halb funktionsfähig, mit womöglich
+     * inkonsistenten Schreibvorgängen auf Konten, Adressbuch und Ablage. Eine Meldung,
+     * die nicht stimmt, ist schlimmer als keine.
+     *
+     * exit statt quit: quit liefe über before-quit und würde dort erneut versuchen,
+     * ausstehende Post zu senden - ausgerechnet in dem Zustand, dem nicht mehr zu trauen
+     * ist.
+     */
+    app.exit(1);
   });
 
   /*
@@ -164,11 +205,27 @@ export function oeffneProtokollordner(): void {
 
 /** Hält fest, was im Fenster schiefgeht - die Gegenstücke zu console.error dort. */
 export function horcheAufFensterfehler(fenster: BrowserWindow): void {
-  fenster.webContents.on('console-message', (_e, stufe, text, zeile, quelle) => {
+  /*
+   * Die neue Signatur mit einem Ereignisobjekt.
+   *
+   * Vorher stand hier die alte Reihenfolge (_e, stufe, text, zeile, quelle), und `stufe`
+   * war eine Zahl. In den aktuellen Electron-Fassungen sind diese Zusatzangaben als
+   * veraltet gekennzeichnet, und `level` ist eine Zeichenkette. Fielen die alten
+   * Argumente weg, würde aus `stufe < 3` ein `undefined < 3` - also immer falsch: die
+   * Vorfilterung griffe nicht mehr, und JEDE Konsolenausgabe des Fensters landete als
+   * "undefined (undefined:undefined)" im Protokoll. Die Rotation bei einer Million
+   * Zeichen drängte die eine wichtige Zeile hinaus, und der Fehlerbericht wäre wertlos -
+   * ausgerechnet dann, wenn er gebraucht wird.
+   */
+  fenster.webContents.on('console-message', (details) => {
     // Nur Fehler, nicht jede Warnung: sonst ist das Protokoll voll und die eine Zeile,
     // auf die es ankommt, geht darin unter.
-    if (stufe < 3) return;
-    protokolliere('fehler', 'anzeige', `${text} (${quelle}:${zeile})`);
+    if (details.level !== 'error') return;
+    protokolliere(
+      'fehler',
+      'anzeige',
+      `${details.message} (${details.sourceId ?? '?'}:${details.lineNumber ?? '?'})`,
+    );
   });
 
   fenster.webContents.on('unresponsive', () => {
@@ -190,7 +247,7 @@ export function horcheAufFensterfehler(fenster: BrowserWindow): void {
 export async function sichereEinstellungen(basis: string): Promise<void> {
   let inhalt: string;
   try {
-    const antwort = await fetch(`${basis}/sicherung`);
+    const antwort = await fetch(`${basis}/sicherung`, { headers: zugangskopfzeile() });
     if (!antwort.ok) throw new Error(`Der Server antwortete mit ${antwort.status}.`);
     inhalt = JSON.stringify(await antwort.json(), null, 2);
   } catch (err) {
@@ -272,7 +329,7 @@ export async function leseEinstellungen(basis: string): Promise<void> {
   try {
     const antwort = await fetch(`${basis}/sicherung`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...zugangskopfzeile() },
       body: JSON.stringify(roh),
     });
     const ergebnis = (await antwort.json()) as

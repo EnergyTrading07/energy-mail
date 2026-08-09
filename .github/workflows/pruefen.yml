@@ -24,16 +24,24 @@ jobs:
     # anders (Pfadtrenner, Groß- und Kleinschreibung von Dateinamen), und dann prüfte
     # der Lauf etwas, das so niemand benutzt.
     runs-on: windows-latest
-    timeout-minutes: 20
+    # Großzügiger als vorher (20): seit der Lauf zusätzlich das Paket baut und dafür die
+    # Electron-Binärdatei lädt, dauert er ein paar Minuten länger.
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          # node:sqlite wird für die lokale Ablage gebraucht - das gibt es erst ab 22.
-          # 24 ist die Fassung, unter der auch entwickelt wird.
-          node-version: '24'
+          # An Electron gekoppelt, nicht an die neueste Node-Fassung.
+          #
+          # Vorher stand hier 24. Electron bringt aber sein eigenes Node mit, und
+          # node:sqlite - die Grundlage der lokalen Ablage, der Volltextsuche und des
+          # Offline-Betriebs - hat sich zwischen den Fassungen in Verhalten und
+          # Schnittstelle verändert. Die Prüfungen liefen damit unter einem anderen Node
+          # als die ausgelieferte Anwendung: die CI sicherte genau das nicht ab, wofür
+          # sie da ist.
+          node-version: '22'
           cache: npm
 
       - name: Abhängigkeiten holen
@@ -53,3 +61,56 @@ jobs:
 
       - name: Prüfungen
         run: npm test
+
+      # Ohne diesen Schritt fiele keine einzige gemeldete Lücke auf. Die Abhängigkeiten
+      # dieses Programms - imapflow, mailparser, nodemailer, openpgp, fastify -
+      # verarbeiten sämtlich Eingaben aus dem Netz, denen nicht zu trauen ist.
+      #
+      # Bricht den Lauf ab: eine hohe Lücke im Sendeweg oder in der Anzeige fremden HTMLs
+      # ist kein Hinweis, den man wegklickt.
+      - name: Abhängigkeiten auf Lücken prüfen
+        run: npm audit --audit-level=high
+
+      # Für das Paketieren wird die Electron-Binärdatei doch gebraucht - beim Holen der
+      # Abhängigkeiten oben wurde sie bewusst übersprungen. Sie erst hier zu laden hält
+      # die schnellen Schritte (Typen, Bau, Prüfungen) schnell: schlägt einer davon fehl,
+      # wurden die hundert Megabyte gar nicht erst geholt.
+      # Das Nachinstallationsskript des electron-Pakets holt die Binärdatei. Beim Holen
+      # der Abhängigkeiten oben wurde es bewusst übersprungen; hier wird es nachgeholt.
+      # Erst an dieser Stelle, damit die schnellen Schritte davor schnell bleiben:
+      # scheitert einer, wurden die hundert Megabyte gar nicht erst geladen.
+      - name: Electron-Binärdatei holen
+        run: node node_modules/electron/install.js
+
+      # Das Paket wirklich bauen. Alles, was sich erst am fertigen Paket zeigt - ob das
+      # Programmsymbol enthalten ist, ob Prüfdateien mitgehen, ob app-update.yml stimmt -
+      # sah vorher nur der Entwickler auf seinem Rechner, und auch nur, wenn er nachsah.
+      #
+      # Nur nsis und nur x64: es geht darum, den Inhalt zu prüfen, nicht darum, eine
+      # auslieferbare Fassung zu erzeugen.
+      - name: Paket bauen
+        run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Nachsehen, was im Paket gelandet ist
+        shell: bash
+        run: |
+          npx asar list release/win-unpacked/resources/app.asar > paketinhalt.txt
+          echo "Dateien im Paket: $(wc -l < paketinhalt.txt)"
+          if grep -q '\.test\.' paketinhalt.txt; then
+            echo "FEHLER: Prüfdateien sind im Paket gelandet."
+            grep '\.test\.' paketinhalt.txt
+            exit 1
+          fi
+          if ! grep -q 'icon.png' paketinhalt.txt; then
+            echo "FEHLER: build/icon.png fehlt im Paket - Windows-Meldungen bekämen das leere Standardsymbol."
+            exit 1
+          fi
+          echo "Paketinhalt in Ordnung."
+
+      - name: Paketinhalt aufheben
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paketinhalt
+          path: paketinhalt.txt
+          if-no-files-found: ignore

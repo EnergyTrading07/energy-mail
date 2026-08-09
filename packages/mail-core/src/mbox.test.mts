@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   alsMboxEintrag,
+  alsMboxEintragBytes,
   dateiname,
   entschaerfeFromZeilen,
   leseMbox,
@@ -144,6 +145,65 @@ pruefe('das Datum steht mit drin', () => {
 
 pruefe('ein leerer Ordnername ergibt trotzdem einen Namen', () => {
   assert.match(dateiname('', 'eml'), /^Ordner-\d{4}-\d{2}-\d{2}\.eml$/);
+});
+
+/*
+ * Die Sicherung darf keine Bytes verlieren.
+ *
+ * Vorher lief die Nachricht durch Buffer.concat(...).toString('utf-8'). Jedes Byte, das
+ * kein gueltiges UTF-8 ergibt, wurde dabei durch U+FFFD ersetzt - unumkehrbar. Betroffen
+ * war alles mit "Content-Transfer-Encoding: 8bit" und ISO-8859-1-Text sowie jeder
+ * binaere Anhang. Ausgerechnet in der Funktion, die der einzige Ausweg aus dem Programm
+ * ist.
+ */
+console.log('\nDie Sicherung fasst die Bytes nicht an:');
+
+pruefe('ein ISO-8859-1-Umlaut ueberlebt unveraendert', () => {
+  // 0xFC ist "ü" in ISO-8859-1 und allein kein gueltiges UTF-8.
+  const roh = Buffer.concat([
+    Buffer.from('From: a@b.de\r\nSubject: Gr', 'ascii'),
+    Buffer.from([0xfc]),
+    Buffer.from('sse\r\n\r\nText\r\n', 'ascii'),
+  ]);
+  const eintrag = alsMboxEintragBytes(roh, 'a@b.de', null);
+  assert.ok(eintrag.includes(0xfc), 'das Byte steht noch da');
+  assert.ok(!eintrag.includes(Buffer.from([0xef, 0xbf, 0xbd])), 'und wurde nicht ersetzt');
+});
+
+pruefe('der alte Weg zeigt, was verloren ging', () => {
+  // Zum Vergleich - so sah es vorher aus, und genau das ist der Schaden.
+  const roh = Buffer.from([0xfc]);
+  assert.equal(roh.toString('utf-8'), '�');
+});
+
+pruefe('binaere Bytes bleiben binaer', () => {
+  const roh = Buffer.concat([
+    Buffer.from('From: a@b.de\r\n\r\n', 'ascii'),
+    Buffer.from([0x00, 0x01, 0x80, 0xff, 0xfe]),
+  ]);
+  const eintrag = alsMboxEintragBytes(roh, 'a@b.de', null);
+  for (const b of [0x00, 0x01, 0x80, 0xff, 0xfe]) {
+    assert.ok(eintrag.includes(b), `Byte 0x${b.toString(16)} fehlt`);
+  }
+});
+
+pruefe('"From "-Zeilen werden auch byteweise entschaerft', () => {
+  const roh = Buffer.from('From: a@b.de\r\n\r\nFrom hier geht es weiter\r\n', 'ascii');
+  const text = alsMboxEintragBytes(roh, 'a@b.de', null).toString('latin1');
+  assert.ok(text.includes('\n>From hier geht es weiter\n'));
+});
+
+pruefe('und die Entschaerfung ist umkehrbar', () => {
+  const original = 'From: a@b.de\r\n\r\nFrom hier\r\n>From schon entschaerft\r\n';
+  const datei = alsMboxEintragBytes(Buffer.from(original, 'ascii'), 'a@b.de', null);
+  const [wieder] = leseMbox(datei.toString('latin1'));
+  assert.ok(wieder?.includes('From hier'));
+  assert.ok(wieder?.includes('>From schon entschaerft'));
+});
+
+pruefe('der Zeichenketten-Weg bleibt fuer das Einlesen erhalten', () => {
+  // alsMboxEintrag wird weiterhin gebraucht - nur nicht mehr fuer die Sicherung.
+  assert.ok(alsMboxEintrag('From: a@b.de\n\nText', 'a@b.de', null).includes('Text'));
 });
 
 console.log(`\n${ok} von ${gesamt} Prüfungen bestanden`);

@@ -32,8 +32,15 @@ interface Fensterzustand {
 }
 
 interface EnergyMailBruecke {
-  /** Fassung der Anwendung, für die Titelleiste und das Über-Fenster. */
+  /** Fassung der Anwendung, für das Über-Fenster und den Fehlerbericht. */
   readonly fassung: string;
+  /**
+   * Zugangsgeheimnis für den lokalen Server, bei jedem Start neu.
+   *
+   * Ohne es beantwortet der Server keine Anfrage. api.ts hängt es an jede Anfrage,
+   * useMailEvents.ts an den WebSocket. Siehe packages/server/src/zugang.ts.
+   */
+  readonly zugang: string;
   /** 'win32', 'darwin', 'linux' - die Fensterknöpfe stehen je nach System anders. */
   readonly plattform: string;
 

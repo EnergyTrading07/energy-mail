@@ -55,7 +55,7 @@ import { buildFolderView } from './folderTree.js';
 import { categoryLabel } from './gmailCategories.js';
 import { meldeErfolg, meldeFehler, meldeMitRueckweg, meldeWarnung } from './meldungen.js';
 import { providerTheme } from './providerTheme.js';
-import { textToHtml } from './htmlText.js';
+import { escapeHtml, textToHtml } from './htmlText.js';
 import { useAktualisierung } from './useAktualisierung.js';
 import { useBefehle, type Befehl } from './useBefehle.js';
 import { useMailEvents } from './useMailEvents.js';
@@ -1472,6 +1472,55 @@ export default function App() {
   const handleCompose = () => {
     oeffneVerfassen('Neue Nachricht', { html: withSignature('', selectedAccount?.signature) });
   };
+
+  /**
+   * Ein Klick auf eine mailto:-Adresse im Browser oder im Explorer.
+   *
+   * Windows startet die Anwendung damit (oder holt die laufende nach vorn) und übergibt
+   * die Adresse; die Hülle liest sie und meldet sie hier. Ohne diese Behandlung wäre die
+   * Eintragung als Standard-E-Mail-Programm ein leeres Versprechen - das Fenster ginge
+   * auf und zeigte den Posteingang statt eines Entwurfs.
+   */
+  useEffect(() => {
+    const behandle = (ereignis: Event) => {
+      const roh = (ereignis as CustomEvent<string>).detail;
+      let angaben: {
+        an?: string[];
+        kopie?: string[];
+        blindkopie?: string[];
+        betreff?: string;
+        text?: string;
+      };
+      try {
+        angaben = JSON.parse(roh) as typeof angaben;
+      } catch {
+        return;
+      }
+
+      /*
+       * Der Text kommt als reiner Text und wird maskiert, bevor er in den HTML-Entwurf
+       * geht. Eine Webseite bestimmt hier den Inhalt - ein <script> darin dürfte im
+       * Editor nicht als Auszeichnung ankommen.
+       */
+      const alsHtml = angaben.text
+        ? angaben.text
+            .split('\n')
+            .map((zeile) => `<div>${escapeHtml(zeile) || '<br>'}</div>`)
+            .join('')
+        : '';
+
+      oeffneVerfassen('Neue Nachricht', {
+        to: angaben.an ?? [],
+        cc: angaben.kopie ?? [],
+        bcc: angaben.blindkopie ?? [],
+        subject: angaben.betreff ?? '',
+        html: withSignature(alsHtml, selectedAccount?.signature),
+      });
+    };
+
+    window.addEventListener('energy-mail:mailto', behandle);
+    return () => window.removeEventListener('energy-mail:mailto', behandle);
+  }, [selectedAccount?.signature]);
 
   /**
    * Gibt die entfernten Inhalte eines Absenders dauerhaft frei.

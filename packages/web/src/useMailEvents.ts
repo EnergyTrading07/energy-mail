@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { zugangsgeheimnis } from './api';
 
 interface EventBase {
   accountId: string;
@@ -36,17 +37,32 @@ export type MailEvent =
 const INITIAL_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;
 
+/**
+ * Das Zugangsgeheimnis wandert als Abfrageparameter mit.
+ *
+ * Bei einem WebSocket lässt sich keine eigene Kopfzeile setzen - der Handshake ist eine
+ * gewöhnliche GET-Anfrage des Browsers, und der Browser bestimmt, was darin steht. Der
+ * Parameter ist der übliche Weg; der Server prüft ihn genauso wie die Kopfzeile.
+ *
+ * Warum das nötig ist: WebSocket-Verbindungen unterliegen nicht der Same-Origin-Policy.
+ * Ohne diese Prüfung könnte jede beliebige Webseite `new WebSocket('ws://127.0.0.1:4000/ws')`
+ * öffnen und bekäme danach dauerhaft jede eintreffende Nachricht mit Absender und
+ * Betreff zugestellt - CORS hilft dagegen prinzipiell nicht.
+ */
 function buildWsUrl(): string {
+  const geheimnis = zugangsgeheimnis();
+  const anhang = geheimnis ? `?zugang=${encodeURIComponent(geheimnis)}` : '';
   const base = import.meta.env.VITE_API_URL;
   if (base) {
     const url = new URL(base);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.pathname = '/ws';
+    url.search = anhang;
     return url.toString();
   }
   // Normalfall: Server liefert das Frontend selbst aus, daher gleiche Origin.
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/ws`;
+  return `${protocol}//${window.location.host}/ws${anhang}`;
 }
 
 /**

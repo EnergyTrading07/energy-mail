@@ -1,6 +1,6 @@
 {
   "name": "@energy-mail/desktop",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -13,9 +13,9 @@
   "dependencies": {
     "@energy-mail/server": "*"
   },
+  "//devDependencies": "electron steht bewusst NICHT hier, sondern nur in der Wurzel. Zwei Eintraege bedeuten zwei installierte Fassungen: npm setzt packages/desktop/node_modules/.bin an den Anfang des PATH, 'npm start' startete damit Electron 33 (Node 20, kennt node:sqlite nicht) waehrend electron-builder die Wurzelfassung 38 paketierte - und tsc gegen die 33er Typen pruefte. Quellbaum, Auslieferung und Typpruefung liefen auf drei verschiedenen Umgebungen.",
   "devDependencies": {
     "@types/node": "^22.9.0",
-    "electron": "^33.2.0",
     "typescript": "^5.6.3"
   }
 }

@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { SearchCriteria } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
+import { liesJson, schreibeAtomar } from './atomar.js';
+import { protokolliere } from './protokollDatei.js';
 
 /**
  * Gespeicherte Suchen - Ordner, die es gar nicht gibt.
@@ -31,18 +33,21 @@ export interface GespeicherteSuche {
 type Ablage = { suchen: GespeicherteSuche[] };
 
 function lesen(): Ablage {
-  try {
-    const roh = JSON.parse(fs.readFileSync(getPfad(), 'utf-8')) as Ablage;
-    if (Array.isArray(roh?.suchen)) return roh;
-  } catch {
-    // Keine Datei oder beschädigt - dann eben noch keine.
+  const befund = liesJson<Ablage | null>(getPfad(), null);
+  if (befund.beschaedigt) {
+    protokolliere(
+      'fehler',
+      'suchen',
+      `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +
+        (befund.beschaedigt.beiseite ? ` Beiseite gelegt: ${befund.beschaedigt.beiseite}` : ''),
+    );
   }
+  if (Array.isArray(befund.wert?.suchen)) return befund.wert;
   return { suchen: [] };
 }
 
 function schreiben(ablage: Ablage): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
-  fs.writeFileSync(getPfad(), JSON.stringify(ablage, null, 2), 'utf-8');
+  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function alleSuchen(): GespeicherteSuche[] {

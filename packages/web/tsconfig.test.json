@@ -6,8 +6,20 @@
     "lib": ["ES2022", "DOM"],
     "noEmit": true,
     "declaration": false,
+    // Seit hier der ganze src-Baum geprüft wird, sind auch .tsx-Dateien dabei.
+    "jsx": "react-jsx",
     // api.ts wird nur wegen seiner Typen mitgeprüft und nutzt import.meta.env von Vite.
     "types": ["node", "vite/client"]
   },
-  "include": ["src/**/*.test.mts", "src/composeHelpers.ts", "src/htmlText.ts", "src/api.ts"]
+  /*
+   * Alles unter src, nicht eine Aufzaehlung einzelner Dateien.
+   *
+   * Vorher standen hier nur composeHelpers, htmlText und api - alle anderen geprueften
+   * Module kamen ausschliesslich ueber die Importkette der Testdateien herein. Das
+   * funktionierte, war aber eine stille Abhaengigkeit von der Importreihenfolge: ein
+   * Modul ohne Test verschwand aus dieser Pruefung, und bruecke.d.ts (die Typen der
+   * Huelle) wurde ueberhaupt nie geladen - window.energyMail war hier schlicht
+   * unbekannt. Mit src/** deckt die Pruefung alles ab und braucht keine Pflege.
+   */
+  "include": ["src/**/*.test.mts", "src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
 }

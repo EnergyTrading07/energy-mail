@@ -76,16 +76,73 @@ const KEINE_VERBINDUNG =
   'Keine Verbindung zum Postfach. Prüfen Sie die Netzwerkverbindung – die Anwendung ' +
   'versucht es beim nächsten Abruf erneut.';
 
+/**
+ * Kopfzeile, mit der sich die Oberfläche beim lokalen Server ausweist.
+ *
+ * Der Server beantwortet ohne sie keine Anfrage - sonst könnte jede beliebige Webseite,
+ * die der Nutzer im Browser offen hat, das Postfach mitlesen. Das Geheimnis kommt von
+ * der Hülle über das Vorschaltskript und wechselt bei jedem Start. Siehe
+ * packages/server/src/zugang.ts.
+ */
+export const ZUGANG_KOPFZEILE = 'X-Energy-Mail-Zugang';
+
+export function zugangsgeheimnis(): string {
+  return window.energyMail?.zugang ?? '';
+}
+
+/**
+ * Hängt das Geheimnis als Abfrageparameter an eine Adresse.
+ *
+ * Für alles, was nicht über `request()` läuft, sondern vom Browser selbst geladen wird:
+ * Anhänge, die mbox-Sicherung, die vCard-Ausfuhr, ein ausgeführter Schlüssel und die
+ * eingebetteten Bilder einer Nachricht (`cid:`). Dort lässt sich keine Kopfzeile setzen -
+ * ein `<img src>` oder ein Download bestimmt der Browser, nicht die Anwendung.
+ */
+export function mitZugang(adresse: string): string {
+  const geheimnis = zugangsgeheimnis();
+  if (!geheimnis) return adresse;
+  const trenner = adresse.includes('?') ? '&' : '?';
+  return `${adresse}${trenner}zugang=${encodeURIComponent(geheimnis)}`;
+}
+
+/**
+ * Wie lange auf eine Antwort gewartet wird, bevor abgebrochen wird.
+ *
+ * Vorher gab es gar keine Grenze. Antwortete der Server nicht mehr - eine hängende
+ * IMAP-Verbindung nach dem Standby genügt dafür -, blieb das Versprechen für immer
+ * offen. In der Liste stand dann dauerhaft "Lade Nachrichten…", und weil der Knopf
+ * "Neu laden" währenddessen gesperrt ist, kam der Nutzer aus dieser Lage nicht mehr
+ * heraus. Ein Abbruch mit einem lesbaren Satz ist in jedem Fall besser als eine
+ * Anzeige, die nie fertig wird.
+ */
+const FRIST_MS = 45_000;
+
+/** Vorgänge, die naturgemäß lange dauern und deshalb mehr Zeit bekommen. */
+const LANGE_FRIST_MS = 10 * 60_000;
+const LANGE_WEGE = ['/sicherung', '/mbox', '/schluessel/erzeugen', '/adressbuch/einfuhr'];
+
+function fristFuer(path: string): number {
+  return LANGE_WEGE.some((w) => path.includes(w)) ? LANGE_FRIST_MS : FRIST_MS;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetchOderMelden(`${API_BASE}${path}`, {
-    ...init,
-    // Content-Type nur bei vorhandenem Inhalt: kündigt man JSON an und schickt nichts,
-    // weist Fastify die Anfrage ab ("Body cannot be empty"). Das trifft alle Aufrufe
-    // ohne Inhalt - DELETE und das Starten der OAuth-Anmeldung.
-    headers: init?.body
-      ? { 'Content-Type': 'application/json', ...init?.headers }
-      : { ...init?.headers },
-  });
+  const res = await fetchOderMelden(
+    `${API_BASE}${path}`,
+    {
+      ...init,
+      // Content-Type nur bei vorhandenem Inhalt: kündigt man JSON an und schickt nichts,
+      // weist Fastify die Anfrage ab ("Body cannot be empty"). Das trifft alle Aufrufe
+      // ohne Inhalt - DELETE und das Starten der OAuth-Anmeldung.
+      headers: init?.body
+        ? {
+            'Content-Type': 'application/json',
+            [ZUGANG_KOPFZEILE]: zugangsgeheimnis(),
+            ...init?.headers,
+          }
+        : { [ZUGANG_KOPFZEILE]: zugangsgeheimnis(), ...init?.headers },
+    },
+    fristFuer(path),
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}) as { error?: string });
     throw new Error(body.error ?? `Anfrage fehlgeschlagen (${res.status})`);
@@ -94,11 +151,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** Wie fetch, nur mit einem Satz, den man lesen kann, wenn nichts durchkommt. */
-async function fetchOderMelden(url: string, init: RequestInit): Promise<Response> {
+async function fetchOderMelden(
+  url: string,
+  init: RequestInit,
+  frist = FRIST_MS,
+): Promise<Response> {
+  /*
+   * Eigener Abbruchgeber statt AbortSignal.timeout, damit ein vom Aufrufer
+   * mitgegebenes Signal erhalten bleibt: beides muss greifen, das erste gewinnt.
+   */
+  const abbruch = new AbortController();
+  const uhr = setTimeout(() => abbruch.abort(), frist);
+  const fremd = init.signal;
+  const weiterreichen = () => abbruch.abort();
+  fremd?.addEventListener('abort', weiterreichen);
   try {
-    return await fetch(url, init);
+    return await fetch(url, { ...init, signal: abbruch.signal });
   } catch {
+    if (fremd?.aborted) throw new Error('Abgebrochen');
+    if (abbruch.signal.aborted) {
+      throw new Error(
+        'Das Postfach hat nicht rechtzeitig geantwortet. Versuchen Sie es erneut – ' +
+          'bei großen Ordnern kann der erste Abruf länger dauern.',
+      );
+    }
     throw new Error(KEINE_VERBINDUNG);
+  } finally {
+    clearTimeout(uhr);
+    fremd?.removeEventListener('abort', weiterreichen);
   }
 }
 
@@ -174,7 +254,7 @@ export function fuehreVisitenkartenEin(inhalt: string): Promise<EinfuhrErgebnis>
 }
 
 /** Die Adresse, unter der die vCard-Datei heruntergeladen wird. */
-export const adressbuchAusfuhrAdresse = () => `${API_BASE}/adressbuch/ausfuhr`;
+export const adressbuchAusfuhrAdresse = () => mitZugang(`${API_BASE}/adressbuch/ausfuhr`);
 
 // --- Kontenübergreifender Posteingang ---
 
@@ -254,7 +334,7 @@ export function entferneSchluessel(fingerabdruck: string, geheim: boolean): Prom
 }
 
 export const schluesselAusfuhrAdresse = (fingerabdruck: string) =>
-  `${API_BASE}/schluessel/${fingerabdruck}/ausfuhr`;
+  mitZugang(`${API_BASE}/schluessel/${fingerabdruck}/ausfuhr`);
 
 export function erzeugeSchluesselpaar(
   accountId: string,
@@ -532,7 +612,7 @@ export async function prefetchMessage(
   try {
     await fetch(
       `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}`,
-      { signal },
+      { signal, headers: { [ZUGANG_KOPFZEILE]: zugangsgeheimnis() } },
     );
   } catch {
     // Abgebrochen oder fehlgeschlagen - beides ohne Belang.
@@ -558,9 +638,9 @@ export function attachmentUrl(
   uid: number,
   partId: string,
 ): string {
-  return (
+  return mitZugang(
     `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}` +
-    `/messages/${uid}/attachments/${encodeURIComponent(partId)}`
+      `/messages/${uid}/attachments/${encodeURIComponent(partId)}`,
   );
 }
 
@@ -682,7 +762,9 @@ export function sucheLokal(
  * es bei einem grossen Ordner Gigabyte im Arbeitsspeicher.
  */
 export function sicherungsAdresse(accountId: string, folder: string): string {
-  return `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/sicherung`;
+  return mitZugang(
+    `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/sicherung`,
+  );
 }
 
 /** Die Nachricht im Original, mit allen Kopfzeilen. */
@@ -693,6 +775,7 @@ export async function fetchQuelltext(
 ): Promise<string> {
   const antwort = await fetch(
     `${API_BASE}/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}/quelltext`,
+    { headers: { [ZUGANG_KOPFZEILE]: zugangsgeheimnis() } },
   );
   if (!antwort.ok) {
     // Der Fehlerfall kommt als JSON, der Erfolgsfall als reiner Text.

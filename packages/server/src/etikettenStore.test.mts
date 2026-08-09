@@ -20,9 +20,13 @@ let bestanden = 0;
 let gescheitert = 0;
 
 function pruefe(name: string, fn: () => void): void {
-  // Jede Pruefung faengt bei null an.
-  fs.rmSync(path.join(tempDir, 'etiketten.json'), { force: true });
-  fs.rmSync(path.join(tempDir, 'suchen.json'), { force: true });
+  // Jede Pruefung faengt bei null an - einschliesslich der Begleitdateien, die das
+  // atomare Schreiben anlegt (.bak, .neu) und der beiseite gelegten Fassungen.
+  for (const datei of fs.readdirSync(tempDir)) {
+    if (datei.startsWith('etiketten.json') || datei.startsWith('suchen.json')) {
+      fs.rmSync(path.join(tempDir, datei), { force: true });
+    }
+  }
   try {
     fn();
     console.log(`  ok   ${name}`);
@@ -94,7 +98,49 @@ pruefe('der Stand ueberdauert einen Neustart', () => {
   assert.ok(wieder.etiketten.some((e: { name: string }) => e.name === 'Bleibt'));
 });
 
-pruefe('eine beschaedigte Datei faellt auf die Voreinstellung zurueck', () => {
+/*
+ * Diese beiden Pruefungen standen vorher als eine da, und sie forderte das Falsche ein:
+ * "eine beschaedigte Datei faellt auf die Voreinstellung zurueck". Genau das war der
+ * Schaden - der naechste Schreibvorgang schrieb die Voreinstellung ueber die kaputte
+ * Datei, und alle selbst angelegten Etiketten waren endgueltig weg. Richtig ist: erst
+ * die Sicherungskopie versuchen, und nur wenn auch die nichts hergibt, neu anfangen.
+ */
+pruefe('eine beschaedigte Datei wird aus der Sicherungskopie geheilt', () => {
+  // Zweimal schreiben: der zweite Schreibvorgang legt den ersten Stand als .bak ab.
+  speichereEtikett({ name: 'Bleibt' });
+  speichereEtikett({ name: 'Auch' });
+  const vorher = alleEtiketten().length;
+  assert.ok(vorher > 5, 'Voraussetzung: es gibt mehr als die Vorgaben');
+
+  fs.writeFileSync(path.join(tempDir, 'etiketten.json'), '{kaputt', 'utf-8');
+
+  const geheilt = alleEtiketten();
+  assert.ok(
+    geheilt.some((e) => e.name === 'Bleibt'),
+    'das selbst angelegte Etikett ist noch da',
+  );
+  assert.ok(
+    alleEtiketten().some((e) => e.name === 'Bleibt'),
+    'und auch beim zweiten Lesen - die Datei wurde wirklich geheilt, nicht nur umgangen',
+  );
+});
+
+pruefe('die kaputte Datei wird beiseite gelegt, nicht ueberschrieben', () => {
+  speichereEtikett({ name: 'Bleibt' });
+  speichereEtikett({ name: 'Auch' });
+  fs.writeFileSync(path.join(tempDir, 'etiketten.json'), '{kaputt', 'utf-8');
+  alleEtiketten();
+
+  const beiseite = fs.readdirSync(tempDir).filter((n) => n.includes('etiketten.json.kaputt-'));
+  assert.equal(beiseite.length, 1, 'genau eine beiseite gelegte Fassung');
+  assert.equal(
+    fs.readFileSync(path.join(tempDir, beiseite[0]!), 'utf-8'),
+    '{kaputt',
+    'und zwar unveraendert - daraus laesst sich von Hand noch etwas retten',
+  );
+});
+
+pruefe('ohne Sicherungskopie bleibt nur die Voreinstellung', () => {
   fs.writeFileSync(path.join(tempDir, 'etiketten.json'), '{kaputt', 'utf-8');
   assert.equal(alleEtiketten().length, 5);
 });

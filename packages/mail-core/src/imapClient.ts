@@ -1,9 +1,9 @@
-import { type FetchMessageObject } from 'imapflow';
+import { type FetchMessageObject, type ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { withClient, withThrowawayClient } from './connectionPool.js';
 import { nimmtEtikettenAn } from './etiketten.js';
 import { leseEinladung, type Einladung } from './ics.js';
-import { alsMboxEintrag } from './mbox.js';
+import { alsMboxEintragBytes } from './mbox.js';
 import { findeOffeneVorgaenge, type OffenerVorgang } from './nachfassen.js';
 import {
   GMAIL_CATEGORIES,
@@ -807,9 +807,11 @@ export function findDraftsFolder(config: AccountConfig): Promise<string | null> 
 export async function exportiereAlsMbox(
   config: AccountConfig,
   folder: string,
-  schreibe: (stueck: string) => void | Promise<void>,
+  // Buffer statt string: siehe alsMboxEintragBytes - der Weg über eine Zeichenkette
+  // zerstörte alles, was nicht UTF-8 ist.
+  schreibe: (stueck: Buffer) => void | Promise<void>,
   optionen: { melde?: Fortschritt; hoechstens?: number } = {},
-): Promise<{ ausgegeben: number; uebersprungen: number }> {
+): Promise<{ ausgegeben: number; uebersprungen: number; gruende: string[] }> {
   return withClient(config, async (client) => {
     const lock = await client.getMailboxLock(folder);
     try {
@@ -818,6 +820,8 @@ export async function exportiereAlsMbox(
 
       let ausgegeben = 0;
       let uebersprungen = 0;
+      /** Die ersten Gründe für übersprungene Nachrichten - für die Rückmeldung. */
+      const gruende: string[] = [];
 
       for (const [i, uid] of uids.entries()) {
         // Nicht bei jeder einzelnen melden - bei 30.000 Nachrichten wäre die Meldung
@@ -830,24 +834,38 @@ export async function exportiereAlsMbox(
           const { content } = await client.download(String(uid), undefined, { uid: true });
           const teile: Buffer[] = [];
           for await (const stueck of content) teile.push(stueck as Buffer);
-          const roh = Buffer.concat(teile).toString('utf-8');
+          const roh = Buffer.concat(teile);
 
-          // Absender und Datum für die Trennzeile stehen im Kopf der Nachricht selbst.
-          const von = roh.match(/^From:\s*.*?([^\s<>]+@[^\s<>]+)/im)?.[1];
-          const datumZeile = roh.match(/^Date:\s*(.+)$/im)?.[1];
+          /*
+           * Absender und Datum kommen aus dem Kopf - und nur der wird als Text gelesen.
+           *
+           * Der Kopf ist nach RFC 5322 ASCII; alles darüber hinaus steht dort als
+           * kodiertes Wort. 'latin1' bildet jedes Byte eindeutig auf ein Zeichen ab und
+           * kann daher nichts verlieren - anders als 'utf-8', das ungültige Folgen durch
+           * U+FFFD ersetzt. Der Rumpf wird gar nicht erst umgewandelt.
+           */
+          const kopfEnde = roh.indexOf('\r\n\r\n');
+          const kopf = (kopfEnde >= 0 ? roh.subarray(0, kopfEnde) : roh.subarray(0, 8192)).toString(
+            'latin1',
+          );
+          const von = kopf.match(/^From:\s*.*?([^\s<>]+@[^\s<>]+)/im)?.[1];
+          const datumZeile = kopf.match(/^Date:\s*(.+)$/im)?.[1];
           const datum = datumZeile ? new Date(datumZeile) : null;
 
           await schreibe(
-            alsMboxEintrag(roh, von, datum && !Number.isNaN(datum.getTime()) ? datum : null),
+            alsMboxEintragBytes(roh, von, datum && !Number.isNaN(datum.getTime()) ? datum : null),
           );
           ausgegeben++;
-        } catch {
+        } catch (err) {
           uebersprungen++;
+          // Den Grund festhalten, statt ihn zu verschlucken: "0 ausgegeben, 31.700
+          // übersprungen" ohne jede Erklärung ist für den Nutzer wertlos.
+          if (gruende.length < 5) gruende.push(`UID ${uid}: ${(err as Error).message}`);
         }
       }
 
       optionen.melde?.(uids.length, uids.length, 'fertig');
-      return { ausgegeben, uebersprungen };
+      return { ausgegeben, uebersprungen, gruende };
     } finally {
       lock.release();
     }
@@ -1032,7 +1050,13 @@ export async function emptyFolder(config: AccountConfig, folder: string): Promis
     try {
       const alle = (await client.search({ all: true }, { uid: true })) || [];
       if (alle.length === 0) return 0;
-      const ergebnis = await client.messageDelete(alle, { uid: true });
+      /*
+       * Hier ist { all: true } richtig und nicht die UID-Liste: gemeint ist der ganze
+       * Ordner, imapflow löst das serverseitig zu "1:*" auf. Das umgeht zugleich die
+       * Zeilenlängengrenze, an der die aufgezählte Liste bei großen Ordnern scheiterte -
+       * und weil ohnehin alles weg soll, ist ein blankes EXPUNGE hier unbedenklich.
+       */
+      const ergebnis = await client.messageDelete({ all: true }, { uid: true });
       if (!ergebnis) throw new Error('Leeren wurde vom Server abgelehnt.');
       return alle.length;
     } finally {
@@ -1125,6 +1149,27 @@ export async function verschiebeMitKennung(
   });
 }
 
+/**
+ * Stellt sicher, dass der Server gezielt löschen kann.
+ *
+ * Ohne die Erweiterung UIDPLUS sendet imapflow ein blankes EXPUNGE - und das entfernt
+ * ALLE Nachrichten des Ordners, die irgendwo ein \Deleted tragen, nicht nur die
+ * angeforderten. Wer parallel Thunderbird benutzt (das beim Löschen zunächst nur
+ * markiert), verlöre damit beim Löschen einer einzigen Mail unwiderruflich alle dort
+ * vorgemerkten. Auf einem Server ohne UIDPLUS ist das nicht zurückzuholen.
+ *
+ * Deshalb: lieber gar nicht löschen als das Falsche löschen. Der Nutzer bekommt einen
+ * Satz, der sagt, was er stattdessen tun kann.
+ */
+function pruefeGezieltesLoeschen(client: ImapFlow): void {
+  if (client.capabilities?.has('UIDPLUS')) return;
+  throw new Error(
+    'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch ' +
+      'Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. ' +
+      'Verschieben Sie die Nachricht stattdessen in den Papierkorb.',
+  );
+}
+
 /** Löscht Nachrichten unwiderruflich (\Deleted + EXPUNGE). */
 export async function deleteMessages(
   config: AccountConfig,
@@ -1133,16 +1178,37 @@ export async function deleteMessages(
 ): Promise<void> {
   if (uids.length === 0) return;
   await withClient(config, async (client) => {
+    pruefeGezieltesLoeschen(client);
     const lock = await client.getMailboxLock(folder);
     try {
-      const result = await client.messageDelete(uids, { uid: true });
-      if (!result) {
-        throw new Error('Löschen wurde vom Server abgelehnt.');
+      // In Blöcken: eine ungepackte UID-Liste sprengt bei großen Ordnern die
+      // Zeilenlängengrenze des Servers (siehe inBloecken).
+      for (const block of inBloecken(uids)) {
+        const result = await client.messageDelete(block, { uid: true });
+        if (!result) {
+          throw new Error('Löschen wurde vom Server abgelehnt.');
+        }
       }
     } finally {
       lock.release();
     }
   });
+}
+
+/**
+ * Zerlegt eine UID-Liste in Blöcke.
+ *
+ * imapflow fügt ein Array nur mit Kommas zusammen; es verdichtet nicht zu Bereichen.
+ * Der Papierkorb eines gewachsenen Postfachs mit 31.700 Nachrichten ergab damit eine
+ * Befehlszeile von rund 250 kB - Dovecot bricht bei 64 kB (imap_max_line_length) mit
+ * BAD ab. "Papierkorb leeren" scheiterte also genau dann, wenn man es braucht.
+ */
+export function inBloecken(uids: number[], groesse = 500): number[][] {
+  const bloecke: number[][] = [];
+  for (let i = 0; i < uids.length; i += groesse) {
+    bloecke.push(uids.slice(i, i + groesse));
+  }
+  return bloecke;
 }
 
 /**

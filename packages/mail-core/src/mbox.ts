@@ -69,6 +69,57 @@ export function alsMboxEintrag(
 }
 
 /**
+ * Dasselbe, aber ohne die Bytes anzufassen.
+ *
+ * Der Weg über eine Zeichenkette war ein stiller Datenverlust: `roh` entstand aus
+ * `Buffer.concat(teile).toString('utf-8')`, und damit wurde jedes Byte, das kein
+ * gültiges UTF-8 ergibt, durch das Ersatzzeichen U+FFFD ersetzt. Betroffen ist alles
+ * mit `Content-Transfer-Encoding: 8bit` und ISO-8859-1-Text - also ein großer Teil
+ * älterer Post - und jeder binäre Anhang. Der Verlust ist nicht umkehrbar, und er traf
+ * ausgerechnet die Funktion, die als einziger Ausweg aus dem Programm gedacht ist.
+ *
+ * Die Entschärfung der "From "-Zeilen und die Umstellung der Zeilenenden lassen sich
+ * byteweise ebenso erledigen: beide betreffen nur ASCII-Zeichen, die in UTF-8 wie in
+ * jeder ISO-8859-Kodierung dieselben Bytes haben.
+ */
+export function alsMboxEintragBytes(
+  roh: Buffer,
+  absender: string | undefined,
+  datum: Date | null,
+): Buffer {
+  const zeilen: Buffer[] = [];
+  let ab = 0;
+  for (let i = 0; i <= roh.length; i++) {
+    if (i === roh.length || roh[i] === 0x0a) {
+      let zeile = roh.subarray(ab, i);
+      // CR am Zeilenende abschneiden - mbox schreibt LF.
+      if (zeile.length > 0 && zeile[zeile.length - 1] === 0x0d) {
+        zeile = zeile.subarray(0, zeile.length - 1);
+      }
+      zeilen.push(zeile);
+      ab = i + 1;
+    }
+  }
+  // Leerzeilen am Ende weg, damit die Trennung zur nächsten Nachricht eindeutig bleibt.
+  while (zeilen.length > 0 && zeilen[zeilen.length - 1]!.length === 0) zeilen.pop();
+
+  const teile: Buffer[] = [Buffer.from(`${mboxTrennzeile(absender, datum)}\n`, 'utf-8')];
+  const VON = Buffer.from('From ', 'ascii');
+  for (const zeile of zeilen) {
+    // mboxrd: jedem "From " am Zeilenanfang wird ein ">" vorangestellt, auch wenn dort
+    // schon welche stehen. Umkehrbar - siehe stelleFromZeilenHer.
+    let kopf = 0;
+    while (kopf < zeile.length && zeile[kopf] === 0x3e) kopf++;
+    if (zeile.subarray(kopf, kopf + VON.length).equals(VON)) {
+      teile.push(Buffer.from('>', 'ascii'));
+    }
+    teile.push(zeile, Buffer.from('\n', 'ascii'));
+  }
+  teile.push(Buffer.from('\n', 'ascii'));
+  return Buffer.concat(teile);
+}
+
+/**
  * Zerlegt eine mbox-Datei wieder in einzelne Nachrichten - für das Einlesen einer
  * Sicherung. Gegenstück zu alsMboxEintrag.
  */

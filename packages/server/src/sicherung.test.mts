@@ -175,5 +175,57 @@ pruefe('eine leere Sicherung ändert nichts', () => {
   assert.equal(schonDa, 0);
 });
 
+/*
+ * Huelle gut, Inhalt schlecht.
+ *
+ * Die vorhandenen Pruefungen weiter oben decken Faelle ab, die schon an der HUELLE
+ * scheitern: kein Objekt, keine Fassungsnummer, eine zu neue Fassung, ein Abschnitt der
+ * keine Liste ist. Der Fall dazwischen fehlte - eine formal tadellose Sicherung, in
+ * deren Listen Unfug steht. Er endete mit einer 500 und dem rohen englischen Satz
+ * "kennung(...).toLowerCase is not a function", und zwar MITTEN im Einlesen: das Konto
+ * davor war angelegt, die Etiketten dahinter nicht.
+ */
+console.log('\nEine Sicherung mit unbrauchbaren Eintraegen:');
+
+pruefe('unbrauchbare Eintraege werden ausgelassen, nicht durchgereicht', () => {
+  const geprueft = pruefeSicherung({
+    fassung: 1,
+    konten: [{ email: 'gut@beispiel.de' }, { email: 12345 }, null],
+    etiketten: [{ name: 'Gut' }, { name: 12345 }, { farbe: '#fff' }],
+    kontakte: [{ address: 'anna@beispiel.de' }, { address: { nicht: 'ein string' } }],
+    suchen: [{ name: 'Von der Bank', kriterien: { from: 'bank' } }, { name: null }],
+  });
+  assert.ok(geprueft.ok, 'die Datei als solche ist in Ordnung und wird angenommen');
+  assert.deepEqual(
+    geprueft.daten.konten.map((k) => k.email),
+    ['gut@beispiel.de'],
+  );
+  assert.equal(geprueft.daten.etiketten.length, 1);
+  assert.equal(geprueft.daten.kontakte.length, 1);
+  assert.equal(geprueft.daten.suchen.length, 1);
+});
+
+pruefe('und sie werden gezaehlt, damit der Bericht sie benennen kann', () => {
+  const geprueft = pruefeSicherung({
+    fassung: 1,
+    etiketten: [{ name: 'Gut' }, { name: 12345 }, { farbe: '#fff' }],
+  });
+  assert.ok(geprueft.ok);
+  assert.equal(geprueft.uebergangen.etiketten, 2);
+  assert.equal(geprueft.uebergangen.konten, undefined, 'was in Ordnung war, wird nicht gemeldet');
+});
+
+pruefe('eine Adresse ohne @ ist kein Kontakt', () => {
+  const geprueft = pruefeSicherung({ fassung: 1, kontakte: [{ address: 'kein-at-zeichen' }] });
+  assert.ok(geprueft.ok);
+  assert.equal(geprueft.daten.kontakte.length, 0);
+});
+
+pruefe('ein Regelabschnitt, der eine Liste statt eines Verzeichnisses ist, wird verworfen', () => {
+  const geprueft = pruefeSicherung({ fassung: 1, regeln: ['keine', 'Zuordnung'] });
+  assert.ok(geprueft.ok);
+  assert.deepEqual(geprueft.daten.regeln, {});
+});
+
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);
 if (ok !== gesamt) process.exit(1);

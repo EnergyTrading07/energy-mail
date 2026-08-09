@@ -1,6 +1,6 @@
-import { join } from 'node:path';
-import { BrowserWindow, Notification, app } from 'electron';
+import { BrowserWindow, Notification } from 'electron';
 import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/events';
+import { programmSymbolPfad } from './programmSymbol.js';
 
 /**
  * Meldungen des Betriebssystems bei neuer Post.
@@ -26,11 +26,18 @@ const MAX_MELDUNGEN = 3;
  * Verknüpfung fehlt. Dann steht dort das leere Standardsymbol, und die Meldung sieht
  * aus, als käme sie von irgendwoher.
  *
- * Die Datei liegt im Paket (siehe files in electron-builder.yml). Aus dem Quellbaum
- * gestartet zeigt derselbe Pfad ebenfalls auf sie - build/ liegt in beiden Fällen
- * unmittelbar unter dem Wurzelverzeichnis der Anwendung.
+ * Die Datei liegt im Paket (siehe files in electron-builder.yml).
+ *
+ * Hier stand einmal, aus dem Quellbaum gestartet zeige derselbe Pfad ebenfalls auf sie -
+ * "build/ liegt in beiden Fällen unmittelbar unter dem Wurzelverzeichnis der Anwendung".
+ * Das stimmt nicht: paketiert ist app.getAppPath() die Wurzel des Archivs, aus dem
+ * Quellbaum dagegen packages/desktop, und ein packages/desktop/build/ gibt es nicht. Im
+ * Entwicklungsbetrieb bekamen die Meldungen deshalb immer das leere Standardsymbol -
+ * aufgefallen ist es nie, weil es paketiert richtig aussah.
+ *
+ * programmSymbolPfad() sucht beide Orte ab.
  */
-const SYMBOL = join(app.getAppPath(), 'build', 'icon.png');
+const SYMBOL = programmSymbolPfad() ?? '';
 
 function absenderName(nachricht: { from: { name?: string; address: string }[] }): string {
   const erster = nachricht.from[0];

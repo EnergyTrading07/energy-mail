@@ -38,6 +38,21 @@ function erzeuge(config: AccountConfig, auth: Awaited<ReturnType<typeof buildIma
     host: config.imapHost,
     port: config.imapPort,
     secure: config.imapSecure,
+    /*
+     * STARTTLS verlangen, wo nicht ohnehin von Anfang an verschluesselt wird.
+     *
+     * imapflow sagt es in seiner eigenen Dokumentation: ohne diese Angabe gilt
+     * "If not supported, continue unencrypted. This may expose the connection to a
+     * downgrade attack." Ein Angreifer im Netzpfad streicht STARTTLS aus der
+     * Faehigkeitenliste, und "LOGIN <benutzer> <kennwort>" geht im Klartext ueber
+     * Port 143.
+     *
+     * Konten mit imapSecure:false entstehen regulaer - findeEinstellungen liefert es
+     * so, wenn die Anbieterdatenbank STARTTLS statt SSL nennt, und von Hand eintragen
+     * laesst es sich ebenfalls.
+     */
+    ...(config.imapSecure ? {} : { doSTARTTLS: true as const }),
+    tls: { minVersion: 'TLSv1.2' as const },
     auth,
     logger: imapLogger,
   });

@@ -89,6 +89,24 @@ export function watchMailbox(
       host: config.imapHost,
       port: config.imapPort,
       secure: config.imapSecure,
+      // Dieselbe Erzwingung wie im Verbindungspool - siehe die Begründung dort.
+      ...(config.imapSecure ? {} : { doSTARTTLS: true as const }),
+      tls: { minVersion: 'TLSv1.2' as const },
+      /*
+       * IDLE von sich aus erneuern, lange vor der Grenze aus RFC 2177.
+       *
+       * Ohne diese Angabe startet imapflow IDLE NIE neu - der Wert steht dort
+       * voreingestellt auf `false`. Die einzige Rettung wäre der Socket-Zeitgeber
+       * (5 Minuten), und genau der greift bei den verbreitetsten Servern nicht:
+       * Dovecot schickt von sich aus alle zwei Minuten "* OK Still here" und setzt den
+       * Zeitgeber damit dauernd zurück. IDLE läuft dann über die 29 Minuten hinaus,
+       * die RFC 2177 als Obergrenze nennt, und der Server legt auf.
+       *
+       * Sichtbar wurde das als halbstündlich abreißende Überwachung bei allen
+       * Dovecot-Anbietern - und weil beim Neuverbinden nicht abgeglichen wurde (siehe
+       * unten), blieb alles ungemeldet, was in der Lücke eintraf.
+       */
+      maxIdleTime: 5 * 60 * 1000,
       auth,
       logger: false,
     });

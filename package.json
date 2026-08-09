@@ -19,12 +19,18 @@
   ],
   "scripts": {
     "start": "npm run build && npm run start --workspace packages/desktop",
-    "test": "tsx packages/mail-core/src/oauth/provider.test.mts && tsx packages/web/src/composeHelpers.test.mts && tsx packages/server/src/cache.test.mts && tsx packages/web/src/konversationen.test.mts && tsx packages/server/src/rules.test.mts && tsx packages/mail-core/src/unsubscribe.test.mts && tsx packages/server/src/contactStore.test.mts && tsx packages/mail-core/src/nachfassen.test.mts && tsx packages/web/src/externeInhalte.test.mts && tsx packages/web/src/anhangErinnerung.test.mts && tsx packages/mail-core/src/autoconfig.test.mts && tsx packages/web/src/identitaeten.test.mts && tsx packages/server/src/lokaleAblage.test.mts && tsx packages/mail-core/src/mbox.test.mts && tsx packages/server/src/verbindungsfehler.test.mts && tsx packages/mail-core/src/vcard.test.mts && tsx packages/mail-core/src/etiketten.test.mts && tsx packages/server/src/etikettenStore.test.mts && tsx packages/mail-core/src/zusammenfuehren.test.mts && tsx packages/server/src/gesamtPosteingang.test.mts && tsx packages/mail-core/src/ics.test.mts && tsx packages/mail-core/src/pgpErkennung.test.mts && tsx packages/mail-core/src/pgp.test.mts && tsx packages/server/src/schluesselbund.test.mts && tsx packages/web/src/sortierung.test.mts && tsx packages/web/src/ziehen.test.mts && tsx packages/web/src/formatierung.test.mts && tsx packages/web/src/barrierefrei.test.mts && tsx packages/mail-core/src/protokoll.test.mts && tsx packages/server/src/protokollDatei.test.mts && tsx packages/mail-core/src/imapUmwandlung.test.mts && tsx packages/server/src/routen.test.mts && tsx packages/server/src/sicherung.test.mts",
+    "//test": "Der Laeufer von Node findet die Pruefdateien selbst. Vorher standen hier 33 tsx-Aufrufe mit && aneinandergereiht, mit vier Nachteilen: der Lauf brach beim ersten Fehler ab (man sah immer nur den ersten von moeglicherweise fuenf kaputten), es gab keine Gesamtzusammenfassung, jede neue Pruefdatei musste von Hand eingetragen werden - wurde sie vergessen, lief sie nie und niemand merkte es - und alles lief nacheinander. Gemessen: 30 s vorher, 5 s jetzt. tsx bleibt noetig, aber als Lader: Node entfernt Typen zwar selbst, loest aber ./x.js nicht auf ./x.ts auf.",
+    "test": "node --import tsx --test \"packages/*/src/**/*.test.mts\"",
+    "test:abdeckung": "node --import tsx --test --experimental-test-coverage \"packages/*/src/**/*.test.mts\"",
+    "//pruefe": "Was die CI macht, in einem Aufruf - damit sich lokal derselbe Stand pruefen laesst, ohne drei Befehle zu merken.",
+    "pruefe": "npm run typecheck && npm run build && npm test",
     "build": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run build -w packages/web && npm run build -w packages/desktop",
     "typecheck": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run typecheck --workspaces --if-present",
     "dist": "npm run build && electron-builder",
-    "//publish": "Bewusst nur das Installationsprogramm (--win nsis) - die portable Fassung baut 'npm run dist' weiterhin mit, fuer die Selbstaktualisierung wird sie nicht gebraucht. release-vorbereiten.mjs legt Marke und Veroeffentlichung vorher an, weil electron-builder das nebenlaeufig tut und sich dabei selbst in die Quere kommt.",
-    "publish": "node scripts/pruefe-veroeffentlichung.mjs && node scripts/release-vorbereiten.mjs && npm run build && electron-builder --win nsis --publish always",
+    "//veroeffentlichen": "Prueft den Stand und setzt die Marke - mehr nicht. Gebaut und hochgeladen wird danach in der CI (.github/workflows/veroeffentlichen.yml). Vorher lief beides hier: die ausgelieferte Datei war damit das Ergebnis eines Rechners, dessen Zustand niemand nachvollziehen kann, und bei einer Anwendung mit Selbstaktualisierung ist der Bauplatz die empfindlichste Stelle der Kette. Es wird kein GitHub-Schluessel mehr gebraucht - gepusht wird ueber die gewoehnlichen Git-Zugangsdaten, und den Schluessel zum Hochladen stellt GitHub in der CI selbst.",
+    "veroeffentlichen": "node scripts/pruefe-veroeffentlichung.mjs && node scripts/marke-setzen.mjs",
+    "//publish": "Alter Name, damit die Gewohnheit nicht ins Leere laeuft.",
+    "publish": "npm run veroeffentlichen",
     "dev:server": "npm run dev --workspace packages/server",
     "dev:web": "npm run dev --workspace packages/web",
     "dev:desktop": "npm run dev --workspace packages/desktop"
@@ -36,9 +42,10 @@
   },
   "devDependencies": {
     "@types/jsdom": "^30.0.0",
-    "electron": "^38.8.6",
+    "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
     "jsdom": "^29.1.1",
+    "tsx": "^4.23.11",
     "typescript": "^5.6.3"
   }
 }

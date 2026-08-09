@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import { createFolder, listFolders, setMessagesSeen, type AccountConfig } from '@energy-mail/mail-core';
 import { verschiebeMitKennung } from '@energy-mail/mail-core';
 import { getDataDir } from './paths.js';
+import { liesJson, schreibeAtomar } from './atomar.js';
+import { istVerbindungsfehler } from './verbindungsfehler.js';
 
 /**
  * Wiedervorlage: eine Nachricht verschwindet aus dem Posteingang und kommt zur
@@ -31,6 +32,8 @@ export interface Zurueckgestellt {
   uidImOrdner?: number;
   betreff: string;
   faellig: number;
+  /** Wie oft das Zurückholen schon fehlgeschlagen ist. Fehlt bei Altbestand. */
+  versuche?: number;
 }
 
 const getPfad = () => path.join(getDataDir(), 'wiedervorlage.json');
@@ -54,8 +57,7 @@ export function setWiedervorlageUmgebung(
 
 function speichern(): void {
   try {
-    fs.mkdirSync(getDataDir(), { recursive: true });
-    fs.writeFileSync(getPfad(), JSON.stringify([...offen.values()], null, 2), 'utf-8');
+    schreibeAtomar(getPfad(), JSON.stringify([...offen.values()], null, 2));
   } catch (err) {
     log(`Wiedervorlagen konnten nicht gesichert werden: ${(err as Error).message}`);
   }
@@ -98,28 +100,84 @@ async function holeZurueck(id: string): Promise<void> {
     }
     log(`Wiedervorlage: "${eintrag.betreff}" zurück in "${eintrag.ursprung}".`);
     nachHolen?.(eintrag.accountId, eintrag.ursprung);
-  } catch (err) {
-    log(`Wiedervorlage "${eintrag.betreff}" fehlgeschlagen: ${(err as Error).message}`);
-  } finally {
+    // Erst jetzt austragen: nur ein tatsächlich zurückgeholter Eintrag ist erledigt.
     offen.delete(id);
     timer.delete(id);
     speichern();
+  } catch (err) {
+    timer.delete(id);
+    /*
+     * Nicht löschen, sondern erneut versuchen.
+     *
+     * Vorher stand das Löschen im finally - also auch dann, wenn das Verschieben
+     * fehlgeschlagen war. Wer eine Mail auf "morgen 9 Uhr" zurückstellte und um 9 Uhr
+     * gerade den Rechner hochgefahren hatte, ohne dass das Netz schon stand, bekam sie
+     * NIE zurück: sie verschwand aus der Wiedervorlage und lag unsichtbar im Ordner
+     * "Wiedervorlage". Sichtbar war davon nur eine Zeile im Protokoll.
+     *
+     * Ein Verbindungsfehler ist vorübergehend und rechtfertigt einen neuen Anlauf. Alles
+     * andere - der Ordner ist weg, die Nachricht gelöscht - wiederholt sich nicht von
+     * selbst; dort wird nach einigen Versuchen aufgegeben, damit nichts endlos kreist.
+     */
+    const versuche = (eintrag.versuche ?? 0) + 1;
+    const grund = (err as Error).message;
+    const nochmal = istVerbindungsfehler(err) ? versuche <= 20 : versuche <= 3;
+
+    if (!nochmal) {
+      offen.delete(id);
+      speichern();
+      log(
+        `Wiedervorlage "${eintrag.betreff}" nach ${versuche} Versuchen aufgegeben: ${grund}. ` +
+          `Die Nachricht liegt weiterhin im Ordner "${WIEDERVORLAGE_ORDNER}".`,
+      );
+      return;
+    }
+
+    eintrag.versuche = versuche;
+    // Wachsender Abstand, gedeckelt bei einer Stunde.
+    eintrag.faellig = Date.now() + Math.min(60_000 * 2 ** (versuche - 1), 60 * 60_000);
+    offen.set(id, eintrag);
+    speichern();
+    planen(eintrag);
+    log(`Wiedervorlage "${eintrag.betreff}" fehlgeschlagen (Versuch ${versuche}): ${grund}`);
   }
 }
 
+/**
+ * Node wartet höchstens 2^31-1 ms (rund 24,8 Tage); darüber feuert setTimeout SOFORT.
+ * "Erinnere mich in zwei Monaten" holte die Nachricht damit augenblicklich zurück.
+ */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
 function planen(eintrag: Zurueckgestellt): void {
-  const t = setTimeout(() => void holeZurueck(eintrag.id), Math.max(0, eintrag.faellig - Date.now()));
+  const wartezeit = Math.max(0, eintrag.faellig - Date.now());
+  const t = setTimeout(() => {
+    // In Etappen: ist die eigentliche Fälligkeit noch nicht erreicht, neu planen.
+    if (Date.now() < eintrag.faellig) {
+      planen(eintrag);
+      return;
+    }
+    void holeZurueck(eintrag.id);
+  }, Math.min(wartezeit, MAX_TIMEOUT_MS));
   t.unref?.();
   timer.set(eintrag.id, t);
 }
 
 export function ladeWiedervorlagen(): void {
-  let gespeichert: Zurueckgestellt[] = [];
-  try {
-    gespeichert = JSON.parse(fs.readFileSync(getPfad(), 'utf-8')) as Zurueckgestellt[];
-  } catch {
-    return;
+  const befund = liesJson<unknown>(getPfad(), []);
+  if (befund.beschaedigt) {
+    log(
+      `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +
+        (befund.beschaedigt.beiseite ? ` Beiseite gelegt: ${befund.beschaedigt.beiseite}` : ''),
+    );
   }
+  const roh = Array.isArray(befund.wert) ? (befund.wert as unknown[]) : [];
+  const gespeichert = roh.filter((e): e is Zurueckgestellt => {
+    const z = e as Partial<Zurueckgestellt> | null;
+    return Boolean(
+      z && typeof z === 'object' && typeof z.id === 'string' && Number.isFinite(z.faellig),
+    );
+  });
   for (const eintrag of gespeichert) {
     offen.set(eintrag.id, eintrag);
     planen(eintrag);

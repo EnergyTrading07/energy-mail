@@ -1,6 +1,7 @@
 import { BrowserWindow, Menu, app, shell, type MenuItemConstructorOptions } from 'electron';
 import { sucheAktualisierung } from './autoUpdate.js';
 import { zeigeUeber } from './kleineFenster.js';
+import { einstellungen, setzeEinstellung, wendeAutostartAn } from './einstellungen.js';
 import {
   erzeugeFehlerbericht,
   leseEinstellungen,
@@ -49,6 +50,16 @@ function sende(befehl: Befehl): void {
     `window.dispatchEvent(new CustomEvent('energy-mail:befehl', { detail: ${JSON.stringify(befehl)} }))`,
   );
 }
+
+/**
+ * Derselbe Weg für das Infobereichsmenü.
+ *
+ * Ausdrücklich weitergereicht statt dort nachgebaut: es gibt genau eine Stelle, an der
+ * ein Befehl an die Oberfläche geht, und genau eine Liste der Befehle, die sie versteht.
+ * Zwei Umsetzungen liefen früher oder später auseinander.
+ */
+export { sende as sendeBefehl };
+export type { Befehl };
 
 const eintrag = (
   label: string,
@@ -131,6 +142,36 @@ export function setzeMenue(): void {
         {
           label: 'Sicherung einlesen…',
           click: () => void leseEinstellungen(SERVER),
+        },
+        { type: 'separator' },
+        /*
+         * Zwei Schalter, die die Hülle betreffen und nicht die Oberfläche.
+         *
+         * Bewusst hier und nicht im Einstellungsfenster der Anwendung: Fensterverhalten
+         * und Autostart sind Sache des Betriebssystems, der Hauptprozess muss sie kennen,
+         * bevor überhaupt eine Oberfläche geladen ist, und über das Menü brauchen sie
+         * keinen neuen Kanal in der Brücke - die absichtlich schmal gehalten ist.
+         */
+        {
+          label: 'Beim Schließen in den Infobereich',
+          type: 'checkbox',
+          checked: einstellungen().imInfobereich,
+          click: (eintrag) => {
+            setzeEinstellung('imInfobereich', eintrag.checked);
+            // Neu aufbauen, damit der Haken auch dann stimmt, wenn die Einstellung
+            // anderswo geändert wurde (etwa über "Lieber beenden" im Hinweis).
+            setzeMenue();
+          },
+        },
+        {
+          label: 'Mit Windows starten',
+          type: 'checkbox',
+          checked: einstellungen().mitWindowsStarten,
+          click: (eintrag) => {
+            setzeEinstellung('mitWindowsStarten', eintrag.checked);
+            wendeAutostartAn();
+            setzeMenue();
+          },
         },
       ],
     },
