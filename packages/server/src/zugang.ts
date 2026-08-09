@@ -98,7 +98,7 @@ function herkunftErlaubt(origin: string | undefined, port: number): boolean {
  * Seite nachzieht. Diese Abrufe geben nur aus, was ohnehin im Installationspaket steht;
  * ein Postfach ist darueber nicht erreichbar.
  */
-function istOberflaeche(pfad: string): boolean {
+export function istOberflaeche(pfad: string): boolean {
   if (pfad === '/' || pfad === '/index.html') return true;
   if (pfad.startsWith('/assets/')) return true;
   return pfad === '/thema-vorab.js' || pfad === '/favicon.ico' || pfad === '/vite.svg';

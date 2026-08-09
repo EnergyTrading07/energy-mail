@@ -42,13 +42,13 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.marke || github.ref }}
           # Die Marken werden gebraucht, um die Fassung gegenzuprüfen.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           # Dieselbe Fassung wie im Prüf-Workflow und wie die, die Electron mitbringt.
           node-version: '22'
@@ -124,12 +124,27 @@ jobs:
             echo "FEHLER: build/icon.png fehlt im Paket."
             exit 1
           fi
+          if [ ! -f "release/win-unpacked/resources/app.asar.unpacked/build/icon.png" ]; then
+            echo "FEHLER: build/icon.png liegt nicht entpackt neben dem Archiv (asarUnpack)."
+            exit 1
+          fi
+
+          # Hier wiegt das schwerer als im Prüflauf: eine ausgelieferte Fassung ohne
+          # app-update.yml sucht nie wieder nach Aktualisierungen, und zurückholen lässt
+          # sie sich nicht.
+          if [ ! -f "release/win-unpacked/resources/app-update.yml" ]; then
+            echo "FEHLER: resources/app-update.yml fehlt - diese Fassung würde sich nie aktualisieren."
+            exit 1
+          fi
+          echo "--- app-update.yml ---"
+          cat release/win-unpacked/resources/app-update.yml
+
           echo "Paketinhalt in Ordnung."
 
       # Damit sich hinterher nachvollziehen lässt, was genau ausgeliefert wurde.
       - name: Paketinhalt aufheben
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: paketinhalt-${{ github.event.inputs.marke || github.ref_name }}
           path: paketinhalt.txt

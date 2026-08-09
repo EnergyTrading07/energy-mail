@@ -57,6 +57,31 @@ function keksAus(antwort: { cookies: unknown[] }): string | undefined {
   return kekse.find((k) => k.name === KEKS_NAME)?.value;
 }
 
+console.log('\nDie Oberflaeche selbst kommt ohne Anmeldung heraus:');
+
+await pruefe('"/" wird ausgeliefert, nicht mit 401 abgewiesen', async () => {
+  /*
+   * Der Fehler, den erst das Starten der paketierten Anwendung zutage gebracht hat:
+   * das Fenster laedt "/" als gewoehnliche Navigation und kann dabei weder eine
+   * Kopfzeile setzen noch einen Keks mitgeben, den es noch gar nicht gibt. Der Server
+   * antwortete mit 401, und das Fenster zeigte die JSON-Fehlermeldung statt des
+   * Mailprogramms.
+   *
+   * 404 ist hier in Ordnung: in der Pruefung gibt es kein gebautes Frontend, das
+   * ausgeliefert werden koennte. Es geht darum, dass NICHT 401 zurueckkommt.
+   */
+  const antwort = await app.inject({ method: 'GET', url: '/' });
+  assert.notEqual(antwort.statusCode, 401, 'die Oberflaeche wurde abgewiesen');
+  assert.notEqual(antwort.statusCode, 403);
+});
+
+await pruefe('und ihre Bestandteile ebenso', async () => {
+  for (const pfad of ['/index.html', '/assets/haupt.js', '/thema-vorab.js', '/favicon.ico']) {
+    const antwort = await app.inject({ method: 'GET', url: pfad });
+    assert.notEqual(antwort.statusCode, 401, `${pfad} wurde abgewiesen`);
+  }
+});
+
 console.log('\nOhne Anmeldung kommt niemand an Postfachdaten:');
 
 await pruefe('/accounts wird abgewiesen', async () => {

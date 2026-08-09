@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { alsNutzer, istGueltigeNutzerId } from './kontext.js';
 import { OFFENE_PFADE } from './anmelden.js';
+import { istOberflaeche } from '../zugang.js';
 
 /**
  * Setzt für jede Anfrage den Nutzerkontext.
@@ -27,12 +28,33 @@ export type NutzerErmitteln = (request: FastifyRequest) => string | null;
  */
 export function registriereNutzerkontext(app: FastifyInstance, ermittle: NutzerErmitteln): void {
   app.addHook('preHandler', (request: FastifyRequest, reply: FastifyReply, fertig: () => void) => {
+    const pfad = request.url.split('?')[0] ?? '/';
+
+    /*
+     * Die Oberfläche selbst muss ohne Anmeldung ausgeliefert werden.
+     *
+     * Sonst kommt niemand je bis zum Anmeldefenster: das Fenster lädt "/" als
+     * gewöhnliche Navigation, und dabei lässt sich weder eine Kopfzeile setzen noch ein
+     * Keks mitgeben, den es noch gar nicht gibt.
+     *
+     * Ohne diese Zeile bekam die Desktop-Hülle beim Start eine 401 und zeigte die
+     * JSON-Fehlermeldung des Servers statt des Mailprogramms - aufgefallen erst beim
+     * Starten der paketierten Anwendung, nicht in Typen, Bau oder Prüfungen. Der
+     * Zugangsriegel hatte dieselbe Ausnahme längst; hier fehlte sie.
+     *
+     * Ausgeliefert wird dabei nur, was ohnehin im Installationspaket steht - ein
+     * Postfach ist darüber nicht erreichbar.
+     */
+    if (istOberflaeche(pfad)) {
+      fertig();
+      return;
+    }
+
     /*
      * Anmelden und abmelden müssen ohne angemeldeten Nutzer erreichbar sein - sonst käme
      * niemand je hinein. Sie fassen von sich aus keine Nutzerdaten an; /ich liest die
      * Sitzung selbst und antwortet auch dann, wenn keine da ist.
      */
-    const pfad = request.url.split('?')[0] ?? '/';
     if (OFFENE_PFADE.has(pfad)) {
       fertig();
       return;
