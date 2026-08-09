@@ -480,16 +480,29 @@ pruefe('der Stand ueberdauert das Schliessen und Wiederoeffnen', () => {
   assert.equal(pruefeUidGueltigkeit(K, 'INBOX', 4711), false, 'die Gueltigkeit ging verloren');
 });
 
-pruefe('eine veraltete Aufbaufassung wird verworfen statt umgestellt', () => {
+/*
+ * Diese Pruefung hiess einmal "eine veraltete Aufbaufassung wird verworfen statt
+ * umgestellt" und forderte genau das ein: bei jeder Abweichung wurde die gesamte
+ * Datenbank geloescht.
+ *
+ * Fuer ein Einplatzprogramm war das vertretbar - die Ablage ist ein Abbild des
+ * Postfachs, und bei 31.700 Nachrichten kostete es ein paar Stunden Nachladen. Fuer
+ * einen Dienst mit vielen Nutzern ist es das nicht: jede Aktualisierung, die das Schema
+ * anfasst, liesse SAEMTLICHE Nutzer im selben Augenblick ihren Bestand neu laden, und
+ * der Anbieter bekaeme von allen Seiten gleichzeitig Vollabrufe.
+ *
+ * Jetzt wird umgestellt statt geleert. Die Einzelheiten stehen in
+ * ablageMigration.test.mts; hier bleibt der Fall, weil er zum uebrigen Verhalten der
+ * Ablage gehoert.
+ */
+pruefe('eine veraltete Aufbaufassung wird umgestellt, nicht verworfen', () => {
   frisch();
   merkeKopfdaten(K, 'INBOX', [mail(1)]);
   ablage().prepare("insert or replace into stand (schluessel, wert) values ('fassung', '0')").run();
   schliesseAblage();
 
-  // Beim naechsten Oeffnen faellt die alte Fassung auf und alles faengt neu an.
-  assert.equal(anzahlAbgelegt(K, 'INBOX'), 0);
-  merkeKopfdaten(K, 'INBOX', [mail(1)]);
-  assert.equal(anzahlAbgelegt(K, 'INBOX'), 1);
+  // Beim naechsten Oeffnen laufen die fehlenden Schritte - der Bestand bleibt.
+  assert.equal(anzahlAbgelegt(K, 'INBOX'), 1, 'der Bestand wurde geleert');
 });
 
 verwirfAblage();

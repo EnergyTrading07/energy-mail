@@ -33,11 +33,66 @@ import { protokolliere } from './protokollDatei.js';
  */
 const MAX_INHALTE = 2000;
 
-/** Fassung des Aufbaus. Steigt sie, wird die Ablage neu aufgebaut statt umgestellt. */
-const AUFBAU_FASSUNG = 1;
+/**
+ * Ein Schritt, der die Ablage von einer Fassung zur nächsten bringt.
+ *
+ * Vorher gab es das nicht: eine einzelne Zahl, und wich sie ab, wurde die gesamte
+ * Datenbank gelöscht und neu angelegt. Für ein Einplatzprogramm war das vertretbar - die
+ * Ablage ist ein Abbild des Postfachs, und bei 31.700 Nachrichten kostete es ein paar
+ * Stunden Nachladen. Für einen Dienst mit vielen Nutzern ist es das nicht: jede
+ * Aktualisierung, die das Schema anfasst, ließe SÄMTLICHE Nutzer gleichzeitig ihren
+ * Offline-Bestand neu laden - und der Anbieter bekäme im selben Augenblick von allen
+ * Seiten Vollabrufe.
+ *
+ * Jeder Schritt läuft in einer eigenen Transaktion: bricht er ab, bleibt die Fassung
+ * stehen, auf der er angesetzt hat, und beim nächsten Start wird es erneut versucht.
+ */
+interface Migration {
+  /** Auf diese Fassung hebt der Schritt. Lückenlos aufsteigend. */
+  fassung: number;
+  /** Wofür - erscheint im Protokoll, wenn der Schritt läuft. */
+  beschreibung: string;
+  auf: (d: DatabaseSync) => void;
+}
+
+/**
+ * Die Fassung, auf die eine Ablage gebracht wird - die höchste vorhandene Migration.
+ *
+ * Abgeleitet und nicht von Hand gepflegt: eine Zahl, die man beim Ergänzen eines
+ * Schrittes vergessen kann, ist eine Zahl, die man vergisst.
+ */
+const AUFBAU_FASSUNG = () => MIGRATIONEN.reduce((h, m) => Math.max(h, m.fassung), 0);
+
+/** Auf welcher Fassung eine Ablage nach dem Öffnen steht - für Prüfungen und Diagnose. */
+export function ablageFassung(): number {
+  return AUFBAU_FASSUNG();
+}
 
 
 const getPfad = () => path.join(getNutzerDir(), 'ablage.db');
+
+/**
+ * Die Schritte, die eine Ablage auf den aktuellen Stand bringen.
+ *
+ * Neue Schritte kommen HINTEN dazu und bekommen die nächste Nummer. Ein bestehender
+ * Schritt wird nie geändert: bei allen, die ihn schon durchlaufen haben, liefe er nicht
+ * noch einmal, und der Bestand wäre danach je nach Alter der Installation verschieden.
+ *
+ * Beispiel für einen künftigen Schritt:
+ *
+ *   {
+ *     fassung: 2,
+ *     beschreibung: 'Spalte fuer die Wichtigkeit',
+ *     auf: (d) => d.exec('alter table nachrichten add column wichtigkeit integer'),
+ *   }
+ */
+const MIGRATIONEN: Migration[] = [
+  {
+    fassung: 1,
+    beschreibung: 'Grundaufbau: Ordner, Nachrichten, Inhalte und Suchindex',
+    auf: (d) => baueGrundauf(d),
+  },
+];
 
 /**
  * Legt Tabellen und Indizes an.
@@ -46,8 +101,11 @@ const getPfad = () => path.join(getNutzerDir(), 'ablage.db');
  * die IMAP zusichert - und auch die nur, solange die "UID-Gültigkeit" des Ordners
  * gleich bleibt. Ändert der Server sie, sind alle gemerkten UIDs wertlos; darum steht
  * sie mit in der Ordnertabelle und wird bei jedem Abgleich verglichen.
+ *
+ * "if not exists" durchgehend, damit der Schritt auf einer Ablage, die es schon gibt,
+ * nichts kaputtmacht - bestehende Installationen tragen diese Tabellen bereits.
  */
-function baueAuf(datenbank: DatabaseSync): void {
+function baueGrundauf(datenbank: DatabaseSync): void {
   datenbank.exec(`
     create table if not exists ordner (
       konto text not null,
@@ -117,6 +175,81 @@ function baueAuf(datenbank: DatabaseSync): void {
     `);
   } catch (err) {
     console.warn(`Volltextsuche steht nicht bereit: ${(err as Error).message}`);
+  }
+}
+
+/**
+ * Bringt eine Ablage auf den aktuellen Stand - Schritt für Schritt, ohne sie zu leeren.
+ *
+ * Drei Fälle:
+ *
+ *  - Die Ablage ist älter: die fehlenden Schritte laufen der Reihe nach. Der Bestand
+ *    bleibt. Das ist der ganze Zweck dieser Umstellung.
+ *  - Sie ist auf dem Stand: nichts geschieht.
+ *  - Sie ist NEUER als der Code sie kennt (jemand hat eine ältere Fassung des Programms
+ *    gestartet): rückwärts migrieren geht nicht. Hier wird geworfen, und der Aufrufer
+ *    baut sie neu auf - vertretbar, weil sie ein Abbild ist und kein Original, aber es
+ *    gehört ins Protokoll.
+ */
+function wendeMigrationenAn(d: DatabaseSync): void {
+  // Muss vor allem anderen stehen: ohne diese Tabelle lässt sich die Fassung nicht lesen.
+  d.exec('create table if not exists stand (schluessel text primary key, wert text)');
+
+  const zeile = d.prepare("select wert from stand where schluessel = 'fassung'").get() as
+    | { wert?: string }
+    | undefined;
+  /*
+   * Keine Angabe heißt Fassung 0 - eine Ablage aus der Zeit, bevor es die Zählung gab,
+   * oder eine ganz frische. In beiden Fällen laufen alle Schritte, und weil sie
+   * durchgehend "if not exists" verwenden, ist das auf einer bestehenden Ablage
+   * unschädlich.
+   */
+  const jetzt = Number(zeile?.wert ?? 0) || 0;
+  const ziel = AUFBAU_FASSUNG();
+
+  if (jetzt > ziel) {
+    throw new Error(
+      `Die Ablage ist auf Fassung ${jetzt}, dieses Programm kennt nur ${ziel}. ` +
+        'Vermutlich lief hier schon einmal eine neuere Fassung.',
+    );
+  }
+  if (jetzt === ziel) return;
+
+  for (const migration of MIGRATIONEN.filter((m) => m.fassung > jetzt).sort(
+    (a, b) => a.fassung - b.fassung,
+  )) {
+    /*
+     * Jeder Schritt in einer eigenen Transaktion.
+     *
+     * Bricht er ab - kein Platz mehr, Datei gesperrt -, bleibt die Fassung auf dem Stand
+     * davor, und beim nächsten Start wird genau dieser Schritt erneut versucht. Ohne die
+     * Transaktion bliebe eine halb umgestellte Ablage zurück: Tabellen, die zur
+     * eingetragenen Fassung nicht passen, und das fällt erst irgendwann später auf.
+     */
+    d.exec('begin');
+    try {
+      migration.auf(d);
+      d.prepare("insert or replace into stand (schluessel, wert) values ('fassung', ?)").run(
+        String(migration.fassung),
+      );
+      d.exec('commit');
+    } catch (err) {
+      try {
+        d.exec('rollback');
+      } catch {
+        // Keine Transaktion mehr offen - dann ist ohnehin nichts zurückzunehmen.
+      }
+      throw new Error(
+        `Umstellung auf Fassung ${migration.fassung} (${migration.beschreibung}) ` +
+          `fehlgeschlagen: ${(err as Error).message}`,
+      );
+    }
+
+    protokolliere(
+      'info',
+      'ablage',
+      `Ablage auf Fassung ${migration.fassung} gebracht: ${migration.beschreibung}`,
+    );
   }
 }
 
@@ -216,16 +349,7 @@ function oeffneAblageFuer(_nutzerId: string): DatabaseSync {
   const einrichten = (): DatabaseSync => {
     const d = oeffnen();
     try {
-      baueAuf(d);
-      const vorhanden = d
-        .prepare("select wert from stand where schluessel = 'fassung'")
-        .get() as { wert?: string } | undefined;
-      if (vorhanden && Number(vorhanden.wert) !== AUFBAU_FASSUNG) {
-        throw new Error(`Aufbaufassung ${vorhanden.wert} statt ${AUFBAU_FASSUNG}`);
-      }
-      d.prepare("insert or replace into stand (schluessel, wert) values ('fassung', ?)").run(
-        String(AUFBAU_FASSUNG),
-      );
+      wendeMigrationenAn(d);
       return d;
     } catch (err) {
       // Der halb geöffnete Griff muss zu, sonst lässt sich die Datei nicht löschen.
