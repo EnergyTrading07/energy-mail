@@ -54,7 +54,7 @@ Rechner betreiben und von überall im Browser benutzen – mit Anmeldung, mehrer
 und einem Zertifikat von Let's Encrypt. Zwei Container, eine Zeile zum Starten:
 
 ```bash
-cp betrieb/.env.beispiel betrieb/.env   # Name und Verwalteradresse eintragen
+cp .env.beispiel .env    # Name eintragen
 docker compose up -d --build
 ```
 

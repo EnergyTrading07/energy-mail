@@ -20,7 +20,7 @@ packages/server/data/
 # sicherungen/ enthalten Konten, Adressbücher und den Masterschlüssel. Nichts davon
 # gehört in ein Repository - und der Masterschlüssel dort wäre gleichbedeutend damit,
 # sämtliche Postfach-Kennwörter zu veröffentlichen.
-betrieb/.env
+.env
 betrieb/daten/
 betrieb/sicherungen/
 

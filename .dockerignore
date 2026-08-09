@@ -16,7 +16,7 @@ release/
 # hier noch liegt, ist ein Rückstand - und darf unter keinen Umständen in ein Abbild,
 # das anschließend irgendwohin geschoben wird.
 packages/server/data/
-betrieb/.env
+.env
 betrieb/daten/
 betrieb/sicherungen/
 

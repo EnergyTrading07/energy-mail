@@ -1,0 +1,56 @@
+#
+# Zusatz: ein eigener Vorbau, wenn keiner da ist.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+#
+# Caddy holt das Zertifikat bei Let's Encrypt selbst, erneuert es selbst und leitet 80
+# auf 443 um - ohne eine Zeile dafür. Das ist der Grund, warum hier Caddy steht und
+# nicht nginx: bei nginx wären certbot, ein Zeitplan und eine Neuladelogik nötig, und
+# genau die vergisst man, bis das Zertifikat nach 90 Tagen abläuft.
+#
+# Vorausgesetzt: der Name zeigt auf diesen Anschluss, und die Ports 80 und 443 sind
+# darauf weitergeleitet. Port 80 wird gebraucht, auch wenn später alles über 443 läuft -
+# darüber prüft Let's Encrypt, dass Ihnen der Name gehört.
+#
+# NICHT nötig, wenn schon ein Reverse Proxy davorsteht. Dann genügt docker-compose.yml
+# allein, mit ENERGY_MAIL_BIND auf dessen Weg.
+#
+
+services:
+  dienst:
+    # Der Vorbau erreicht den Dienst über das interne Netz. Nach außen veröffentlicht
+    # der Dienst dann gar nichts mehr - deshalb die leere Liste, die die Angabe aus
+    # docker-compose.yml ersetzt.
+    ports: []
+
+  vorbau:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # QUIC/HTTP3. Ohne die Zeile läuft alles über HTTP/2 weiter - es ist kein Muss.
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN fehlt}
+      # An diese Adresse schreibt Let's Encrypt, bevor ein Zertifikat abläuft.
+      ADMIN_MAIL: ${ADMIN_MAIL:?ADMIN_MAIL fehlt}
+    volumes:
+      - ./betrieb/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Hier liegen die Zertifikate. Geht dieser Bereich verloren, holt Caddy neue -
+      # aber Let's Encrypt begrenzt das auf 5 je Woche und Name. Gehört in die Sicherung.
+      - caddy-daten:/data
+      - caddy-konfig:/config
+    networks:
+      - innen
+    depends_on:
+      - dienst
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  caddy-daten:
+  caddy-konfig:

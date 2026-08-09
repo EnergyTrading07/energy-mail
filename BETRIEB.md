@@ -1,37 +1,29 @@
 # Energy Mail als Dienst betreiben
 
-Diese Anleitung beschreibt den Betrieb auf einem eigenen Linux-Rechner — im Fall dieses
-Projekts ein HP EliteDesk im Heimnetz, erreichbar unter einem eigenen Namen, mit einem
-Zertifikat von Let's Encrypt.
+Diese Anleitung beschreibt den Betrieb auf einem eigenen Linux-Rechner: mit Anmeldung,
+mehreren Nutzern und einem Zertifikat von Let's Encrypt.
 
-Der Aufbau besteht aus zwei Containern:
+Der Dienst selbst veröffentlicht **niemals** einen Port ins Netz. Vor ihm steht immer ein
+Vorbau, der die Verschlüsselung übernimmt — und dafür gibt es zwei Aufstellungen:
 
 ```
-        Internet
-           │
-      443 / 80
-           │
-    ┌──────▼───────┐   holt und erneuert das Zertifikat selbst
-    │    vorbau    │   Caddy
-    │              │   TLS endet HIER, auf Ihrem Rechner
-    └──────┬───────┘
-           │  internes Netz, kein Port nach außen
-    ┌──────▼───────┐
-    │    dienst    │   Energy Mail (Node 24)
-    │              │
-    └──────┬───────┘
-           │
-    betrieb/daten/     Konten, Adressbuch, Regeln, Masterschlüssel
+ (a) Es steht schon ein Reverse Proxy im Haus
+
+     Internet ──443──► nginx/Traefik ──► (Tailscale, LAN …) ──► dienst:4000
+                       eigener Rechner                          bindet nur an dessen Weg
+
+ (b) Es steht keiner
+
+     Internet ──443──► Caddy ──► dienst:4000
+              ──80──►  im selben Compose-Stapel, holt das Zertifikat selbst
 ```
 
-Zwischen Browser und Ihrem Rechner sieht niemand die Post — kein Dienstleister, kein
-Netzbetreiber. Das ist der Grund für diesen Aufbau und nicht für einen Tunnel-Dienst.
+In beiden Fällen endet die Verschlüsselung auf **Ihrer** Hardware — kein Dienstleister,
+kein Netzbetreiber sieht die Post.
 
 ---
 
 ## 1. Voraussetzungen
-
-**Auf dem Rechner:**
 
 ```bash
 docker --version           # 24 oder neuer
@@ -45,19 +37,20 @@ curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker "$USER"   # danach einmal ab- und wieder anmelden
 ```
 
-**Im Netz — das muss vorher stimmen, sonst bekommt Caddy kein Zertifikat:**
+**Für Aufstellung (b) zusätzlich im Netz** — das muss vorher stimmen, sonst bekommt Caddy
+kein Zertifikat:
 
 | Was | Wie prüfen |
 | --- | --- |
-| Der Name zeigt auf Ihren Anschluss | `dig +short mail.beispiel.de` muss Ihre öffentliche Adresse liefern (`curl -4 ifconfig.me`) |
-| Port 80 und 443 sind auf den Rechner weitergeleitet | Im Router unter „Portfreigaben“, Ziel ist die feste lokale Adresse des EliteDesk |
-| Der Anschluss hat eine öffentliche IPv4 | Steht in `dig` etwas anderes als in `curl ifconfig.me`, liegt DS-Lite/CGNAT vor — dann geht keine Portfreigabe |
+| Der Name zeigt auf Ihren Anschluss | `dig +short mail.beispiel.de` gegen `curl -4 ifconfig.me` |
+| Port 80 und 443 sind auf den Rechner weitergeleitet | Im Router unter „Portfreigaben" |
+| Der Anschluss hat eine öffentliche IPv4 | Weichen die beiden Zahlen oben ab, liegt DS-Lite/CGNAT vor — dann geht keine Portfreigabe |
 
 > **Port 80 wird gebraucht**, auch wenn später alles über 443 läuft: Let's Encrypt prüft
-> darüber, dass Ihnen der Name gehört. Ohne ihn schlägt die Ausstellung fehl.
+> darüber, dass Ihnen der Name gehört.
 
-Wechselt Ihre öffentliche Adresse (bei Privatanschlüssen üblich), brauchen Sie zusätzlich
-einen DynDNS-Eintrag; die meisten Router bringen das mit.
+Bei Aufstellung (a) entfällt das alles — der vorhandene Vorbau bringt Adresse und
+Zertifikat schon mit.
 
 ---
 
@@ -67,9 +60,23 @@ einen DynDNS-Eintrag; die meisten Router bringen das mit.
 git clone https://github.com/EnergyTrading07/energy-mail.git
 cd energy-mail
 
-cp betrieb/.env.beispiel betrieb/.env
-nano betrieb/.env            # DOMAIN und ADMIN_MAIL eintragen
+cp .env.beispiel .env
+nano .env
 ```
+
+Mindestens `DOMAIN` eintragen. Bei Aufstellung (a) zusätzlich `ENERGY_MAIL_BIND` auf den
+Weg setzen, über den der Vorbau herankommt — bei einem Vorbau auf einem anderen Rechner
+etwa die Tailscale-Adresse **dieses** Rechners:
+
+```ini
+DOMAIN=mail.beispiel.de
+ENERGY_MAIL_BIND=100.71.217.53
+```
+
+> `.env` muss **neben** der `docker-compose.yml` liegen. Compose füllt die `${…}` in der
+> compose-Datei ausschließlich aus seiner eigenen Umgebung und aus `./.env`; ein
+> `env_file:` im Dienst reicht Werte nur an den Container durch und lässt die Platzhalter
+> leer.
 
 Der Datenordner muss dem Nutzer gehören, unter dem der Dienst läuft — im Container ist
 das `node` mit der Nummer 1000. Gehört er root, kann der Dienst nichts speichern, und
@@ -81,11 +88,14 @@ sudo chown -R 1000:1000 betrieb/daten
 chmod 700 betrieb/daten
 ```
 
-Dann bauen und starten:
+Dann starten:
 
 ```bash
+# (a) hinter vorhandenem Vorbau
 docker compose up -d --build
-docker compose logs -f dienst
+
+# (b) mit eigenem Caddy
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
 ```
 
 Beim ersten Start steht im Protokoll (`betrieb/daten/protokoll/`):
@@ -109,15 +119,85 @@ docker compose exec dienst node -e "fetch('http://127.0.0.1:4000/gesundheit').th
 # {"ok":true,"fassung":"0.2.1","laeuftSeit":12,"verschluesselung":true}
 ```
 
-Und von außen, mit dem Zertifikat:
+---
 
-```bash
-curl -I https://mail.beispiel.de
+## 3. Der Vorbau bei Aufstellung (a)
+
+Der Dienst erwartet vom Vorbau drei Dinge. Fehlt eines, fällt es erst im Betrieb auf:
+
+| Nötig | Warum |
+| --- | --- |
+| `X-Forwarded-Proto: https` | Sonst fehlt dem Sitzungskeks das `Secure`-Kennzeichen und er ginge auch über eine unverschlüsselte Verbindung hinaus. |
+| `X-Forwarded-For` | Sonst ist die Absenderadresse jeder Anfrage die des Vorbaus, und zehn Fehlversuche irgendwo sperren alle anderen mit aus. |
+| WebSocket auf `/ws` | Ohne das kommt keine neue Post von selbst an — die Oberfläche zeigt erst beim Neuladen etwas. |
+
+Für nginx:
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name mail.beispiel.de;
+
+    ssl_certificate     /etc/letsencrypt/live/mail.beispiel.de/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mail.beispiel.de/privkey.pem;
+
+    # Anhänge: der Dienst nimmt bis 40 MB an, Base64 bläht sie um rund ein Drittel auf.
+    client_max_body_size 45M;
+
+    # Diese Seite gehört in kein fremdes Fenster. Die Oberfläche sagt das in ihrer
+    # eigenen Richtlinie auch - nur steht die als <meta> in der Seite, und dort wird
+    # frame-ancestors von jedem Browser ignoriert. Wirksam ist allein die Kopfzeile.
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Der Gesundheitsweg bleibt drinnen: er verlangt bewusst keine Anmeldung.
+    location = /gesundheit { return 404; }
+
+    location / {
+        proxy_pass http://100.71.217.53:4000;
+        proxy_http_version 1.1;
+
+        # Ohne diese beiden Zeilen bleibt der Ereigniskanal stumm.
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        # Ein Postfach mit 30.000 Nachrichten zu durchsuchen dauert; die
+        # WebSocket-Verbindung steht den ganzen Tag.
+        proxy_connect_timeout 60s;
+        proxy_send_timeout    3600s;
+        proxy_read_timeout    3600s;
+
+        proxy_buffering         off;
+        proxy_request_buffering off;
+    }
+}
 ```
+
+`$connection_upgrade` muss einmal im `http`-Block stehen — in den meisten Aufstellungen
+ist das schon der Fall:
+
+```nginx
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+```
+
+**Keine Content-Security-Policy im Vorbau.** Die Oberfläche bringt eine eigene mit
+(`packages/web/index.html`), und sie ist dort begründet — sie erlaubt zum Beispiel Bilder
+von `https:`, weil sonst „Absender immer erlauben" wirkungslos wäre. Eine zweite
+Richtlinie ersetzt jene nicht, sondern schneidet sich mit ihr: es gilt dann die jeweils
+strengere Angabe beider. Das Ergebnis wäre eine Oberfläche, an der Dinge fehlen, und eine
+Fehlersuche an der falschen Stelle.
 
 ---
 
-## 3. Der Masterschlüssel
+## 4. Der Masterschlüssel
 
 Beim ersten Start entsteht `betrieb/daten/master.key` — 32 zufällige Bytes.
 
@@ -127,7 +207,7 @@ Er wird nicht aus einem Kennwort abgeleitet und liegt nirgendwo sonst. Geht die 
 verloren, müssen alle Nutzer sämtliche Konten neu einrichten — aus einer Sicherung ist
 dann nichts mehr zu holen, auch nicht mit Aufwand.
 
-Deshalb, gleich jetzt und nicht später:
+Deshalb gleich jetzt, nicht später:
 
 ```bash
 sudo cat betrieb/daten/master.key
@@ -139,7 +219,7 @@ Verschlüsselung vor niemandem.
 
 ---
 
-## 4. Nutzer anlegen
+## 5. Nutzer anlegen
 
 Es gibt bewusst keine Selbstanmeldung: sonst könnte sich jeder aus dem Netz ein Postfach
 auf Ihrer Hardware anlegen. Angelegt wird auf dem Server.
@@ -177,7 +257,7 @@ Ordner bleibt liegen, bis Sie `--mit-daten` dazuschreiben.
 
 ---
 
-## 5. Sicherung
+## 6. Sicherung
 
 ```bash
 ./betrieb/sicherung.sh
@@ -218,13 +298,9 @@ Alle müssen sich danach neu anmelden — die Sitzungen werden bewusst nicht mit
 > Probieren Sie eine Wiederherstellung einmal aus, solange nichts kaputt ist. Eine
 > Sicherung, die nie zurückgespielt wurde, ist eine Vermutung.
 
-Die Zertifikate liegen in einem eigenen Docker-Bereich (`caddy-daten`) und sind nicht
-Teil der Sicherung. Gehen sie verloren, holt Caddy neue — Let's Encrypt lässt dafür fünf
-Ausstellungen je Woche und Name zu, das genügt.
-
 ---
 
-## 6. Aktualisieren
+## 7. Aktualisieren
 
 ```bash
 git pull
@@ -239,36 +315,38 @@ Vor größeren Sprüngen: einmal `./betrieb/sicherung.sh`.
 
 ---
 
-## 7. Nachsehen, ob alles läuft
+## 8. Nachsehen, ob alles läuft
 
 ```bash
 docker compose ps                      # Spalte STATUS muss "healthy" zeigen
 docker compose logs --tail=100 dienst
-docker compose logs --tail=50 vorbau   # Zertifikatsfragen stehen hier
 ```
 
 Das eigene Protokoll des Programms liegt zusätzlich in `betrieb/daten/protokoll/`.
 
-Für eine Benachrichtigung, wenn der Dienst ausfällt, genügt ein Eintrag bei einem
-Wachdienst wie Uptime Kuma oder Healthchecks.io auf `https://mail.beispiel.de/` — der
-Weg `/gesundheit` ist von außen bewusst nicht erreichbar.
+Für eine Benachrichtigung bei Ausfall genügt ein Wachdienst (Uptime Kuma o. ä.) auf
+`https://mail.beispiel.de/` — der Weg `/gesundheit` ist von außen bewusst nicht
+erreichbar.
 
 ---
 
-## 8. Wenn etwas nicht geht
+## 9. Wenn etwas nicht geht
 
 | Bild | Ursache |
 | --- | --- |
-| Der Dienst startet nicht, im Protokoll steht `ENERGY_MAIL_OEFFENTLICHE_ADRESSE fehlt` | `DOMAIN` in `betrieb/.env` ist leer. Ohne die Angabe würde der Herkunftsriegel die eigene Oberfläche abweisen — deshalb wird der Start verweigert statt später jede Anfrage. |
+| `variable is not set` beim Start, danach Beschwerde über die fehlende öffentliche Adresse | `.env` liegt nicht neben der `docker-compose.yml` oder `DOMAIN` ist leer. |
+| Der Dienst startet nicht, im Protokoll steht `ENERGY_MAIL_OEFFENTLICHE_ADRESSE fehlt` | Dasselbe. Ohne die Angabe würde der Herkunftsriegel die eigene Oberfläche abweisen — deshalb wird der Start verweigert statt später jede Anfrage. |
 | Anmeldung antwortet mit `403 Anfrage aus fremder Herkunft` | `DOMAIN` stimmt nicht mit dem Namen überein, unter dem Sie die Seite aufrufen (etwa `www.` davor). |
+| Angemeldet, aber neue Post kommt erst beim Neuladen | Der Vorbau reicht die WebSocket-Umschaltung nicht durch — `Upgrade`/`Connection` fehlen. |
+| Nach dem Anmelden sofort wieder abgemeldet | Der Vorbau setzt kein `X-Forwarded-Proto: https`; der Keks kommt dann ohne `Secure` und der Browser verwirft ihn. |
 | Kein Zertifikat, Caddy meldet `challenge failed` | Port 80 kommt nicht durch, oder der Name zeigt nicht hierher. Erst Abschnitt 1 prüfen. |
 | `permission denied` beim Speichern eines Kontos | `betrieb/daten` gehört nicht 1000:1000. |
-| Zugangsdaten „konnten nicht entschlüsselt werden“ | Es liegt ein anderer `master.key` da als der, mit dem sie geschrieben wurden. |
-| Nach einem Neustart kommen bei einem Nutzer keine neuen Nachrichten von selbst | Er ist gesperrt — gesperrte Nutzer bekommen bewusst keine Hintergrundarbeit. `nutzerWerkzeug.js liste` zeigt es. |
+| Zugangsdaten „konnten nicht entschlüsselt werden" | Es liegt ein anderer `master.key` da als der, mit dem sie geschrieben wurden. |
+| Bei einem Nutzer kommt nach einem Neustart nichts von selbst | Er ist gesperrt — gesperrte Nutzer bekommen bewusst keine Hintergrundarbeit. `nutzerWerkzeug.js liste` zeigt es. |
 
 ---
 
-## 9. Was hier noch nicht steht
+## 10. Was hier noch nicht steht
 
 Ehrlich benannt, damit niemand es für erledigt hält:
 
@@ -277,10 +355,7 @@ Ehrlich benannt, damit niemand es für erledigt hält:
   einem öffentlichen Betrieb gehört an diese Stelle etwas Dauerhaftes.
 - **Keine Zwei-Faktor-Anmeldung.** Ein Kennwort ist die einzige Schranke vor sämtlicher
   Post eines Menschen.
-- **Kein Wachdienst eingerichtet.** Die Container starten sich bei einem Absturz selbst
-  neu (`restart: unless-stopped`), aber niemand erfährt davon.
 - **Die Sicherung liegt auf demselben Rechner.** Gegen ein defektes Laufwerk hilft das
   nicht. `betrieb/sicherungen/` gehört regelmäßig woandershin kopiert.
-- **Der Rechner selbst.** Unbeaufsichtigte Sicherheitsaktualisierungen
-  (`unattended-upgrades`), eine Firewall (`ufw`: nur 22, 80, 443) und
+- **Der Rechner selbst.** Unbeaufsichtigte Sicherheitsaktualisierungen, eine Firewall und
   Festplattenverschlüsselung sind Sache des Betriebssystems, nicht dieses Programms.
