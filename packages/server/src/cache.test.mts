@@ -3,11 +3,22 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setDataDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 
 // Vor dem ersten Zugriff umlenken: der Zwischenspeicher liegt sonst im echten
 // Benutzerordner und würde die Stände der laufenden Anwendung überschreiben.
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-cache-test-'));
 setDataDir(tempDir);
+/*
+ * Diese Pruefung arbeitet als ein Nutzer.
+ *
+ * Sie stand nicht in der Reihe derer, die beim Einziehen des Nutzerbegriffs sofort
+ * scheiterten - und das war kein gutes Zeichen, sondern ein verschluckter Fehler:
+ * laden() rief getNutzerDir() innerhalb seines try/catch, und der fehlende Kontext kam
+ * dort als "Datei nicht vorhanden" heraus. Seit der Zwischenspeicher je Nutzer gehalten
+ * wird, faellt es auf.
+ */
+betreteNutzerFuerProzess('pruefung');
 
 const { ausSpeicherOderHolen, lies, schreibe, verwerfe, verwerfeKonto } = await import('./cache.js');
 

@@ -3,6 +3,8 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { MessageSummary } from '@energy-mail/mail-core';
 import { getNutzerDir } from './paths.js';
+import { jeNutzer } from './nutzer/jeNutzer.js';
+import { protokolliere } from './protokollDatei.js';
 
 /**
  * Die Nachrichten auf der Platte.
@@ -34,7 +36,6 @@ const MAX_INHALTE = 2000;
 /** Fassung des Aufbaus. Steigt sie, wird die Ablage neu aufgebaut statt umgestellt. */
 const AUFBAU_FASSUNG = 1;
 
-let db: DatabaseSync | null = null;
 
 const getPfad = () => path.join(getNutzerDir(), 'ablage.db');
 
@@ -135,9 +136,36 @@ export function sucheVerfuegbar(): boolean {
  * sich jederzeit wiederherstellen, eine Umstellung wäre unnötiger Aufwand.
  */
 export function ablage(): DatabaseSync {
-  if (db) return db;
+  return datenbanken.hole();
+}
 
-  fs.mkdirSync(getNutzerDir(), { recursive: true });
+/**
+ * Ein Datenbankgriff JE NUTZER - nicht einer für alle.
+ *
+ * Hier stand `let db: DatabaseSync | null`, also genau ein Griff auf genau eine Datei.
+ * Der Nutzerkontext schaltete zwar getPfad() um, aber wer die Ablage als Zweiter öffnete,
+ * bekam die des Ersten zurück: Bert sah Annas Nachrichten. Keine Frage des
+ * Speicherverbrauchs, sondern eine Vermischung von Daten.
+ *
+ * Gedeckelt, weil jede offene Datenbank ein Dateihandle und Arbeitsspeicher kostet. Fällt
+ * eine heraus, wird sie beim nächsten Zugriff neu geöffnet - das kostet Millisekunden,
+ * sonst nichts.
+ */
+const MAX_OFFENE_ABLAGEN = 50;
+
+const datenbanken = jeNutzer<DatabaseSync>((nutzerId) => oeffneAblageFuer(nutzerId), {
+  hoechstens: MAX_OFFENE_ABLAGEN,
+  beimVerwerfen: (d) => {
+    try {
+      d.close();
+    } catch {
+      // Schon zu - unerheblich.
+    }
+  },
+});
+
+function oeffneAblageFuer(_nutzerId: string): DatabaseSync {
+  fs.mkdirSync(getNutzerDir(), { recursive: true, mode: 0o700 });
   const pfad = getPfad();
 
   const oeffnen = () => {
@@ -147,6 +175,19 @@ export function ablage(): DatabaseSync {
       // die Leser nicht, und ein Absturz zerreißt die Datei nicht.
       d.exec('pragma journal_mode = wal');
       d.exec('pragma synchronous = normal');
+      /*
+       * Warten statt sofort aufgeben.
+       *
+       * Ohne busy_timeout wirft SQLite augenblicklich SQLITE_BUSY, sobald ein zweiter
+       * Schreiber die Datei hält - ein Sicherungsprogramm, ein Virenwächter, eine
+       * zweite Instanz, ein hängengebliebener Prozess. Getroffen hätte es ausgerechnet
+       * den Offline-Weg: der antwortete dann mit einem Serverfehler statt mit dem
+       * abgelegten Stand, also genau dann nicht, wenn er gebraucht wird.
+       *
+       * Fünf Sekunden sind großzügig für einen Vorgang, der Millisekunden dauert, und
+       * kurz genug, dass eine Anfrage nicht ewig hängt.
+       */
+      d.exec('pragma busy_timeout = 5000');
       return d;
     } catch (err) {
       // Bei einer beschädigten Datei wirft erst dieser Befehl, nicht das Öffnen. Ohne
@@ -198,21 +239,34 @@ export function ablage(): DatabaseSync {
   };
 
   try {
-    db = einrichten();
+    return einrichten();
   } catch (err) {
-    // Eine beschädigte oder veraltete Ablage darf die Anwendung nicht aufhalten - sie
-    // ist ein Abbild, kein Original, und baut sich beim nächsten Abruf wieder auf.
-    console.warn(`Lokale Ablage wird neu angelegt: ${(err as Error).message}`);
+    /*
+     * Eine beschädigte oder veraltete Ablage darf die Anwendung nicht aufhalten - sie
+     * ist ein Abbild, kein Original, und baut sich beim nächsten Abruf wieder auf.
+     *
+     * Über protokolliere statt console.warn: in der ausgelieferten Anwendung gibt es
+     * kein stdout, und dass jemandem gerade sein gesamter Offline-Bestand neu aufgebaut
+     * wird, ist genau die Zeile, die man im Fehlerbericht sehen will.
+     */
+    protokolliere(
+      'warnung',
+      'ablage',
+      `Lokale Ablage wird neu angelegt: ${(err as Error).message}`,
+    );
     loesche();
-    db = einrichten();
+    return einrichten();
   }
-
-  return db;
 }
 
+/** Schließt die Ablage des aktuellen Nutzers. */
 export function schliesseAblage(): void {
-  db?.close();
-  db = null;
+  datenbanken.verwirf();
+}
+
+/** Schließt alle offenen Ablagen - beim Herunterfahren des Servers. */
+export function schliesseAlleAblagen(): void {
+  datenbanken.verwirfAlle();
 }
 
 /** Nur für Tests: Ablage schließen und Datei löschen. */

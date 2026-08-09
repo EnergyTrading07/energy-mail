@@ -94,7 +94,7 @@ import {
 import {
   ausSpeicherOderHolen,
   schluessel,
-  schreibeSofort as schreibeCacheSofort,
+  schreibeAlleSofort as schreibeAlleCachesSofort,
   verwerfe,
   verwerfeKonto,
 } from './cache.js';
@@ -172,7 +172,7 @@ import {
   merkeInhalt,
   merkeKopfdaten,
   pruefeUidGueltigkeit,
-  schliesseAblage,
+  schliesseAlleAblagen,
   setzeGelesen as ablageGelesen,
   entferneNachrichten as ablageEntfernen,
   suchbestand,
@@ -407,13 +407,13 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     try {
       // Noch nicht geschriebener Zwischenspeicher - sonst kostet es beim nächsten Start
       // einen kalten Anlauf.
-      schreibeCacheSofort();
+      schreibeAlleCachesSofort();
     } catch {
       // Der Zwischenspeicher ist entbehrlich; ein Fehler hier darf das Beenden nicht
       // aufhalten.
     }
     try {
-      schliesseAblage();
+      schliesseAlleAblagen();
     } catch (err) {
       app.log.warn(`Lokale Ablage ließ sich nicht schließen: ${(err as Error).message}`);
     }

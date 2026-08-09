@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
+import { jeNutzer } from './nutzer/jeNutzer.js';
 
 /**
  * Warteschlange für ausgehende Nachrichten.
@@ -37,8 +38,30 @@ export interface GeplanteSendung {
 
 const getPfad = () => path.join(getNutzerDir(), 'sendungen.json');
 
-const geplant = new Map<string, GeplanteSendung>();
-const timer = new Map<string, ReturnType<typeof setTimeout>>();
+/**
+ * Warteschlange und Zeitgeber JE NUTZER.
+ *
+ * Vorher zwei prozessglobale Maps. Der Nutzerkontext schaltete nur die Datei um: die
+ * Sendungen zweier Nutzer lagen im selben Speicher, und speichern() schrieb die
+ * vermischte Menge in die Datei dessen, der gerade dran war - fremde Entwürfe samt
+ * Empfängern und Anhängen in einer fremden Datei.
+ *
+ * Ausdrücklich OHNE Obergrenze: fiele ein Eintrag heraus, verschwänden mit ihm die
+ * Zeitgeber, und eine für morgen früh geplante Nachricht ginge nie hinaus. Die Menge ist
+ * klein - es sind wartende Sendungen, keine Nachrichtenbestände.
+ */
+interface NutzerWarteschlange {
+  geplant: Map<string, GeplanteSendung>;
+  timer: Map<string, ReturnType<typeof setTimeout>>;
+}
+
+const warteschlangen = jeNutzer<NutzerWarteschlange>(() => ({
+  geplant: new Map(),
+  timer: new Map(),
+}));
+
+const geplantVon = () => warteschlangen.hole().geplant;
+const timerVon = () => warteschlangen.hole().timer;
 
 let senden: ((sendung: GeplanteSendung) => Promise<void>) | null = null;
 let log: (msg: string) => void = () => {};
@@ -57,7 +80,7 @@ export function setSendeVerfahren(
 
 function speichern(): void {
   try {
-    schreibeAtomar(getPfad(), JSON.stringify([...geplant.values()], null, 2));
+    schreibeAtomar(getPfad(), JSON.stringify([...geplantVon().values()], null, 2));
   } catch (err) {
     log(`Geplante Sendungen konnten nicht gesichert werden: ${(err as Error).message}`);
   }
@@ -70,10 +93,10 @@ const MAX_VERSUCHE = 5;
 const ABSTAENDE_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
 
 async function ausfuehren(id: string): Promise<void> {
-  const sendung = geplant.get(id);
+  const sendung = geplantVon().get(id);
   if (!sendung || !senden) return;
 
-  timer.delete(id);
+  timerVon().delete(id);
 
   /*
    * Erst senden, dann aus der Warteschlange nehmen.
@@ -90,7 +113,7 @@ async function ausfuehren(id: string): Promise<void> {
    */
   try {
     await senden(sendung);
-    geplant.delete(id);
+    geplantVon().delete(id);
     speichern();
     log(`Geplante Nachricht "${sendung.betreff}" versendet.`);
   } catch (err) {
@@ -98,7 +121,7 @@ async function ausfuehren(id: string): Promise<void> {
     const grund = (err as Error).message;
 
     if (versuche >= MAX_VERSUCHE) {
-      geplant.delete(id);
+      geplantVon().delete(id);
       speichern();
       log(
         `Geplante Nachricht "${sendung.betreff}" wurde nach ${versuche} Versuchen aufgegeben: ${grund}`,
@@ -110,7 +133,7 @@ async function ausfuehren(id: string): Promise<void> {
     sendung.versuche = versuche;
     sendung.letzterFehler = grund;
     sendung.faellig = Date.now() + (ABSTAENDE_MS[versuche - 1] ?? 60 * 60_000);
-    geplant.set(id, sendung);
+    geplantVon().set(id, sendung);
     speichern();
     planen(sendung);
     log(
@@ -151,7 +174,7 @@ function planen(sendung: GeplanteSendung): void {
   // Ein wartender Versand soll die Anwendung nicht am Beenden hindern - beim Beenden
   // wird ohnehin alles Ausstehende abgeschickt.
   t.unref?.();
-  timer.set(sendung.id, t);
+  timerVon().set(sendung.id, t);
 }
 
 /** Lädt Ausstehendes beim Start und schickt ab, was bereits fällig ist. */
@@ -193,7 +216,7 @@ export function ladeGeplanteSendungen(): void {
   }
 
   for (const sendung of gespeichert) {
-    geplant.set(sendung.id, sendung);
+    geplantVon().set(sendung.id, sendung);
     planen(sendung);
   }
   if (gespeichert.length > 0) {
@@ -218,7 +241,7 @@ export function planeSendung(
     betreff: String(koerper.subject ?? '(kein Betreff)'),
     empfaenger: Array.isArray(koerper.to) ? (koerper.to as string[]) : [],
   };
-  geplant.set(sendung.id, sendung);
+  geplantVon().set(sendung.id, sendung);
   speichern();
   planen(sendung);
   return sendung;
@@ -226,17 +249,17 @@ export function planeSendung(
 
 /** Holt eine Nachricht zurück und liefert sie heraus - zum Weiterbearbeiten. */
 export function storniereSendung(id: string): GeplanteSendung | null {
-  const sendung = geplant.get(id);
+  const sendung = geplantVon().get(id);
   if (!sendung) return null;
-  clearTimeout(timer.get(id));
-  timer.delete(id);
-  geplant.delete(id);
+  clearTimeout(timerVon().get(id));
+  timerVon().delete(id);
+  geplantVon().delete(id);
   speichern();
   return sendung;
 }
 
 export function listeGeplanteSendungen(accountId?: string): GeplanteSendung[] {
-  return [...geplant.values()]
+  return [...geplantVon().values()]
     .filter((s) => !accountId || s.accountId === accountId)
     .sort((a, b) => a.faellig - b.faellig);
 }
@@ -249,9 +272,9 @@ export function listeGeplanteSendungen(accountId?: string): GeplanteSendung[] {
  * gewollt. Für weit in der Zukunft geplante gilt das nicht - die bleiben liegen.
  */
 export async function sendeAusstehendeSofort(): Promise<number> {
-  const gleich = [...geplant.values()].filter((s) => s.faellig - Date.now() < 5 * 60_000);
+  const gleich = [...geplantVon().values()].filter((s) => s.faellig - Date.now() < 5 * 60_000);
   for (const sendung of gleich) {
-    clearTimeout(timer.get(sendung.id));
+    clearTimeout(timerVon().get(sendung.id));
     await ausfuehren(sendung.id);
   }
   return gleich.length;
