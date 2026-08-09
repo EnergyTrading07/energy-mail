@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { schreibeAtomar } from './atomar.js';
 
 /**
@@ -36,7 +36,7 @@ const speicher = new Map<string, Eintrag>();
 let geladen = false;
 let schreibTimer: ReturnType<typeof setTimeout> | undefined;
 
-const dateiPfad = () => path.join(getDataDir(), 'cache.json');
+const dateiPfad = () => path.join(getNutzerDir(), 'cache.json');
 
 function laden(): void {
   if (geladen) return;

@@ -5,7 +5,7 @@ import { buildServer } from '@energy-mail/server/app';
 import { erzeugeZugangsgeheimnis, setzeZugangsgeheimnis } from '@energy-mail/server/zugang';
 import { listAccounts } from '@energy-mail/server/konten';
 import { restartWatcher } from '@energy-mail/server/events';
-import { getDataDir, setDataDir } from '@energy-mail/server/paths';
+import { getWurzelDir, setDataDir } from '@energy-mail/server/paths';
 import { setKeyProvider } from '@energy-mail/server/secrets';
 import { speichereKontakteSofort } from '@energy-mail/server/kontakte';
 import { sendeAusstehendeSofort } from '@energy-mail/server/sendqueue';
@@ -567,7 +567,10 @@ app.whenReady().then(async () => {
 
   // Muss vor buildServer() stehen: der Server liest beim Start die Konten (für die
   // Postfach-Watcher) und braucht dafür bereits den Entschlüsselungsschlüssel.
-  setKeyProvider(createSafeStorageKeyProvider(getDataDir()));
+  // Die Schlüsseldatei gehört in die Wurzel, nicht in den Ordner eines Nutzers: mit ihr
+  // werden die Geheimnisse ALLER Nutzer verschlüsselt. Auf diesem Rechner ist das
+  // derzeit genau einer, aber der Ort entscheidet sich hier und nicht später.
+  setKeyProvider(createSafeStorageKeyProvider(getWurzelDir()));
 
   try {
     await startLocalServer();

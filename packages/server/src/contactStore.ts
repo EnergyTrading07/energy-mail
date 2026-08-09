@@ -6,9 +6,9 @@ import {
   type Telefonnummer,
   type Visitenkarte,
 } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 
-const getStorePath = () => path.join(getDataDir(), 'contacts.json');
+const getStorePath = () => path.join(getNutzerDir(), 'contacts.json');
 
 /**
  * Obergrenze für nebenbei aufgelesene Adressen. Wer in einem Postfach mit zehntausenden
@@ -139,7 +139,7 @@ function schreibe(): void {
     bereiche: Object.fromEntries(ablage.bereiche),
   });
 
-  fs.mkdirSync(getDataDir(), { recursive: true });
+  fs.mkdirSync(getNutzerDir(), { recursive: true });
   // Erst daneben schreiben, dann umbenennen: bricht der Vorgang ab, bleibt der alte
   // Stand heil statt halb geschrieben liegenzubleiben.
   const ziel = getStorePath();

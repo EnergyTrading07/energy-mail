@@ -2,11 +2,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setDataDir } from './paths.js';
+import { setDataDir, getNutzerDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 
 // Vor dem ersten Zugriff umlenken, sonst landen Testadressen im echten Benutzerordner.
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-kontakte-test-'));
 setDataDir(tempDir);
+// Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
+// Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
+betreteNutzerFuerProzess('pruefung');
+
+// Die Speicher legen ihre Dateien im Ordner des Nutzers ab, nicht in der Wurzel.
+const datenDir = getNutzerDir();
+// Anlegen, bevor eine Pruefung hineinsieht - die Speicher taeten es erst beim Schreiben.
+fs.mkdirSync(datenDir, { recursive: true });
+
 
 const {
   contactCount,
@@ -29,7 +39,7 @@ let gescheitert = 0;
 function pruefe(name: string, fn: () => void): void {
   // Jede Prüfung fängt bei null an - sonst schleppte sie die Adressen der vorigen mit.
   verwirfKontaktSpeicher();
-  fs.rmSync(path.join(tempDir, 'contacts.json'), { force: true });
+  fs.rmSync(path.join(datenDir, 'contacts.json'), { force: true });
   try {
     fn();
     console.log(`  ok   ${name}`);
@@ -52,7 +62,7 @@ const mail = (uid: number, absender: string, datum = '2026-07-01T10:00:00.000Z')
 /** Legt eine Ablage in der alten Fassung an - einer blanken Liste. */
 function alteAblage(eintraege: { address: string; name?: string; count: number }[]): void {
   fs.writeFileSync(
-    path.join(tempDir, 'contacts.json'),
+    path.join(datenDir, 'contacts.json'),
     JSON.stringify(eintraege.map((e) => ({ ...e, lastSeen: '2026-01-01T00:00:00.000Z' }))),
     'utf-8',
   );
@@ -178,7 +188,7 @@ pruefe('behält beim Stauchen der alten Zähler die Reihenfolge', () => {
 });
 
 pruefe('lässt sich von einer beschädigten Datei nicht aufhalten', () => {
-  fs.writeFileSync(path.join(tempDir, 'contacts.json'), '{kaputt', 'utf-8');
+  fs.writeFileSync(path.join(datenDir, 'contacts.json'), '{kaputt', 'utf-8');
   assert.equal(contactCount(), 0);
   rememberAddresses([{ address: 'neu@b.de' }]);
   assert.equal(contactCount(), 1);

@@ -10,7 +10,7 @@ import {
   type MessageSummary,
   type Regel,
 } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 import { protokolliere } from './protokollDatei.js';
 
@@ -26,7 +26,7 @@ import { protokolliere } from './protokollDatei.js';
  * bestehenden Ordner anwenden; das ist der Weg, ein zugewachsenes Postfach aufzuräumen.
  */
 
-const getPfad = () => path.join(getDataDir(), 'regeln.json');
+const getPfad = () => path.join(getNutzerDir(), 'regeln.json');
 
 /** Regeln je Konto. Getrennt, weil Zielordner von Konto zu Konto verschieden heißen. */
 type Ablage = Record<string, Regel[]>;

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setDataDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 import { setKeyProvider } from './secretCrypto.js';
 
 /**
@@ -43,6 +44,10 @@ function pruefe(name: string, fn: () => Promise<void> | void): Promise<void> {
 // Eigener Datenordner - die Prüfung fasst weder Konten noch Ablage des Nutzers an.
 const ORDNER = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-routen-'));
 setDataDir(ORDNER);
+// Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
+// Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
+betreteNutzerFuerProzess('pruefung');
+
 
 /*
  * Ein Schlüssel, der nicht von der Maschine abhängt.
@@ -54,7 +59,15 @@ setDataDir(ORDNER);
 setKeyProvider({ name: 'Pruefung', getKey: () => Buffer.alloc(32, 7) });
 
 const { buildServer } = await import('./app.js');
-const app = await buildServer();
+/*
+ * Der Server arbeitet unter demselben Nutzer wie die Vorbereitung.
+ *
+ * Ohne diese Angabe liefe jede Anfrage als "lokal" (der Einplatznutzer), waehrend
+ * legeKontoAn() weiter unten die Konten unmittelbar als "pruefung" anlegt - und dann
+ * faende die Route sie nicht. Das ist kein Fehler, sondern die Trennung der Nutzer bei
+ * der Arbeit: Daten des einen sind fuer den anderen nicht da.
+ */
+const app = await buildServer({ nutzerErmitteln: () => 'pruefung' });
 
 /** Kurzform für eine Anfrage. */
 const ruf = (methode: string, pfad: string, koerper?: unknown) =>

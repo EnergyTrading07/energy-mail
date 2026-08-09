@@ -6,7 +6,7 @@ import {
   schluesselFuer,
   type Etikett,
 } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 import { protokolliere } from './protokollDatei.js';
 
@@ -27,7 +27,7 @@ import { protokolliere } from './protokollDatei.js';
  * jedem Server dieselben, also passt das auch technisch.
  */
 
-const getPfad = () => path.join(getDataDir(), 'etiketten.json');
+const getPfad = () => path.join(getNutzerDir(), 'etiketten.json');
 
 interface Ablage {
   etiketten: Etikett[];

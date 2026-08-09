@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 
 /**
@@ -35,7 +35,7 @@ export interface GeplanteSendung {
   letzterFehler?: string;
 }
 
-const getPfad = () => path.join(getDataDir(), 'sendungen.json');
+const getPfad = () => path.join(getNutzerDir(), 'sendungen.json');
 
 const geplant = new Map<string, GeplanteSendung>();
 const timer = new Map<string, ReturnType<typeof setTimeout>>();

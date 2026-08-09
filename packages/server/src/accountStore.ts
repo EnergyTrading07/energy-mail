@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { AccountAuth, AccountConfig } from '@energy-mail/mail-core';
 import { getProviderPreset, type GefundeneEinstellungen } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 import { protokolliere } from './protokollDatei.js';
 import { decryptSecret, encryptSecret } from './secretCrypto.js';
@@ -11,7 +11,7 @@ import { decryptSecret, encryptSecret } from './secretCrypto.js';
 // Bei jedem Zugriff neu gebildet statt einmalig beim Laden: der Ablageort wird von der
 // Desktop-App beim Start gesetzt, und die Reihenfolge der Modulladung ist nichts, worauf
 // man sich verlassen sollte.
-const getStorePath = () => path.join(getDataDir(), 'accounts.json');
+const getStorePath = () => path.join(getNutzerDir(), 'accounts.json');
 
 /**
  * Auf der Platte liegt statt des Passworts bzw. der OAuth-Token nur ein verschlüsselter

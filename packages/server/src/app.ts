@@ -5,6 +5,9 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocketPlugin from '@fastify/websocket';
 import { ZUGANG_KOPFZEILE, registriereZugangspruefung } from './zugang.js';
+import { alsNutzer } from './nutzer/kontext.js';
+import { registriereNutzerkontext, type NutzerErmitteln } from './nutzer/haken.js';
+import { ziehePerBestandUm } from './nutzer/umzug.js';
 import {
   ATTACHMENT_SEARCH_UNSUPPORTED,
   CATEGORY_UNSUPPORTED,
@@ -249,10 +252,22 @@ export type ServerOptionen = {
    * zugang.ts braucht ihn, um die eigene Origin von einer fremden zu unterscheiden.
    */
   port?: number;
+  /**
+   * Für welchen Nutzer eine Anfrage arbeitet.
+   *
+   * Im Desktop-Betrieb immer derselbe ("lokal") - ein Rechner, ein Mensch. Sobald es
+   * eine Anmeldung gibt (Stufe 2), liest diese Funktion den Nutzer aus der Sitzung; der
+   * übrige Server merkt davon nichts. Ohne Angabe gilt der Einplatzbetrieb.
+   */
+  nutzerErmitteln?: NutzerErmitteln;
 };
+
+/** Der Nutzer, unter dem der Einplatzbetrieb läuft. */
+export const EINPLATZ_NUTZER = 'lokal';
 
 export async function buildServer(optionen: ServerOptionen = {}) {
   const port = optionen.port ?? 4000;
+  const nutzerErmitteln = optionen.nutzerErmitteln ?? (() => EINPLATZ_NUTZER);
   /*
    * Das Protokoll geht zusaetzlich in eine Datei.
    *
@@ -282,7 +297,31 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     });
   }
 
+  /*
+   * Bestandsdaten in den Nutzerordner holen - vor allem anderen.
+   *
+   * Muss vor dem ersten Speicherzugriff laufen, und das ist beim Aufbau der Watcher der
+   * Fall. Ohne den Umzug fände eine bestehende Installation nach der Aktualisierung
+   * nichts wieder: keine Konten, kein Adressbuch, keine Regeln.
+   */
+  const umzug = ziehePerBestandUm(EINPLATZ_NUTZER);
+  if (umzug.verschoben.length > 0) {
+    app.log.info(
+      `Bestandsdaten nach nutzer/${EINPLATZ_NUTZER}/ verschoben: ${umzug.verschoben.join(', ')}`,
+    );
+  }
+  for (const problem of umzug.probleme) app.log.warn(`Umzug: ${problem}`);
+
   registriereZugangspruefung(app, port);
+
+  /*
+   * Jede Anfrage bekommt einen Nutzer, bevor eine Route sie sieht.
+   *
+   * Ohne diesen Haken wirft jeder Speicherzugriff - siehe nutzer/kontext.ts. Das ist
+   * Absicht: eine Stelle, die den Kontext zu setzen vergisst, soll laut scheitern statt
+   * stillschweigend in fremden Daten zu landen.
+   */
+  registriereNutzerkontext(app, nutzerErmitteln);
 
   /*
    * Geordnet zumachen.
@@ -1012,7 +1051,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       meldeAktualisierung({ type: 'data-updated', accountId, was: 'messages', folder: ordner });
     },
   );
-  ladeWiedervorlagen();
+  // ladeWiedervorlagen() steht bewusst nicht hier, sondern ganz am Ende - siehe dort.
 
   app.post<{
     Params: { id: string; folder: string };
@@ -2169,7 +2208,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     await fuehreVersandAus(account, sendung.koerper as SendBody);
   }, (msg) => app.log.info(msg));
 
-  ladeGeplanteSendungen();
+  // ladeGeplanteSendungen() steht bewusst nicht hier, sondern ganz am Ende - siehe dort.
 
   app.post<{
     Params: { id: string };
@@ -2350,7 +2389,39 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   // Zugriffstoken, und das wird hier bei Bedarf erneuert und gespeichert.
   installTokenRefresh((msg) => app.log.warn(msg));
 
-  syncWatchers();
+  /*
+   * Arbeit, die ohne Anfrage läuft - und deshalb ihren Nutzerkontext selbst mitbringen muss.
+   *
+   * Überwachung, Wiedervorlage und Sendewarteschlange gehören keinem Fenster und keiner
+   * HTTP-Anfrage: sie laufen von sich aus, im Hintergrund. Ohne ausdrücklichen Kontext
+   * wüssten die Speicher nicht, wessen Daten gemeint sind, und würfen (siehe
+   * nutzer/kontext.ts). Genau dieses Werfen macht die Umstellung sicher - was ich hier
+   * zu wickeln vergesse, meldet sich beim ersten Durchlauf.
+   *
+   * AsyncLocalStorage trägt den Kontext über Zeitgeber hinweg. Die Zeitgeber für geplante
+   * Sendungen und Wiedervorlagen entstehen INNERHALB dieses Blocks und behalten ihn
+   * deshalb bis zu ihrem Auslösen - auch Wochen später.
+   *
+   * Sobald es mehrere Nutzer gibt, wird aus dem einen Aufruf eine Schleife über alle.
+   * Deshalb steht die Liste schon jetzt hier und nicht der nackte Name.
+   */
+  for (const nutzer of [EINPLATZ_NUTZER]) {
+    alsNutzer(nutzer, () => {
+      syncWatchers();
+
+      /*
+       * Erst hier, ganz am Ende - und das ist eine Behebung, keine Umsortierung.
+       *
+       * Vorher standen beide weiter oben im Aufbau, VOR installTokenRefresh. Überfällige
+       * Einträge werden mit Wartezeit 0 eingeplant, konnten also losfeuern, bevor die
+       * Markenerneuerung eingerichtet war. Bei einem OAuth-Konto scheiterte dann genau
+       * der überfällige Versand an einer abgelaufenen Marke - und wurde nach fünf
+       * Versuchen aufgegeben.
+       */
+      ladeWiedervorlagen();
+      ladeGeplanteSendungen();
+    });
+  }
 
   /*
    * Sicherung der Einstellungen.

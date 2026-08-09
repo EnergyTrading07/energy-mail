@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildServer } from './app.js';
-import { getDataDir } from './paths.js';
+import { getWurzelDir } from './paths.js';
 import { createPassphraseKeyProvider, setKeyProvider } from './secretCrypto.js';
 import { setzeZugangsgeheimnis } from './zugang.js';
 
@@ -26,8 +26,8 @@ function configureEncryption(): void {
     return;
   }
 
-  const saltFile = path.join(getDataDir(), 'salt.bin');
-  fs.mkdirSync(getDataDir(), { recursive: true });
+  const saltFile = path.join(getWurzelDir(), 'salt.bin');
+  fs.mkdirSync(getWurzelDir(), { recursive: true });
   if (!fs.existsSync(saltFile)) {
     fs.writeFileSync(saltFile, crypto.randomBytes(16));
   }

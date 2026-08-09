@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createFolder, listFolders, setMessagesSeen, type AccountConfig } from '@energy-mail/mail-core';
 import { verschiebeMitKennung } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 import { istVerbindungsfehler } from './verbindungsfehler.js';
 
@@ -36,7 +36,7 @@ export interface Zurueckgestellt {
   versuche?: number;
 }
 
-const getPfad = () => path.join(getDataDir(), 'wiedervorlage.json');
+const getPfad = () => path.join(getNutzerDir(), 'wiedervorlage.json');
 
 const offen = new Map<string, Zurueckgestellt>();
 const timer = new Map<string, ReturnType<typeof setTimeout>>();

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { MessageSummary } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 
 /**
  * Die Nachrichten auf der Platte.
@@ -36,7 +36,7 @@ const AUFBAU_FASSUNG = 1;
 
 let db: DatabaseSync | null = null;
 
-const getPfad = () => path.join(getDataDir(), 'ablage.db');
+const getPfad = () => path.join(getNutzerDir(), 'ablage.db');
 
 /**
  * Legt Tabellen und Indizes an.
@@ -137,7 +137,7 @@ export function sucheVerfuegbar(): boolean {
 export function ablage(): DatabaseSync {
   if (db) return db;
 
-  fs.mkdirSync(getDataDir(), { recursive: true });
+  fs.mkdirSync(getNutzerDir(), { recursive: true });
   const pfad = getPfad();
 
   const oeffnen = () => {

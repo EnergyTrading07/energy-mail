@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { OAuthClientCredentials, OAuthProviderId } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 import { protokolliere } from './protokollDatei.js';
 import { decryptSecret, encryptSecret } from './secretCrypto.js';
 
-const getStorePath = () => path.join(getDataDir(), 'oauth-clients.json');
+const getStorePath = () => path.join(getNutzerDir(), 'oauth-clients.json');
 
 interface StoredClient {
   clientId: string;

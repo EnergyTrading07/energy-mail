@@ -3,10 +3,20 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { MessageSummary } from '@energy-mail/mail-core';
-import { setDataDir } from './paths.js';
+import { setDataDir, getNutzerDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-ablage-test-'));
 setDataDir(tempDir);
+// Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
+// Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
+betreteNutzerFuerProzess('pruefung');
+
+// Die Speicher legen ihre Dateien im Ordner des Nutzers ab, nicht in der Wurzel.
+const datenDir = getNutzerDir();
+// Anlegen, bevor eine Pruefung hineinsieht - die Speicher taeten es erst beim Schreiben.
+fs.mkdirSync(datenDir, { recursive: true });
+
 
 const {
   ablageGroesse,
@@ -448,7 +458,7 @@ pruefe('eine beschaedigte Ablage wird neu angelegt', () => {
   assert.ok(groesse.bytes > 0);
   verwirfAblage();
 
-  fs.writeFileSync(path.join(tempDir, 'ablage.db'), 'das ist keine Datenbank');
+  fs.writeFileSync(path.join(datenDir, 'ablage.db'), 'das ist keine Datenbank');
   // Darf nicht werfen, sondern neu anfangen.
   assert.equal(anzahlAbgelegt(K), 0);
   merkeKopfdaten(K, 'INBOX', [mail(1)]);

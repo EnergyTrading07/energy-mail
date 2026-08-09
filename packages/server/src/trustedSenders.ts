@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 
 /**
  * Absender, deren entfernte Inhalte ohne Rückfrage geladen werden dürfen.
@@ -14,7 +14,7 @@ import { getDataDir } from './paths.js';
  * privaten nicht sein.
  */
 
-const getPfad = () => path.join(getDataDir(), 'vertraute-absender.json');
+const getPfad = () => path.join(getNutzerDir(), 'vertraute-absender.json');
 
 type Ablage = Record<string, string[]>;
 
@@ -29,7 +29,7 @@ function lesen(): Ablage {
 }
 
 function schreiben(ablage: Ablage): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
+  fs.mkdirSync(getNutzerDir(), { recursive: true });
   const ziel = getPfad();
   const zwischen = `${ziel}.neu`;
   fs.writeFileSync(zwischen, JSON.stringify(ablage, null, 2), 'utf-8');

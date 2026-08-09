@@ -6,7 +6,7 @@ import {
   type SchluesselAngaben,
 } from '@energy-mail/mail-core';
 import { decryptSecret, encryptSecret, isEncryptionAvailable } from './secretCrypto.js';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 
 /**
  * Der Schlüsselbund: fremde öffentliche Schlüssel und die eigenen geheimen.
@@ -21,7 +21,7 @@ import { getDataDir } from './paths.js';
  * um sich das Eintippen zu sparen, wäre der Sinn der Sache verfehlt.
  */
 
-const getPfad = () => path.join(getDataDir(), 'schluesselbund.json');
+const getPfad = () => path.join(getNutzerDir(), 'schluesselbund.json');
 
 interface AbgelegterSchluessel {
   fingerabdruck: string;
@@ -50,7 +50,7 @@ function lesen(): Ablage {
 }
 
 function schreiben(ablage: Ablage): void {
-  fs.mkdirSync(getDataDir(), { recursive: true });
+  fs.mkdirSync(getNutzerDir(), { recursive: true });
   const ziel = getPfad();
   const zwischen = `${ziel}.neu`;
   // Erst daneben, dann umbenennen: ein halb geschriebener Schlüsselbund wäre schlimmer
