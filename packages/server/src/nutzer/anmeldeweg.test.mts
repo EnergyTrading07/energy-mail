@@ -196,7 +196,24 @@ await pruefe('/ich nennt den angemeldeten Nutzer', async () => {
     url: '/ich',
     cookies: { [KEKS_NAME]: keks },
   });
-  assert.deepEqual(JSON.parse(antwort.body), { angemeldet: true, nutzer: { id: 'anna' } });
+  assert.deepEqual(JSON.parse(antwort.body), {
+    angemeldet: true,
+    nutzer: { id: 'anna', email: 'anna@beispiel.de' },
+    // Hier haengt die Sitzung an einem Keks - also gibt es etwas abzumelden.
+    abmeldbar: true,
+  });
+});
+
+await pruefe('/ich gibt nichts Geheimes heraus', async () => {
+  // Die Auskunft geht an eine Oberflaeche, die auch im Browser laufen kann.
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/ich',
+    cookies: { [KEKS_NAME]: keks },
+  });
+  assert.ok(!antwort.body.includes('scrypt'), 'die Kennwortpruefsumme ging mit hinaus');
+  assert.ok(!antwort.body.includes('schluessel'), 'der Nutzerschluessel ging mit hinaus');
+  assert.ok(!antwort.body.includes(keks), 'die Sitzungskennung ging mit hinaus');
 });
 
 await pruefe('/ich ohne Keks sagt "nicht angemeldet" statt 401', async () => {
@@ -205,6 +222,36 @@ await pruefe('/ich ohne Keks sagt "nicht angemeldet" statt 401', async () => {
   const antwort = await app.inject({ method: 'GET', url: '/ich' });
   assert.equal(antwort.statusCode, 200);
   assert.deepEqual(JSON.parse(antwort.body), { angemeldet: false });
+});
+
+console.log('\n/ich in der Desktop-Huelle - ohne Keks, mit Zugangsgeheimnis:');
+
+await pruefe('meldet "angemeldet", nicht "bitte anmelden"', async () => {
+  /*
+   * Die Falle, die diese Pruefung festhaelt: /ich las urspruenglich NUR den Keks. In der
+   * Huelle gibt es keinen - dort weist sich das Fenster ueber das Zugangsgeheimnis des
+   * Prozesses aus. Die Antwort waere also "nicht angemeldet" gewesen, und die Huelle
+   * haette ein Anmeldefenster gezeigt fuer eine Anmeldung, die es dort gar nicht gibt.
+   *
+   * Deshalb geht /ich jetzt ueber DENSELBEN Ermittler wie der Nutzerkontext.
+   */
+  const { setzeZugangsgeheimnis, ZUGANG_KOPFZEILE, erzeugeZugangsgeheimnis } = await import(
+    '../zugang.js'
+  );
+  const geheimnis = erzeugeZugangsgeheimnis();
+  setzeZugangsgeheimnis(geheimnis);
+  try {
+    const huelle = await app.inject({
+      method: 'GET',
+      url: '/ich',
+      headers: { [ZUGANG_KOPFZEILE]: geheimnis },
+    });
+    const auskunft = JSON.parse(huelle.body) as { angemeldet: boolean; abmeldbar?: boolean };
+    assert.equal(auskunft.angemeldet, true, 'die Huelle galt als nicht angemeldet');
+    assert.equal(auskunft.abmeldbar, false, 'in der Huelle gibt es nichts abzumelden');
+  } finally {
+    setzeZugangsgeheimnis(null);
+  }
 });
 
 console.log('\nAbmelden:');

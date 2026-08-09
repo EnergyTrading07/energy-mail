@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { protokolliere } from '../protokollDatei.js';
 import { beendeAlleSitzungen, beendeSitzung, eroeffneSitzung, nutzerZurSitzung } from './sitzung.js';
-import { oeffentlich, pruefeAnmeldung, setzeKennwort } from './nutzerStore.js';
+import { findeNutzer, oeffentlich, pruefeAnmeldung, setzeKennwort } from './nutzerStore.js';
 
 /**
  * Anmelden, abmelden, und die Frage "wer bin ich".
@@ -85,7 +85,13 @@ function setzeKeks(reply: FastifyReply, request: FastifyRequest, kennung: string
   });
 }
 
-export function registriereAnmeldung(app: FastifyInstance): void {
+/**
+ * @param ermittle Derselbe Ermittler, den auch der Nutzerkontext verwendet - siehe /ich.
+ */
+export function registriereAnmeldung(
+  app: FastifyInstance,
+  ermittle: (request: FastifyRequest) => string | null,
+): void {
   app.post<{ Body: { email?: string; kennwort?: string } }>('/anmelden', async (request, reply) => {
     const email = typeof request.body?.email === 'string' ? request.body.email : '';
     const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
@@ -132,11 +138,26 @@ export function registriereAnmeldung(app: FastifyInstance): void {
    *
    * Die Oberfläche fragt beim Start danach: steht hier niemand, zeigt sie das
    * Anmeldefenster statt eines leeren Posteingangs.
+   *
+   * Bewusst über DENSELBEN Ermittler wie der Nutzerkontext und nicht über den Keks
+   * allein. Sonst käme im Desktop-Fenster "nicht angemeldet" heraus - dort gibt es
+   * keinen Keks, sondern das Zugangsgeheimnis des Prozesses -, und die Hülle zeigte ein
+   * Anmeldefenster für eine Anmeldung, die es dort gar nicht gibt.
    */
   app.get('/ich', async (request) => {
-    const nutzerId = nutzerZurSitzung(request.cookies[KEKS_NAME]);
+    const nutzerId = ermittle(request);
     if (!nutzerId) return { angemeldet: false as const };
-    return { angemeldet: true as const, nutzer: { id: nutzerId } };
+    const nutzer = findeNutzer(nutzerId);
+    return {
+      angemeldet: true as const,
+      nutzer: { id: nutzerId, email: nutzer?.email ?? '' },
+      /*
+       * Ob die Sitzung an einem Keks hängt - nur dann ist Abmelden sinnvoll. In der
+       * Hülle weist sich das Fenster über das Zugangsgeheimnis des Prozesses aus; ein
+       * Abmelden-Knopf führte dort ins Leere.
+       */
+      abmeldbar: Boolean(request.cookies[KEKS_NAME]),
+    };
   });
 
   /**

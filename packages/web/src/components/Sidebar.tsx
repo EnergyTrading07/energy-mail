@@ -39,6 +39,11 @@ interface Props {
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
   onOpenSchluessel: () => void;
+  /** Ob die Sitzung an einem Keks hängt - nur dann gibt es etwas abzumelden. */
+  abmeldbar: boolean;
+  /** Für den Hinweistext am Knopf: unter welcher Adresse man angemeldet ist. */
+  angemeldetAls?: string;
+  onAbmelden: () => void;
   /** Verschiebt gezogene Nachrichten in einen Ordner. */
   onAblegen: (fracht: Fracht, ziel: FolderInfo) => void;
   /** Ob gerade der Posteingang aller Konten angezeigt wird. */
@@ -203,6 +208,9 @@ export function Sidebar({
   onOpenWartend,
   onOpenAdressbuch,
   onOpenSchluessel,
+  abmeldbar,
+  angemeldetAls,
+  onAbmelden,
   onAblegen,
   gesamtAnsicht,
   onGesamtAnsicht,
@@ -617,6 +625,20 @@ export function Sidebar({
         <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
           {formSichtbar ? '× Konto hinzufügen abbrechen' : '+ Konto hinzufügen'}
         </button>
+
+        {/*
+          Abmelden gibt es nur, wo es etwas zu tun hat.
+
+          In der Desktop-Hülle weist sich das Fenster über das Zugangsgeheimnis des
+          Prozesses aus - es gibt dort keine Sitzung, die sich beenden ließe, und der
+          Knopf führte ins Leere. Der Server sagt mit "abmeldbar", ob eine da ist; die
+          Oberfläche entscheidet das nicht selbst.
+        */}
+        {abmeldbar && (
+          <button className="link-btn" onClick={onAbmelden} title={angemeldetAls}>
+            Abmelden
+          </button>
+        )}
 
         {formSichtbar && (
           <div className="add-account">

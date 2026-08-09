@@ -368,7 +368,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   registriereZugangspruefung(app, port);
 
-  registriereAnmeldung(app);
+  registriereAnmeldung(app, nutzerErmitteln);
 
   /*
    * Jede Anfrage bekommt einen Nutzer, bevor eine Route sie sieht.

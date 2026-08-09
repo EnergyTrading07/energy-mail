@@ -166,7 +166,20 @@ async function fetchOderMelden(
   const weiterreichen = () => abbruch.abort();
   fremd?.addEventListener('abort', weiterreichen);
   try {
-    return await fetch(url, { ...init, signal: abbruch.signal });
+    return await fetch(url, {
+      ...init,
+      /*
+       * Kekse mitschicken - auch dann, wenn Oberfläche und Server auf verschiedenen
+       * Herkünften laufen.
+       *
+       * Im ausgelieferten Programm liegen beide auf derselben Origin, dort wäre die
+       * Vorgabe 'same-origin' ausreichend. Im Entwicklungsbetrieb steht Vite auf 5173
+       * und der Server auf 4000: ohne 'include' bliebe der Sitzungskeks zu Hause, und
+       * jede Anfrage käme als "nicht angemeldet" zurück.
+       */
+      credentials: 'include',
+      signal: abbruch.signal,
+    });
   } catch {
     if (fremd?.aborted) throw new Error('Abgebrochen');
     if (abbruch.signal.aborted) {
@@ -180,6 +193,37 @@ async function fetchOderMelden(
     clearTimeout(uhr);
     fremd?.removeEventListener('abort', weiterreichen);
   }
+}
+
+// --- Anmeldung ---
+
+/**
+ * Wer gerade angemeldet ist.
+ *
+ * Wird als Allererstes gefragt, noch vor jedem Postfachabruf: steht hier niemand, zeigt
+ * die Anwendung das Anmeldefenster statt eines leeren Posteingangs.
+ *
+ * In der Desktop-Hülle antwortet der Server immer mit "angemeldet" - dort weist sich das
+ * Fenster über das Zugangsgeheimnis des Prozesses aus, und eine Anmeldung gäbe es gar
+ * nicht. `abmeldbar` unterscheidet die beiden Fälle.
+ */
+export interface IchAuskunft {
+  angemeldet: boolean;
+  nutzer?: { id: string; email: string };
+  /** Nur wenn die Sitzung an einem Keks hängt, ist Abmelden sinnvoll. */
+  abmeldbar?: boolean;
+}
+
+export function frageIch(): Promise<IchAuskunft> {
+  return request('/ich');
+}
+
+export function anmelden(email: string, kennwort: string): Promise<{ nutzer: { id: string } }> {
+  return request('/anmelden', { method: 'POST', body: JSON.stringify({ email, kennwort }) });
+}
+
+export function abmelden(): Promise<{ ok: boolean }> {
+  return request('/abmelden', { method: 'POST', body: JSON.stringify({}) });
 }
 
 export function fetchAccounts(): Promise<Account[]> {

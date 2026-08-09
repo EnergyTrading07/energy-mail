@@ -3997,3 +3997,84 @@ input[type='file']::file-selector-button:hover {
     display: none;
   }
 }
+
+/* --- Anmeldung -------------------------------------------------------------
+ *
+ * Nur im Browserbetrieb zu sehen. In der Desktop-Huelle weist sich das Fenster ueber
+ * das Zugangsgeheimnis des Prozesses aus, dort erscheint dieses Fenster nie.
+ *
+ * Bewusst karg: wer hier steht, will an seine Post und nichts entdecken.
+ */
+.anmeldung {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--a-5);
+  background: var(--grund);
+}
+
+.anmeldung-karte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-2);
+  width: 100%;
+  max-width: 340px;
+  padding: var(--a-7);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-3);
+  background: var(--flaeche);
+  box-shadow: var(--schatten-1);
+}
+
+.anmeldung-marke {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin-bottom: var(--a-5);
+}
+
+.anmeldung-marke h1 {
+  margin: 0;
+  font-size: var(--t-2xl);
+  font-weight: 600;
+}
+
+.anmeldung-karte label {
+  margin-top: var(--a-3);
+  font-size: var(--t-m);
+  color: var(--text-2);
+}
+
+.anmeldung-karte input {
+  padding: var(--a-3) var(--a-4);
+  font-size: var(--t-l);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-1);
+  background: var(--flaeche-leise);
+  color: var(--text);
+}
+
+.anmeldung-fehler {
+  margin: var(--a-4) 0 0;
+  padding: var(--a-3) var(--a-4);
+  font-size: var(--t-m);
+  border: 1px solid var(--fehler-rand);
+  border-radius: var(--r-1);
+  background: var(--fehler-grund);
+  color: var(--fehler);
+}
+
+.anmeldung-knopf {
+  margin-top: var(--a-5);
+  padding: 10px;
+  font-size: var(--t-n);
+  font-weight: 600;
+}
+
+.anmeldung-fussnote {
+  margin: var(--a-5) 0 0;
+  font-size: var(--t-s);
+  color: var(--text-3);
+  text-align: center;
+}

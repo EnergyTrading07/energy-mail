@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.js';
+import * as api from './api.js';
+import { Anmeldung } from './components/Anmeldung.js';
 import { Auffangnetz } from './components/Auffangnetz.js';
 import { Dialoge } from './dialoge.js';
 import { Meldungen } from './meldungen.js';
@@ -90,10 +92,60 @@ const knopf: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+/**
+ * Die Weiche: Anwendung oder Anmeldung.
+ *
+ * Gefragt wird, bevor irgendetwas anderes losläuft. Ohne das würde die Anwendung starten,
+ * ein Dutzend Abrufe absetzen, alle mit 401 zurückbekommen und dem Nutzer ein Postfach
+ * zeigen, das leer aussieht - obwohl er nur nicht angemeldet ist.
+ *
+ * In der Desktop-Hülle antwortet der Server immer mit "angemeldet": dort weist sich das
+ * Fenster über das Zugangsgeheimnis des Prozesses aus. Das Anmeldefenster bekommt dort
+ * niemand zu sehen, und genau deshalb entscheidet DER SERVER darüber und nicht die
+ * Oberfläche anhand von window.energyMail - eine Abfrage, zwei Betriebsarten.
+ */
+function Weiche() {
+  const [stand, setStand] = React.useState<'faellt' | 'angemeldet' | 'offen' | 'fehler'>('faellt');
+  const [grund, setGrund] = React.useState('');
+  const [ich, setIch] = React.useState<api.IchAuskunft>();
+
+  const nachsehen = React.useCallback(() => {
+    setStand('faellt');
+    api
+      .frageIch()
+      .then((auskunft) => {
+        setIch(auskunft);
+        setStand(auskunft.angemeldet ? 'angemeldet' : 'offen');
+      })
+      .catch((err: Error) => {
+        /*
+         * Der Server antwortet gar nicht. Das ist etwas anderes als "nicht angemeldet",
+         * und es als Anmeldefenster darzustellen wäre irreführend: der Nutzer tippte sein
+         * Kennwort in ein Formular, das nirgendwohin führt.
+         */
+        setGrund(err.message);
+        setStand('fehler');
+      });
+  }, []);
+
+  React.useEffect(nachsehen, [nachsehen]);
+
+  if (stand === 'faellt') {
+    /*
+     * Bewusst leer statt eines Ladebalkens: die Abfrage geht an den eigenen Rechner und
+     * ist in Millisekunden zurück. Ein Balken, der aufblitzt, wirkt unruhiger als nichts.
+     */
+    return null;
+  }
+  if (stand === 'fehler') return Absturzseite(new Error(grund), nachsehen);
+  if (stand === 'offen') return <Anmeldung onAngemeldet={nachsehen} />;
+  return <App ich={ich} onAbgemeldet={nachsehen} />;
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Auffangnetz ersatz={Absturzseite}>
-      <App />
+      <Weiche />
     </Auffangnetz>
     {/* Beide gehören genau einmal in den Baum und stehen bewusst neben der Anwendung:
         so liegen Meldungen und Rückfragen über allem, auch über einem offenen

@@ -87,7 +87,17 @@ function mergeMessages(
   });
 }
 
-export default function App() {
+interface AppProps {
+  /**
+   * Wer angemeldet ist - kommt von der Weiche in main.tsx, die es ohnehin schon
+   * erfragt hat. Ein zweiter Abruf hier wäre derselbe Weg zweimal.
+   */
+  ich?: api.IchAuskunft;
+  /** Nach dem Abmelden: die Weiche sieht neu nach und zeigt das Anmeldefenster. */
+  onAbgemeldet?: () => void;
+}
+
+export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
@@ -1841,6 +1851,17 @@ export default function App() {
       </a>
       <div className="app">
         <Sidebar
+          abmeldbar={Boolean(ich?.abmeldbar)}
+          angemeldetAls={ich?.nutzer?.email ? `Angemeldet als ${ich.nutzer.email}` : undefined}
+          onAbmelden={async () => {
+            try {
+              await api.abmelden();
+            } catch {
+              // Auch wenn der Server nicht antwortet: der Keks ist danach hinfällig, und
+              // die Weiche stellt gleich fest, dass niemand mehr angemeldet ist.
+            }
+            onAbgemeldet?.();
+          }}
           accounts={accounts}
           selectedAccountId={selectedAccountId}
           accountsWithNewMail={accountsWithNewMail}
