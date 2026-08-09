@@ -4,34 +4,43 @@ import path from 'node:path';
 import { buildServer } from './app.js';
 import { getWurzelDir } from './paths.js';
 import { createPassphraseKeyProvider, setKeyProvider } from './secretCrypto.js';
+import { masterSchluesselAusDatei } from './nutzer/einrichten.js';
 import { setzeZugangsgeheimnis } from './zugang.js';
 
 /**
- * Der Standalone-Server hat kein Electron und damit keinen Zugriff auf die
- * Betriebssystem-Verschlüsselung. Er leitet den Schlüssel stattdessen aus
- * ENERGY_MAIL_MASTER_KEY ab. Das Salt wird einmalig erzeugt und abgelegt, damit
- * dasselbe Passwort über Neustarts hinweg denselben Schlüssel ergibt.
+ * Der Masterschlüssel des Standalone-Servers.
  *
- * Wichtig: Konten aus der Desktop-App sind hier nicht lesbar (anderer Schlüssel) -
- * beide Betriebsarten haben getrennte Kontenbestände.
+ * Kein Electron, also kein safeStorage - der Schlüssel muss von woanders kommen. Zwei
+ * Wege, und der erste ist der vorgesehene:
+ *
+ *  1. Eine Datei mit 32 zufälligen Bytes (master.key im Datenordner, oder wohin
+ *     ENERGY_MAIL_MASTER_KEY_FILE zeigt). Sie entsteht beim ersten Start von selbst.
+ *
+ *  2. ENERGY_MAIL_MASTER_KEY, ein Passwort, aus dem abgeleitet wird - der bisherige Weg,
+ *     erhalten für bestehende Aufstellungen.
+ *
+ * Warum die Datei der bessere Weg ist: eine Umgebungsvariable steht unter Linux in
+ * /proc/<pid>/environ, taucht in "docker inspect" auf und landet in Shell-Historien.
+ * Und 32 zufällige Bytes sind stärker als jedes Passwort, das sich ein Mensch merkt.
  */
 function configureEncryption(): void {
   const passphrase = process.env.ENERGY_MAIL_MASTER_KEY;
-  if (!passphrase) {
+
+  if (passphrase) {
+    const saltFile = path.join(getWurzelDir(), 'salt.bin');
+    fs.mkdirSync(getWurzelDir(), { recursive: true, mode: 0o700 });
+    if (!fs.existsSync(saltFile)) {
+      fs.writeFileSync(saltFile, crypto.randomBytes(16), { mode: 0o600 });
+    }
+    setKeyProvider(createPassphraseKeyProvider(passphrase, fs.readFileSync(saltFile)));
     console.warn(
-      '[energy-mail] ENERGY_MAIL_MASTER_KEY ist nicht gesetzt. Konten können weder ' +
-        'gelesen noch angelegt werden. Für die Desktop-App ist das irrelevant - dort ' +
-        'übernimmt Windows die Schlüsselverwaltung.',
+      '[energy-mail] Masterschlüssel aus ENERGY_MAIL_MASTER_KEY. Eine Schlüsseldatei ' +
+        'wäre sicherer - die Variable ist in der Prozessumgebung ablesbar.',
     );
     return;
   }
 
-  const saltFile = path.join(getWurzelDir(), 'salt.bin');
-  fs.mkdirSync(getWurzelDir(), { recursive: true });
-  if (!fs.existsSync(saltFile)) {
-    fs.writeFileSync(saltFile, crypto.randomBytes(16));
-  }
-  setKeyProvider(createPassphraseKeyProvider(passphrase, fs.readFileSync(saltFile)));
+  masterSchluesselAusDatei();
 }
 
 /**

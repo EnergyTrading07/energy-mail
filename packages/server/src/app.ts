@@ -1,13 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocketPlugin from '@fastify/websocket';
-import { ZUGANG_KOPFZEILE, registriereZugangspruefung } from './zugang.js';
+import {
+  ZUGANG_KOPFZEILE,
+  geheimnisAusAnfrage,
+  holeZugangsgeheimnis,
+  registriereZugangspruefung,
+} from './zugang.js';
+import { KEKS_NAME, registriereAnmeldung } from './nutzer/anmelden.js';
+import { nutzerZurSitzung } from './nutzer/sitzung.js';
 import { alsNutzer } from './nutzer/kontext.js';
 import { registriereNutzerkontext, type NutzerErmitteln } from './nutzer/haken.js';
 import { ziehePerBestandUm } from './nutzer/umzug.js';
+import { richteUmschlagEin, stelleEinplatznutzerSicher } from './nutzer/einrichten.js';
+import { isEncryptionAvailable as istVerschluesselungVerfuegbar } from './secretCrypto.js';
 import {
   ATTACHMENT_SEARCH_UNSUPPORTED,
   CATEGORY_UNSUPPORTED,
@@ -267,7 +277,26 @@ export const EINPLATZ_NUTZER = 'lokal';
 
 export async function buildServer(optionen: ServerOptionen = {}) {
   const port = optionen.port ?? 4000;
-  const nutzerErmitteln = optionen.nutzerErmitteln ?? (() => EINPLATZ_NUTZER);
+  /**
+   * Wie der Nutzer einer Anfrage bestimmt wird.
+   *
+   * Zwei Wege, und sie schließen sich nicht aus:
+   *
+   *  - Die Desktop-Hülle weist sich mit dem Zugangsgeheimnis des Prozesses aus. Es kennt
+   *    nur ihr eigenes Fenster, und es gibt dort genau einen Menschen - eine Anmeldung
+   *    wäre eine Hürde ohne Gegenwert.
+   *  - Im Serverbetrieb ist kein Zugangsgeheimnis gesetzt; dann entscheidet die Sitzung
+   *    aus dem Keks.
+   *
+   * Der Aufrufer kann beides übergehen (die Prüfungen tun das).
+   */
+  const nutzerErmitteln: NutzerErmitteln =
+    optionen.nutzerErmitteln ??
+    ((request) => {
+      const geheimnis = holeZugangsgeheimnis();
+      if (geheimnis && geheimnisAusAnfrage(request) === geheimnis) return EINPLATZ_NUTZER;
+      return nutzerZurSitzung(request.cookies?.[KEKS_NAME]);
+    });
   /*
    * Das Protokoll geht zusaetzlich in eine Datei.
    *
@@ -312,7 +341,34 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }
   for (const problem of umzug.probleme) app.log.warn(`Umzug: ${problem}`);
 
+  /*
+   * Nutzereintrag und Umschlagverschlüsselung - in dieser Reihenfolge.
+   *
+   * Der Eintrag muss zuerst da sein: dort liegt der Schlüssel des Nutzers, und ihn
+   * anzulegen braucht den Masterschlüssel (den die Hülle vor buildServer() gesetzt hat).
+   * Erst danach darf der Umschlag eingehängt werden - sonst versuchte schon das Verpacken
+   * des Nutzerschlüssels, durch den Umschlag zu gehen, den es noch nicht gibt.
+   *
+   * Ohne eingerichtete Verschlüsselung wird beides übersprungen. Das ist kein Notbehelf,
+   * sondern der bestehende Zustand: der Standalone-Server ohne Masterschlüssel kann
+   * ohnehin keine Konten lesen oder anlegen, und secretCrypto sagt das mit einer
+   * verständlichen Meldung.
+   */
+  if (istVerschluesselungVerfuegbar()) {
+    stelleEinplatznutzerSicher(EINPLATZ_NUTZER, `${EINPLATZ_NUTZER}@energy-mail.local`);
+    richteUmschlagEin();
+  } else {
+    app.log.warn(
+      'Keine Verschlüsselung eingerichtet - Konten lassen sich weder lesen noch anlegen.',
+    );
+  }
+
+  // Muss vor allem stehen, was Kekse liest - also vor der Anmeldung und dem Kontext.
+  await app.register(cookie);
+
   registriereZugangspruefung(app, port);
+
+  registriereAnmeldung(app);
 
   /*
    * Jede Anfrage bekommt einen Nutzer, bevor eine Route sie sieht.

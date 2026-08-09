@@ -58,6 +58,16 @@ betreteNutzerFuerProzess('pruefung');
  */
 setKeyProvider({ name: 'Pruefung', getKey: () => Buffer.alloc(32, 7) });
 
+/*
+ * Den Nutzer anlegen, unter dem diese Pruefung arbeitet.
+ *
+ * buildServer() richtet von sich aus nur den Einplatznutzer "lokal" ein. Ohne einen
+ * Eintrag fuer "pruefung" gaebe es keinen Schluessel, mit dem sich dessen Geheimnisse
+ * verschluesseln liessen - und das Anlegen eines Kontos schluege fehl.
+ */
+const { stelleEinplatznutzerSicher } = await import('./nutzer/einrichten.js');
+stelleEinplatznutzerSicher('pruefung', 'pruefung@beispiel.de');
+
 const { buildServer } = await import('./app.js');
 /*
  * Der Server arbeitet unter demselben Nutzer wie die Vorbereitung.

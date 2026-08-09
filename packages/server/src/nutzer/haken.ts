@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { alsNutzer, istGueltigeNutzerId } from './kontext.js';
+import { OFFENE_PFADE } from './anmelden.js';
 
 /**
  * Setzt für jede Anfrage den Nutzerkontext.
@@ -26,6 +27,17 @@ export type NutzerErmitteln = (request: FastifyRequest) => string | null;
  */
 export function registriereNutzerkontext(app: FastifyInstance, ermittle: NutzerErmitteln): void {
   app.addHook('preHandler', (request: FastifyRequest, reply: FastifyReply, fertig: () => void) => {
+    /*
+     * Anmelden und abmelden müssen ohne angemeldeten Nutzer erreichbar sein - sonst käme
+     * niemand je hinein. Sie fassen von sich aus keine Nutzerdaten an; /ich liest die
+     * Sitzung selbst und antwortet auch dann, wenn keine da ist.
+     */
+    const pfad = request.url.split('?')[0] ?? '/';
+    if (OFFENE_PFADE.has(pfad)) {
+      fertig();
+      return;
+    }
+
     const id = ermittle(request);
 
     if (!id) {
