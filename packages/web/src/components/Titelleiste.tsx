@@ -61,10 +61,18 @@ export function Titelleiste({
       style={{ ['--konto-farbe' as string]: kontoFarbe }}
     >
       <div className="titelleiste-marke">
-        <Marke groesse={18} className="marke-symbol" />
-        {/* Die einzige Ueberschrift erster Ordnung - eine Vorlesesoftware nennt sie,
-            wenn man fragt, wo man ueberhaupt ist. */}
-        <h1 className="marke-wort">Energy Mail</h1>
+        <Marke groesse={19} className="marke-symbol" />
+        {/*
+          Die einzige Ueberschrift erster Ordnung - eine Vorlesesoftware nennt sie, wenn
+          man fragt, wo man ueberhaupt ist.
+
+          "Mail" steht in einem eigenen Element, weil es blasser gesetzt wird als
+          "Energy": der Name traegt das Wortzeichen, die Gattung sagt nur, was es ist.
+          Vorgelesen bleibt es ein Satz - ein span aendert daran nichts.
+        */}
+        <h1 className="marke-wort">
+          Energy <span>Mail</span>
+        </h1>
       </div>
 
       <div className="titelleiste-mitte">

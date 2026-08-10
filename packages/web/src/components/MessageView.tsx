@@ -6,6 +6,7 @@ import { moveTargets } from '../folderTargets.js';
 import { Auffangnetz } from './Auffangnetz.js';
 import { Einladung } from './Einladung.js';
 import { EtikettMarken, EtikettMenue } from './Etiketten.js';
+import { Monogramm } from './Monogramm.js';
 import { PgpBefund } from './PgpBefund.js';
 import { LeererKorb } from './Symbole.js';
 
@@ -113,10 +114,13 @@ const GRUNDSTIL = `<style>
   img { max-width: 100%; height: auto; }
   table { max-width: 100%; }
   pre { white-space: pre-wrap; overflow-wrap: break-word; }
-  a { color: #2f5fd8; }
+  /* Ausgeschriebene Werte und keine Variablen: dieser Rahmen ist eine eigene Seite und
+     erbt nichts aus tokens.css. Es sind die Werte der hellen Ansicht - der Bogen ist
+     immer hell, siehe oben. */
+  a { color: #2b48d4; }
   blockquote {
     margin: 10px 0 10px 2px; padding-left: 12px;
-    border-left: 2px solid #c2d2fb; color: #4d5867;
+    border-left: 2px solid #c5cdf7; color: #55504a;
   }
 </style>`;
 
@@ -374,9 +378,13 @@ export function MessageView({
       <div className="mail-head">
         <h2>{message.subject}</h2>
         <div className="mail-meta">
+          {/* Dasselbe Kürzel und dieselbe Farbe wie in der Zeile, die man eben
+              angeklickt hat - das ist die sichtbare Klammer zwischen Liste und
+              Leseansicht. */}
+          <Monogramm name={absender?.name} adresse={absender?.address} className="mail-monogramm" />
           <div className="mail-from">
             <span className="mail-from-name">{absender?.name || absender?.address || '(unbekannt)'}</span>
-            {absender?.name && <span className="mail-from-address">&lt;{absender.address}&gt;</span>}
+            {absender?.name && <span className="mail-from-address">{absender.address}</span>}
           </div>
           {/* Ausserhalb von .mail-from: das kuerzt lange Absendernamen ab und wuerde den
               Knopf mit abschneiden. */}

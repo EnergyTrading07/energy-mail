@@ -11,9 +11,50 @@ was sich geändert hat.
 
 ## Unveröffentlicht
 
-Zweierlei: das Ergebnis einer vollständigen Durchsicht auf Produktionsreife – und der
-Umbau vom Einzelplatzprogramm zu einem Dienst, der von überall über den Browser
-erreichbar ist.
+Dreierlei: eine neue Gestalt für Programm und Browserfassung, das Ergebnis einer
+vollständigen Durchsicht auf Produktionsreife – und der Umbau vom Einzelplatzprogramm zu
+einem Dienst, der von überall über den Browser erreichbar ist.
+
+### Neue Gestalt: Papier & Strom
+
+Die Oberfläche sah aus wie jedes andere Mailprogramm: drei graublaue Spalten, durch
+Striche getrennt, ein blaues Kästchen als Symbol. Sie war ordentlich und austauschbar.
+Jetzt folgt sie einem Bild und einer Regel.
+
+- **Das Bild: Schreibtisch und Blatt.** Links liegt die Seitenleiste unmittelbar auf dem
+  Grund – sie ist Möbel. Rechts bilden Nachrichtenliste und Leseansicht *ein* Blatt mit
+  runden Ecken und einem Schatten darunter. Zwei verschiedene Dinge sehen jetzt auch
+  verschieden aus, statt als drei gleichwertige Kästen nebeneinanderzustehen.
+- **Warmes Papier statt Blaugrau.** Der helle Grund ist ein warmes Papierweiß, der dunkle
+  ein tiefes Tintenblau mit elfenbeinfarbener Schrift. Eine Mail ist ein Brief, und man
+  liest sie stundenlang; das kühle Weiß, das Bildschirme von sich aus abgeben, ermüdet
+  dabei nachweislich schneller. Über allem liegt eine kaum sichtbare Kornscheibe, die den
+  Flächen die Plastikglätte nimmt – und im Dunkeln die Streifenbildung aufbricht.
+- **Die Regel: Blau bedient, Bernstein meldet.** Blau heißt „hier kannst du etwas tun“ –
+  Knöpfe, Verweise, die ausgewählte Zeile. Bernstein heißt „hier ist Energie“ –
+  Ungelesenes, neue Post, Fortschritt. Ungelesene Zählungen und Marken sind deshalb nicht
+  mehr blau; sie verschwanden bisher in der blau hinterlegten Auswahl.
+- **Monogramme in der Nachrichtenliste.** Jeder Absender bekommt ein farbiges Kürzel,
+  Farbton und Buchstaben aus seiner Adresse abgeleitet – immer dieselben, ohne dass etwas
+  gespeichert würde. Eine Liste ist damit ein Muster statt einer Kolonne aus grauem Text:
+  Post von derselben Person findet das Auge, bevor es den Namen gelesen hat. Gerechnet
+  wird in OKLCH, damit alle vierzehn Töne gleich gut lesbar sind. In der engen Anzeige
+  bleiben sie weg – dort zählt jede Zeile mehr als die Farbe.
+- **Die Leseansicht liest sich wie ein Artikel.** Betreff groß und eng gesetzt, darunter
+  Absender mit Monogramm und Zeitpunkt. Die Werkzeugleiste ist eine Bank, auf der nur
+  „Antworten“ Farbe trägt – vorher waren zwölf gleich laute Kästen nebeneinander. Die
+  Textspalte ist auf 860 Pixel begrenzt: auf einem breiten Bildschirm lief eine Zeile
+  vorher über 180 Zeichen, und dabei findet das Auge den Anfang der nächsten nicht mehr.
+- **Ein eigenes Programmsymbol.** Eine Briefmarke, durch die ein Blitz schlägt. Den
+  gezackten Rand hat sonst nichts auf einem Bildschirm; er ist noch als Umriss zu
+  erkennen und sagt „Post“, ohne einen Umschlag zeichnen zu müssen. Das Wortzeichen steht
+  in gesperrten Versalien in der DIN-Schrift, die Windows mitbringt.
+- Nachgezogen sind alle Stellen außerhalb der Oberfläche: Startbild, Startfehler und
+  „Über“, die Rückmeldeseite der OAuth-Anmeldung, das Abzeichen auf der Taskleiste, die
+  Bilder des Installationsprogramms und das Anmeldefenster der Browserfassung. Erzeugt
+  werden Symbol und Installationsbilder aus demselben Quelltext wie das Zeichen in der
+  Anwendung (`node scripts/installer-grafiken.mjs`) – ändert sich die Marke, stimmen alle
+  vier Bilder wieder, statt dass eines vergessen wird.
 
 ### Vom Programm zum Dienst
 

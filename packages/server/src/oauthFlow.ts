@@ -58,6 +58,39 @@ const FLOW_TIMEOUT_MS = 5 * 60 * 1000;
  * Alles inline: es gibt keinen zweiten Abruf, den diese kurzlebige Seite überstehen
  * würde, und keine Datei, die mitgepackt werden müsste.
  */
+/**
+ * Das Programmsymbol: eine Briefmarke, durch die ein Blitz schlägt.
+ *
+ * Wortgleich mit Marke() in packages/web/src/components/Symbole.tsx; der Grund für die
+ * Form steht dort. Hier steht es ein zweites Mal, weil dieses Paket nichts aus der
+ * Oberfläche einbindet - der Server läuft auch ohne sie, und ein Import quer über die
+ * Paketgrenze nur für ein Bild wäre der falsche Preis. Ändert sich das Zeichen, gehören
+ * beide Stellen nachgezogen; es gibt genau diese zwei (und die Kopie in
+ * packages/desktop/src/kleineFenster.ts für die Fenster ohne Oberfläche).
+ */
+const MARKENZEICHEN = (() => {
+  const zacken = [7, 11.5, 16, 20.5, 25]
+    .map(
+      (p) =>
+        `<circle cx="${p}" cy="2.5" r="1.6"/><circle cx="${p}" cy="29.5" r="1.6"/>` +
+        `<circle cx="2.5" cy="${p}" r="1.6"/><circle cx="29.5" cy="${p}" r="1.6"/>`,
+    )
+    .join('');
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">` +
+    `<defs><linearGradient id="v" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="#3f5cf0"/><stop offset="1" stop-color="#1b2f9c"/>` +
+    `</linearGradient><mask id="m">` +
+    `<rect x="2.5" y="2.5" width="27" height="27" rx="4.5" fill="#fff"/>` +
+    `<g fill="#000">${zacken}</g></mask></defs>` +
+    `<g mask="url(#m)">` +
+    `<rect x="2.5" y="2.5" width="27" height="27" rx="4.5" fill="url(#v)"/>` +
+    `<rect x="6.4" y="7.6" width="19.2" height="16.8" rx="2" fill="#fffdf9"/></g>` +
+    `<path d="M19.6 4.4 L10.6 17.2 h4.4 L12.4 27.6 L21.4 14.8 h-4.4 Z" fill="#ffb225" ` +
+    `stroke="#16205e" stroke-width="1.5" stroke-linejoin="round"/></svg>`
+  );
+})();
+
 function antwortSeite(titel: string, text: string, art: 'gut' | 'fehler' = 'gut'): string {
   const zeichen =
     art === 'gut'
@@ -67,21 +100,25 @@ function antwortSeite(titel: string, text: string, art: 'gut' | 'fehler' = 'gut'
   return `<!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${titel} · Energy Mail</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7.5' fill='%232f5fd8'/><rect x='5.5' y='9.5' width='21' height='13.5' rx='2' fill='%23fff'/><path d='M23.4 6.6L16.4 18H20l-2 9 7.6-11.6H22z' fill='%23f5c518' stroke='%231b3a86' stroke-width='1.7' stroke-linejoin='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(MARKENZEICHEN)}">
 <style>
+  /* Muessen zu packages/web/src/design/tokens.css passen - diese Seite kann es nicht
+     einbinden, sie wird aus dem Speicher ausgeliefert und lebt zehn Sekunden. */
   :root{
-    --grund:#eaeef5; --karte:#fff; --rand:#dce2ec;
-    --text:#131a24; --text2:#4d5867; --marke:#2f5fd8;
-    --gut:#146c43; --gut-grund:#e7f5ed;
-    --fehler:#bf2517; --fehler-grund:#fdecea;
+    --grund:#f0ede6; --karte:#fffdf9; --rand:#ded9ce;
+    --text:#1b1917; --text2:#55504a; --marke:#2b48d4;
+    --gut:#16663f; --gut-grund:#e6f2ea;
+    --fehler:#b32a1c; --fehler-grund:#fceceb;
+    --glanz:inset 0 1px 0 rgba(255,255,255,.7);
     color-scheme:light dark;
   }
   @media (prefers-color-scheme:dark){
     :root{
-      --grund:#0d1117; --karte:#151b24; --rand:#27313e;
-      --text:#e6ecf4; --text2:#a2b0c1; --marke:#7ea6ff;
-      --gut:#52cf88; --gut-grund:#0f2419;
-      --fehler:#ff8b7e; --fehler-grund:#2a1512;
+      --grund:#090b11; --karte:#161a23; --rand:#242935;
+      --text:#ebe8e2; --text2:#a8a49c; --marke:#8da6ff;
+      --gut:#5cd191; --gut-grund:#0c2118;
+      --fehler:#ff8f81; --fehler-grund:#291513;
+      --glanz:inset 0 1px 0 rgba(255,255,255,.045);
     }
   }
   *{box-sizing:border-box}
@@ -92,25 +129,32 @@ function antwortSeite(titel: string, text: string, art: 'gut' | 'fehler' = 'gut'
     -webkit-font-smoothing:antialiased;
   }
   .karte{
-    width:100%;max-width:420px;padding:34px 36px;text-align:center;
-    background:var(--karte);border:1px solid var(--rand);border-radius:14px;
-    box-shadow:0 4px 10px rgba(19,26,36,.06),0 20px 48px rgba(19,26,36,.12);
-    animation:auf .32s cubic-bezier(.2,.7,.3,1) both;
+    width:100%;max-width:420px;padding:36px 38px;text-align:center;
+    background:var(--karte);border:1px solid var(--rand);border-radius:22px;
+    box-shadow:var(--glanz),0 6px 14px rgba(58,48,34,.09),0 26px 56px rgba(30,24,16,.18);
+    animation:auf .42s cubic-bezier(.16,1,.3,1) both;
   }
-  @keyframes auf{from{opacity:0;transform:translateY(10px) scale(.985)}}
+  @keyframes auf{from{opacity:0;transform:translateY(10px) scale(.98)}}
   .zeichen{
     width:46px;height:46px;margin:0 auto 18px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     background:var(--${art === 'gut' ? 'gut' : 'fehler'}-grund);color:var(--${art});
   }
   h1{margin:0 0 8px;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;
-    font-size:19px;font-weight:600;letter-spacing:-.01em}
+    font-size:19px;font-weight:600;letter-spacing:-.015em}
   p{margin:0;color:var(--text2);font-size:14px;line-height:1.6}
+  /* Gesperrte Versalien in der schmalen Schrift der Marke - dasselbe Wortzeichen wie
+     in der Titelleiste der Anwendung. */
   .marke{
-    display:flex;align-items:center;justify-content:center;gap:7px;
-    margin-top:26px;padding-top:18px;border-top:1px solid var(--rand);
-    font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.01em;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    margin-top:28px;padding-top:20px;border-top:1px solid var(--rand);
+    font-family:'Bahnschrift','DIN Alternate','Segoe UI Variable Display','Segoe UI',
+      system-ui,sans-serif;
+    font-size:12px;font-weight:600;color:var(--text);
+    letter-spacing:.16em;text-transform:uppercase;
   }
+  .marke span{color:var(--text2)}
+  @media (prefers-reduced-motion:reduce){.karte{animation:none}}
 </style></head>
 <body><div class="karte">
   <div class="zeichen">
@@ -119,17 +163,7 @@ function antwortSeite(titel: string, text: string, art: 'gut' | 'fehler' = 'gut'
   </div>
   <h1>${titel}</h1>
   <p>${text}</p>
-  <div class="marke">
-    <svg viewBox="0 0 32 32" width="17" height="17">
-      <rect width="32" height="32" rx="7.5" fill="#2f5fd8"/>
-      <rect x="5.5" y="9.5" width="21" height="13.5" rx="2" fill="#fff"/>
-      <path d="M6.6 10.8 L16 18.4 L25.4 10.8" fill="none" stroke="#1b3a86" stroke-width="2.5"
-        stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M23.4 6.6 L16.4 18 L20 18 L18 27 L25.6 15.4 L22 15.4 Z" fill="#f5c518"
-        stroke="#1b3a86" stroke-width="1.7" stroke-linejoin="round"/>
-    </svg>
-    Energy Mail
-  </div>
+  <div class="marke">${MARKENZEICHEN.replace('<svg', '<svg width="19" height="19"')} Energy <span>Mail</span></div>
 </div></body></html>`;
 }
 

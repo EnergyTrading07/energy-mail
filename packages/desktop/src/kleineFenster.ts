@@ -17,64 +17,91 @@ import { BLITZ, FARBEN, MARKE } from './fensterFarben.js';
  * jeweils dreißig Zeilen lang.
  */
 
-/** Das Programmsymbol als Vektorgrafik - dieselbe Form wie in der Oberfläche. */
+/**
+ * Das Programmsymbol als Vektorgrafik - dieselbe Briefmarke wie in der Oberfläche.
+ *
+ * Der Zackenrand entsteht als Maske: ein Rechteck, aus dem entlang der Kanten Kreise
+ * herausgeschnitten sind. Warum ausgerechnet eine Briefmarke, steht bei Marke() in
+ * packages/web/src/components/Symbole.tsx - hier steht nur die Kopie davon, weil diese
+ * Seiten kein React und kein Stylesheet haben.
+ */
 function symbol(groesse: number): string {
+  const zacken = [7, 11.5, 16, 20.5, 25]
+    .map(
+      (p) =>
+        `<circle cx="${p}" cy="2.5" r="1.6"/><circle cx="${p}" cy="29.5" r="1.6"/>` +
+        `<circle cx="2.5" cy="${p}" r="1.6"/><circle cx="29.5" cy="${p}" r="1.6"/>`,
+    )
+    .join('');
   return `<svg viewBox="0 0 32 32" width="${groesse}" height="${groesse}">
-    <defs><linearGradient id="v" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#4a7ce6"/><stop offset="1" stop-color="#1c42a8"/>
-    </linearGradient></defs>
-    <rect width="32" height="32" rx="7.5" fill="url(#v)"/>
-    <rect x="5.5" y="9.5" width="21" height="13.5" rx="2" fill="#fff"/>
-    <path d="M6.6 10.8 L16 18.4 L25.4 10.8" fill="none" stroke="#1b3a86" stroke-width="2.5"
-      stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M23.4 6.6 L16.4 18 L20 18 L18 27 L25.6 15.4 L22 15.4 Z" fill="${BLITZ}"
-      stroke="#1b3a86" stroke-width="1.7" stroke-linejoin="round"/>
+    <defs>
+      <linearGradient id="v" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#3f5cf0"/><stop offset="1" stop-color="#1b2f9c"/>
+      </linearGradient>
+      <mask id="m">
+        <rect x="2.5" y="2.5" width="27" height="27" rx="4.5" fill="#fff"/>
+        <g fill="#000">${zacken}</g>
+      </mask>
+    </defs>
+    <g mask="url(#m)">
+      <rect x="2.5" y="2.5" width="27" height="27" rx="4.5" fill="url(#v)"/>
+      <rect x="6.4" y="7.6" width="19.2" height="16.8" rx="2" fill="#fffdf9"/>
+    </g>
+    <path d="M19.6 4.4 L10.6 17.2 h4.4 L12.4 27.6 L21.4 14.8 h-4.4 Z" fill="${BLITZ}"
+      stroke="#16205e" stroke-width="1.5" stroke-linejoin="round"/>
   </svg>`;
 }
 
 /**
- * Gemeinsames Gerüst. Die Farbwerte stehen ausgeschrieben statt als Variablen: diese
- * Seiten haben kein Stylesheet, an dem sie hängen könnten, und sie sollen auch dann
- * richtig aussehen, wenn sonst nichts mehr geht.
+ * Gemeinsames Gerüst. Die Farbwerte kommen aus fensterFarben.ts und stehen dort ein
+ * zweites Mal neben tokens.css: diese Seiten haben kein Stylesheet, an dem sie hängen
+ * könnten, und sie sollen auch dann richtig aussehen, wenn sonst nichts mehr geht.
  */
 function seite(dunkel: boolean, inhalt: string, breite = 'auto'): string {
   const f = FARBEN[dunkel ? 'dunkel' : 'hell'];
-  const text = dunkel ? '#e6ecf4' : '#131a24';
-  const text2 = dunkel ? '#a2b0c1' : '#4d5867';
   return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><style>
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
   body{
     display:flex;align-items:center;justify-content:center;
-    background:${f.grund};color:${text};
+    background:${f.grund};color:${f.text};
     font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;font-size:13px;
     -webkit-font-smoothing:antialiased;user-select:none;cursor:default;
     -webkit-app-region:drag;
   }
   .kasten{display:flex;flex-direction:column;align-items:center;gap:16px;
     padding:28px 34px;text-align:center;max-width:${breite}}
-  h1{margin:0;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;
-    font-size:17px;font-weight:600;letter-spacing:-.01em}
-  p{margin:0;color:${text2};line-height:1.6}
-  code{display:block;margin-top:4px;padding:9px 11px;border-radius:6px;
-    background:${dunkel ? '#11161e' : '#f6f8fc'};border:1px solid ${dunkel ? '#27313e' : '#dce2ec'};
-    font-family:'Cascadia Mono',Consolas,monospace;font-size:11.5px;color:${text2};
+  /* Dasselbe Wortzeichen wie in der Titelleiste: gesperrte Versalien in der schmalen
+     Schrift der Marke. Siehe --sf-marke in tokens.css. */
+  h1{margin:0;font-family:'Bahnschrift','DIN Alternate','Segoe UI Variable Display',
+    'Segoe UI',system-ui,sans-serif;
+    font-size:15px;font-weight:600;letter-spacing:.17em;text-transform:uppercase}
+  h1 span{color:${f.text2}}
+  p{margin:0;color:${f.text2};line-height:1.6}
+  code{display:block;margin-top:4px;padding:9px 11px;border-radius:7px;
+    background:${f.flaeche};border:1px solid ${f.rand};
+    font-family:'Cascadia Mono',Consolas,monospace;font-size:11.5px;color:${f.text2};
     text-align:left;white-space:pre-wrap;user-select:text;cursor:text;-webkit-app-region:no-drag}
   .knoepfe{display:flex;gap:8px;-webkit-app-region:no-drag}
-  button,a.btn{padding:7px 15px;border:1px solid transparent;border-radius:9px;
+  button,a.btn{padding:8px 15px;border:1px solid transparent;border-radius:11px;
     background:${MARKE};color:#fff;font:inherit;font-weight:600;cursor:pointer;
     text-decoration:none;display:inline-block}
-  button.still{background:transparent;border-color:${dunkel ? '#27313e' : '#dce2ec'};color:${text}}
+  button.still{background:${f.flaeche};border-color:${f.rand};color:${f.text}}
   .balken{width:128px;height:3px;border-radius:99px;overflow:hidden;
-    background:${dunkel ? '#27313e' : '#dce2ec'}}
+    background:${f.rand}}
   .balken::after{content:'';display:block;width:40%;height:100%;border-radius:99px;
     background:linear-gradient(90deg,${MARKE},${BLITZ});
     animation:lauf 1.1s cubic-bezier(.5,0,.5,1) infinite}
   @keyframes lauf{from{transform:translateX(-100%)}to{transform:translateX(320%)}}
-  .fein{font-size:11.5px;color:${text2};opacity:.8}
+  .fein{font-size:11.5px;color:${f.text2};opacity:.8}
+  a{color:${MARKE}}
+  @media (prefers-reduced-motion:reduce){.balken::after{animation:none;width:100%}}
 </style></head><body><div class="kasten">${inhalt}</div></body></html>`)}`;
 }
+
+/** Das Wortzeichen, in beiden Fenstern gleich. */
+const WORTZEICHEN = '<h1>Energy <span>Mail</span></h1>';
 
 const gemeinsam = {
   resizable: false,
@@ -109,8 +136,8 @@ export function zeigeStartbild(): BrowserWindow {
   void fenster.loadURL(
     seite(
       dunkel,
-      `${symbol(48)}
-       <div><h1>Energy Mail</h1><p class="fein">wird gestartet…</p></div>
+      `${symbol(52)}
+       <div>${WORTZEICHEN}<p class="fein" style="margin-top:6px">wird gestartet…</p></div>
        <div class="balken"></div>`,
     ),
   );
@@ -141,8 +168,8 @@ export function zeigeStartfehler(grund: string, hinweis: string): BrowserWindow 
       dunkel,
       `${symbol(44)}
        <div>
-         <h1>Energy Mail konnte nicht starten</h1>
-         <p style="margin-top:8px">${hinweis}</p>
+         <h1>Start gescheitert</h1>
+         <p style="margin-top:10px">${hinweis}</p>
        </div>
        <code>${grund.replace(/[<>&]/g, (z) => `&#${z.charCodeAt(0)};`)}</code>
        <div class="knoepfe"><button onclick="window.close()">Schließen</button></div>`,
@@ -175,10 +202,10 @@ export function zeigeUeber(): BrowserWindow {
   void fenster.loadURL(
     seite(
       dunkel,
-      `${symbol(56)}
+      `${symbol(60)}
        <div>
-         <h1>Energy Mail</h1>
-         <p style="margin-top:6px">Fassung ${app.getVersion()}</p>
+         ${WORTZEICHEN}
+         <p style="margin-top:8px">Fassung ${app.getVersion()}</p>
        </div>
        <p class="fein">E-Mail-Programm für beliebige IMAP/SMTP-Anbieter.<br>
          Zugangsdaten bleiben verschlüsselt auf diesem Rechner.</p>

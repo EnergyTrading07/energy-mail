@@ -56,8 +56,11 @@ export function Anmeldung({ onAngemeldet }: Props) {
     <div className="anmeldung">
       <form className="anmeldung-karte" onSubmit={abschicken}>
         <div className="anmeldung-marke">
-          <Marke groesse={32} />
-          <h1>Energy Mail</h1>
+          <Marke groesse={40} />
+          {/* Dasselbe Wortzeichen wie in der Titelleiste - siehe .marke-wort. */}
+          <h1>
+            Energy <span>Mail</span>
+          </h1>
         </div>
 
         <label htmlFor="anmeldung-email">Adresse</label>

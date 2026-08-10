@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Etikett } from '@energy-mail/mail-core';
+import { Lupe } from './Symbole.js';
 
 /**
  * Sucheingabe mit ausklappbaren Einschränkungen.
@@ -124,13 +125,19 @@ export function SearchBar({
 
   return (
     <form className="search-bar" onSubmit={absenden} role="search">
-      <input
-        type="search"
-        aria-label="Nachrichten durchsuchen"
-        placeholder="Suchen…"
-        value={eingabe.text}
-        onChange={(e) => setze('text', e.target.value)}
-      />
+      {/* Die Lupe liegt im Feld statt daneben. Ein Eingabefeld mit runden Enden und
+          ohne Zeichen sieht aus wie ein Knopf; mit der Lupe ist ohne Beschriftung klar,
+          dass hier getippt wird. */}
+      <div className="such-feld">
+        <Lupe groesse={14} />
+        <input
+          type="search"
+          aria-label="Nachrichten durchsuchen"
+          placeholder="Suchen…"
+          value={eingabe.text}
+          onChange={(e) => setze('text', e.target.value)}
+        />
+      </div>
 
       <div className="search-options">
         <select

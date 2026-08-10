@@ -17,6 +17,7 @@ import { providerTheme } from '../providerTheme.js';
 import { FolderIcon } from './FolderIcon.js';
 import { FolderMenu, type MenuEintrag } from './FolderMenu.js';
 import { LEERE_HANDWERTE, Serverauskunft, type HandWerte } from './Serverauskunft.js';
+import { Feder, Winkel } from './Symbole.js';
 
 interface Props {
   accounts: Account[];
@@ -386,7 +387,11 @@ export function Sidebar({
       )}
       <div className="sidebar-head">
         <button className="btn compose-btn" onClick={onCompose} disabled={!selectedAccountId}>
-          ✎ Neue Nachricht
+          {/* Eine gezeichnete Feder statt des Schriftzeichens ✎: das zeichnet jedes
+              System anders, steht je nach Schriftschnitt auf einer anderen Höhe und
+              bringt in manchen Fassungen eine eigene Farbe mit. */}
+          <Feder groesse={14} />
+          Neue Nachricht
         </button>
       </div>
 
@@ -422,7 +427,12 @@ export function Sidebar({
               style={{ ['--accent' as string]: thema.accent }}
             >
               <div className="account-head" onClick={() => onSelectAccount(account.id)}>
-                <span className="caret">{aktiv ? '▾' : '▸'}</span>
+                {/* Gedreht wird der Winkel per CSS, siehe .caret in index.css - dadurch
+                    klappt er sichtbar um, statt gegen ein anderes Zeichen getauscht zu
+                    werden. */}
+                <span className="caret">
+                  <Winkel groesse={11} />
+                </span>
                 <span className="provider-badge" title={thema.label}>
                   {thema.initial}
                 </span>

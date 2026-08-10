@@ -8,6 +8,12 @@
  * (Menüs, Dialoge, Meldungen). Farben und Maße stehen nirgends als Ziffernfolge, sondern
  * kommen aus design/tokens.css - dadurch gilt jede Regel in der hellen wie in der dunklen
  * Ansicht, ohne dass sie doppelt geschrieben werden müsste.
+ *
+ * Der Aufbau des Fensters folgt einem Bild, das in tokens.css ausführlicher steht:
+ * links der Schreibtisch (Seitenleiste, liegt unmittelbar auf dem Grund), rechts das
+ * Blatt (Nachrichtenliste und Leseansicht, eine zusammenhängende helle Fläche mit
+ * runden Ecken und einem Schatten darunter). Wer eine neue Fläche einbaut, muss sich
+ * entscheiden, wozu sie gehört - dazwischen gibt es nichts.
  */
 
 /* ==========================================================================
@@ -48,6 +54,32 @@ body {
 
 #root {
   height: 100vh;
+  /* Anker für die Kornscheibe darunter. */
+  position: relative;
+}
+
+/*
+ * Das Korn.
+ *
+ * Eine hauchdünne Rauschscheibe über der gesamten Anwendung. Sie ist einzeln nicht zu
+ * sehen - hält man sie an, sieht man den Unterschied trotzdem sofort: ohne sie sind alle
+ * Flächen mathematisch reine Farbe, und das gibt es außerhalb eines Bildschirms nirgends.
+ * Mit ihr bekommen sie eine Oberfläche. Im Dunkeln hat sie zusätzlich einen handfesten
+ * Nutzen: sehr dunkle Verläufe zeigen auf 8-Bit-Bildschirmen Streifen, und das Rauschen
+ * bricht sie auf.
+ *
+ * pointer-events: none ist hier keine Feinheit, sondern die Bedingung dafür, dass die
+ * Anwendung überhaupt noch bedienbar ist - die Scheibe liegt über allem.
+ */
+#root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  background-image: var(--korn);
+  background-repeat: repeat;
+  opacity: var(--korn-staerke);
 }
 
 /*
@@ -139,16 +171,31 @@ input[type='radio'] {
  * Bedienelemente
  * ========================================================================== */
 
+/*
+ * Der Hauptknopf.
+ *
+ * Kein flaches Blau, sondern ein sehr flacher Verlauf von oben nach unten und eine helle
+ * Kante an der Oberkante. Beides zusammen ist so wenig, dass es niemandem auffällt -
+ * daneben gelegt sieht der flache Knopf aber wie ein Rechteck aus und dieser wie etwas,
+ * das man drücken kann. Der Schatten trägt einen Hauch der Markenfarbe statt Grau: ein
+ * blauer Knopf wirft keinen grauen Schein.
+ */
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--a-2);
-  padding: 7px 14px;
+  padding: 8px 15px;
   border: 1px solid transparent;
   border-radius: var(--r-2);
-  background: var(--marke);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--marke) 88%, white),
+    var(--marke)
+  );
   color: var(--auf-marke);
+  box-shadow: var(--glanz), 0 1px 2px color-mix(in srgb, var(--marke) 30%, transparent);
   font-family: inherit;
   font-size: var(--t-n);
   font-weight: 600;
@@ -156,45 +203,52 @@ input[type='radio'] {
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--weich), border-color var(--weich), box-shadow var(--weich),
-    transform var(--weich);
+    transform var(--weich), color var(--weich);
 }
 
 .btn:hover:not(:disabled) {
-  background: var(--marke-hover);
+  background: linear-gradient(180deg, var(--marke), var(--marke-hover));
+  box-shadow: var(--glanz), 0 2px 8px color-mix(in srgb, var(--marke) 42%, transparent);
 }
 
 /* Ein leichtes Einsinken beim Drücken. Der einzige Ort, an dem sich etwas bewegt -
    dafür bestätigt es jeden Klick, ohne dass man darauf warten müsste. */
 .btn:active:not(:disabled) {
   transform: translateY(1px);
+  box-shadow: var(--glanz), 0 0 0 color-mix(in srgb, var(--marke) 30%, transparent);
 }
 
 .btn.secondary {
   background: var(--flaeche);
   border-color: var(--rand);
   color: var(--text);
+  box-shadow: var(--glanz);
   font-weight: 500;
 }
 
 .btn.secondary:hover:not(:disabled) {
   background: var(--flaeche-hover);
   border-color: var(--rand-stark);
+  box-shadow: var(--glanz);
 }
 
 .btn.danger {
   background: var(--flaeche);
   border-color: var(--fehler-rand);
   color: var(--fehler);
+  box-shadow: var(--glanz);
   font-weight: 500;
 }
 
 .btn.danger:hover:not(:disabled) {
   background: var(--fehler-grund);
   border-color: var(--fehler);
+  box-shadow: var(--glanz);
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -239,8 +293,8 @@ input[type='radio'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 23px;
+  height: 23px;
   border: none;
   border-radius: var(--r-1);
   background: none;
@@ -254,7 +308,7 @@ input[type='radio'] {
 }
 
 .icon-btn:hover {
-  background: var(--flaeche-hover);
+  background: var(--flaeche-tief);
   color: var(--text);
 }
 
@@ -272,13 +326,24 @@ select {
   font-family: inherit;
   font-size: var(--t-n);
   color: var(--text);
-  background: var(--flaeche);
+  /* Eingabefelder liegen tiefer als die Fläche, auf der sie stehen - ein Feld ist eine
+     Mulde, kein Aufkleber. Im Hellen wie im Dunkeln bedeutet das denselben Schritt nach
+     unten in der Helligkeit, deshalb genügt ein Wert. */
+  background: var(--flaeche-leise);
   border: 1px solid var(--rand);
   border-radius: var(--r-1);
-  padding: 6px 9px;
+  padding: 7px 10px;
   user-select: text;
   cursor: text;
-  transition: border-color var(--weich), box-shadow var(--weich);
+  transition: border-color var(--weich), background var(--weich), box-shadow var(--weich);
+}
+
+input[type='text']:hover:not(:disabled):not(:focus),
+input[type='email']:hover:not(:disabled):not(:focus),
+input[type='password']:hover:not(:disabled):not(:focus),
+input[type='search']:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus) {
+  border-color: var(--rand-stark);
 }
 
 select {
@@ -372,14 +437,47 @@ input[type='file']::file-selector-button:hover {
 }
 
 .titelleiste {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--a-3);
-  padding-left: var(--a-4);
-  background: var(--flaeche-leise);
-  border-bottom: 1px solid var(--rand);
+  padding-left: var(--a-5);
+  /* Dieselbe Fläche wie der Grund, nicht heller: die Leiste soll nicht als eigenes
+     Band über der Anwendung liegen, sondern als deren oberer Rand. Abgegrenzt wird sie
+     unten allein durch die Ader (siehe .titelleiste::after). */
+  background: var(--grund);
   -webkit-app-region: drag;
   user-select: none;
+}
+
+/*
+ * Die Ader.
+ *
+ * Eine haarfeine Linie unter der Titelleiste, die in der Mitte die Farbe des gerade
+ * gewählten Kontos trägt und nach beiden Seiten ausläuft. Sie ersetzt den geraden
+ * grauen Strich, der vorher dort stand.
+ *
+ * Der Zweck ist nicht Schmuck: bei mehreren Postfächern beantwortet sie ohne ein
+ * einziges Wort die Frage "in welchem Konto bin ich gerade", und zwar an der Kante,
+ * die man beim Blick nach oben ohnehin überquert. Dieselbe Farbe trägt der Punkt in
+ * der Mitte der Leiste und das Kennzeichen in der Seitenleiste - drei Stellen, eine
+ * Auskunft.
+ */
+.titelleiste::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--rand) 0%,
+    color-mix(in srgb, var(--konto-farbe) 55%, var(--rand)) 38%,
+    color-mix(in srgb, var(--konto-farbe) 75%, var(--rand)) 50%,
+    color-mix(in srgb, var(--konto-farbe) 55%, var(--rand)) 62%,
+    var(--rand) 100%
+  );
 }
 
 /* Ein Fenster im Hintergrund tritt zurück - dieselbe Unterscheidung, die Windows bei
@@ -393,26 +491,42 @@ input[type='file']::file-selector-button:hover {
 .titelleiste-marke {
   display: flex;
   align-items: center;
-  gap: var(--a-2);
+  gap: var(--a-3);
   flex-shrink: 0;
 }
 
 .marke-symbol {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
   flex-shrink: 0;
 }
 
+/*
+ * Das Wortzeichen.
+ *
+ * In Versalien, gesperrt und in der schmalen Schrift der Marke (siehe --sf-marke in
+ * tokens.css). Vorher stand hier schlicht "Energy Mail" in derselben Schrift wie alles
+ * andere - lesbar, aber ohne jede Eigenart; man hätte den Namen austauschen können, und
+ * es wäre dieselbe Anwendung geblieben. Gesperrte Versalien in einer schmalen Grotesk
+ * lesen sich wie ein Typenschild, was zum Namen passt, und sie nehmen in der Leiste
+ * weniger Platz weg als der gewöhnliche Satz.
+ */
 .marke-wort {
   /* Eine Ueberschrift statt eines span - der Browser braecht dafuer Abstand und eine
      eigene Groesse ein, die in eine Titelleiste nicht passen. */
   margin: 0;
-  font-family: var(--sf-gross);
-  font-size: var(--t-m);
+  font-family: var(--sf-marke);
+  font-size: var(--t-s);
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   color: var(--text-2);
-  transition: opacity var(--weich);
+  transition: opacity var(--weich), color var(--weich);
+}
+
+/* Das zweite Wort tritt zurück: "ENERGY" trägt den Namen, "MAIL" sagt nur, was es ist. */
+.marke-wort span {
+  color: var(--text-3);
 }
 
 /* Was gerade zu sehen ist - Konto und Ordner. Steht mittig und ist der eigentliche
@@ -430,11 +544,14 @@ input[type='file']::file-selector-button:hover {
   white-space: nowrap;
 }
 
+/* Der Punkt trägt einen weichen Hof in derselben Farbe - damit ist er auch bei sieben
+   Pixeln als Farbe wahrnehmbar und nicht nur als dunkler Fleck. */
 .titelleiste-mitte .konto-punkt {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--konto-farbe);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--konto-farbe) 20%, transparent);
   flex-shrink: 0;
 }
 
@@ -472,19 +589,23 @@ input[type='file']::file-selector-button:hover {
 }
 
 .leisten-btn:hover {
-  background: var(--flaeche-hover);
+  background: var(--flaeche-tief);
   color: var(--text);
 }
 
-/* Steht eine neue Fassung bereit, wird aus dem stillen Knopf ein Hinweis. */
+/* Steht eine neue Fassung bereit, wird aus dem stillen Knopf ein Hinweis - und zwar in
+   Bernstein, nicht in Blau: eine bereitstehende Fassung ist ein Zustand ("hier liegt
+   etwas"), kein Bedienelement. Die Regel dazu steht in tokens.css. */
 .leisten-btn.meldet {
-  background: var(--marke-leise);
-  color: var(--marke);
+  background: var(--blitz-leise);
+  border: 1px solid var(--blitz-rand);
+  color: var(--blitz);
   font-weight: 600;
 }
 
 .leisten-btn.meldet:hover {
-  background: color-mix(in srgb, var(--marke) 18%, var(--flaeche));
+  background: color-mix(in srgb, var(--blitz-rein) 22%, var(--flaeche));
+  color: var(--blitz);
 }
 
 /*
@@ -507,37 +628,105 @@ input[type='file']::file-selector-button:hover {
  * Fensterraster
  * ========================================================================== */
 
+/*
+ * Schreibtisch und Blatt.
+ *
+ * Die Seitenleiste liegt unmittelbar auf dem Grund - sie ist Möbel, kein Inhalt. Die
+ * Nachrichtenliste und die Leseansicht bilden zusammen ein einziges Blatt: eine helle
+ * Fläche mit runden Ecken, einem feinen Rand und einem Schatten darunter, in der Mitte
+ * durch eine Linie geteilt.
+ *
+ * Vorher waren alle drei Spalten randlose Flächen, die von Kante zu Kante durchliefen
+ * und durch graue Striche getrennt waren. Das ist die Anordnung, die jedes Mailprogramm
+ * hat, und sie sagt: hier sind drei gleichwertige Kästen. Tatsächlich sind es aber zwei
+ * verschiedene Dinge - Navigation und Post -, und genau das zeigt die Trennung jetzt.
+ * Nebenbei bekommt der Grund dadurch überhaupt etwas zu tun, statt nur unter allem zu
+ * liegen, ohne je gesehen zu werden.
+ *
+ * Die Luft dafür kostet zwanzig Pixel Breite. Unter 1150px wird sie wieder eingezogen
+ * (siehe "Enge Fenster" ganz unten) - dort ist Platz knapper als Gestaltung.
+ */
 .app {
   display: grid;
   /* Drei Spalten statt vier: Konten und Ordner teilen sich die erste. Die frei
      gewordenen 200px gehen an die Nachrichtenliste, wo Betreffs sonst umbrechen. */
-  grid-template-columns: 244px 400px 1fr;
+  grid-template-columns: 248px 400px 1fr;
   min-height: 0;
+  padding: 0 var(--blatt-luft) var(--blatt-luft) 0;
   background: var(--grund);
+}
+
+/* Beide Hälften des Blattes zusammen. Der Schatten hat eine negative Streuung: er bleibt
+   dadurch unter dem Blatt und schlägt nicht seitlich auf die Nachbarhälfte durch, wo er
+   als dunkle Naht zu sehen wäre. */
+.message-pane,
+.reader-pane {
+  border-top: 1px solid var(--rand);
+  border-bottom: 1px solid var(--rand);
+  box-shadow: var(--schatten-blatt);
+}
+
+.message-pane {
+  border-left: 1px solid var(--rand);
+  border-radius: var(--r-3) 0 0 var(--r-3);
+}
+
+.reader-pane {
+  border-right: 1px solid var(--rand);
+  border-radius: 0 var(--r-3) var(--r-3) 0;
 }
 
 /* ==========================================================================
  * Seitenleiste: Konten mit ihren Ordnern
  * ========================================================================== */
 
+/* Liegt unmittelbar auf dem Grund: keine eigene Fläche, kein Rand. Sie ist der
+   Schreibtisch, auf dem das Blatt rechts liegt - siehe .app weiter oben. */
 .sidebar {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--flaeche-leise);
-  border-right: 1px solid var(--rand);
+  background: transparent;
 }
 
 .sidebar-head {
-  padding: var(--a-4) var(--a-4) var(--a-3);
+  padding: var(--a-4) var(--a-4) var(--a-4) var(--a-5);
 }
 
+/*
+ * Der Knopf, mit dem alles anfängt.
+ *
+ * Der einzige Knopf der Anwendung, der einen sichtbaren Verlauf und einen farbigen
+ * Schein trägt. Das ist Absicht und keine Willkür: es gibt in einem Mailprogramm genau
+ * eine Handlung, die man aus dem Nichts heraus beginnt - eine neue Nachricht. Alles
+ * andere bezieht sich auf etwas, das schon da ist. Ein zweiter Knopf in dieser Machart
+ * würde diesen entwerten; wer einen einbaut, nimmt diesem seine Bedeutung.
+ */
 .compose-btn {
   width: 100%;
-  padding: 10px;
+  padding: 11px;
   font-size: var(--t-n);
   font-weight: 600;
-  box-shadow: var(--schatten-1);
+  letter-spacing: 0.005em;
+  background: linear-gradient(140deg, var(--marke) 0%, var(--marke-hover) 100%);
+  box-shadow: var(--glanz), 0 2px 10px color-mix(in srgb, var(--marke) 32%, transparent);
+}
+
+.compose-btn:hover:not(:disabled) {
+  background: linear-gradient(140deg, var(--marke) 0%, var(--marke-hover) 70%);
+  box-shadow: var(--glanz), 0 4px 16px color-mix(in srgb, var(--marke) 45%, transparent);
+  transform: translateY(-1px);
+}
+
+.compose-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Die Feder sitzt optisch etwas hoch; ein Pixel tiefer stellt sie auf die Schriftlinie. */
+.compose-btn svg {
+  position: relative;
+  top: 1px;
+  flex-shrink: 0;
 }
 
 .sidebar-scroll {
@@ -549,7 +738,7 @@ input[type='file']::file-selector-button:hover {
 
 .sidebar-foot {
   border-top: 1px solid var(--rand);
-  padding: var(--a-3) var(--a-4) var(--a-4);
+  padding: var(--a-3) var(--a-4) var(--a-4) var(--a-5);
   max-height: 60vh;
   overflow-y: auto;
 }
@@ -561,9 +750,9 @@ input[type='file']::file-selector-button:hover {
 .account-head {
   display: flex;
   align-items: center;
-  gap: var(--a-2);
-  padding: 7px var(--a-3) 7px 10px;
-  margin: 0 var(--a-3);
+  gap: var(--a-3);
+  padding: 7px var(--a-3) 7px var(--a-3);
+  margin: 0 var(--a-3) 0 var(--a-4);
   border-radius: var(--r-2);
   cursor: pointer;
   font-size: var(--t-m);
@@ -580,12 +769,22 @@ input[type='file']::file-selector-button:hover {
   color: var(--text);
 }
 
+/* Ein gezeichneter Winkel statt der Schriftzeichen ▾ und ▸: die stehen je nach
+   Schriftschnitt verschieden hoch, sind unterschiedlich groß und lassen sich nicht
+   drehen. Gedreht wird hier, und dadurch klappt der Winkel sichtbar um, statt gegen
+   ein anderes Zeichen ausgetauscht zu werden. */
 .caret {
+  display: inline-flex;
   color: var(--text-aus);
-  font-size: var(--t-xs);
-  width: 10px;
+  width: 11px;
   flex-shrink: 0;
-  transition: transform var(--weich);
+  transform-origin: 45% 50%;
+  transition: transform var(--weich), color var(--weich);
+}
+
+.account-block.active > .account-head .caret {
+  transform: rotate(90deg);
+  color: var(--text-3);
 }
 
 .account-label {
@@ -615,36 +814,52 @@ input[type='file']::file-selector-button:hover {
 }
 
 /*
- * Rundes Kürzel in der Hausfarbe des Anbieters.
+ * Das Kürzel in der Hausfarbe des Anbieters.
  *
- * Seit die Oberfläche durchgehend die Farbe des Programms trägt, ist dies zusammen mit
- * dem schmalen Streifen daneben die einzige Stelle, an der der Anbieter farbig auftritt -
- * und sie genügt: gefragt ist nicht Schmuck, sondern die Antwort auf "aus welcher Adresse
- * schreibe ich gerade". Bewusst ein Buchstabe und kein Logo: fremde Markenzeichen
- * gehören nicht in die Anwendung.
+ * Zusammen mit der Ader daneben und dem Punkt in der Titelleiste die einzige Stelle, an
+ * der der Anbieter farbig auftritt - und sie genügt: gefragt ist nicht Schmuck, sondern
+ * die Antwort auf "aus welcher Adresse schreibe ich gerade". Bewusst ein Buchstabe und
+ * kein Logo: fremde Markenzeichen gehören nicht in die Anwendung.
+ *
+ * Abgerundetes Quadrat und nicht Kreis - das ist der Unterschied zu den Monogrammen der
+ * Absender in der Nachrichtenliste, die rund sind. Ein Konto ist etwas anderes als ein
+ * Mensch, und wenn beide Zeichen dieselbe Form hätten, sähe man in der Seitenleiste
+ * "irgendeinen Absender" statt "mein Postfach". Zwei Formen, zwei Bedeutungen.
  */
 .provider-badge {
-  width: 19px;
-  height: 19px;
-  border-radius: 50%;
-  background: var(--konto-farbe);
+  width: 21px;
+  height: 21px;
+  border-radius: var(--r-1);
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--konto-farbe) 82%, white),
+    var(--konto-farbe)
+  );
   color: #fff;
-  font-size: var(--t-xs);
+  font-family: var(--sf-marke);
+  font-size: var(--t-s);
   font-weight: 700;
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--konto-farbe) 22%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--konto-farbe) 40%, transparent);
 }
 
 .folder-list {
   padding-bottom: var(--a-2);
-  /* Schmaler Streifen in der Kontofarbe entlang der Ordner: bindet sie sichtbar an das
-     Konto darüber, ohne dass dafür jede Zeile eingefärbt werden müsste. */
-  border-left: 2px solid color-mix(in srgb, var(--konto-farbe) 35%, transparent);
-  margin-left: 21px;
-  padding-left: 2px;
+  /* Schmale Ader in der Kontofarbe entlang der Ordner: bindet sie sichtbar an das Konto
+     darüber, ohne dass dafür jede Zeile eingefärbt werden müsste. Sie läuft nach unten
+     aus, damit die Liste nicht an einer harten Kante endet. */
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--konto-farbe) 40%, transparent),
+      color-mix(in srgb, var(--konto-farbe) 6%, transparent)
+    )
+    left top / 2px 100% no-repeat;
+  margin-left: 24px;
+  padding-left: var(--a-2);
 }
 
 .folder-row {
@@ -674,7 +889,7 @@ input[type='file']::file-selector-button:hover {
   font-size: var(--t-n);
   color: var(--text-2);
   border-radius: 0 var(--r-voll) var(--r-voll) 0;
-  transition: background var(--weich), color var(--weich);
+  transition: background var(--weich), color var(--weich), box-shadow var(--weich);
 }
 
 .folder-row:hover {
@@ -682,8 +897,16 @@ input[type='file']::file-selector-button:hover {
   color: var(--text);
 }
 
+/*
+ * Der ausgewählte Ordner.
+ *
+ * Gefüllte Fläche statt nur farbiger Schrift, und mit einer feinen Kante darum: auf dem
+ * Grund der Seitenleiste - der ja keine eigene Fläche mehr hat - wäre eine bloße
+ * Einfärbung zu leise, um über die ganze Höhe der Liste hinweg gefunden zu werden.
+ */
 .folder-row.active {
   background: var(--marke-leise);
+  box-shadow: inset 0 0 0 1px var(--marke-rand);
   color: var(--marke);
   font-weight: 600;
 }
@@ -741,26 +964,39 @@ input[type='file']::file-selector-button:hover {
   color: inherit;
 }
 
+/*
+ * Die Zahl ungelesener Nachrichten.
+ *
+ * In Bernstein und nicht in Blau. Das ist die Regel aus tokens.css an ihrer wichtigsten
+ * Stelle: Blau heißt "hier kannst du etwas tun", Bernstein heißt "hier ist etwas". Eine
+ * Ziffer neben einem Ordnernamen ist keine Handlung - sie ist Ladung. Nebenbei löst es
+ * ein handfestes Problem: der ausgewählte Ordner ist selbst blau hinterlegt, und ein
+ * blaues Abzeichen darauf verschwand darin.
+ */
 .unread-badge {
-  background: var(--marke);
-  /* Nicht weiss: im dunklen Erscheinungsbild ist die Marke ein helles Blau, und weisse
-     Schrift darauf kam auf 2.39:1. */
-  color: var(--auf-marke);
-  font-size: var(--t-s);
-  font-weight: 600;
+  background: var(--blitz-rein);
+  /* Immer dunkle Schrift: --blitz-rein ist in beiden Ansichten dasselbe helle Gelb
+     (gemessen 9.72:1 gegen den Text der hellen Ansicht). */
+  color: #26200f;
+  font-family: var(--sf-zahl);
+  font-size: var(--t-xs);
+  font-weight: 700;
   border-radius: var(--r-voll);
-  padding: 1px 7px;
+  padding: 1.5px 6px;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
+/* Abschnittsüberschriften tragen die schmale Schrift der Marke - dieselbe Behandlung wie
+   die Zählung über der Nachrichtenliste. */
 .folder-group {
-  font-size: var(--t-xs);
+  font-family: var(--sf-marke);
+  font-size: var(--t-s);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.11em;
   color: var(--text-aus);
-  padding: var(--a-4) 10px var(--a-1) var(--a-4);
+  padding: var(--a-5) 10px var(--a-2) var(--a-4);
 }
 
 .folder-separator {
@@ -774,13 +1010,32 @@ input[type='file']::file-selector-button:hover {
   font-size: var(--t-s);
 }
 
+/*
+ * Neue Post in diesem Konto.
+ *
+ * Der eine Ort, an dem sich in der Seitenleiste etwas bewegt. Ein ruhiges Pulsieren
+ * statt eines stehenden Punktes: es ist die einzige Meldung, die von außen kommt und
+ * nicht auf eine Handlung des Nutzers folgt - genau das darf man sehen, ohne hinsehen
+ * zu müssen. Wer weniger Bewegung eingestellt hat, bekommt weiter unten einen ruhigen
+ * Punkt (siehe prefers-reduced-motion).
+ */
 .new-mail-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--marke);
+  background: var(--blitz-rein);
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--marke) 20%, transparent);
+  animation: funke 2.4s ease-in-out infinite;
+}
+
+@keyframes funke {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--blitz-rein) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--blitz-rein) 0%, transparent);
+  }
 }
 
 /* Abgelaufene Anmeldung: bewusst warnend statt in der Kontofarbe - hier ist etwas
@@ -848,15 +1103,17 @@ input[type='file']::file-selector-button:hover {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Ohne das liefe die Liste über die runden Ecken des Blattes hinaus. */
+  overflow: hidden;
   border-right: 1px solid var(--rand);
   background: var(--flaeche);
 }
 
 .list-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--a-3);
-  padding: var(--a-4) var(--a-5) var(--a-3);
+  padding: var(--a-5) var(--a-5) var(--a-4);
 }
 
 .list-title {
@@ -865,8 +1122,8 @@ input[type='file']::file-selector-button:hover {
   margin: 0;
   font-family: var(--sf-gross);
   font-weight: 600;
-  font-size: var(--t-xl);
-  letter-spacing: -0.01em;
+  font-size: var(--t-2xl);
+  letter-spacing: -0.02em;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -874,11 +1131,18 @@ input[type='file']::file-selector-button:hover {
   white-space: nowrap;
 }
 
+/* Die Zahl gehört zur Überschrift, ist aber nicht sie - deshalb in der schmalen Schrift
+   der Marke, gesperrt und klein. Dieselbe Behandlung wie die Abschnittsüberschriften in
+   der Seitenleiste: alles, was zählt oder benennt statt zu sprechen, sieht so aus. */
 .list-count {
+  font-family: var(--sf-marke);
   font-size: var(--t-s);
-  font-weight: 400;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .search-bar {
@@ -886,13 +1150,38 @@ input[type='file']::file-selector-button:hover {
   border-bottom: 1px solid var(--rand-fein);
 }
 
+/* Der Anker für die Lupe im Feld. */
+.such-feld {
+  position: relative;
+  display: flex;
+}
+
+.such-feld > svg {
+  position: absolute;
+  left: var(--a-4);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-aus);
+  pointer-events: none;
+  transition: color var(--weich);
+}
+
+.such-feld:focus-within > svg {
+  color: var(--marke);
+}
+
 .search-bar input[type='search'] {
   width: 100%;
-  padding: 8px var(--a-4);
+  padding: 8px var(--a-4) 8px 32px;
   border-radius: var(--r-voll);
-  background: var(--flaeche-hover);
+  background: var(--flaeche-tief);
   border-color: transparent;
   font-size: var(--t-n);
+}
+
+.search-bar input[type='search']:hover:not(:focus) {
+  background: var(--flaeche-hover);
+  border-color: transparent;
 }
 
 .search-bar input[type='search']:focus {
@@ -921,29 +1210,57 @@ input[type='file']::file-selector-button:hover {
  * Nachrichten zählt jede Zeile, die zusätzlich auf den Bildschirm passt.
  */
 .message-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--a-3);
   padding: 7px var(--a-5) 8px var(--a-4);
   border-bottom: 1px solid var(--rand-fein);
-  border-left: 3px solid transparent;
   cursor: pointer;
   transition: background var(--weich);
+}
+
+/*
+ * Die Marke am Zeilenanfang.
+ *
+ * Vorher war das ein durchgehender Rahmen links an der Zeile (border-left: 3px), der
+ * über die volle Zeilenhöhe lief und an die Nachbarzeile stieß - eine Kette aus Balken.
+ * Jetzt ist es ein kurzer, gerundeter Stab, der mittig in der Zeile steht: er gehört
+ * sichtbar zu dieser einen Zeile und bildet keine Linie mit der nächsten.
+ *
+ * Ausgewählt heißt blau (man ist hier), ungelesen heißt bernsteinfarben (hier ist noch
+ * Ladung). Ist beides zutreffend, gewinnt Blau - man sieht die Nachricht ja gerade an,
+ * und ihr Zustand steht ohnehin gleich auf "gelesen".
+ */
+.message-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 var(--r-voll) var(--r-voll) 0;
+  background: transparent;
+  transform: translateY(-50%);
+  transition: height var(--weich), background var(--weich);
 }
 
 .message-row:hover {
   background: var(--flaeche-hover);
 }
 
-.message-row.active {
-  background: var(--marke-leise);
-  border-left-color: var(--marke);
+.message-row.unread::before {
+  height: 20px;
+  background: var(--blitz-rein);
 }
 
-/* Ungelesenes trägt links einen Balken in der Kontofarbe. Bei mehreren Konten in einer
-   Trefferliste ist damit ohne Zusatzzeile erkennbar, wohin eine Nachricht gehört. */
-.message-row.unread {
-  border-left-color: var(--konto-farbe);
+.message-row.active {
+  background: var(--marke-leise);
+}
+
+.message-row.active::before {
+  height: 28px;
+  background: var(--marke);
 }
 
 .message-row.checked {
@@ -951,9 +1268,9 @@ input[type='file']::file-selector-button:hover {
 }
 
 .row-check {
-  margin-top: 2px;
+  margin-top: 5px;
   flex-shrink: 0;
-  opacity: 0.3;
+  opacity: 0.28;
   transition: opacity var(--weich);
 }
 
@@ -961,6 +1278,67 @@ input[type='file']::file-selector-button:hover {
 .row-check:checked,
 .row-check:focus-visible {
   opacity: 1;
+}
+
+/*
+ * Das Monogramm des Absenders.
+ *
+ * Kürzel und Farbton kommen aus design/monogramm.ts und werden aus der Adresse
+ * abgeleitet; die Zeile setzt nur --mono-h, den Winkel auf dem Farbkreis. Helligkeit
+ * und Sättigung stehen hier, in OKLCH - dort bedeutet dieselbe Zahl bei jedem Farbton
+ * auch dieselbe wahrgenommene Helligkeit. In HSL leuchtete das Gelb und das Blau soff
+ * ab; hier sind alle vierzehn Töne gleich gut lesbar und gleich zurückhaltend.
+ *
+ * Die erste Angabe ist die Rückfallebene für Browser ohne OKLCH: sie verstehen die
+ * zweite Zeile nicht und behalten die erste. Dann sieht man einen grauen Kreis mit
+ * Kürzel statt eines farbigen - nicht schön, aber vollständig brauchbar.
+ */
+.row-monogramm {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--flaeche-tief);
+  color: var(--text-2);
+  background: oklch(0.925 0.05 var(--mono-h));
+  color: oklch(0.45 0.13 var(--mono-h));
+  font-size: var(--t-s);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+/*
+ * Im Dunkeln kräftiger.
+ *
+ * Nachgemessen am laufenden Programm: mit denselben Werten wie in der hellen Ansicht
+ * waren zwei Monogramme nebeneinander nicht mehr auseinanderzuhalten - alle wirkten
+ * blaugrau. Der Grund ist nicht die Rechnung, sondern das Auge: auf dunklem Grund nimmt
+ * es Sättigung schwächer wahr, und eine Fläche von 27 Pixeln gibt ihm wenig, woran es
+ * sich festhalten kann. Also mehr Buntheit, gleiche Helligkeit.
+ */
+:root[data-thema='dunkel'] .row-monogramm,
+:root[data-thema='dunkel'] .mail-monogramm {
+  background: oklch(0.33 0.085 var(--mono-h));
+  color: oklch(0.85 0.15 var(--mono-h));
+}
+
+/* Ungelesenes ist geladen - das Monogramm bekommt einen Ring in der Energiefarbe, damit
+   die Zeile schon aus dem Augenwinkel als "neu" zu erkennen ist. */
+.message-row.unread .row-monogramm {
+  box-shadow: 0 0 0 2px var(--flaeche), 0 0 0 3.5px var(--blitz-rein);
+}
+
+.message-row.unread:hover .row-monogramm {
+  box-shadow: 0 0 0 2px var(--flaeche-hover), 0 0 0 3.5px var(--blitz-rein);
+}
+
+.message-row.unread.active .row-monogramm {
+  box-shadow: 0 0 0 2px var(--marke-leise), 0 0 0 3.5px var(--blitz-rein);
 }
 
 .row-body {
@@ -991,20 +1369,25 @@ input[type='file']::file-selector-button:hover {
 }
 
 .row-clip {
-  font-size: var(--t-s);
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
-  color: var(--text-3);
+  color: var(--text-aus);
 }
 
+/* Datum und Uhrzeit in der Zahlenschrift: dadurch stehen die Ziffern aller Zeilen
+   untereinander, und die Spalte wird zu einer Kante statt zu einem Flattersatz. */
 .row-date {
-  font-size: var(--t-s);
+  font-family: var(--sf-zahl);
+  font-size: var(--t-xs);
+  letter-spacing: -0.01em;
   color: var(--text-3);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 
 .message-row.unread .row-date {
-  color: var(--marke);
+  color: var(--text-2);
   font-weight: 600;
 }
 
@@ -1097,16 +1480,27 @@ input[type='file']::file-selector-button:hover {
 
 .gespraech-schalter {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  margin-top: 5px;
   padding: 0;
   border: none;
   border-radius: var(--r-1);
   background: none;
-  color: var(--text-3);
-  font-size: var(--t-s);
+  color: var(--text-aus);
   cursor: pointer;
   transition: background var(--weich), color var(--weich);
+}
+
+.gespraech-schalter svg {
+  transition: transform var(--weich);
+}
+
+.gespraech-schalter[aria-expanded='true'] svg {
+  transform: rotate(90deg);
 }
 
 .gespraech-schalter:hover {
@@ -1127,15 +1521,25 @@ input[type='file']::file-selector-button:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* Dieselbe Regel wie beim Ordnerabzeichen: eine Zahl, die Ungelesenes zählt, ist
+   Ladung und keine Handlung - also Bernstein. */
 .message-row.unread .gespraech-anzahl {
-  background: var(--marke);
-  color: var(--auf-marke);
+  background: var(--blitz-rein);
+  color: #26200f;
 }
 
-/* Nachrichten innerhalb eines aufgeklappten Gesprächs. */
+/* Nachrichten innerhalb eines aufgeklappten Gesprächs. Eingerückt und auf der leisen
+   Fläche; das Monogramm schrumpft mit, sonst wäre die eingerückte Zeile höher als die
+   Kopfzeile darüber. */
 .message-row.im-gespraech {
-  padding-left: 30px;
+  padding-left: 28px;
   background: var(--flaeche-leise);
+}
+
+.message-row.im-gespraech .row-monogramm {
+  width: 22px;
+  height: 22px;
+  font-size: var(--t-xs);
 }
 
 .message-row.im-gespraech .row-sender {
@@ -1220,7 +1624,7 @@ input[type='file']::file-selector-button:hover {
 }
 
 .reader {
-  padding: var(--a-6) var(--a-7);
+  padding: var(--a-7) var(--a-7) var(--a-8);
   overflow-y: auto;
   /* Der einzige Ort, an dem Text markiert werden können muss - hier steht der Inhalt
      einer fremden Nachricht, den man zitieren oder herauskopieren will. */
@@ -1228,67 +1632,194 @@ input[type='file']::file-selector-button:hover {
   cursor: auto;
 }
 
+/*
+ * Die Lesespalte.
+ *
+ * Auf einem breiten Bildschirm hatte die Leseansicht bis hierher die volle Breite: bei
+ * einem Fenster von 1900 Pixeln lief eine Zeile Fließtext über 1200 Pixel, also gut 180
+ * Zeichen. Beim Zeilenwechsel findet das Auge dann den Anfang der nächsten Zeile nicht
+ * mehr zuverlässig - man liest dieselbe Zeile zweimal oder überspringt eine. Die
+ * Empfehlung liegt bei 45 bis 90 Zeichen; 860 Pixel ergeben bei dieser Schrift rund 95
+ * und sind der Kompromiss mit dem HTML fremder Nachrichten, das oft auf 600 bis 800
+ * Pixel Breite gebaut ist.
+ *
+ * Nicht zentriert, sondern links angeschlagen: die Spalte soll an derselben Kante
+ * beginnen wie die Liste daneben, sonst wandert der Text beim Verbreitern des Fensters
+ * unter dem Blick weg.
+ */
+.reader > * {
+  max-width: 860px;
+}
+
+/*
+ * Der Kopf einer geöffneten Nachricht.
+ *
+ * Aufgebaut wie der Anfang eines Artikels und nicht wie ein Formular: erst der Betreff,
+ * groß und mit engem Satz, dann in einer Zeile darunter Absender und Zeitpunkt. Der
+ * Grund ist derselbe wie bei den Monogrammen in der Liste - eine geöffnete Nachricht
+ * ist etwas zum Lesen, und Lesestoff fängt mit einer Überschrift an, nicht mit einer
+ * Tabelle aus Feldern.
+ *
+ * Die Trennlinie zum Text ist keine durchgezogene Linie mehr, sondern läuft nach rechts
+ * aus: eine Kante quer durch die Fläche zerschneidet die Seite in zwei Hälften, eine
+ * auslaufende trennt, ohne zu zerteilen.
+ */
 .mail-head {
   padding-bottom: var(--a-5);
-  border-bottom: 1px solid var(--rand-fein);
+  border-bottom: none;
+  background: linear-gradient(
+      90deg,
+      var(--rand),
+      color-mix(in srgb, var(--rand) 30%, transparent) 78%,
+      transparent
+    )
+    left bottom / 100% 1px no-repeat;
 }
 
 .mail-head h2 {
-  margin: 0 0 var(--a-4);
+  margin: 0 0 var(--a-5);
   font-family: var(--sf-gross);
-  font-size: var(--t-3xl);
+  font-size: var(--t-4xl);
   font-weight: 600;
-  line-height: 1.28;
-  letter-spacing: -0.015em;
+  line-height: 1.22;
+  letter-spacing: -0.022em;
+  /* Der Betreff ist der Satz, den man am ehesten zitiert oder in eine Suche kopiert. */
+  user-select: text;
 }
 
 .mail-meta {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--a-4);
+}
+
+/*
+ * Dasselbe Monogramm wie in der Liste, nur größer.
+ *
+ * Es stellt die Verbindung her: dieselbe Farbe, dasselbe Kürzel wie in der Zeile, die
+ * man eben angeklickt hat. Ohne das wäre die Leseansicht ein Ort ohne Bezug zur Liste
+ * daneben. Die Farbwerte stehen bei .row-monogramm.
+ */
+.mail-monogramm {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--flaeche-tief);
+  color: var(--text-2);
+  background: oklch(0.925 0.05 var(--mono-h));
+  color: oklch(0.45 0.13 var(--mono-h));
+  font-size: var(--t-l);
+  font-weight: 700;
+  user-select: none;
+}
+
+:root[data-thema='dunkel'] .mail-monogramm {
+  background: oklch(0.31 0.058 var(--mono-h));
+  color: oklch(0.83 0.105 var(--mono-h));
 }
 
 .mail-from {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .mail-from-name {
   font-weight: 600;
   font-size: var(--t-l);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Die Adresse steht jetzt unter dem Namen statt dahinter: nebeneinander wurde bei jedem
+   zweiten Absender eines von beidem abgeschnitten, und die Adresse ist die Angabe, an
+   der man erkennt, ob jemand wirklich der ist, als der er auftritt. */
 .mail-from-address {
   color: var(--text-3);
   font-size: var(--t-m);
-  margin-left: var(--a-2);
+  margin-left: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
 }
 
 .mail-date {
   color: var(--text-3);
-  font-size: var(--t-m);
+  font-family: var(--sf-zahl);
+  font-size: var(--t-s);
   flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 3px;
   font-variant-numeric: tabular-nums;
 }
 
 .mail-to {
   color: var(--text-3);
   font-size: var(--t-m);
-  margin-top: var(--a-1);
+  margin-top: var(--a-3);
+  padding-left: calc(38px + var(--a-4));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/*
+ * Die Werkzeugbank unter dem Kopf.
+ *
+ * Zwölf Knöpfe nebeneinander, und bis hierher trugen alle dieselbe Umrandung - eine
+ * Reihe gleich lauter Kästen, in der man "Antworten" genauso lange sucht wie
+ * "Quelltext". Jetzt trägt nur der erste (Antworten) die Farbe des Programms, alle
+ * übrigen stehen ohne Rahmen auf einer gemeinsamen, leicht abgesetzten Bank und
+ * bekommen ihre Umrandung erst beim Überfahren.
+ */
 .toolbar {
-  margin: var(--a-5) 0;
+  margin: var(--a-5) 0 var(--a-6);
   display: flex;
-  gap: var(--a-3);
+  gap: var(--a-2);
   flex-wrap: wrap;
   align-items: center;
+  padding: var(--a-2);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+  border: 1px solid var(--rand-fein);
+}
+
+.toolbar .btn.secondary {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  padding: 6px var(--a-4);
+}
+
+.toolbar .btn.secondary:hover:not(:disabled) {
+  background: var(--flaeche);
+  border-color: var(--rand);
+  color: var(--text);
+}
+
+/* Löschen bleibt an seinem Platz, tritt aber aus der Reihe: es ist der einzige Knopf
+   der Bank, den man nicht zurücknehmen kann, und trägt deshalb als einziger von Anfang
+   an seine Farbe - nur eben ohne Rahmen wie die anderen. */
+.toolbar .btn.danger {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 6px var(--a-4);
+}
+
+.toolbar .btn.danger:hover:not(:disabled) {
+  background: var(--fehler-grund);
+  border-color: var(--fehler-rand);
 }
 
 /*
@@ -1306,10 +1837,15 @@ input[type='file']::file-selector-button:hover {
   border-radius: var(--r-2);
   background: #fff;
   overflow: hidden;
+  /* Derselbe Schatten wie unter dem Blatt aus Liste und Leseansicht - denn nichts
+     anderes ist der Bogen: ein zweites Blatt, das auf dem ersten liegt. In der hellen
+     Ansicht trennt ihn sonst nur ein Unterschied von sechs Helligkeitsstufen vom
+     Untergrund, und das sieht nach einem falschen Farbwert aus statt nach einem Blatt. */
+  box-shadow: var(--schatten-blatt);
 }
 
 :root[data-thema='dunkel'] .mail-bogen {
-  /* Im Dunkeln braucht der helle Bogen etwas Abstand nach außen, sonst schneidet die
+  /* Im Dunkeln braucht der helle Bogen mehr Abstand nach außen, sonst schneidet die
      Kante hart ins Fenster. */
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), var(--schatten-2);
 }
@@ -1355,12 +1891,17 @@ input[type='file']::file-selector-button:hover {
   background: var(--flaeche-leise);
   margin-bottom: var(--a-2);
   max-width: 460px;
-  transition: border-color var(--weich), background var(--weich);
+  transition: border-color var(--weich), background var(--weich), transform var(--weich),
+    box-shadow var(--weich);
 }
 
 .attachments li:hover {
   border-color: var(--marke-rand);
   background: var(--marke-leise);
+  /* Ein Millimeter Anheben. So wenig, dass es niemand als Bewegung wahrnimmt - und
+     trotzdem genau der Unterschied zwischen "ein Kasten" und "etwas Greifbares". */
+  transform: translateY(-1px);
+  box-shadow: var(--schatten-1);
 }
 
 .attachments a {
@@ -1419,16 +1960,23 @@ input[type='file']::file-selector-button:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--a-3);
+  gap: var(--a-4);
   padding: var(--a-7) var(--a-5);
   min-height: 160px;
   color: var(--text-3);
   font-size: var(--t-n);
+  line-height: 1.6;
   text-align: center;
+  max-width: 46ch;
+  margin: 0 auto;
 }
 
+/* Das Zeichen tritt weit zurück - es ist eine Geste, keine Aussage. Vorher stand es in
+   der Randfarbe und damit deutlich kräftiger als der Satz darunter, den man tatsächlich
+   lesen soll. */
 .empty-state svg {
   color: var(--rand-stark);
+  opacity: 0.55;
 }
 
 .sidebar .empty-state,
@@ -1449,7 +1997,7 @@ input[type='file']::file-selector-button:hover {
   background: var(--schleier);
   /* Weichzeichnung dahinter: das Fenster darunter bleibt als Zusammenhang erkennbar,
      tritt aber deutlich zurück. Ohne sie wirkte der Schleier wie eine Fehlfarbe. */
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px) saturate(0.9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1460,14 +2008,14 @@ input[type='file']::file-selector-button:hover {
 .modal {
   background: var(--erhoben);
   border: 1px solid var(--rand);
-  border-radius: var(--r-3);
-  box-shadow: var(--schatten-3);
+  border-radius: var(--r-4);
+  box-shadow: var(--glanz), var(--schatten-3);
   width: 480px;
   max-width: 100%;
   max-height: 100%;
   overflow-y: auto;
   padding: var(--a-6);
-  animation: auftauchen var(--weich-lang) both;
+  animation: auftauchen var(--sprung) both;
 }
 
 .modal-wide {
@@ -1504,7 +2052,7 @@ input[type='file']::file-selector-button:hover {
 @keyframes auftauchen {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: translateY(10px) scale(0.98);
   }
 }
 
@@ -1518,7 +2066,7 @@ input[type='file']::file-selector-button:hover {
   background: var(--erhoben);
   border: 1px solid var(--rand);
   border-radius: var(--r-2);
-  box-shadow: var(--schatten-2);
+  box-shadow: var(--glanz), var(--schatten-2);
   animation: auftauchen var(--weich) both;
 }
 
@@ -1633,17 +2181,17 @@ input[type='file']::file-selector-button:hover {
   border: 1px solid var(--rand);
   border-radius: var(--r-2);
   background: var(--erhoben);
-  box-shadow: var(--schatten-2);
+  box-shadow: var(--glanz), var(--schatten-2);
   font-size: var(--t-n);
   line-height: 1.45;
   pointer-events: auto;
-  animation: meldung-ein var(--weich-lang) both;
+  animation: meldung-ein var(--sprung) both;
 }
 
 @keyframes meldung-ein {
   from {
     opacity: 0;
-    transform: translateY(-12px);
+    transform: translateY(-14px) scale(0.97);
   }
 }
 
@@ -1761,11 +2309,15 @@ input[type='file']::file-selector-button:hover {
   gap: var(--a-5);
   padding: var(--a-4) var(--a-5);
   border-radius: var(--r-2);
-  background: #202834;
-  color: #fff;
+  /* Absichtlich in beiden Ansichten dunkel: diese Meldung hält eine Nachricht zurück,
+     die gleich hinausgeht, und sie muss sich vom Fenster darunter abheben - in der
+     hellen Ansicht durch ihre Dunkelheit, in der dunklen durch den Rand und den Schein. */
+  background: #171a22;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f4f1ea;
   font-size: var(--t-n);
   box-shadow: var(--schatten-3);
-  animation: meldung-ein var(--weich-lang) both;
+  animation: meldung-ein var(--sprung) both;
 }
 
 .sende-meldung .btn.secondary {
@@ -2003,8 +2555,8 @@ input[type='file']::file-selector-button:hover {
   border: 1px solid var(--rand);
   border-radius: var(--r-3);
   background: var(--erhoben);
-  box-shadow: var(--schatten-3);
-  animation: karte-ein var(--weich-lang) both;
+  box-shadow: var(--glanz), var(--schatten-3);
+  animation: karte-ein var(--sprung) both;
 }
 
 @keyframes karte-ein {
@@ -2048,12 +2600,41 @@ input[type='file']::file-selector-button:hover {
 }
 
 .aktualisierung-fortschritt {
+  position: relative;
   height: 100%;
   border-radius: var(--r-voll);
-  /* Der Blitz aus dem Programmsymbol - die einzige Stelle, an der das Gelb als Fläche
-     auftritt. Es passt hier, weil "wird geladen" das einzige Geschehen im Fenster ist. */
+  /* Der Blitz aus dem Programmsymbol - Fortschritt ist Energie, und dies ist die Stelle,
+     an der das am unmittelbarsten stimmt. */
   background: linear-gradient(90deg, var(--marke), var(--blitz-rein));
   transition: width var(--weich-lang);
+  overflow: hidden;
+}
+
+/*
+ * Ein Lichtschein, der über den Balken läuft.
+ *
+ * Bei einer schmalen Leitung steht der Balken minutenlang fast still. Ohne Bewegung ist
+ * dann nicht zu unterscheiden, ob noch geladen wird oder ob die Verbindung abgerissen
+ * ist - der Schein beantwortet genau das, ohne eine Zahl zu behaupten, die es nicht gibt.
+ */
+.aktualisierung-fortschritt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: schein 1.7s ease-in-out infinite;
+}
+
+@keyframes schein {
+  to {
+    transform: translateX(100%);
+  }
 }
 
 .aktualisierung-zahlen {
@@ -2470,10 +3051,11 @@ input[type='file']::file-selector-button:hover {
 .absender-tabelle th {
   padding: var(--a-2) var(--a-3);
   border-bottom: 1px solid var(--rand);
+  font-family: var(--sf-marke);
   font-size: var(--t-s);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   color: var(--text-aus);
   text-align: left;
 }
@@ -2702,10 +3284,11 @@ input[type='file']::file-selector-button:hover {
 
 .wartend-titel {
   margin: var(--a-5) 0 var(--a-1);
+  font-family: var(--sf-marke);
   font-size: var(--t-s);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.11em;
   color: var(--text-aus);
 }
 
@@ -3055,8 +3638,13 @@ input[type='file']::file-selector-button:hover {
 
    Blass statt unsichtbar: was erst beim Überfahren erscheint, findet nur, wer schon
    weiß, dass es da ist. */
+/* Steht in derselben Zeile wie das Datum und muss deshalb auch auf dessen Höhe sitzen -
+   .mail-meta zentriert seine Kinder, und der Knopf rutschte dadurch auf die Zeile mit
+   der Adresse, wo er zwischen zwei Angaben stand, mit denen er nichts zu tun hat. */
 .zum-adressbuch {
   flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 4px;
   font-size: var(--t-s);
   opacity: 0.5;
   transition: opacity var(--weich);
@@ -3085,12 +3673,15 @@ input[type='file']::file-selector-button:hover {
   flex: none;
 }
 
+/* Auf derselben Linie wie Absender und Empfänger, also eingerückt um das Monogramm -
+   sonst beginnt unter der Textspalte plötzlich wieder etwas am linken Rand. */
 .mail-etiketten {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--a-2);
   margin-top: var(--a-2);
+  padding-left: calc(38px + var(--a-4));
 }
 
 .etikett-marken {
@@ -3214,12 +3805,13 @@ input[type='file']::file-selector-button:hover {
 }
 
 .sidebar-abschnitt {
-  padding: var(--a-2) 10px;
-  font-size: var(--t-xs);
+  padding: var(--a-2) 10px var(--a-1) var(--a-4);
+  font-family: var(--sf-marke);
+  font-size: var(--t-s);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--text-aus);
 }
 
 .gemerkte-suche {
@@ -3264,21 +3856,16 @@ input[type='file']::file-selector-button:hover {
 /* Die Zeile für den Posteingang aller Konten. Steht über den Konten und gehört zu
    keinem - deshalb etwas kräftiger und mit einer Trennung darunter. */
 .gesamt-zeile {
-  margin: 0 var(--a-2) var(--a-2);
+  margin: var(--a-2) var(--a-3) var(--a-3) var(--a-4);
   /* Sie bringt eigene seitliche Abstaende mit; die 100 % von .folder-row kaemen oben
      drauf und schoeben die Leiste um zwoelf Pixel hinaus. */
-  width: calc(100% - 2 * var(--a-2));
+  width: calc(100% - var(--a-3) - var(--a-4));
   /* Der durchsichtige Rand von .folder-row erzeugt hier nur eine Luecke - dieser
      Kasten ist rundum abgesetzt, nicht rechts angeschnitten. */
   border-right-width: 0;
   padding-left: 10px;
-  border-bottom: 1px solid var(--rand-fein);
-  border-radius: var(--r-1);
+  border-radius: var(--r-2);
   font-weight: 500;
-}
-
-.gesamt-zeile.active {
-  background: var(--auswahl);
 }
 
 /* --- Einladungen -------------------------------------------------------------
@@ -3685,6 +4272,18 @@ input[type='file']::file-selector-button:hover {
   padding-bottom: var(--zeilen-luft);
 }
 
+/*
+ * Bei enger Anzeige verschwindet das Monogramm.
+ *
+ * Wer "eng" wählt, will möglichst viele Zeilen auf dem Bildschirm - und ein Kreis von
+ * 27 Pixeln gibt der Zeile eine Mindesthöhe, die genau das verhindert. Die Farbe fehlt
+ * dann, aber der Zweck der engen Anzeige ist ein anderer; die Wahl liegt beim Nutzer,
+ * und in den beiden übrigen Dichten ist das Monogramm da.
+ */
+.message-pane.dichte-eng .row-monogramm {
+  display: none;
+}
+
 /* Bei enger Anzeige rückt der Betreff neben den Absender statt darunter - das ist der
    eigentliche Gewinn, nicht die paar Pixel Rand. */
 .message-pane.dichte-eng .row-body {
@@ -3942,10 +4541,39 @@ input[type='file']::file-selector-button:hover {
    Prozent hat denselben Effekt und ist auf Laptops die Regel. */
 
 /* Unter 1150px gibt zuerst die Nachrichtenliste nach - sie hat den festen Anteil, der
-   am ehesten entbehrlich ist. */
+   am ehesten entbehrlich ist. Zugleich wird die Luft um das Blatt eingezogen: sie ist
+   Gestaltung, der Platz für einen Betreff ist es nicht. */
 @media (max-width: 1149px) {
   .app {
     grid-template-columns: 216px minmax(280px, 340px) minmax(0, 1fr);
+    padding: 0;
+  }
+
+  .message-pane,
+  .reader-pane {
+    border-radius: 0;
+    border-top: 0;
+    border-bottom: 0;
+    box-shadow: none;
+  }
+
+  .message-pane {
+    border-left: 0;
+  }
+
+  .reader-pane {
+    border-right: 0;
+  }
+
+  /* Ohne das schwebende Blatt braucht die Seitenleiste wieder eine eigene Fläche -
+     sonst stünde sie randlos neben der Liste und beides liefe ineinander. */
+  .sidebar {
+    background: var(--flaeche-leise);
+    border-right: 1px solid var(--rand);
+  }
+
+  .reader {
+    padding: var(--a-6) var(--a-6) var(--a-7);
   }
 }
 
@@ -3968,6 +4596,10 @@ input[type='file']::file-selector-button:hover {
 
   .reader-pane {
     grid-column: 2;
+  }
+
+  .mail-head h2 {
+    font-size: var(--t-3xl);
   }
 }
 
@@ -3996,6 +4628,17 @@ input[type='file']::file-selector-button:hover {
   .app:has(.reader .mail-head) .message-pane {
     display: none;
   }
+
+  .reader {
+    padding: var(--a-5);
+  }
+
+  /* Auf einem schmalen Fenster ist die Einrückung um das Monogramm herum teurer als
+     die Ausrichtung wert ist - die Empfängerliste braucht die Breite. */
+  .mail-to,
+  .mail-etiketten {
+    padding-left: 0;
+  }
 }
 
 /* --- Anmeldung -------------------------------------------------------------
@@ -4006,51 +4649,97 @@ input[type='file']::file-selector-button:hover {
  * Bewusst karg: wer hier steht, will an seine Post und nichts entdecken.
  */
 .anmeldung {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
   padding: var(--a-5);
   background: var(--grund);
+  overflow: hidden;
+}
+
+/*
+ * Zwei sehr weiche Lichtscheine hinter der Karte, in den beiden Farben der Marke.
+ *
+ * Die einzige Stelle in der ganzen Anwendung, an der es Schmuck ohne Aufgabe gibt - und
+ * die einzige, an der er hingehört: dies ist eine leere Seite mit einem Formular darauf,
+ * das Erste, was jemand von der Anwendung im Browser zu sehen bekommt, und es gibt hier
+ * keinen Inhalt, dem der Schmuck die Aufmerksamkeit wegnehmen könnte. Zwei Flecken, sehr
+ * groß, sehr blass, unbewegt - sobald so etwas leuchtet oder wandert, sieht es nach
+ * Startseite aus und nicht nach Posteingang.
+ */
+.anmeldung::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(
+      42vmax 42vmax at 28% 22%,
+      color-mix(in srgb, var(--marke-rein) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      34vmax 34vmax at 76% 82%,
+      color-mix(in srgb, var(--blitz-rein) 20%, transparent),
+      transparent 70%
+    );
+  pointer-events: none;
 }
 
 .anmeldung-karte {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--a-2);
   width: 100%;
-  max-width: 340px;
+  max-width: 356px;
   padding: var(--a-7);
   border: 1px solid var(--rand);
-  border-radius: var(--r-3);
+  border-radius: var(--r-4);
   background: var(--flaeche);
-  box-shadow: var(--schatten-1);
+  box-shadow: var(--glanz), var(--schatten-3);
 }
 
 .anmeldung-marke {
   display: flex;
   align-items: center;
-  gap: var(--a-3);
-  margin-bottom: var(--a-5);
+  gap: var(--a-4);
+  margin-bottom: var(--a-6);
 }
 
+/* Dasselbe Wortzeichen wie in der Titelleiste, nur größer: gesperrte Versalien in der
+   schmalen Schrift der Marke. Siehe .marke-wort. */
 .anmeldung-marke h1 {
   margin: 0;
-  font-size: var(--t-2xl);
+  font-family: var(--sf-marke);
+  font-size: var(--t-xl);
   font-weight: 600;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.anmeldung-marke h1 span {
+  color: var(--text-3);
 }
 
 .anmeldung-karte label {
-  margin-top: var(--a-3);
-  font-size: var(--t-m);
-  color: var(--text-2);
+  margin-top: var(--a-4);
+  font-family: var(--sf-marke);
+  font-size: var(--t-s);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
 .anmeldung-karte input {
-  padding: var(--a-3) var(--a-4);
+  margin-top: var(--a-1);
+  padding: var(--a-4) var(--a-4);
   font-size: var(--t-l);
   border: 1px solid var(--rand);
-  border-radius: var(--r-1);
+  border-radius: var(--r-2);
   background: var(--flaeche-leise);
   color: var(--text);
 }
@@ -4059,22 +4748,25 @@ input[type='file']::file-selector-button:hover {
   margin: var(--a-4) 0 0;
   padding: var(--a-3) var(--a-4);
   font-size: var(--t-m);
+  line-height: 1.5;
   border: 1px solid var(--fehler-rand);
+  border-left: 3px solid var(--fehler);
   border-radius: var(--r-1);
   background: var(--fehler-grund);
   color: var(--fehler);
 }
 
 .anmeldung-knopf {
-  margin-top: var(--a-5);
-  padding: 10px;
+  margin-top: var(--a-6);
+  padding: 11px;
   font-size: var(--t-n);
   font-weight: 600;
 }
 
 .anmeldung-fussnote {
-  margin: var(--a-5) 0 0;
+  margin: var(--a-6) 0 0;
   font-size: var(--t-s);
+  line-height: 1.55;
   color: var(--text-3);
   text-align: center;
 }

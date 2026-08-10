@@ -13,8 +13,9 @@ import {
 } from '../sortierung.js';
 import { FRACHT_ART, alsFracht, frachtFuer, ziehtext } from '../ziehen.js';
 import { EtikettMarken } from './Etiketten.js';
+import { Monogramm } from './Monogramm.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
-import { LeererKorb } from './Symbole.js';
+import { Klammer, LeererKorb, Winkel } from './Symbole.js';
 
 // Weitergereicht, damit Aufrufer den Typ nicht aus zwei Modulen holen müssen.
 export type { Listeneintrag };
@@ -222,12 +223,13 @@ const MessageRow = memo(function MessageRow({
           onChange={(e) => onToggleChecked(message.uid, e.target.checked)}
         />
       )}
+      <Monogramm name={message.from[0]?.name} adresse={message.from[0]?.address} />
       <div className="row-body">
         <div className="row-top">
           <span className="row-sender">{absender(message)}</span>
           {message.hasAttachments && (
             <span className="row-clip" title="Enthält Anhänge">
-              📎
+              <Klammer groesse={13} />
             </span>
           )}
           <span className="row-date">{kurzesDatum(message.date)}</span>
@@ -402,8 +404,14 @@ export function MessageList({
               umschalten(gruppe.id);
             }}
           >
-            {aufgeklappt ? '▾' : '▸'}
+            <Winkel groesse={12} />
           </button>
+          {/* Das Monogramm der neuesten Nachricht steht für das Gespräch: es ist die,
+              die man beim Anklicken bekommt, und die, deren Betreff daneben steht. */}
+          <Monogramm
+            name={gruppe.neueste.from[0]?.name}
+            adresse={gruppe.neueste.from[0]?.address}
+          />
           <div className="row-body">
             <div className="row-top">
               <span className="row-sender">{gruppe.beteiligte.join(', ')}</span>
@@ -412,7 +420,7 @@ export function MessageList({
               </span>
               {gruppe.mitAnhang && (
                 <span className="row-clip" title="Enthält Anhänge">
-                  📎
+                  <Klammer groesse={13} />
                 </span>
               )}
               <span className="row-date">{kurzesDatum(gruppe.neueste.date)}</span>

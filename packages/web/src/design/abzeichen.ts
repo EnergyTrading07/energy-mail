@@ -28,10 +28,17 @@ export function zeichneAbzeichen(anzahl: number): string | null {
   const stift = flaeche.getContext('2d');
   if (!stift) return null;
 
-  // Die Farben aus dem Wertevorrat holen statt sie hier zu wiederholen - so folgt das
-  // Abzeichen der hellen wie der dunklen Ansicht ohne zweite Festlegung.
+  /*
+   * Die Farben aus dem Wertevorrat holen statt sie hier zu wiederholen - so folgt das
+   * Abzeichen der hellen wie der dunklen Ansicht ohne zweite Festlegung.
+   *
+   * Bernstein und nicht Blau: es ist eine Zahl, die Ungelesenes zählt, und damit
+   * Ladung und keine Handlung - die Regel dazu steht in tokens.css. Sie gilt hier
+   * doppelt, denn dieses Bild sitzt auf der Taskleiste zwischen lauter blauen
+   * Programmsymbolen, und ein blauer Punkt auf einem blauen Symbol ist keiner.
+   */
   const stil = getComputedStyle(document.documentElement);
-  const grund = stil.getPropertyValue('--marke').trim() || '#2f5fd8';
+  const grund = stil.getPropertyValue('--blitz-rein').trim() || '#ffb225';
 
   stift.beginPath();
   stift.arc(KANTE / 2, KANTE / 2, KANTE / 2, 0, Math.PI * 2);
@@ -40,8 +47,9 @@ export function zeichneAbzeichen(anzahl: number): string | null {
 
   const text = anzahl > HOECHSTZAHL ? '99+' : String(anzahl);
   // Dreistellig wird es eng - dann etwas schmaler setzen, statt über den Rand zu laufen.
-  stift.font = `600 ${text.length > 2 ? 15 : 19}px "Segoe UI Variable Text", "Segoe UI", sans-serif`;
-  stift.fillStyle = '#ffffff';
+  stift.font = `700 ${text.length > 2 ? 15 : 19}px "Segoe UI Variable Text", "Segoe UI", sans-serif`;
+  // Dunkle Schrift: auf dem hellen Gelb kommt Weiß auf 1.4:1 und ist unlesbar.
+  stift.fillStyle = '#26200f';
   stift.textAlign = 'center';
   stift.textBaseline = 'middle';
   // Ein Pixel tiefer: Ziffern sitzen optisch sonst zu hoch im Kreis.
