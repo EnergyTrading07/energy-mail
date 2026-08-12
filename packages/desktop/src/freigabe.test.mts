@@ -174,5 +174,25 @@ await pruefe('ein eingetragener Schluessel ist ein brauchbarer Ed25519-Schluesse
   assert.equal(geladen.asymmetricKeyType, 'ed25519');
 });
 
+await pruefe('und er ist sauber abgeschrieben', () => {
+  if (!schluesselHinterlegt()) return;
+  /*
+   * Genau das ist beim ersten Eintragen passiert: aus der Ausgabe kam ein "=" zu viel
+   * mit, 61 Zeichen statt 60. Node dekodiert das klaglos - der Schluessel WAR richtig,
+   * und alles funktionierte. Auffallen wuerde es erst, wenn irgendwann ein strengerer
+   * Dekodierer davorsteht oder jemand den Wert mit einem anderswo erzeugten vergleicht.
+   *
+   * Ein Schluessel wird selten eingetragen, und jedes Mal von Hand. Diese Zeile kostet
+   * nichts und faengt den Abschreibfehler beim naechsten Mal.
+   */
+  const roh = Buffer.from(OEFFENTLICHER_SCHLUESSEL, 'base64');
+  assert.equal(roh.length, 44, 'ein Ed25519-Schluessel in SPKI-Form hat 44 Bytes');
+  assert.equal(
+    roh.toString('base64'),
+    OEFFENTLICHER_SCHLUESSEL,
+    'die Zeichenkette ist nicht die kanonische Base64-Form - vermutlich ein Zeichen zu viel',
+  );
+});
+
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);
 if (ok !== gesamt) process.exit(1);

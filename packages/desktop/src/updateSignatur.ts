@@ -67,7 +67,7 @@ import fs from 'node:fs';
  * er gesichert. scripts/schluessel-erzeugen.mjs sagt das beim Anlegen noch einmal.
  */
 export const OEFFENTLICHER_SCHLUESSEL =
-  'MCowBQYDK2VwAyEAPLATZHALTER0000000000000000000000000000000000=';
+  'MCowBQYDK2VwAyEA/L+aguonIPMoA/zrjqrrKpRiDg+le8XKVd0S+u535GU=';
 
 /**
  * Ob überhaupt ein Schlüssel hinterlegt ist.
