@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { leseAutoconfig } from './autoconfig.js';
+import { findeEinstellungen, istBrauchbarerHostname, leseAutoconfig } from './autoconfig.js';
 
 let ok = 0;
 let gesamt = 0;
@@ -114,6 +114,59 @@ pruefe('Grossschreibung in den Elementnamen stoert nicht', () => {
   const e = leseAutoconfig(gross, 'anbieterdatenbank');
   assert.equal(e?.imapSecure, true);
 });
+
+console.log('\nWohin die Suche greifen darf:');
+
+/*
+ * Die Domain kommt aus dem, was jemand ins Adressfeld tippt, und wird in eine Adresse
+ * eingesetzt, die der Server dann abruft. Ungeprüft war das ein Weg, den Server im
+ * fremden Auftrag im eigenen Netz anklopfen zu lassen - "a@127.0.0.1:9200/x?" genügte.
+ */
+pruefe('was kein Rechnername ist, wird abgewiesen', () => {
+  for (const boese of [
+    '127.0.0.1',
+    '127.0.0.1:9200',
+    '169.254.169.254',
+    'localhost',
+    '[::1]',
+    'beispiel.de:8080',
+    'beispiel.de/../..',
+    'name@beispiel.de',
+    'beispiel .de',
+    '-start.de',
+    'ende-.de',
+    'ohnepunkt',
+    '',
+  ]) {
+    assert.equal(istBrauchbarerHostname(boese), false, `"${boese}" hätte gelten sollen`);
+  }
+});
+
+pruefe('gewöhnliche Domains gelten weiter', () => {
+  for (const gut of ['gmx.de', 'mail.beispiel.de', 'a-b.co.uk', 'xn--mnchen-3ya.de', 'x1.y2.zz']) {
+    assert.equal(istBrauchbarerHostname(gut), true, `"${gut}" hätte gelten müssen`);
+  }
+});
+
+await (async () => {
+  gesamt++;
+  const name = 'eine unbrauchbare Domain löst gar keinen Abruf aus';
+  try {
+    /*
+     * Ohne Netz und ohne Zeitüberschreitung: die Prüfung greift, bevor irgendetwas
+     * abgerufen wird. Käme hier ein Abruf zustande, liefe diese Prüfung in die
+     * Dreisekundenfrist - der Fehlschlag wäre also auch an der Dauer zu sehen.
+     */
+    const begonnen = Date.now();
+    assert.equal(await findeEinstellungen('wer@127.0.0.1:9200'), null);
+    assert.equal(await findeEinstellungen('wer@169.254.169.254'), null);
+    assert.ok(Date.now() - begonnen < 500, 'es wurde doch etwas abgerufen');
+    console.log(`  ok   ${name}`);
+    ok++;
+  } catch (err) {
+    console.log(`  FEHL ${name}\n       ${(err as Error).message}`);
+  }
+})();
 
 console.log(`\n${ok} von ${gesamt} Prüfungen bestanden`);
 if (ok !== gesamt) process.exit(1);

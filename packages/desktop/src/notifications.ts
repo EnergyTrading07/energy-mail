@@ -64,14 +64,22 @@ function zeigeNachricht(fenster: BrowserWindow, accountId: string, folder: strin
   );
 }
 
-export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | null): () => void {
+/**
+ * @param nutzerId Wessen Eingänge gemeldet werden. In der Hülle immer der
+ *   Einplatznutzer - der Ereignisstrom ist seit der Trennung je Nutzer geführt, und wer
+ *   zuhören will, muss sagen, wem er zuhört.
+ */
+export function starteBenachrichtigungen(
+  nutzerId: string,
+  fensterHolen: () => BrowserWindow | null,
+): () => void {
   if (!Notification.isSupported()) {
     console.warn('Benachrichtigungen: vom System nicht unterstützt.');
     return () => {};
   }
   console.log('Benachrichtigungen: aktiv.');
 
-  return subscribe((event: MailEvent) => {
+  return subscribe(nutzerId, (event: MailEvent) => {
     if (event.type !== 'new-mail') return;
     // Seit auch angesehene Ordner überwacht werden, treffen hier Eingänge aus Gesendet
     // oder Entwürfe ein. Eine Meldung über die eigene, gerade abgeschickte Nachricht

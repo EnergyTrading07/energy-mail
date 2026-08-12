@@ -123,6 +123,59 @@ erreichbar ist, musste der Server lernen, wessen Post er gerade in der Hand hat.
 - Electron-Sicherungen („Fuses“) gesetzt: die Anwendung lässt sich nicht mehr als
   beliebiger Node-Interpreter missbrauchen.
 
+### Sicherheit: die Durchsicht nach der Nutzertrennung
+
+Eine vollständige Prüfung von Oberfläche und Programm im Anschluss an den Umbau auf
+mehrere Nutzer. Der rote Faden: die Trennung war überall dort durchgezogen, wo Dateien im
+Spiel sind – und an den drei Stellen ohne Datei nicht.
+
+- **Fremde Post im eigenen Fenster.** Der Ereigniskanal führte einen einzigen,
+  prozessweiten Satz Zuhörer. Im Dienstbetrieb bekam damit der Browser jedes Angemeldeten
+  die Eingänge *aller* Nutzer gemeldet – mit Betreff, Absender und Empfänger, in dem
+  Augenblick, in dem sie eintrafen. Ereignisse gehen jetzt ausschließlich an den Nutzer,
+  dem sie gehören; eine eigene Prüfdatei hält das fest.
+- **Ein geöffneter Ordner beendete die Überwachung aller anderen.** Der Abgleich der
+  laufenden Postfachüberwachung ging über eine gemeinsame Liste, verglich sie aber immer
+  nur mit den Konten des gerade arbeitenden Nutzers – und stoppte alles Übrige. Nach dem
+  Serverstart hatte deshalb nur der letzte Nutzer der Reihe überhaupt eine Überwachung,
+  und im Betrieb genügte ein Klick auf einen Ordner, um sie den anderen abzudrehen.
+- **Das Programm stürzte bei jedem Aufwachen ab.** Nach dem Ruhezustand und nach dem
+  Entsperren des Bildschirms baut die Anwendung die Postfachüberwachung neu auf. Dieser
+  Weg lief ohne Nutzerzuordnung und brach deshalb mit einem Fehler ab, den niemand
+  auffing: es kam das Absturzfenster, und das Programm beendete sich. Dasselbe traf das
+  Herunterfahren – wartende Nachrichten gingen dabei nicht mehr hinaus und die Ablage
+  wurde nicht mehr geordnet geschlossen.
+- **Das Zugangsgeheimnis stand im Protokoll und in der Prozessliste.** Für den
+  Ereigniskanal lässt sich keine Kopfzeile setzen, also hing es an der Adresse – und die
+  schreibt der Server bei jeder Anfrage mit. Der Fehlerbericht, den das Programm zum
+  Verschicken anbietet, prüft vorher auf Geheimnisse und fand dieses nicht. Außerdem
+  wurde es dem Fenster als Startparameter mitgegeben, womit es in der Befehlszeile stand
+  und jeder andere Prozess desselben Benutzers es auslesen konnte. Beides ist behoben.
+- **Die Anbietersuche ließ sich auf das eigene Netz richten.** Aus dem, was jemand ins
+  Adressfeld tippte, wurde ohne Prüfung eine Adresse gebaut und abgerufen –
+  `wer@127.0.0.1:9200` genügte, um den Server im fremden Auftrag an interne Türen klopfen
+  zu lassen. Jetzt muss es ein echter Rechnername sein, der nicht ins eigene Netz zeigt;
+  Weiterleitungen werden einzeln nachgeprüft und die Antwort ist der Größe nach begrenzt.
+- **Ein Entwurf wird beim Öffnen gereinigt.** Antworten, Weiterleiten und Einfügen liefen
+  längst durch die Reinigung, das Öffnen eines Entwurfs nicht. Damit gingen beim
+  Weiterschreiben Bilder von fremden Servern hinaus – also Zählpixel –, und ein
+  Stilblock aus dem Entwurf galt im ganzen Verfassen-Fenster. Die selbst gesetzten Farben
+  bleiben dabei erhalten.
+- **Zählpixel in SVG werden erkannt.** `<svg><image href="…">` und `<use href="…">` laden
+  wie ein gewöhnliches Bild, wurden aber nicht zurückgehalten – und die Leiste meldete
+  dabei sogar, es sei nichts angehalten worden.
+- **Die Seite lässt sich nicht mehr in ein fremdes Fenster einbetten.** Die Anweisung
+  dafür stand in der Schutzrichtlinie der Seite, wo der Browser sie ausdrücklich
+  ignoriert – sie kommt jetzt als Kopfzeile vom Server. Dazu `nosniff` und eine
+  Verweisrichtlinie, und zwar aus der Anwendung selbst statt nur aus dem Vorbau.
+- Die CORS-Freigabe für den Entwicklungsserver hing daran, ob ein Bau geglückt war; ein
+  fehlender Ordner schaltete sie im Betrieb an. Sie wird jetzt ausdrücklich gesetzt.
+- Ein OAuth-Anmeldevorgang gehört jetzt dem Nutzer, der ihn begonnen hat, und die
+  Fehlerangabe des Anbieters wird nicht mehr ungeprüft in die Rückmeldeseite geschrieben.
+- Der Masterschlüssel des Dienstes wird bei neuen Aufstellungen mit deutlich stärkeren
+  Parametern abgeleitet. Bestehende behalten ihre – andere Werte ergäben einen anderen
+  Schlüssel und damit kein einziges lesbares Postfach mehr.
+
 ### Kein Datenverlust mehr
 
 - **Konten können nicht mehr verlorengehen.** `accounts.json` wurde bei jeder

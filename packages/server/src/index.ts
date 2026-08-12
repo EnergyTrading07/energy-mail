@@ -1,9 +1,16 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildServer } from './app.js';
 import { getWurzelDir, setDataDir } from './paths.js';
-import { createPassphraseKeyProvider, setKeyProvider } from './secretCrypto.js';
+import {
+  SCRYPT_ALTBESTAND,
+  SCRYPT_HEUTE,
+  createPassphraseKeyProvider,
+  setKeyProvider,
+  type ScryptParameter,
+} from './secretCrypto.js';
 import { masterSchluesselAusDatei } from './nutzer/einrichten.js';
 import { setzeOeffentlicheAdresse, setzeZugangsgeheimnis } from './zugang.js';
 
@@ -27,16 +34,70 @@ function configureEncryption(): void {
   const passphrase = process.env.ENERGY_MAIL_MASTER_KEY;
 
   if (passphrase) {
-    const saltFile = path.join(getWurzelDir(), 'salt.bin');
-    fs.mkdirSync(getWurzelDir(), { recursive: true, mode: 0o700 });
-    if (!fs.existsSync(saltFile)) {
+    const wurzel = getWurzelDir();
+    const saltFile = path.join(wurzel, 'salt.bin');
+    /**
+     * Womit aus dem Passwort der Schlüssel gerechnet wird.
+     *
+     * Diese Datei ist der Grund, warum sich die Parameter überhaupt anheben lassen. Aus
+     * dem Passwort entsteht der Schlüssel, mit dem sämtliche Zugangsdaten verschlüsselt
+     * sind; andere Parameter ergeben einen anderen Schlüssel. Sie einfach zu erhöhen
+     * hiesse, jede bestehende Aufstellung von ihren Postfächern abzuschneiden - und
+     * zwar beim Start nach einer Aktualisierung, ohne erkennbaren Grund.
+     *
+     * Also steht hier, was für DIESE Aufstellung gilt. Wer sie neu anlegt, bekommt die
+     * heutigen Werte; wer schon ein salt.bin ohne diese Datei hat, behält die alten.
+     */
+    const kdfFile = path.join(wurzel, 'master-kdf.json');
+    fs.mkdirSync(wurzel, { recursive: true, mode: 0o700 });
+
+    const bestand = fs.existsSync(saltFile);
+    if (!bestand) {
       fs.writeFileSync(saltFile, crypto.randomBytes(16), { mode: 0o600 });
+      fs.writeFileSync(kdfFile, JSON.stringify(SCRYPT_HEUTE, null, 2), { mode: 0o600 });
     }
-    setKeyProvider(createPassphraseKeyProvider(passphrase, fs.readFileSync(saltFile)));
+
+    let parameter = SCRYPT_ALTBESTAND;
+    if (fs.existsSync(kdfFile)) {
+      try {
+        const gelesen = JSON.parse(fs.readFileSync(kdfFile, 'utf-8')) as Partial<ScryptParameter>;
+        if (
+          Number.isInteger(gelesen.N) &&
+          Number.isInteger(gelesen.r) &&
+          Number.isInteger(gelesen.p)
+        ) {
+          parameter = gelesen as ScryptParameter;
+        } else {
+          console.error(`[energy-mail] ${kdfFile} ist unbrauchbar - Abbruch statt Rateversuch.`);
+          process.exit(1);
+        }
+      } catch (err) {
+        /*
+         * Nicht auf den Altbestand zurückfallen.
+         *
+         * Ein unlesbares kdfFile heisst NICHT "dann eben die alten Werte": stammt die
+         * Aufstellung aus der neuen Welt, ergäbe das einen falschen Schlüssel und damit
+         * die Meldung "Zugangsdaten konnten nicht entschlüsselt werden" - eine
+         * Fehlersuche, die in die völlig falsche Richtung führt. Lieber laut abbrechen.
+         */
+        console.error(`[energy-mail] ${kdfFile} nicht lesbar: ${(err as Error).message}`);
+        process.exit(1);
+      }
+    }
+
+    setKeyProvider(createPassphraseKeyProvider(passphrase, fs.readFileSync(saltFile), parameter));
     console.warn(
       '[energy-mail] Masterschlüssel aus ENERGY_MAIL_MASTER_KEY. Eine Schlüsseldatei ' +
         'wäre sicherer - die Variable ist in der Prozessumgebung ablesbar.',
     );
+    if (bestand && parameter === SCRYPT_ALTBESTAND) {
+      console.warn(
+        `[energy-mail] Der Masterschlüssel wird noch mit den alten scrypt-Werten (N=${SCRYPT_ALTBESTAND.N}) ` +
+          'abgeleitet. Auf die heutigen Werte zu wechseln hiesse, alle Geheimnisse neu zu ' +
+          'verschlüsseln - der sicherere Weg ist ohnehin die Schlüsseldatei ' +
+          '(ENERGY_MAIL_MASTER_KEY einfach weglassen, siehe README).',
+      );
+    }
     return;
   }
 
@@ -175,7 +236,30 @@ function proxyVertrauen(): boolean | number | string {
   return wert;
 }
 
-const app = await buildServer({ port, proxyVertrauen: proxyVertrauen() });
+/**
+ * Der Entwicklungsbetrieb - und nur er - darf den Vite-Server auf 5173 hereinlassen.
+ *
+ * Zwei Bedingungen, beide nötig: NODE_ENV sagt, dass hier nicht produktiv gearbeitet
+ * wird (der Container setzt es auf "production"), und es gibt tatsächlich kein gebautes
+ * Frontend. Vorher genügte die zweite allein, womit ein misslungener Bau im Betrieb die
+ * CORS-Erlaubnis anschaltete.
+ */
+const webDist = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'web',
+  'dist',
+);
+const viteErlauben = process.env.NODE_ENV !== 'production' && !fs.existsSync(webDist);
+if (viteErlauben) {
+  console.warn(
+    '[energy-mail] Entwicklungsbetrieb: der Vite-Server auf 5173 darf zugreifen (CORS). ' +
+      'Für den Betrieb NODE_ENV=production setzen.',
+  );
+}
+
+const app = await buildServer({ port, proxyVertrauen: proxyVertrauen(), viteErlauben });
 
 app
   .listen({ port, host })

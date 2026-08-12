@@ -42,14 +42,23 @@ const FASSUNG =
   process.argv.find((a) => a.startsWith('--energy-mail-fassung='))?.split('=')[1] ?? '';
 
 /**
- * Das Zugangsgeheimnis des lokalen Servers, auf demselben Weg hereingereicht.
+ * Das Zugangsgeheimnis des lokalen Servers.
  *
  * Ohne es beantwortet der Server keine Anfrage (siehe server/src/zugang.ts). Es steht
  * bewusst nur hier und in der Hülle - nicht in einer Datei, nicht in localStorage, und
  * es überdauert den Programmlauf nicht.
+ *
+ * Anders als die Fassung darüber kommt es NICHT über einen Startparameter. Das war der
+ * bequeme Weg und ein schlechter: additionalArguments stehen in der Befehlszeile des
+ * Anzeigeprozesses, und die liest unter Windows jeder Prozess desselben Benutzers mit.
+ * Damit lag der Schlüssel zum gesamten Postfach für jedes andere Programm auf dem
+ * Rechner offen - während zugang.ts genau diesen Fall als den beschreibt, gegen den das
+ * Geheimnis schützen soll.
+ *
+ * sendSync und nicht invoke: der Wert muss stehen, bevor die Oberfläche ihre erste
+ * Anfrage stellt. Ein Versprechen wäre hier zu spät.
  */
-const ZUGANG =
-  process.argv.find((a) => a.startsWith('--energy-mail-zugang='))?.split('=')[1] ?? '';
+const ZUGANG = (ipcRenderer.sendSync('zugang:holen') as string | undefined) ?? '';
 
 contextBridge.exposeInMainWorld('energyMail', {
   fassung: FASSUNG,

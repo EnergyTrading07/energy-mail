@@ -138,10 +138,51 @@ export function decryptSecret(payload: string): string {
   return entschluesselMitMaster(payload);
 }
 
-/** Leitet einen Schlüssel aus einem Master-Passwort ab (nur Standalone-Server). */
-export function createPassphraseKeyProvider(passphrase: string, salt: Buffer): KeyProvider {
+export interface ScryptParameter {
+  N: number;
+  r: number;
+  p: number;
+}
+
+/**
+ * Womit NEUE Ableitungen gerechnet werden.
+ *
+ * N = 2^17 sind rund 128 MB und gut eine Sekunde - einmal beim Start des Prozesses, denn
+ * das Ergebnis wird zwischengespeichert (siehe requireKey). Bei den Anmeldekennwörtern
+ * steht bewusst der kleinere Wert 2^16: die werden bei JEDER Anmeldung gerechnet, hier
+ * einmal je Serverlauf. Was man sich einmal leisten kann, soll man sich leisten.
+ */
+export const SCRYPT_HEUTE: ScryptParameter = { N: 2 ** 17, r: 8, p: 1 };
+
+/**
+ * Was Node ohne Angabe nimmt - und was deshalb bis hierher galt.
+ *
+ * Bleibt als Rückfallweg bestehen, und das ist keine Bequemlichkeit: aus dem
+ * Master-Passwort wird der Schlüssel abgeleitet, mit dem sämtliche Zugangsdaten
+ * verschlüsselt sind. Andere Parameter ergeben einen anderen Schlüssel - eine
+ * bestehende Aufstellung käme nach der Änderung an kein einziges Postfach mehr, und
+ * zwar ohne dass man den Grund ansähe. Welche Werte gelten, entscheidet deshalb die
+ * Aufstellung selbst und nicht die Fassung des Programms (siehe index.ts).
+ */
+export const SCRYPT_ALTBESTAND: ScryptParameter = { N: 2 ** 14, r: 8, p: 1 };
+
+/** scrypt braucht ausdrücklich Erlaubnis für den Speicher, den es anfordert. */
+const MAXMEM = 512 * 1024 * 1024;
+
+/**
+ * Leitet einen Schlüssel aus einem Master-Passwort ab (nur Standalone-Server).
+ *
+ * Die Parameter kommen von außen und haben als Voreinstellung den Altbestand. Bewusst
+ * herum: wer diese Funktion ohne Angabe ruft, meint eine bestehende Aufstellung, und
+ * für die wäre ein stillschweigend stärkerer Wert der Verlust aller Zugangsdaten.
+ */
+export function createPassphraseKeyProvider(
+  passphrase: string,
+  salt: Buffer,
+  parameter: ScryptParameter = SCRYPT_ALTBESTAND,
+): KeyProvider {
   return {
-    name: 'Master-Passwort (ENERGY_MAIL_MASTER_KEY)',
-    getKey: () => crypto.scryptSync(passphrase, salt, 32),
+    name: `Master-Passwort (ENERGY_MAIL_MASTER_KEY, scrypt N=${parameter.N})`,
+    getKey: () => crypto.scryptSync(passphrase, salt, 32, { ...parameter, maxmem: MAXMEM }),
   };
 }

@@ -13,17 +13,35 @@
  */
 
 /** Attribute, über die ein Element von sich aus etwas nachlädt. */
-const LADENDE_ATTRIBUTE = ['src', 'srcset', 'poster', 'background', 'data', 'href'] as const;
+const LADENDE_ATTRIBUTE = [
+  'src',
+  'srcset',
+  'poster',
+  'background',
+  'data',
+  'href',
+  /*
+   * Die alte Schreibweise innerhalb von SVG. <image xlink:href="..."> lädt genauso wie
+   * ein gewöhnliches <img src="...">, und Programme schreiben sie bis heute.
+   */
+  'xlink:href',
+] as const;
 
 /**
  * Nur diese Elemente laden über "href" tatsächlich etwas nach. Ein gewöhnlicher Verweis
  * im Text tut das nicht - der würde nur beim Anklicken folgen, und dann will der Leser
  * es auch.
+ *
+ * Die beiden SVG-Elemente standen hier nicht, und das war eine Lücke: <svg><image
+ * href="https://verfolger/pixel.png"> lädt beim bloßen Öffnen der Nachricht, ganz ohne
+ * <img>. Dasselbe gilt für <use href="..."> auf eine fremde Datei. Die Leiste meldete
+ * dabei "nichts zurückgehalten" - der Zählpixel ging durch, und der Nutzer bekam sogar
+ * die Zusicherung, dass nichts passiert sei.
+ *
+ * Kleingeschrieben, weil tagName bei SVG-Elementen die Schreibweise aus dem Quelltext
+ * behält: bei HTML-Elementen kommt "IMAGE", bei SVG "image".
  */
-const HREF_LAEDT = new Set(['LINK']);
-
-/** Elemente ohne "src" oder "href", die trotzdem nachladen können. */
-const WEITERE = 'style, [style]';
+const HREF_LAEDT = new Set(['LINK', 'image', 'use', 'IMAGE', 'USE']);
 
 /**
  * Ist die Adresse eine, die nach draußen führt?
@@ -108,7 +126,9 @@ export function entschaerfeExterneInhalte(html: string): EntschaerftesErgebnis {
 
   for (const el of Array.from(doc.querySelectorAll('*'))) {
     for (const attribut of LADENDE_ATTRIBUTE) {
-      if (attribut === 'href' && !HREF_LAEDT.has(el.tagName)) continue;
+      if ((attribut === 'href' || attribut === 'xlink:href') && !HREF_LAEDT.has(el.tagName)) {
+        continue;
+      }
       const wert = el.getAttribute(attribut);
       if (!wert) continue;
 

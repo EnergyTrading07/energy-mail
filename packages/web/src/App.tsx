@@ -56,6 +56,7 @@ import { categoryLabel } from './gmailCategories.js';
 import { meldeErfolg, meldeFehler, meldeMitRueckweg, meldeWarnung } from './meldungen.js';
 import { providerTheme } from './providerTheme.js';
 import { escapeHtml, textToHtml } from './htmlText.js';
+import { raeumeEntwurfAuf } from './formatierung.js';
 import { useAktualisierung } from './useAktualisierung.js';
 import { useBefehle, type Befehl } from './useBefehle.js';
 import { useMailEvents } from './useMailEvents.js';
@@ -1665,6 +1666,16 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   /**
    * Öffnet eine Nachricht aus dem Entwürfe-Ordner zum Weiterschreiben. Anhänge bleiben
    * auf dem Server und werden beim Speichern oder Senden von dort übernommen.
+   *
+   * Der Inhalt wird gereinigt, bevor er in den Editor geht. Hier stand vorher
+   * `message.html` unverändert - der einzige Weg in den Editor, der das nicht tat:
+   * Antworten, Weiterleiten und Einfügen laufen alle durch raeumeZitatAuf bzw.
+   * raeumeEingefuegtesAuf. Ein Entwurf liegt aber im Postfach und nicht bei uns; was von
+   * dort zurückkommt, ist Fremdeingabe, auch wenn es der Nutzer selbst geschrieben hat.
+   * Ohne die Reinigung gingen Bilder von fremden Servern beim Öffnen hinaus - also
+   * genau der Zählpixelschutz, den composeHelpers für die Antwort schon einmal
+   * nachgezogen hat -, und ein <style>-Block aus dem Entwurf hätte im ganzen
+   * Verfassen-Fenster gegolten.
    */
   const handleEditDraft = (message: FullMessage) => {
     if (!selectedFolder) return;
@@ -1674,7 +1685,10 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
         to: message.to.map((a) => a.address),
         cc: message.cc.map((a) => a.address),
         subject: message.subject,
-        html: typeof message.html === 'string' ? message.html : textToHtml(message.text ?? ''),
+        html:
+          typeof message.html === 'string'
+            ? raeumeEntwurfAuf(message.html, document)
+            : textToHtml(message.text ?? ''),
         attachOriginal: originalAttachments(message, selectedFolder),
       },
       { folder: selectedFolder, uid: message.uid },

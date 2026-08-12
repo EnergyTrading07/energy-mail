@@ -52,6 +52,34 @@ const REGELN: { was: string; muster: RegExp; ersatz: string }[] = [
     muster: /\b(LOGIN|AUTHENTICATE)\s+\S+(\s+\S+)?/gi,
     ersatz: `$1 ${UNKENNTLICH}`,
   },
+  /*
+   * Das Zugangsgeheimnis des lokalen Servers - in beiden Formen, in denen es vorkommt.
+   *
+   * Es stand vorher ungeschützt im Protokoll, und zwar auf dem Weg, den niemand vermutet:
+   * die Oberfläche kann bei einem WebSocket keine Kopfzeile setzen und hängt es deshalb
+   * als "?zugang=..." an die Adresse (useMailEvents.ts). Fastify protokolliert von jeder
+   * Anfrage die Adresse mitsamt Abfrageteil - also landete das Geheimnis bei jedem
+   * Verbindungsaufbau im Klartext in der Datei.
+   *
+   * Schwerer als die Datei selbst wiegt der Fehlerbericht: diagnose.ts fragt vor dem
+   * Schreiben enthaeltGeheimnisse() und gibt den Bericht frei, wenn nichts gefunden wird.
+   * Ohne diese Regel lautete die Antwort "nichts gefunden" - und der Nutzer verschickte
+   * den Schlüssel zu seinem eigenen Postfachdienst im guten Glauben mit.
+   *
+   * Muss VOR der Mailadressen-Regel stehen, damit der Name der Kopfzeile erhalten
+   * bleibt: an "x-energy-mail-zugang: [entfernt]" sieht man beim Suchen noch, worum es
+   * ging.
+   */
+  {
+    was: 'Zugangsgeheimnis',
+    muster: /([?&]zugang=)[^&\s"'&]+/gi,
+    ersatz: `$1${UNKENNTLICH}`,
+  },
+  {
+    was: 'Zugangsgeheimnis',
+    muster: /("?x-energy-mail-zugang"?\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/gi,
+    ersatz: `$1${UNKENNTLICH}`,
+  },
   // Ein privater Schlüssel darf unter keinen Umständen mitgehen.
   {
     was: 'privater Schlüssel',

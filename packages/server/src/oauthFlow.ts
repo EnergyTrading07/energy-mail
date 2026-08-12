@@ -10,6 +10,7 @@ import {
   type TokenSet,
 } from '@energy-mail/mail-core';
 import { getOAuthClient } from './oauthStore.js';
+import { aktuellerNutzer } from './nutzer/kontext.js';
 
 /**
  * Führt die Anmeldung über einen kurzlebigen lokalen Rückkanal.
@@ -30,6 +31,17 @@ interface Flow {
   status: FlowStatus;
   server: http.Server;
   timeout: ReturnType<typeof setTimeout>;
+  /**
+   * Wem der Vorgang gehört.
+   *
+   * Die Vorgänge liegen in einer prozessweiten Ablage, weil der Zustandswert vom
+   * Anbieter zurückkommt und nicht aus einer Sitzung. Ohne diesen Vermerk könnte im
+   * Serverbetrieb jeder Angemeldete einen fremden Vorgang abfragen, wenn er dessen
+   * Zustandswert kennt - und bekäme damit die Zugangsmarken zu einem fremden Postfach
+   * in sein eigenes Konto gelegt. Der Wert ist zwar zufällig und kurzlebig, aber
+   * "schwer zu erraten" ist keine Zugangsprüfung.
+   */
+  nutzerId: string;
   /**
    * Gesetzt, wenn es sich um die Neuanmeldung eines bestehenden Kontos handelt. Dann
    * werden am Ende dessen Token ersetzt, statt ein zweites Konto anzulegen - Signatur,
@@ -91,7 +103,30 @@ const MARKENZEICHEN = (() => {
   );
 })();
 
-function antwortSeite(titel: string, text: string, art: 'gut' | 'fehler' = 'gut'): string {
+/**
+ * Macht aus einem Text etwas, das in HTML stehen darf.
+ *
+ * Nötig, weil einer der Texte unten nicht von uns stammt: bei einer abgelehnten
+ * Anmeldung wird die Fehlerangabe aus dem Abfrageteil der Rückleitung übernommen, und
+ * die bestimmt, wer die Adresse aufruft. Sie ging ungefiltert in die Seite. Der Weg
+ * dorthin ist eng - man muss den zufälligen Port und den Zustandswert kennen -, aber
+ * "schwer erreichbar" ist kein Grund, ungeprüfte Fremdeingabe in eine Seite zu
+ * schreiben. Zumal es ausgerechnet die Seite ist, auf der jemand gerade sein Kennwort
+ * bei Google eingegeben hat.
+ */
+function alsText(wert: string): string {
+  return wert
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function antwortSeite(rohTitel: string, rohText: string, art: 'gut' | 'fehler' = 'gut'): string {
+  const titel = alsText(rohTitel);
+  const text = alsText(rohText);
+
   const zeichen =
     art === 'gut'
       ? '<path d="M8 1.8a6.2 6.2 0 100 12.4A6.2 6.2 0 008 1.8z M5.3 8.2l2 2 3.4-3.9"/>'
@@ -207,6 +242,7 @@ export async function startOAuthFlow(
     status: { status: 'pending' },
     server,
     accountId,
+    nutzerId: aktuellerNutzer(),
     timeout: setTimeout(() => {
       beenden(flow, { status: 'error', error: 'Zeitüberschreitung – Anmeldung nicht abgeschlossen.' });
     }, FLOW_TIMEOUT_MS),
@@ -241,7 +277,9 @@ export async function startOAuthFlow(
       res.end(
         antwortSeite(
           'Anmeldung abgebrochen',
-          fehler ?? 'Es kam kein Autorisierungscode zurück.',
+          // Gekürzt und entschärft: die Angabe kommt aus der Adresse, nicht von uns.
+          // Anbieter melden hier Kürzel wie "access_denied", keine Aufsätze.
+          fehler ? fehler.slice(0, 200) : 'Es kam kein Autorisierungscode zurück.',
           'fehler',
         ),
       );
@@ -266,11 +304,24 @@ export async function startOAuthFlow(
   return { state: pending.state, authUrl: buildAuthUrl(credentials, pending) };
 }
 
+/**
+ * Der Vorgang zu einem Zustandswert - aber nur, wenn er dem Fragenden gehört.
+ *
+ * Ein fremder Vorgang wird behandelt, als gäbe es ihn nicht. Das ist Absicht: eine
+ * eigene Meldung ("gehört jemand anderem") verriete, dass der geratene Zustandswert
+ * getroffen hat.
+ */
+function eigenerFlow(state: string): Flow | null {
+  const flow = flows.get(state);
+  if (!flow) return null;
+  return flow.nutzerId === aktuellerNutzer() ? flow : null;
+}
+
 /** Status samt Anbieter - der Aufrufer kennt beim Abfragen nur den Zustandswert. */
 export function getFlow(
   state: string,
 ): { provider: OAuthProviderId; status: FlowStatus; accountId?: string } | null {
-  const flow = flows.get(state);
+  const flow = eigenerFlow(state);
   return flow
     ? { provider: flow.pending.provider, status: flow.status, accountId: flow.accountId }
     : null;
@@ -278,7 +329,7 @@ export function getFlow(
 
 /** Nach dem Abholen des Ergebnisses aufräumen - Token sollen nicht im Speicher liegen. */
 export function clearFlow(state: string): void {
-  const flow = flows.get(state);
+  const flow = eigenerFlow(state);
   if (flow) {
     clearTimeout(flow.timeout);
     flow.server.close();

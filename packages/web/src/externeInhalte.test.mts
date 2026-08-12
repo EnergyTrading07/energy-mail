@@ -209,5 +209,56 @@ pruefe('ein eingebettetes Ein-Pixel-Bild auch nicht', () => {
   assert.equal(enthaeltZaehlpixel('<img src="data:image/gif;base64,R0lGOD" width="1" height="1">'), false);
 });
 
+console.log('\nAuch der Weg durch SVG:');
+
+/** Laedt in dem Ergebnis noch irgendein Element von der angegebenen Stelle nach? */
+function laedtNoch(html: string, marke: string): boolean {
+  const doc = new fenster.DOMParser().parseFromString(html, 'text/html');
+  for (const el of Array.from(doc.querySelectorAll('*'))) {
+    for (const merkmal of Array.from(el.attributes)) {
+      // Was in "data-extern-*" geparkt ist, laedt nicht - es liegt dort, damit sich die
+      // Freigabe ohne erneuten Abruf umschalten laesst.
+      if (merkmal.name.startsWith('data-extern-')) continue;
+      if (merkmal.value.includes(marke)) return true;
+    }
+  }
+  return false;
+}
+
+pruefe('<svg><image href> ist ein Zaehlpixel wie jedes andere', () => {
+  /*
+   * Die Luecke: href galt nur fuer <link>, und SVG-Elemente heissen kleingeschrieben.
+   * Ein <image> in einem SVG lud damit beim blossen Oeffnen - waehrend die Leiste
+   * "nichts zurueckgehalten" meldete. Der Nutzer bekam also nicht nur den Abruf,
+   * sondern obendrein die Zusicherung, dass keiner stattgefunden habe.
+   */
+  const e = entschaerfeExterneInhalte('<svg><image href="https://verfolger.example/p.png"/></svg>');
+  assert.equal(laedtNoch(e.html, 'verfolger.example'), false, 'laedt weiterhin');
+  assert.equal(e.anzahl, 1, 'wurde nicht gezaehlt');
+});
+
+pruefe('auch in der alten Schreibweise mit xlink', () => {
+  const e = entschaerfeExterneInhalte(
+    '<svg><image xlink:href="https://verfolger.example/p.png"/></svg>',
+  );
+  assert.equal(laedtNoch(e.html, 'verfolger.example'), false, 'laedt weiterhin');
+  assert.equal(e.anzahl, 1, 'wurde nicht gezaehlt');
+});
+
+pruefe('und <use> auf eine fremde Datei', () => {
+  const e = entschaerfeExterneInhalte('<svg><use href="https://verfolger.example/s.svg#a"/></svg>');
+  assert.equal(laedtNoch(e.html, 'verfolger.example'), false, 'laedt weiterhin');
+  assert.equal(e.anzahl, 1, 'wurde nicht gezaehlt');
+});
+
+pruefe('ein gewoehnlicher Verweis bleibt anklickbar', () => {
+  // Die Grenze in die andere Richtung: ein <a href> laedt von sich aus nichts, es folgt
+  // erst beim Klick - und dann will der Leser es auch. Wer das mit abschaltet, nimmt
+  // jeder Nachricht ihre Links.
+  const e = entschaerfeExterneInhalte('<p><a href="https://firma.de/rechnung">Rechnung</a></p>');
+  assert.ok(e.html.includes('href="https://firma.de/rechnung"'), 'der Verweis ging verloren');
+  assert.equal(e.anzahl, 0);
+});
+
 console.log(`\n${ok} von ${gesamt} Prüfungen bestanden`);
 if (ok !== gesamt) process.exit(1);

@@ -64,6 +64,36 @@ pruefe('die IMAP-Anmeldung aus einem Mitschnitt', () => {
   raus('C: A001 LOGIN anna@gmx.de Hunter2', 'anna');
 });
 
+pruefe('das Zugangsgeheimnis aus der WebSocket-Adresse', () => {
+  /*
+   * Der Weg, den niemand vermutet: bei einem WebSocket laesst sich keine Kopfzeile
+   * setzen, also haengt die Oberflaeche das Geheimnis an die Adresse - und Fastify
+   * protokolliert von jeder Anfrage die Adresse samt Abfrageteil. Bei jedem
+   * Verbindungsaufbau stand der Schluessel zum eigenen Postfachdienst im Klartext in
+   * der Datei, die diagnose.ts zum Verschicken anbietet.
+   */
+  const geheim = '6f3a9c1d8e2b4a7f0c5d3e9b1a8f2c4d';
+  raus(`{"req":{"method":"GET","url":"/ws?zugang=${geheim}"}}`, geheim, '/ws?zugang=');
+  raus(`{"req":{"url":"/accounts?seite=2&zugang=${geheim}&art=neu"}}`, geheim, 'art=neu');
+});
+
+pruefe('das Zugangsgeheimnis aus der Kopfzeile', () => {
+  const geheim = '6f3a9c1d8e2b4a7f0c5d3e9b1a8f2c4d';
+  // Der Name der Kopfzeile bleibt stehen - daran sieht man beim Suchen noch, worum es ging.
+  raus(`x-energy-mail-zugang: ${geheim}`, geheim, 'x-energy-mail-zugang');
+  raus(`{"x-energy-mail-zugang":"${geheim}"}`, geheim, 'x-energy-mail-zugang');
+});
+
+pruefe('und der Bericht meldet es, statt ihn durchzuwinken', () => {
+  /*
+   * Der eigentliche Punkt. diagnose.ts fragt enthaeltGeheimnisse(), bevor es den Bericht
+   * schreibt - meldete das nichts, ging der Schluessel im guten Glauben mit hinaus.
+   */
+  const roh = '{"req":{"url":"/ws?zugang=6f3a9c1d8e2b4a7f0c5d3e9b1a8f2c4d"}}';
+  assert.deepEqual(enthaeltGeheimnisse(roh), ['Zugangsgeheimnis']);
+  assert.deepEqual(enthaeltGeheimnisse(saeubere(roh)), []);
+});
+
 pruefe('ein privater Schluessel, ueber viele Zeilen', () => {
   const text = [
     'Beim Entschluesseln gescheitert.',

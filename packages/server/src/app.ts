@@ -16,7 +16,7 @@ import { getWurzelDir } from './paths.js';
 import { alleNutzer, istGesperrt } from './nutzer/nutzerStore.js';
 import { KEKS_NAME, registriereAnmeldung } from './nutzer/anmelden.js';
 import { nutzerZurSitzung } from './nutzer/sitzung.js';
-import { alsNutzer } from './nutzer/kontext.js';
+import { aktuellerNutzer, alsNutzer } from './nutzer/kontext.js';
 import { registriereNutzerkontext, type NutzerErmitteln } from './nutzer/haken.js';
 import { ziehePerBestandUm } from './nutzer/umzug.js';
 import { richteUmschlagEin, stelleEinplatznutzerSicher } from './nutzer/einrichten.js';
@@ -278,10 +278,38 @@ export type ServerOptionen = {
    * Verwandte). `false` im Desktop-Betrieb - dort steht nichts davor. Siehe index.ts.
    */
   proxyVertrauen?: boolean | number | string;
+  /**
+   * Ob der Vite-Entwicklungsserver auf 5173 mitreden darf (CORS).
+   *
+   * Ausdrücklich vom Aufrufer und nicht mehr hier erraten. Vorher lautete die Bedingung
+   * "es gibt kein gebautes Frontend" - damit hing eine Sicherheitseinstellung daran, ob
+   * ein Bau geglückt ist. Ein halb durchgelaufenes `npm run build` im Betrieb oder ein
+   * falsch eingehängter Ordner im Container, und der Dienst nahm Anfragen mit
+   * Zugangsdaten von localhost:5173 entgegen. Die Desktop-Hülle setzt es nie: sie
+   * liefert die Oberfläche selbst aus.
+   */
+  viteErlauben?: boolean;
 };
 
 /** Der Nutzer, unter dem der Einplatzbetrieb läuft. */
 export const EINPLATZ_NUTZER = 'lokal';
+
+/**
+ * Führt etwas im Namen des Einplatznutzers aus - für die Desktop-Hülle.
+ *
+ * Sie ruft Speicher unmittelbar auf, außerhalb jeder HTTP-Anfrage: beim Beenden
+ * (Kontakte schreiben, Wartendes versenden) und nach dem Standby (Überwachung neu
+ * aufsetzen). Alle diese Wege gehen durch den Nutzerkontext, und ohne ihn werfen sie -
+ * was in der Hülle nicht als Fehlermeldung ankam, sondern als Absturzfenster beim
+ * Aufwachen und als stillschweigend übersprungenes Herunterfahren.
+ *
+ * Bewusst hier und nicht als roher alsNutzer()-Zugang: die Hülle hat genau einen
+ * Menschen und soll von der Nutzerverwaltung nichts wissen müssen. Sie sagt "das hier
+ * gehört dem Einplatznutzer" und nicht "dieser Ausführungsstrang gehört Kennung X".
+ */
+export function alsEinplatznutzer<T>(fn: () => T): T {
+  return alsNutzer(EINPLATZ_NUTZER, fn);
+}
 
 export async function buildServer(optionen: ServerOptionen = {}) {
   const port = optionen.port ?? 4000;
@@ -325,14 +353,58 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   });
 
   /*
+   * Sicherheitskopfzeilen - von der Anwendung selbst, nicht vom Vorbau.
+   *
+   * Bisher gab es sie nur im Caddyfile. Das genügt nicht, und zwar aus zwei Gründen:
+   * der Desktop-Betrieb hat gar keinen Vorbau, und wer statt Caddy einen nginx
+   * davorstellt (der eingespielte Weg auf dem Zielrechner), muss die Liste von Hand
+   * nachbauen - eine vergessene Zeile fällt niemandem auf.
+   *
+   * frame-ancestors ist der Anlass. Es steht zwar in der Richtlinie in index.html, aber
+   * dort ist es WIRKUNGSLOS: der Browser ignoriert frame-ancestors, report-uri und
+   * sandbox, wenn die Richtlinie aus einem <meta>-Element stammt - sie müssen über eine
+   * Kopfzeile kommen. Die Anwendung glaubte sich also gegen das Einbetten in eine fremde
+   * Seite geschützt und war es nicht.
+   *
+   * Bewusst nur diese eine Richtlinien-Anweisung und nicht die ganze Richtlinie doppelt:
+   * mehrere Richtlinien gelten nebeneinander, jede für sich. Eine zweite vollständige
+   * Fassung hier hieße, sie bei jeder Änderung an zwei Stellen nachzuziehen - und die
+   * strengere von beiden gewänne still.
+   *
+   * HSTS steht bewusst NICHT hier: der Server spricht http, die Verschlüsselung endet am
+   * Vorbau. Wer sie von hier aus verspräche, verspräche etwas, das er nicht hält.
+   */
+  app.addHook('onSend', async (_request, reply) => {
+    // Diese Seite gehört in kein fremdes Fenster. X-Frame-Options daneben für alles,
+    // was frame-ancestors noch nicht auswertet.
+    reply.header('content-security-policy', "frame-ancestors 'none'");
+    reply.header('x-frame-options', 'DENY');
+    /*
+     * Kein Erraten des Inhaltstyps.
+     *
+     * Wichtig vor allem beim Anhang-Abruf: dessen Content-Type stammt aus der Kopfzeile
+     * der Mail, wird also vom Absender bestimmt. Content-Disposition: attachment hält
+     * den Browser schon davon ab, ihn anzuzeigen - nosniff nimmt ihm zusätzlich die
+     * Möglichkeit, sich den Typ selbst auszudenken.
+     */
+    reply.header('x-content-type-options', 'nosniff');
+    // Adressen dieser Anwendung tragen Kontokennungen und Ordnernamen - die gehen keinen
+    // fremden Server etwas an.
+    reply.header('referrer-policy', 'no-referrer');
+  });
+
+  /*
    * CORS nur fuer den Entwicklungsbetrieb, und dort mit benannter Herkunft.
    *
    * Vorher stand hier `{ origin: true }` - das spiegelt JEDE Origin zurueck und erlaubt
    * damit jeder beliebigen Webseite, die Antworten dieses Servers zu lesen. Paketiert
    * wird die Oberflaeche vom selben Server ausgeliefert; dort ist CORS schlicht
    * ueberfluessig. Gebraucht wird es nur, solange Vite auf 5173 laeuft.
+   *
+   * Wann das gilt, entscheidet der Aufrufer - siehe ServerOptionen.viteErlauben. Ein
+   * fehlender dist-Ordner ist ein Unfall und kein Entwicklungsbetrieb.
    */
-  if (!fs.existsSync(webDistDir)) {
+  if (optionen.viteErlauben) {
     await app.register(cors, {
       origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
       credentials: true,
@@ -2459,10 +2531,18 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     },
   );
 
-  // Ein Kanal für alle Konten: der Client bekommt jedes Ereignis mitsamt accountId
-  // und entscheidet selbst, ob das die gerade sichtbare Ansicht betrifft.
+  /*
+   * Ein Kanal für alle Konten EINES Nutzers: der Client bekommt jedes Ereignis mitsamt
+   * accountId und entscheidet selbst, ob das die gerade sichtbare Ansicht betrifft.
+   *
+   * Der Nutzer wird beim Verbinden festgehalten und nicht bei jedem Ereignis neu
+   * bestimmt - die Ereignisse kommen aus fremden Ausführungssträngen (IMAP-Socket,
+   * Zeitgeber), dort gäbe es nichts zu bestimmen. Vorher hing jede Verbindung an einem
+   * prozessglobalen Satz Zuhörer: jeder Angemeldete bekam damit die Eingänge aller
+   * anderen, samt Betreff und Absender.
+   */
   app.get('/ws', { websocket: true }, (socket) => {
-    const unsubscribe = subscribe((event) => {
+    const unsubscribe = subscribe(aktuellerNutzer(), (event) => {
       if (socket.readyState === socket.OPEN) {
         socket.send(JSON.stringify(event));
       }

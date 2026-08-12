@@ -26,7 +26,6 @@
                            war damit offen. Der Kommentar behauptete bereits das
                            Richtige, die Zeile darunter tat es nicht.
         script-src 'self'  ausdrücklich, statt es nur von default-src zu erben
-        frame-ancestors    diese Seite gehört in kein fremdes Fenster
         object-src 'none'  keine eingebetteten Fremdformate
         base-uri 'none'    kein Umbiegen relativer Adressen
         form-action 'none' nichts kann irgendwohin abgeschickt werden
@@ -44,6 +43,14 @@
       ausdrücklich freigibt, wird das unveränderte HTML gezeigt. Die Richtlinie ist hier
       der zweite Riegel, nicht der erste - und ein zweiter Riegel, der eine gewollte
       Handlung verhindert, ist keiner.
+
+      Was hier NICHT mehr steht: frame-ancestors. Es stand hier und war wirkungslos -
+      der Browser ignoriert diese Anweisung, wenn die Richtlinie aus einem <meta>-Element
+      kommt, und sagte das sogar in der Konsole ("is ignored when delivered via a <meta>
+      element"). Die Anwendung glaubte sich also gegen das Einbetten in eine fremde Seite
+      geschützt und war es nicht. Sie kommt jetzt als Kopfzeile vom Server selbst, wo sie
+      auch greift - siehe den onSend-Haken in server/src/app.ts. Hier stehen zu lassen,
+      was nachweislich nichts tut, wäre schlimmer als nichts: es liest sich wie ein Schutz.
     -->
     <meta
       http-equiv="Content-Security-Policy"
@@ -57,7 +64,6 @@
         connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 ws://127.0.0.1:4000 ws://localhost:4000 http://localhost:5173 ws://localhost:5173;
         object-src 'none';
         base-uri 'none';
-        frame-ancestors 'none';
         form-action 'none';
       "
     />
