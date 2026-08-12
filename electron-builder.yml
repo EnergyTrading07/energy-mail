@@ -19,9 +19,39 @@ directories:
 # die ausgelieferte Anwendung selbst, wo sie nachschauen muss.
 publish:
   provider: github
-  # Ohne diese Zeile legt electron-builder einen Entwurf an - und Entwürfe sind für die
-  # Selbstaktualisierung unsichtbar, die Anwendung fände nie etwas.
-  releaseType: release
+
+  # Als Entwurf, und das ist seit der Freigabeprüfung eine bewusste Umkehr.
+  #
+  # Hier stand "release" mit der Begründung, Entwürfe seien für die Selbstaktualisierung
+  # unsichtbar - was stimmt und damals der Punkt war: die CI war der letzte Schritt, und
+  # was sie ablegte, sollte gelten.
+  #
+  # Jetzt ist die CI NICHT mehr der letzte Schritt. Nach ihr kommt die Freigabe von Hand
+  # (npm run freigeben), die die Unterschrift beilegt und die Veröffentlichung sichtbar
+  # macht. Genau dafür ist die Unsichtbarkeit richtig: zwischen "gebaut" und
+  # "unterschrieben" liegt ein Zeitraum, und läge die Fassung darin schon offen, würde
+  # jede laufende Anwendung sie ziehen, die Prüfung nicht bestehen und dem Nutzer
+  # "stammt nicht vom Herausgeber" melden - eine Warnung, die nach einem Angriff aussieht
+  # und nur bedeutet, dass jemand noch nicht dazu gekommen ist.
+  #
+  # Nebenbei ist es das, was man sich bei einer Anwendung mit Selbstaktualisierung
+  # ohnehin wünscht: nichts geht hinaus, ohne dass ein Mensch es freigibt.
+  releaseType: draft
+
+  # Schaltet die Signaturprüfung in electron-updater überhaupt erst ein.
+  #
+  # Ohne diesen Eintrag steigt verifySignature() in der ersten Zeile aus
+  # ("if (publisherName == null) return null") - und dann läuft auch der eigene
+  # Prüfhaken nicht, der daran hängt. Es fand vorher also keine schwache Prüfung statt,
+  # sondern gar keine.
+  #
+  # Der Wert selbst wird derzeit nicht ausgewertet: die Prüfung ist durch
+  # desktop/src/updateSignatur.ts ersetzt, und die sieht auf die eigene Unterschrift
+  # statt auf ein Zertifikat. Kommt später ein Codesignierzertifikat dazu, gehört hier
+  # dessen vollständiger Name (DN) hinein, und der Haken kann zusätzlich an die
+  # eingebaute Prüfung weiterreichen.
+  publisherName:
+    - Energy Mail
 
 # Die Electron-Hülle liegt nicht in node_modules, sondern als Arbeitsbereich im Baum -
 # deshalb hier ausdrücklich.

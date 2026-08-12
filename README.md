@@ -173,15 +173,56 @@ Server und Oberfläche laufen **im selben Prozess** wie die Hülle. Der Server l
 eigenen Fenster mitgegeben wird – ohne das beantwortet er keine Anfrage. Siehe
 `packages/server/src/zugang.ts`.
 
+### Eine Fassung veröffentlichen
+
+Drei Schritte, und der letzte läuft **nicht** in der CI:
+
+```bash
+npm run veroeffentlichen   # 1. Stand prüfen, Marke setzen  (hier)
+                           # 2. die CI baut und lädt als ENTWURF hoch
+npm run freigeben          # 3. unterschreiben, sichtbar machen  (hier)
+```
+
+Zwischen Schritt 2 und 3 ist die Fassung für niemanden sichtbar – Entwürfe sind für die
+Selbstaktualisierung unsichtbar, es zieht sie also keine laufende Anwendung. Erst
+`npm run freigeben` legt die Unterschrift bei und schaltet sie frei.
+
+**Warum der Umweg.** `electron-updater` prüft die Signatur einer heruntergeladenen
+Fassung nur, wenn in der `app-update.yml` ein `publisherName` steht – sonst steigt es in
+der ersten Zeile aus. Es gab kein Zertifikat, also stand er nicht da, also fand *keine*
+Prüfung statt. Übrig blieb als einziger Anker HTTPS zu GitHub und die Prüfsumme aus der
+`latest.yml` – die aber schreibt dieselbe Partei, die auch die `.exe` hochlädt. Wer den
+GitHub-Zugang übernimmt, hat damit Codeausführung auf jedem Rechner mit Energy Mail.
+
+Ein Codesignierzertifikat hilft dagegen **nicht**: es läge als Geheimnis in derselben CI.
+Wer sie kontrolliert, signiert seine Fassung einfach mit. Deshalb ein eigener Schlüssel,
+der den Arbeitsplatzrechner nie verlässt und den die CI nicht kennt. Beide zusammen sind
+die vollständige Antwort – das Zertifikat für die Erstinstallation, dieser Schlüssel für
+alles danach.
+
+Einmalig einzurichten:
+
+```bash
+npm run schluessel-erzeugen
+```
+
+Das legt `~/.energy-mail/freigabe-schluessel.pem` an und nennt den öffentlichen Teil, der
+nach `packages/desktop/src/updateSignatur.ts` gehört. **Den geheimen Teil sichern** – geht
+er verloren, lässt sich keine Aktualisierung mehr freigeben, und der Weg zurück führt über
+eine von Hand verteilte Neuinstallation.
+
 ---
 
 ## Was noch fehlt
 
 Ehrlich benannt, statt es zwischen den Zeilen zu verstecken:
 
-- **Keine Codesignierung.** Daher die SmartScreen-Warnung, und die Selbstaktualisierung
-  kann die Signatur des Nachfolgers nicht prüfen – sie verlässt sich auf HTTPS zu GitHub
-  und die Prüfsumme aus `latest.yml`.
+- **Keine Codesignierung.** Daher die SmartScreen-Warnung bei der Erstinstallation: wer
+  die Datei von Hand herunterlädt, bekommt weiterhin „Unbekannter Herausgeber“.
+
+  Was das *nicht* mehr bedeutet: dass die Selbstaktualisierung ungeprüft schluckt, was
+  ihr vorgesetzt wird. Sie verlangt inzwischen eine eigene Unterschrift – siehe unten.
+  Ein Zertifikat bleibt trotzdem auf der Liste, es löst nur eine andere Aufgabe.
 - **Gesendet wird nur, solange die Anwendung läuft.** Eine für Dienstag 8 Uhr geplante
   Nachricht geht beim nächsten Start hinaus, wenn der Rechner zu diesem Zeitpunkt aus
   war. Anders ginge es nur mit einem Dienst, der durchgehend läuft. Das

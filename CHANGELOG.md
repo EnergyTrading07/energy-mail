@@ -176,6 +176,38 @@ Spiel sind – und an den drei Stellen ohne Datei nicht.
   Parametern abgeleitet. Bestehende behalten ihre – andere Werte ergäben einen anderen
   Schlüssel und damit kein einziges lesbares Postfach mehr.
 
+### Sicherheit: die Aktualisierung wird geprüft
+
+Bisher wurde eine heruntergeladene Fassung **gar nicht** geprüft. Das klingt schärfer als
+„keine Codesignierung“ und ist es auch: `electron-updater` sieht sich die Signatur nur an,
+wenn im Paket ein Herausgebername steht, und der entsteht aus dem Zertifikat. Es gab
+keines, also stand er nicht da, also lief die Prüfung nie an. Der einzige Anker war HTTPS
+zu GitHub – und die Prüfsumme daneben schreibt dieselbe Stelle, die auch die Datei
+hochlädt.
+
+- **Jede Aktualisierung trägt jetzt eine Unterschrift**, und die Anwendung spielt nichts
+  ein, was sie nicht vorlegen kann. Sie deckt Fassung und Prüfsumme zugleich ab: eine
+  ausgetauschte Datei fällt auf, und eine gültige Unterschrift von früher lässt sich nicht
+  für eine andere Fassung wiederverwenden.
+- **Der Schlüssel dafür liegt nicht bei GitHub und nicht in der CI**, sondern auf dem
+  Rechner, von dem aus veröffentlicht wird. Das ist der Punkt der Übung: ein
+  Codesignierzertifikat läge als Geheimnis in derselben CI, die auch baut – wer den Zugang
+  übernimmt, signiert seine Fassung einfach mit. Ein Zertifikat kommt trotzdem noch, es
+  nimmt die SmartScreen-Warnung bei der Erstinstallation. Die beiden lösen verschiedene
+  Aufgaben, nicht dieselbe unterschiedlich gut.
+- **Eine neue Fassung wird erst sichtbar, wenn ein Mensch sie freigibt.** Die CI legt sie
+  als Entwurf ab; Entwürfe sind für die Selbstaktualisierung unsichtbar. Damit gibt es
+  keinen Zeitraum, in dem eine noch nicht unterschriebene Fassung gezogen und abgewiesen
+  wird – was beim Nutzer wie ein Angriff aussähe und nur hieße, dass jemand noch nicht
+  dazu gekommen ist.
+- Fehlt die Unterschrift, ist das Netz weg oder passt die Prüfsumme nicht, wird **nicht**
+  eingespielt. Eine Aktualisierung, die ausbleibt, ist ein Ärgernis; eine, die zu Unrecht
+  eingespielt wird, ist der Rechner.
+
+Wirksam wird das ab der übernächsten Fassung: eine bereits installierte kennt den
+öffentlichen Schlüssel noch nicht und prüft deshalb den Schritt auf die Fassung, die ihn
+mitbringt, noch nicht. Ab da prüft jede.
+
 ### Kein Datenverlust mehr
 
 - **Konten können nicht mehr verlorengehen.** `accounts.json` wurde bei jeder

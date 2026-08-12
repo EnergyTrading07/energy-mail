@@ -12,6 +12,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -178,11 +179,47 @@ if (fehler.length === 0) {
   }
 }
 
+/*
+ * Der Freigabeschlüssel - jetzt und nicht erst am Ende.
+ *
+ * Ohne ihn läuft alles durch: Marke setzen, CI bauen lassen, warten - und dann steht man
+ * vor einem Entwurf, der sich nicht freigeben lässt, weil der Schlüssel fehlt oder der
+ * öffentliche Teil nie eingetragen wurde. Das ist der falsche Zeitpunkt, um es zu
+ * erfahren. Kein Abbruch: eine Fassung ohne Prüfung ist der Stand von vorher und nicht
+ * schlechter - aber sie soll niemandem versehentlich passieren.
+ */
+const schluesselDatei = path.join(os.homedir(), '.energy-mail', 'freigabe-schluessel.pem');
+const signaturQuelle = path.join(wurzel, 'packages', 'desktop', 'src', 'updateSignatur.ts');
+const hinweise = [];
+
+if (!fs.existsSync(schluesselDatei)) {
+  hinweise.push(
+    `Kein Freigabeschlüssel (${schluesselDatei}).\n` +
+      '   "npm run schluessel-erzeugen" legt ihn an. Ohne ihn lässt sich der Entwurf,\n' +
+      '   den die CI ablegt, hinterher nicht freigeben.',
+  );
+} else if (
+  fs.existsSync(signaturQuelle) &&
+  fs.readFileSync(signaturQuelle, 'utf-8').includes('PLATZHALTER')
+) {
+  hinweise.push(
+    'Der Schlüssel ist da, aber sein öffentlicher Teil steht noch nicht in\n' +
+      '   packages/desktop/src/updateSignatur.ts - dort steht weiterhin der Platzhalter.\n' +
+      '   Diese Fassung würde ausgeliefert, ohne Aktualisierungen prüfen zu können.',
+  );
+}
+
 if (fehler.length > 0) {
   console.error('\nVeröffentlichen noch nicht möglich:\n');
   fehler.forEach((f, i) => console.error(` ${i + 1}. ${f}\n`));
   process.exit(1);
 }
 
+if (hinweise.length > 0) {
+  console.warn('\nHinweis zur Freigabe:\n');
+  hinweise.forEach((h) => console.warn(` - ${h}\n`));
+}
+
 console.log(`\n${pkg.productName} ${pkg.version} ist bereit für die Marke.`);
-console.log(`Gebaut und hochgeladen wird danach in der CI - nicht auf diesem Rechner.\n`);
+console.log('Gebaut und hochgeladen wird danach in der CI - nicht auf diesem Rechner.');
+console.log('Sie legt einen ENTWURF ab; sichtbar wird er erst durch "npm run freigeben".\n');

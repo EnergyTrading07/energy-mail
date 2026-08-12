@@ -90,7 +90,22 @@ const angelegt = await fetch(`${api}/releases`, {
     tag_name: marke,
     name: `${pkg.productName} ${pkg.version}`,
     body: text,
-    draft: false,
+    /*
+     * Als Entwurf - die CI ist nicht mehr der letzte Schritt.
+     *
+     * Hier stand `false`, und das war richtig, solange die CI alles erledigte. Seit die
+     * Freigabe eine Unterschrift verlangt, die nur auf einem Rechner liegt (siehe
+     * desktop/src/updateSignatur.ts), kommt nach der CI noch ein Schritt von Hand:
+     * `npm run freigeben` legt die Unterschrift bei und macht die Veröffentlichung
+     * sichtbar.
+     *
+     * Wäre sie schon hier sichtbar, zöge jede laufende Anwendung die neue Fassung, fände
+     * keine Unterschrift und meldete dem Nutzer "stammt nicht vom Herausgeber" - eine
+     * Warnung, die nach einem Angriff aussieht und nur bedeutet, dass noch niemand
+     * unterschrieben hat. Ein Entwurf ist für die Selbstaktualisierung unsichtbar; in
+     * diesem Zwischenzustand passiert also gar nichts, und das ist genau richtig.
+     */
+    draft: true,
     prerelease: false,
   }),
 });
@@ -100,4 +115,9 @@ if (!angelegt.ok) {
   console.error(await angelegt.text());
   process.exit(1);
 }
-console.log(`Veröffentlichung ${marke} angelegt.`);
+console.log(
+  `Veröffentlichung ${marke} als ENTWURF angelegt.\n` +
+    'Sie ist noch für niemanden sichtbar. Sichtbar wird sie erst durch\n' +
+    '  npm run freigeben\n' +
+    'auf dem Rechner, auf dem der Freigabeschlüssel liegt.',
+);
