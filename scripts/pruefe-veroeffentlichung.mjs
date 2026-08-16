@@ -10,6 +10,7 @@
  * erst auf, wenn die Fassung schon draußen ist - und dann steht sie in der
  * Selbstaktualisierung und lässt sich nicht mehr zurückholen.
  */
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -198,15 +199,59 @@ if (!fs.existsSync(schluesselDatei)) {
       '   "npm run schluessel-erzeugen" legt ihn an. Ohne ihn lässt sich der Entwurf,\n' +
       '   den die CI ablegt, hinterher nicht freigeben.',
   );
-} else if (
-  fs.existsSync(signaturQuelle) &&
-  fs.readFileSync(signaturQuelle, 'utf-8').includes('PLATZHALTER')
-) {
-  hinweise.push(
-    'Der Schlüssel ist da, aber sein öffentlicher Teil steht noch nicht in\n' +
-      '   packages/desktop/src/updateSignatur.ts - dort steht weiterhin der Platzhalter.\n' +
-      '   Diese Fassung würde ausgeliefert, ohne Aktualisierungen prüfen zu können.',
-  );
+} else if (fs.existsSync(signaturQuelle)) {
+  /*
+   * Der EINGETRAGENE WERT, nicht die Datei.
+   *
+   * Hier stand `readFileSync(signaturQuelle).includes('PLATZHALTER')` - eine Suche über
+   * die ganze Datei. Die enthält den Text aber immer: `schluesselHinterlegt()` prüft
+   * genau darauf, und die Erläuterung darüber nennt ihn ebenfalls. Der Hinweis erschien
+   * damit bei JEDER Veröffentlichung, auch nachdem der Schlüssel längst eingetragen war -
+   * zuletzt bei 0.3.0, wo er schlicht nicht stimmte.
+   *
+   * Das ist die schlechteste Sorte Warnung. Sie erscheint grundlos, man gewöhnt sich an
+   * sie, und wenn sie eines Tages recht hat, liest sie niemand mehr. Geprüft wird deshalb
+   * der Wert der Konstanten - und gleich noch, ob er zum hinterlegten Schlüssel passt,
+   * denn das war die Frage, um die es die ganze Zeit ging.
+   */
+  const quelle = fs.readFileSync(signaturQuelle, 'utf-8');
+  const eingetragen = /OEFFENTLICHER_SCHLUESSEL\s*=\s*\n?\s*'([^']*)'/.exec(quelle)?.[1] ?? '';
+
+  if (!eingetragen || eingetragen.includes('PLATZHALTER')) {
+    hinweise.push(
+      'Der Schlüssel ist da, aber sein öffentlicher Teil steht noch nicht in\n' +
+        '   packages/desktop/src/updateSignatur.ts - dort steht weiterhin der Platzhalter.\n' +
+        '   Diese Fassung würde ausgeliefert, ohne Aktualisierungen prüfen zu können.',
+    );
+  } else {
+    /*
+     * Und der Abgleich: Ein eingetragener Schlüssel, der zu einem ANDEREN geheimen Teil
+     * gehört, ist schlimmer als ein Platzhalter. Die Fassung ginge hinaus, die Prüfung
+     * liefe an - und wiese danach jede Aktualisierung ab, die von diesem Rechner kommt.
+     * Aufgefallen wäre das erst der ersten Fassung danach.
+     */
+    try {
+      const oeffentlich = crypto
+        .createPublicKey(crypto.createPrivateKey(fs.readFileSync(schluesselDatei)))
+        .export({ type: 'spki', format: 'der' })
+        .toString('base64');
+      if (oeffentlich !== eingetragen) {
+        hinweise.push(
+          'Der eingetragene öffentliche Schlüssel gehört NICHT zu dem hier hinterlegten\n' +
+            '   geheimen Teil. Diese Fassung würde jede Aktualisierung von diesem Rechner\n' +
+            '   abweisen. Eingetragen ist:\n' +
+            `     ${eingetragen}\n` +
+            '   Zum Schlüssel gehört:\n' +
+            `     ${oeffentlich}`,
+        );
+      }
+    } catch (err) {
+      hinweise.push(
+        `Der Freigabeschlüssel ließ sich nicht lesen: ${err.message}\n` +
+          '   Damit lässt sich nicht feststellen, ob der eingetragene Teil dazu passt.',
+      );
+    }
+  }
 }
 
 if (fehler.length > 0) {
