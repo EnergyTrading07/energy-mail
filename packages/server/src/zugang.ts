@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Wer mit dem lokalen Server sprechen darf.
@@ -73,8 +74,70 @@ function gleich(a: string, b: string): boolean {
 }
 
 /**
+ * Die Adresse, unter der der Dienst von aussen erreichbar ist - im Serverbetrieb.
+ *
+ * Ohne sie stand hier nur 127.0.0.1: hinter einem Reverse Proxy schickt der Browser
+ * `Origin: https://mail.beispiel.de`, und der Riegel wies JEDE Anfrage der eigenen
+ * Oberflaeche mit 403 ab - auch das Anmelden. Der Dienst waere nicht bedienbar gewesen.
+ *
+ * Bewusst kein Rueckfall auf "was der Host-Kopf sagt": den bestimmt der Anfragende, und
+ * damit waere die Pruefung wirkungslos. Die erlaubte Adresse muss von aussen gesetzt
+ * werden - siehe ENERGY_MAIL_OEFFENTLICHE_ADRESSE in index.ts.
+ */
+let oeffentlicheHerkuenfte: string[] = [];
+
+/**
+ * Bringt eine Angabe auf Origin-Form: Schema, Rechnername, Port. Alles andere faellt weg.
+ *
+ * "mail.beispiel.de" ergibt "https://mail.beispiel.de" - ohne Schema ist im Netzbetrieb
+ * nur https gemeint. Ein Pfad wird abgeschnitten, denn eine Origin hat keinen.
+ */
+function normalisiereHerkunft(eingabe: string): string {
+  const roh = eingabe.trim();
+  const mitSchema = /^[a-z][a-z0-9+.-]*:\/\//i.test(roh) ? roh : `https://${roh}`;
+  let zerlegt: URL;
+  try {
+    zerlegt = new URL(mitSchema);
+  } catch {
+    throw new Error(
+      `"${eingabe}" ist keine brauchbare Adresse. Erwartet wird etwas wie ` +
+        'https://mail.beispiel.de',
+    );
+  }
+  if (zerlegt.protocol !== 'https:' && zerlegt.protocol !== 'http:') {
+    throw new Error(`"${eingabe}": nur http und https sind hier vorgesehen.`);
+  }
+  return zerlegt.origin;
+}
+
+/**
+ * Setzt die oeffentliche Adresse (oder mehrere, durch Komma getrennt).
+ *
+ * Wirft bei einer unbrauchbaren Angabe. Das ist Absicht: ein Tippfehler in der
+ * Umgebungsvariablen soll beim Start auffallen und nicht als Regen von 403ern, deren
+ * Ursache niemand vermutet.
+ */
+export function setzeOeffentlicheAdresse(adresse: string | null | undefined): void {
+  if (!adresse || !adresse.trim()) {
+    oeffentlicheHerkuenfte = [];
+    return;
+  }
+  oeffentlicheHerkuenfte = adresse
+    .split(',')
+    .map((teil) => teil.trim())
+    .filter(Boolean)
+    .map(normalisiereHerkunft);
+}
+
+/** Was gerade als oeffentliche Adresse gilt - fuer Protokoll und Pruefungen. */
+export function oeffentlicheAdressen(): readonly string[] {
+  return oeffentlicheHerkuenfte;
+}
+
+/**
  * Erlaubte Herkuenfte. Die Oberflaeche wird vom selben Server ausgeliefert, hat also
- * genau diese Origin; im Entwicklungsbetrieb kommt der Vite-Server dazu.
+ * genau diese Origin; im Entwicklungsbetrieb kommt der Vite-Server dazu, im Serverbetrieb
+ * die oeffentliche Adresse.
  */
 function herkunftErlaubt(origin: string | undefined, port: number): boolean {
   // Keine Origin-Kopfzeile: eine Navigation des Fensters selbst, ein Bildabruf oder ein
@@ -86,6 +149,7 @@ function herkunftErlaubt(origin: string | undefined, port: number): boolean {
     // Vite im Entwicklungsbetrieb.
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    ...oeffentlicheHerkuenfte,
   ];
   return erlaubt.includes(origin);
 }
@@ -98,11 +162,21 @@ function herkunftErlaubt(origin: string | undefined, port: number): boolean {
  * Seite nachzieht. Diese Abrufe geben nur aus, was ohnehin im Installationspaket steht;
  * ein Postfach ist darueber nicht erreichbar.
  */
-function istOberflaeche(pfad: string): boolean {
+export function istOberflaeche(pfad: string): boolean {
   if (pfad === '/' || pfad === '/index.html') return true;
   if (pfad.startsWith('/assets/')) return true;
   return pfad === '/thema-vorab.js' || pfad === '/favicon.ico' || pfad === '/vite.svg';
 }
+
+/**
+ * Der Weg, an dem sich ablesen laesst, ob der Dienst noch lebt.
+ *
+ * Muss ohne Anmeldung und ohne Geheimnis erreichbar sein, sonst kann ihn weder die
+ * Container-Pruefung noch eine Ueberwachung benutzen - beide haben keine Sitzung. Er gibt
+ * dafuer auch nichts heraus, was niemanden angeht: kein Postfach, kein Nutzername, keine
+ * Zahl der Konten. Nach aussen durchgereicht wird er ohnehin nicht (siehe Caddyfile).
+ */
+export const GESUNDHEITS_PFAD = '/gesundheit';
 
 /** Liest das Geheimnis aus Kopfzeile oder Abfrageparameter. */
 export function geheimnisAusAnfrage(request: FastifyRequest): string | null {
@@ -123,7 +197,7 @@ export function registriereZugangspruefung(app: FastifyInstance, port: number): 
   app.addHook('onRequest', (request: FastifyRequest, reply: FastifyReply, fertig: () => void) => {
     const origin = request.headers.origin;
     if (!herkunftErlaubt(typeof origin === 'string' ? origin : undefined, port)) {
-      reply.code(403).send({ error: 'Anfrage aus fremder Herkunft' });
+      reply.code(403).send({ error: t('Anfrage aus fremder Herkunft') });
       return;
     }
 
@@ -134,14 +208,14 @@ export function registriereZugangspruefung(app: FastifyInstance, port: number): 
     }
 
     const pfad = request.url.split('?')[0] ?? '/';
-    if (istOberflaeche(pfad)) {
+    if (istOberflaeche(pfad) || pfad === GESUNDHEITS_PFAD) {
       fertig();
       return;
     }
 
     const mitgeschickt = geheimnisAusAnfrage(request);
     if (!mitgeschickt || !gleich(mitgeschickt, erwartet)) {
-      reply.code(401).send({ error: 'Kein Zugang' });
+      reply.code(401).send({ error: t('Kein Zugang') });
       return;
     }
 

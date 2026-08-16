@@ -42,13 +42,13 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.marke || github.ref }}
           # Die Marken werden gebraucht, um die Fassung gegenzuprüfen.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           # Dieselbe Fassung wie im Prüf-Workflow und wie die, die Electron mitbringt.
           node-version: '22'
@@ -101,10 +101,18 @@ jobs:
       # Bewusst nur das Installationsprogramm: für die Selbstaktualisierung wird die
       # portable Fassung nicht gebraucht, und sie würde den Lauf verdoppeln.
       #
-      # Hier wäre auch die Stelle für die Codesignierung. Sobald ein Zertifikat da ist,
-      # kommen die beiden Zeilen darunter dazu (siehe README, "Was noch fehlt"):
-      #   CSC_LINK: ${{ secrets.WINDOWS_ZERTIFIKAT_BASE64 }}
-      #   CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_ZERTIFIKAT_KENNWORT }}
+      # Hier wäre die Stelle für eine Codesignierung mit Zertifikat. Sie fehlt weiterhin
+      # und ist auch nicht das, was die Freigabeprüfung ersetzt: ein Zertifikat nimmt die
+      # SmartScreen-Warnung bei der ERSTINSTALLATION. Gegen einen übernommenen Zugang zu
+      # diesem Repository hülfe es nicht - es läge als Geheimnis in genau dieser CI, und
+      # wer sie kontrolliert, signiert seine Fassung einfach mit. Dagegen steht die
+      # Unterschrift aus scripts/freigeben.mjs, deren Schlüssel hier nicht liegt und
+      # niemals hier liegen darf.
+      #
+      # Der alte Hinweis auf CSC_LINK/CSC_KEY_PASSWORD ist entfallen: seit Juni 2023
+      # verlangen die Zertifizierungsstellen, dass der geheime Teil auf einer
+      # Hardwaresicherung liegt. Eine .pfx-Datei als Geheimnis in der CI gibt es für neu
+      # ausgestellte Zertifikate nicht mehr; der Weg führt über einen Signierdienst.
       - name: Paket bauen und hochladen
         run: npx electron-builder --win nsis --publish always
         env:
@@ -124,12 +132,51 @@ jobs:
             echo "FEHLER: build/icon.png fehlt im Paket."
             exit 1
           fi
+          if [ ! -f "release/win-unpacked/resources/app.asar.unpacked/build/icon.png" ]; then
+            echo "FEHLER: build/icon.png liegt nicht entpackt neben dem Archiv (asarUnpack)."
+            exit 1
+          fi
+
+          # Hier wiegt das schwerer als im Prüflauf: eine ausgelieferte Fassung ohne
+          # app-update.yml sucht nie wieder nach Aktualisierungen, und zurückholen lässt
+          # sie sich nicht.
+          if [ ! -f "release/win-unpacked/resources/app-update.yml" ]; then
+            echo "FEHLER: resources/app-update.yml fehlt - diese Fassung würde sich nie aktualisieren."
+            exit 1
+          fi
+          echo "--- app-update.yml ---"
+          cat release/win-unpacked/resources/app-update.yml
+
+          # Ohne publisherName prueft electron-updater GAR NICHTS: verifySignature()
+          # steigt in der ersten Zeile aus ("if (publisherName == null) return null"),
+          # und damit laeuft auch der eigene Freigabehaken nicht, der daran haengt. Eine
+          # Fassung ohne diese Zeile wuerde jede untergeschobene Aktualisierung annehmen.
+          if ! grep -q 'publisherName' release/win-unpacked/resources/app-update.yml; then
+            echo "FEHLER: app-update.yml nennt keinen publisherName."
+            echo "Ohne ihn findet keine Signaturpruefung statt - siehe updateSignatur.ts."
+            exit 1
+          fi
+
           echo "Paketinhalt in Ordnung."
+
+      # Der Lauf endet mit einem Entwurf, nicht mit einer Veroeffentlichung. Wer das
+      # nicht weiss, wartet vergeblich darauf, dass die Fassung erscheint.
+      - name: Was jetzt noch fehlt
+        shell: bash
+        run: |
+          echo "::notice title=Noch nicht sichtbar::Die Veroeffentlichung liegt als ENTWURF vor."
+          echo ""
+          echo "Sichtbar wird sie erst durch 'npm run freigeben' auf dem Rechner, auf dem"
+          echo "der Freigabeschluessel liegt. Der Schritt legt die Unterschrift bei, gegen"
+          echo "die jede installierte Fassung prueft, bevor sie etwas einspielt."
+          echo ""
+          echo "Bis dahin zieht keine laufende Anwendung diese Fassung - Entwuerfe sind"
+          echo "fuer die Selbstaktualisierung unsichtbar. Das ist Absicht."
 
       # Damit sich hinterher nachvollziehen lässt, was genau ausgeliefert wurde.
       - name: Paketinhalt aufheben
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: paketinhalt-${{ github.event.inputs.marke || github.ref_name }}
           path: paketinhalt.txt

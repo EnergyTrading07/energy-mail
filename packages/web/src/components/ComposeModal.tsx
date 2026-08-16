@@ -15,6 +15,7 @@ import {
   ladeBausteine,
   type Textbaustein,
 } from '../textbausteine.js';
+import { t, uhrzeit } from '../sprache.js';
 
 interface Props {
   initial?: Partial<Draft>;
@@ -54,8 +55,10 @@ function formatSize(bytes: number): string {
  */
 async function frageZeitpunkt(): Promise<string | null> {
   const gewaehlt = await waehleZeitpunkt({
-    titel: 'Wann soll die Nachricht raus?',
-    text: 'Bis dahin bleibt sie hier liegen. Läuft Energy Mail zu diesem Zeitpunkt nicht, geht sie beim nächsten Start hinaus.',
+    titel: t('Wann soll die Nachricht raus?'),
+    text: t(
+      'Bis dahin bleibt sie hier liegen. Läuft Energy Mail zu diesem Zeitpunkt nicht, geht sie beim nächsten Start hinaus.',
+    ),
     vorschlaege: sendeVorschlaege(),
   });
   return gewaehlt ? gewaehlt.toISOString() : null;
@@ -108,7 +111,24 @@ export function ComposeModal({
   const [error, setError] = useState<string | null>(null);
   /** Ob und wie die Nachricht geschuetzt hinausgeht. */
   const [pgp, setPgp] = useState<'signieren' | 'verschluesseln' | undefined>(undefined);
+  /**
+   * Ob um eine Lesebestaetigung gebeten wird.
+   *
+   * Faellt bei jedem neuen Fenster auf aus zurueck, und das ist Absicht: Wer sie einmal
+   * braucht, braucht sie nicht immer - und eine Bitte, die man vergessen hat, geht an
+   * Leute hinaus, die sich darueber wundern.
+   */
+  const [lesebestaetigung, setLesebestaetigung] = useState(false);
   const [pgpLage, setPgpLage] = useState<api.PgpLage | null>(null);
+  const [smimeLage, setSmimeLage] = useState<api.SmimeLage | null>(null);
+  /**
+   * Womit geschuetzt wird, wenn beides moeglich ist.
+   *
+   * Die Auswahl erscheint nur dann, wenn wirklich beides eingerichtet ist - was selten
+   * vorkommt. Bei allen anderen bleibt die Leiste so schmal wie bisher und zeigt still
+   * das, was sie haben.
+   */
+  const [verfahren, setVerfahren] = useState<'pgp' | 'smime'>('smime');
   /**
    * Ob gerade Dateien ueber dem Fenster haengen.
    *
@@ -130,22 +150,51 @@ export function ComposeModal({
       ...parseAddresses(cc),
       ...parseAddresses(bcc),
     ];
-    const t = setTimeout(() => {
+    /*
+     * Bewusst NICHT "t" - so hiess diese Variable, und damit verdeckte sie den
+     * Uebersetzer aus sprache.js. Heute stoert das nichts, weil in diesem Block kein Text
+     * uebersetzt wird; wer aber einmal einen hinzufuegt, bekaeme "t is not a function"
+     * und suchte den Grund an der falschen Stelle.
+     */
+    const uhr = setTimeout(() => {
       api
         .ladePgpLage(accountId, alleEmpfaenger)
         .then(setPgpLage)
         .catch(() => setPgpLage(null));
+      api
+        .ladeSmimeLage(accountId, alleEmpfaenger)
+        .then(setSmimeLage)
+        .catch(() => setSmimeLage(null));
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(uhr);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, to, cc, bcc]);
+
+  /**
+   * Welches der beiden Verfahren gerade gemeint ist.
+   *
+   * Ist nur eines eingerichtet, ist es dieses - unabhaengig davon, was gewaehlt wurde.
+   * Sonst gilt die Wahl. So bekommt niemand eine Auswahl zu sehen, die fuer ihn aus
+   * einem einzigen Punkt bestuende.
+   */
+  const beides = Boolean(pgpLage?.kannSignieren && smimeLage?.kannSignieren);
+  const schutzVerfahren: 'pgp' | 'smime' = beides
+    ? verfahren
+    : smimeLage?.kannSignieren
+      ? 'smime'
+      : 'pgp';
+  const lage = schutzVerfahren === 'smime' ? smimeLage : pgpLage;
+  const ohneSchluessel =
+    schutzVerfahren === 'smime'
+      ? (smimeLage?.ohneZertifikat ?? [])
+      : (pgpLage?.ohneSchluessel ?? []);
 
   // Faellt die Moeglichkeit weg, faellt auch die Absicht weg - sonst schiene die
   // Nachricht geschuetzt, waehrend der Versand sie unverschluesselt hinausliesse.
   useEffect(() => {
-    if (pgp === 'verschluesseln' && pgpLage && !pgpLage.kannVerschluesseln) setPgp(undefined);
-    if (pgp === 'signieren' && pgpLage && !pgpLage.kannSignieren) setPgp(undefined);
-  }, [pgp, pgpLage]);
+    if (pgp === 'verschluesseln' && lage && !lage.kannVerschluesseln) setPgp(undefined);
+    if (pgp === 'signieren' && lage && !lage.kannSignieren) setPgp(undefined);
+  }, [pgp, lage]);
   const [busy, setBusy] = useState(false);
   const [showCopyFields, setShowCopyFields] = useState(
     Boolean(initial?.cc?.length || initial?.bcc?.length),
@@ -251,12 +300,12 @@ export function ComposeModal({
     const erinnerung = pruefeAnhaenge(subject, htmlToText(html), attachments.length);
     if (erinnerung.nachfragen) {
       const trotzdem = await bestaetige({
-        titel: 'Anhang vergessen?',
-        text:
-          `Im Text steht „${erinnerung.fundstelle}“, aber es hängt keine Datei an. ` +
-          'Trotzdem senden?',
-        ok: 'Trotzdem senden',
-        abbrechen: 'Zurück zum Text',
+        titel: t('Anhang vergessen?'),
+        text: t('Im Text steht „{fundstelle}“, aber es hängt keine Datei an. Trotzdem senden?', {
+          fundstelle: erinnerung.fundstelle ?? '',
+        }),
+        ok: t('Trotzdem senden'),
+        abbrechen: t('Zurück zum Text'),
       });
       if (!trotzdem) return;
     }
@@ -268,23 +317,37 @@ export function ComposeModal({
      * Entwuerfe-Ordner auf dem Server des Anbieters, und der Sinn der Sache waere dahin.
      */
     let kennwort: string | undefined;
-    if (pgp) {
+    /*
+     * Bei S/MIME nur dann, wenn der Schluessel auch mit einem Kennwort abgelegt wurde.
+     * Wer beim Einlesen keines vergeben hat, hat sich fuer den anderen Tausch
+     * entschieden - dann hier danach zu fragen waere eine Frage ohne Antwort.
+     */
+    const brauchtKennwort =
+      Boolean(pgp) && (schutzVerfahren === 'pgp' || Boolean(smimeLage?.brauchtKennwort));
+    if (brauchtKennwort) {
       const eingabe = await frage({
-        titel: 'Kennwort Ihres Schlüssels',
+        titel: t('Kennwort Ihres Schlüssels'),
         text:
           pgp === 'verschluesseln'
-            ? 'Zum Verschlüsseln und Unterschreiben wird Ihr geheimer Schlüssel gebraucht. Das Kennwort wird nicht gespeichert.'
-            : 'Zum Unterschreiben wird Ihr geheimer Schlüssel gebraucht. Das Kennwort wird nicht gespeichert.',
-        ok: 'Senden',
+            ? t(
+                'Zum Verschlüsseln und Unterschreiben wird Ihr geheimer Schlüssel gebraucht. Das Kennwort wird nicht gespeichert.',
+              )
+            : t(
+                'Zum Unterschreiben wird Ihr geheimer Schlüssel gebraucht. Das Kennwort wird nicht gespeichert.',
+              ),
+        ok: t('Senden'),
         geheim: true,
       });
       if (eingabe === null) return;
       kennwort = eingabe || undefined;
 
       if (accountId) {
-        const { stimmt } = await api.pruefePgpKennwort(accountId, kennwort ?? '');
+        const { stimmt } =
+          schutzVerfahren === 'smime'
+            ? await api.pruefeSmimeKennwort(accountId, kennwort ?? '')
+            : await api.pruefePgpKennwort(accountId, kennwort ?? '');
         if (!stimmt) {
-          setError('Das Kennwort des Schlüssels stimmt nicht.');
+          setError(t('Das Kennwort des Schlüssels stimmt nicht.'));
           return;
         }
       }
@@ -295,8 +358,12 @@ export function ComposeModal({
       await onSend(
         {
           ...buildDraft(),
-          pgp,
-          pgpKennwort: kennwort,
+          // Genau eines von beiden wird gesetzt - der Server weist es sonst ab.
+          pgp: schutzVerfahren === 'pgp' ? pgp : undefined,
+          pgpKennwort: schutzVerfahren === 'pgp' ? kennwort : undefined,
+          smime: schutzVerfahren === 'smime' ? pgp : undefined,
+          smimeKennwort: schutzVerfahren === 'smime' ? kennwort : undefined,
+          lesebestaetigung: lesebestaetigung || undefined,
           // Nach dem Versand entfernt der Server den zugehörigen Entwurf.
           draftFolder: location.current?.folder,
           draftUid: location.current?.uid ?? undefined,
@@ -327,14 +394,16 @@ export function ComposeModal({
     // einer Erklärung im Fließtext darüber, weil das Browserfenster nichts anderes
     // zuließ - und "Abbrechen" für "weiter bearbeiten" ist genau verkehrt herum.
     const wahl = await bestaetige({
-      titel: 'Die Nachricht wurde geändert.',
-      text: 'Soll sie als Entwurf gespeichert werden? Der Entwurf liegt danach im Entwürfe-Ordner und lässt sich jederzeit weiterschreiben.',
-      ok: 'Als Entwurf speichern',
-      abbrechen: 'Weiter bearbeiten',
+      titel: t('Die Nachricht wurde geändert.'),
+      text: t(
+        'Soll sie als Entwurf gespeichert werden? Der Entwurf liegt danach im Entwürfe-Ordner und lässt sich jederzeit weiterschreiben.',
+      ),
+      ok: t('Als Entwurf speichern'),
+      abbrechen: t('Weiter bearbeiten'),
       // Ohne diesen dritten Weg sass man fest: ein aus Versehen getipptes Zeichen
       // liess sich nicht mehr loswerden, ohne einen Entwurf im echten Postfach zu
       // hinterlassen. Der einzige Ausweg war, den Text von Hand ganz zu loeschen.
-      verwerfen: 'Verwerfen',
+      verwerfen: t('Verwerfen'),
     });
     if (wahl === 'verwerfen') {
       onClose();
@@ -346,10 +415,10 @@ export function ComposeModal({
 
   const verwerfen = async () => {
     const ja = await bestaetige({
-      titel: 'Entwurf verwerfen?',
-      text: 'Der geschriebene Inhalt geht verloren. Das lässt sich nicht rückgängig machen.',
+      titel: t('Entwurf verwerfen?'),
+      text: t('Der geschriebene Inhalt geht verloren. Das lässt sich nicht rückgängig machen.'),
       stil: 'gefahr',
-      ok: 'Verwerfen',
+      ok: t('Verwerfen'),
     });
     if (!ja) return;
     if (location.current?.uid && onDiscardDraft) {
@@ -396,9 +465,7 @@ export function ComposeModal({
       }}
     >
       {ueberDatei > 0 && (
-        <div className="datei-flaeche" aria-hidden="true">
-          Dateien hier ablegen, um sie anzuhängen
-        </div>
+        <div className="datei-flaeche" aria-hidden="true">{t('Dateien hier ablegen, um sie anzuhängen')}</div>
       )}
       <form onSubmit={submit}>
         {/* Nur zeigen, wenn es etwas zu wählen gibt - bei einem Konto ohne weitere
@@ -455,7 +522,7 @@ export function ComposeModal({
         {showCopyFields && (
           <>
             <div className="form-row">
-              <label htmlFor={`${felder}-cc`}>Kopie (CC)</label>
+              <label htmlFor={`${felder}-cc`}>{t('Kopie (CC)')}</label>
               <AddressInput
                 id={`${felder}-cc`}
                 value={cc}
@@ -464,11 +531,11 @@ export function ComposeModal({
                   markDirty();
                 }}
                 disabled={busy}
-                placeholder="sichtbar für alle"
+                placeholder={t('sichtbar für alle')}
               />
             </div>
             <div className="form-row">
-              <label htmlFor={`${felder}-bcc`}>Blindkopie (BCC)</label>
+              <label htmlFor={`${felder}-bcc`}>{t('Blindkopie (BCC)')}</label>
               <AddressInput
                 id={`${felder}-bcc`}
                 value={bcc}
@@ -477,14 +544,14 @@ export function ComposeModal({
                   markDirty();
                 }}
                 disabled={busy}
-                placeholder="für andere Empfänger nicht sichtbar"
+                placeholder={t('für andere Empfänger nicht sichtbar')}
               />
             </div>
           </>
         )}
 
         <div className="form-row">
-          <label htmlFor={`${felder}-betreff`}>Betreff</label>
+          <label htmlFor={`${felder}-betreff`}>{t('Betreff')}</label>
           <input
             id={`${felder}-betreff`}
             value={subject}
@@ -498,7 +565,7 @@ export function ComposeModal({
         </div>
 
         <div className="form-row">
-          <span className="feld-titel">Nachricht</span>
+          <span className="feld-titel">{t('Nachricht')}</span>
           <RichTextEditor
             beschriftung="Nachricht"
             html={html}
@@ -543,7 +610,7 @@ export function ComposeModal({
                   <button
                     type="button"
                     className="icon-btn"
-                    title="Anhang entfernen"
+                    title={t('Anhang entfernen')}
                     disabled={busy}
                     onClick={() => {
                       setAttachments((prev) => prev.filter((_, index) => index !== i));
@@ -563,31 +630,50 @@ export function ComposeModal({
         <div className="compose-footer">
           <span className="draft-state">
             {saving
-              ? 'Entwurf wird gespeichert…'
+              ? t('Entwurf wird gespeichert…')
               : savedAt
-                ? `Entwurf gespeichert um ${savedAt.toLocaleTimeString('de-DE')}`
+                ? t('Entwurf gespeichert um {uhr}', { uhr: uhrzeit(savedAt) })
                 : dirty
-                  ? 'Nicht gespeicherte Änderungen'
+                  ? t('Nicht gespeicherte Änderungen')
                   : ''}
           </span>
-          {pgpLage?.kannSignieren && (
+          {lage?.kannSignieren && (
             <div className="pgp-wahl">
-              <span className="pgp-wahl-titel">Schutz</span>
+              <span className="pgp-wahl-titel">{t('Schutz')}</span>
+              {/*
+                Die Wahl des Verfahrens erscheint nur, wenn wirklich beides eingerichtet
+                ist. Das ist selten - fast jeder hat entweder das eine oder das andere -,
+                und wer nur eines hat, soll keine Auswahl vor sich haben, die aus einem
+                Punkt besteht.
+              */}
+              {beides && (
+                <select
+                  className="pgp-verfahren"
+                  value={verfahren}
+                  onChange={(e) => setVerfahren(e.target.value as 'pgp' | 'smime')}
+                  aria-label={t('Verfahren')}
+                >
+                  <option value="smime">S/MIME</option>
+                  <option value="pgp">OpenPGP</option>
+                </select>
+              )}
               {(
                 [
-                  [undefined, 'ohne'],
-                  ['signieren', 'unterschreiben'],
-                  ['verschluesseln', 'verschlüsseln'],
+                  [undefined, t('ohne')],
+                  ['signieren', t('unterschreiben')],
+                  ['verschluesseln', t('verschlüsseln')],
                 ] as const
               ).map(([wert, wort]) => (
                 <label
                   key={wort}
-                  className={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln ? 'aus' : ''}
+                  className={wert === 'verschluesseln' && !lage.kannVerschluesseln ? 'aus' : ''}
                   title={
-                    wert === 'verschluesseln' && !pgpLage.kannVerschluesseln
-                      ? pgpLage.ohneSchluessel.length > 0
-                        ? `Kein Schlüssel für: ${pgpLage.ohneSchluessel.join(', ')}`
-                        : 'Zuerst einen Empfänger angeben'
+                    wert === 'verschluesseln' && !lage.kannVerschluesseln
+                      ? ohneSchluessel.length > 0
+                        ? t('Kein Schlüssel für: {adressen}', {
+                            adressen: ohneSchluessel.join(', '),
+                          })
+                        : t('Zuerst einen Empfänger angeben')
                       : undefined
                   }
                 >
@@ -595,52 +681,61 @@ export function ComposeModal({
                     type="radio"
                     name="pgp-schutz"
                     checked={pgp === wert}
-                    disabled={wert === 'verschluesseln' && !pgpLage.kannVerschluesseln}
+                    disabled={wert === 'verschluesseln' && !lage.kannVerschluesseln}
                     onChange={() => setPgp(wert)}
                   />
                   {wort}
                 </label>
               ))}
               {pgp && attachments.length > 0 && (
-                <span className="pgp-wahl-hinweis">
-                  Anhänge lassen sich noch nicht mitschützen – bitte ohne senden.
-                </span>
+                <span className="pgp-wahl-hinweis">{t('Anhänge lassen sich noch nicht mitschützen – bitte ohne senden.')}</span>
               )}
             </div>
           )}
 
+          {/*
+            Die Bitte um eine Lesebestaetigung - neben den PGP-Schaltern, weil beides
+            dasselbe ist: eine Eigenschaft dieser einen Nachricht, kein Dauerzustand.
+          */}
+          <label className="compose-lesebest">
+            <input
+              type="checkbox"
+              checked={lesebestaetigung}
+              onChange={(e) => setLesebestaetigung(e.target.checked)}
+              disabled={busy}
+            />
+            <span>{t('Lesebestätigung anfordern')}</span>
+            <span className="hint">
+              {t('Der Empfänger entscheidet, ob er eine schickt – viele Programme fragen nach, manche antworten nie.')}
+            </span>
+          </label>
+
           <div className="compose-actions">
             {location.current?.uid && (
-              <button type="button" className="btn danger" onClick={() => void verwerfen()} disabled={busy}>
-                Verwerfen
-              </button>
+              <button type="button" className="btn danger" onClick={() => void verwerfen()} disabled={busy}>{t('Verwerfen')}</button>
             )}
             <button
               type="button"
               className="btn secondary"
               onClick={() => void speichern()}
               disabled={busy || saving}
-            >
-              Als Entwurf speichern
-            </button>
-            <button type="button" className="btn secondary" onClick={() => void schliessen()} disabled={busy}>
-              Schließen
-            </button>
+            >{t('Als Entwurf speichern')}</button>
+            <button type="button" className="btn secondary" onClick={() => void schliessen()} disabled={busy}>{t('Schließen')}</button>
             <select
               className="baustein-wahl"
               value=""
               disabled={busy}
-              title="Textbaustein einfügen oder verwalten"
+              title={t('Textbaustein einfügen oder verwalten')}
               onChange={(e) => {
                 const wert = e.target.value;
                 if (!wert) return;
 
                 if (wert === '__sichern') {
                   void frage({
-                    titel: 'Text als Baustein sichern',
-                    text: 'Unter diesem Namen steht er künftig in der Auswahl.',
-                    platzhalter: 'z. B. Freundlicher Gruß',
-                    ok: 'Sichern',
+                    titel: t('Text als Baustein sichern'),
+                    text: t('Unter diesem Namen steht er künftig in der Auswahl.'),
+                    platzhalter: t('z. B. Freundlicher Gruß'),
+                    ok: t('Sichern'),
                   }).then((name) => name && setBausteine(bausteinSichern(name, html)));
                   return;
                 }
@@ -652,12 +747,12 @@ export function ComposeModal({
                   const treffer = (name: string) =>
                     bausteine.find((b) => b.name.toLowerCase() === name.toLowerCase());
                   void frage({
-                    titel: 'Welchen Baustein löschen?',
-                    text: `Vorhanden:\n${bausteine.map((b) => `· ${b.name}`).join('\n')}`,
+                    titel: t('Welchen Baustein löschen?'),
+                    text: `${t('Vorhanden:')}\n${bausteine.map((b) => `· ${b.name}`).join('\n')}`,
                     stil: 'gefahr',
-                    ok: 'Löschen',
+                    ok: t('Löschen'),
                     pruefe: (name) =>
-                      name && !treffer(name) ? `"${name}" gibt es nicht.` : null,
+                      name && !treffer(name) ? t('„{name}“ gibt es nicht.', { name }) : null,
                   }).then((name) => {
                     const b = name && treffer(name);
                     if (b) setBausteine(bausteinLoeschen(b.id));
@@ -674,7 +769,7 @@ export function ComposeModal({
                 }
               }}
             >
-              <option value="">Baustein…</option>
+              <option value="">{t('Baustein…')}</option>
               {bausteine.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -687,16 +782,14 @@ export function ComposeModal({
               type="button"
               className="btn secondary"
               disabled={busy}
-              title="Zu einem späteren Zeitpunkt senden"
+              title={t('Zu einem späteren Zeitpunkt senden')}
               onClick={(e) => {
                 e.preventDefault();
                 void frageZeitpunkt().then((zeitpunkt) => {
                   if (zeitpunkt) void submit(e, zeitpunkt);
                 });
               }}
-            >
-              Später…
-            </button>
+            >{t('Später…')}</button>
             <button type="submit" className="btn" disabled={busy}>
               {busy ? 'Sende…' : 'Senden'}
             </button>

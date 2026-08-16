@@ -1,10 +1,20 @@
 import { appendMessage, findSentFolder } from './imapClient.js';
 import { buildRawMessage, sendRawMessage } from './smtpClient.js';
 import type { AccountConfig, OutgoingMessage } from './types.js';
+import { t } from './sprache.js';
 
 export interface SendResult {
   /** Der Versand selbst war erfolgreich - sonst wäre eine Ausnahme geworfen worden. */
   sent: true;
+  /**
+   * Die Nachricht, wie sie hinausgegangen ist - Byte für Byte.
+   *
+   * Gebraucht für das GoBD-Archiv, und deshalb hier und nicht über einen Rückruf: Der
+   * Aufrufer soll die Wahl haben, ohne dass mail-core wissen müsste, dass es ein Archiv
+   * gibt. Und ausdrücklich DIESE Bytes und nicht eine zweite Fassung - eine
+   * nachgebaute wäre nicht die, die der Empfänger bekommen hat.
+   */
+  raw: Buffer;
   /** Ob eine Kopie im Gesendet-Ordner abgelegt werden konnte. */
   savedToSent: boolean;
   sentFolder?: string;
@@ -38,13 +48,14 @@ export async function sendMessage(
     if (!sentFolder) {
       return {
         sent: true,
+        raw,
         savedToSent: false,
-        saveError: 'Für dieses Konto wurde kein Gesendet-Ordner gefunden.',
+        saveError: t('Für dieses Konto wurde kein Gesendet-Ordner gefunden.'),
       };
     }
     await appendMessage(config, sentFolder, raw, ['\\Seen']);
-    return { sent: true, savedToSent: true, sentFolder };
+    return { sent: true, raw, savedToSent: true, sentFolder };
   } catch (err) {
-    return { sent: true, savedToSent: false, saveError: (err as Error).message };
+    return { sent: true, raw, savedToSent: false, saveError: (err as Error).message };
   }
 }

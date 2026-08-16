@@ -52,11 +52,93 @@ const REGELN: { was: string; muster: RegExp; ersatz: string }[] = [
     muster: /\b(LOGIN|AUTHENTICATE)\s+\S+(\s+\S+)?/gi,
     ersatz: `$1 ${UNKENNTLICH}`,
   },
+  /*
+   * Das Zugangsgeheimnis des lokalen Servers - in beiden Formen, in denen es vorkommt.
+   *
+   * Es stand vorher ungeschützt im Protokoll, und zwar auf dem Weg, den niemand vermutet:
+   * die Oberfläche kann bei einem WebSocket keine Kopfzeile setzen und hängt es deshalb
+   * als "?zugang=..." an die Adresse (useMailEvents.ts). Fastify protokolliert von jeder
+   * Anfrage die Adresse mitsamt Abfrageteil - also landete das Geheimnis bei jedem
+   * Verbindungsaufbau im Klartext in der Datei.
+   *
+   * Schwerer als die Datei selbst wiegt der Fehlerbericht: diagnose.ts fragt vor dem
+   * Schreiben enthaeltGeheimnisse() und gibt den Bericht frei, wenn nichts gefunden wird.
+   * Ohne diese Regel lautete die Antwort "nichts gefunden" - und der Nutzer verschickte
+   * den Schlüssel zu seinem eigenen Postfachdienst im guten Glauben mit.
+   *
+   * Muss VOR der Mailadressen-Regel stehen, damit der Name der Kopfzeile erhalten
+   * bleibt: an "x-energy-mail-zugang: [entfernt]" sieht man beim Suchen noch, worum es
+   * ging.
+   */
+  {
+    was: 'Zugangsgeheimnis',
+    muster: /([?&]zugang=)[^&\s"'&]+/gi,
+    ersatz: `$1${UNKENNTLICH}`,
+  },
+  {
+    was: 'Zugangsgeheimnis',
+    muster: /("?x-energy-mail-zugang"?\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/gi,
+    ersatz: `$1${UNKENNTLICH}`,
+  },
+  /*
+   * Die Anmeldung in einer Adresse: "http://anna:geheim@proxy.firma.de:3128".
+   *
+   * So wird ein Proxy angegeben, und in einem Unternehmen ist das Proxy-Kennwort oft
+   * dasselbe wie das Windows-Kennwort. Die Regeln oben greifen hier nicht - es steht
+   * kein "password=" davor, sondern ein Doppelpunkt mitten in einer Adresse.
+   *
+   * Der Rechnername bleibt stehen: "es klemmt an proxy.firma.de" ist die Auskunft, um
+   * die es im Fehlerbericht geht.
+   */
+  {
+    was: 'Anmeldung in einer Adresse',
+    muster: /([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+:[^/\s@]+@/gi,
+    ersatz: `$1${UNKENNTLICH}@`,
+  },
   // Ein privater Schlüssel darf unter keinen Umständen mitgehen.
   {
     was: 'privater Schlüssel',
     muster: /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----/g,
     ersatz: UNKENNTLICH,
+  },
+  /*
+   * Was jemand in seinem eigenen Postfach sucht.
+   *
+   * Der lauteste Fund bei der Durchsicht, und der unauffälligste: Fastify protokolliert
+   * von jeder Anfrage die Adresse SAMT Abfrageteil, und die Suche des Nutzers steht dort
+   * als "GET /search?q=...". Damit lag in der Datei, die "Fehlerbericht erzeugen" zum
+   * Verschicken anbietet, eine Liste dessen, wonach jemand in seiner eigenen Post gesucht
+   * hat - "Kündigung", "Befund", "Anwalt". Das ist keine Randnotiz: ein Suchbegriff sagt
+   * oft mehr über einen Menschen aus als die Nachricht, die er findet.
+   *
+   * Der Name des Feldes bleibt stehen. "q=[entfernt]" sagt beim Suchen alles, was
+   * gebraucht wird - nämlich dass gesucht wurde und die Anfrage bis hierher kam.
+   *
+   * Die Aufzählung deckt jeden Abfrageteil ab, über den in dieser Anwendung Inhalt
+   * geht (siehe die Routen in server/src/app.ts). Beim Ergänzen einer Route mit einem
+   * neuen inhaltstragenden Feld gehört es hier dazu.
+   */
+  {
+    was: 'Suchbegriff',
+    muster:
+      /([?&](?:q|suche|search|query|filter|betreff|subject|text|von|an|email|adresse|address|name)=)[^&\s"'`]*/gi,
+    ersatz: `$1${UNKENNTLICH}`,
+  },
+  /*
+   * Eine Mailadresse, wie sie in einer Adresse steht: prozentkodiert.
+   *
+   * Muss VOR der gewöhnlichen Regel stehen und ist keine Doppelung von ihr - die kennt
+   * nur das wörtliche "@" und ging deshalb an "/adressbuch/max%40beispiel.de" vorbei. Und
+   * genau so steht es im Protokoll: die Adresse ist Teil des Pfades bei
+   * /adressbuch/:adresse und /accounts/:id/vertraute-absender/:adresse, also bei jedem
+   * Löschen eines Kontakts und jedem Entziehen des Vertrauens. Gemessen an der
+   * gewöhnlichen Regel eine Kleinigkeit; für die Zusicherung "Mailadressen wurden
+   * herausgenommen" der Unterschied zwischen wahr und unwahr.
+   */
+  {
+    was: 'Mailadresse',
+    muster: /\b[A-Za-z0-9._+-]+(%40[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g,
+    ersatz: `${UNKENNTLICH}$1`,
   },
   /*
    * Mailadressen zuletzt, und nur der Teil vor dem @.
@@ -104,6 +186,37 @@ export function enthaeltGeheimnisse(text: string): string[] {
     gefunden.push(regel.was);
   }
   return gefunden;
+}
+
+/**
+ * Kürzt eine IP-Adresse auf das, was zum Nachvollziehen genügt.
+ *
+ * Eine IP-Adresse benennt einen Anschluss, und damit im Zweifel einen Menschen. Ins
+ * Protokoll gehört sie trotzdem: ohne sie lässt sich nicht unterscheiden, ob zehn
+ * Fehlversuche von einem vergesslichen Nutzer stammen oder von zehn Rechnern, die ein
+ * Kennwort durchprobieren. Genau diese Unterscheidung überlebt das Kürzen - das Netz
+ * bleibt stehen, der einzelne Anschluss verschwindet.
+ *
+ * Dasselbe Maß, das auch Web-Statistiken verwenden: bei IPv4 fällt das letzte Achtel weg,
+ * bei IPv6 alles ab dem fünften Block.
+ *
+ * Nicht in REGELN, sondern hier zum Aufrufen: eine allgemeine Regel über alle
+ * Protokollzeilen träfe auch die Adressen von Postfachservern in Verbindungsfehlern - und
+ * "verbunden mit [entfernt]" hilft bei der Fehlersuche niemandem.
+ */
+export function kuerzeIpAdresse(adresse: string): string {
+  const roh = adresse.trim();
+  // "::ffff:203.0.113.7" - IPv4 in IPv6-Schreibweise, wie sie ein doppelt lauschender
+  // Server liefert. Nach der IPv4-Regel behandeln, sonst bliebe sie ungekürzt stehen.
+  const eingebettet = roh.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i)?.[1];
+  const v4 = (eingebettet ?? roh).match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/);
+  if (v4) return `${v4[1]}.x`;
+  if (roh.includes(':')) {
+    const bloecke = roh.split(':').slice(0, 4).join(':');
+    return `${bloecke}::x`;
+  }
+  // Weder das eine noch das andere - dann lieber gar nichts als etwas Unbekanntes.
+  return UNKENNTLICH;
 }
 
 // --- Aufbau einer Protokollzeile -------------------------------------------------

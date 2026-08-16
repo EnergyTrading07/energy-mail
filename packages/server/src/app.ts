@@ -1,10 +1,65 @@
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocketPlugin from '@fastify/websocket';
-import { ZUGANG_KOPFZEILE, registriereZugangspruefung } from './zugang.js';
+import {
+  GESUNDHEITS_PFAD,
+  ZUGANG_KOPFZEILE,
+  geheimnisAusAnfrage,
+  holeZugangsgeheimnis,
+  registriereZugangspruefung,
+} from './zugang.js';
+import { getWurzelDir } from './paths.js';
+import {
+  alleNutzer,
+  findeNutzer,
+  istGesperrt,
+  istVerwalter,
+  stelleVerwalterSicher,
+} from './nutzer/nutzerStore.js';
+import { KEKS_NAME, registriereAnmeldung, ueberTls } from './nutzer/anmelden.js';
+import { nutzerZurSitzung, sitzungsstand } from './nutzer/sitzung.js';
+import {
+  EINPLATZ_NUTZER,
+  aktuellerNutzer,
+  alsNutzer,
+  handelnderNutzer,
+  vertretungFuer,
+} from './nutzer/kontext.js';
+import { registriereNutzerkontext, type NutzerErmitteln } from './nutzer/haken.js';
+import { registriereVerwaltung } from './nutzer/verwaltung.js';
+import { registriereZweiFaktor } from './nutzer/zweiFaktor.js';
+import {
+  FreigabeFehler,
+  eigeneFreigaben,
+  entferneFreigabe,
+  erhalteneFreigaben,
+  freigabenZuKonto,
+  legeFreigabeAn,
+  type Recht,
+} from './nutzer/freigaben.js';
+import { registriereFreigabeWechsel } from './nutzer/freigabeHaken.js';
+import { protokolliere } from './protokollDatei.js';
+import { sucheImVerzeichnis } from './verzeichnis.js';
+import {
+  entscheidungZu,
+  merkeEntscheidung,
+  nachrichtenSchluessel as bestaetigungsSchluessel,
+  pruefeBestaetigung,
+  setzeUmgang,
+  umgangFuer,
+  umgangVerwerfen,
+  verschickeBestaetigung,
+} from './lesebestaetigung.js';
+import { registriereSprachkontext } from './sprachkontext.js';
+import { ladeAlle } from '@energy-mail/mail-core/sprachen';
+import { ziehePerBestandUm } from './nutzer/umzug.js';
+import { richteUmschlagEin, stelleEinplatznutzerSicher } from './nutzer/einrichten.js';
+import { isEncryptionAvailable as istVerschluesselungVerfuegbar } from './secretCrypto.js';
 import {
   ATTACHMENT_SEARCH_UNSUPPORTED,
   CATEGORY_UNSUPPORTED,
@@ -41,6 +96,12 @@ import {
   offeneVorgaenge,
   baueAntwort,
   baueSigniertenTeil,
+  SmimeBezeichner,
+  alsBytes,
+  baueSignierteDaten,
+  baueSigniertePost,
+  baueUmschlag,
+  besteVerschluesselung,
   erzeugeSchluesselpaar,
   signiereAbgetrennt,
   verschluessle,
@@ -65,6 +126,8 @@ import {
   type RegelBedingung,
   type Antwort,
   type SearchCriteria,
+  fuerAnzeige,
+  leseProxyadresse,
 } from '@energy-mail/mail-core';
 import Fastify from 'fastify';
 import {
@@ -81,7 +144,7 @@ import {
 import {
   ausSpeicherOderHolen,
   schluessel,
-  schreibeSofort as schreibeCacheSofort,
+  schreibeAlleSofort as schreibeAlleCachesSofort,
   verwerfe,
   verwerfeKonto,
 } from './cache.js';
@@ -100,6 +163,13 @@ import {
   setSendeVerfahren,
   storniereSendung,
 } from './sendQueue.js';
+import {
+  abwesenheitFuer,
+  abwesenheitVerwerfen,
+  aktiveAbwesenheiten,
+  setzeAbwesenheit,
+  type Abwesenheit,
+} from './abwesenheit.js';
 import {
   istBrauchbar,
   passt,
@@ -121,6 +191,35 @@ import {
   SchluesselFehler,
 } from './schluesselbund.js';
 import { pruefePgp } from './pgpNachricht.js';
+import { pruefeSmime } from './smimeNachricht.js';
+import {
+  alleEintraege as alleArchivEintraege,
+  archivEinstellungen,
+  original as archivOriginal,
+  siegel as archivSiegel,
+  pruefeBestand as pruefeArchivBestand,
+  raeumeAuf as raeumeArchivAuf,
+  setzeArchivEinstellungen,
+  suche as sucheImArchiv,
+  trageUm as trageArchivUm,
+  vermerke as vermerkeImArchiv,
+  type ArchivEinstellungen,
+} from './archiv/archiv.js';
+import { erfasseVersand } from './archiv/erfassen.js';
+import { erzeugeAusfuhr as erzeugeArchivAusfuhr } from './archiv/ausfuhr.js';
+import { verfahrensdokumentation } from './archiv/verfahrensdokumentation.js';
+import type { Aufbewahrungsart } from './archiv/fristen.js';
+import {
+  ZertifikatsspeicherFehler,
+  alleZertifikate,
+  alsPem as smimeAlsPem,
+  eigeneFuer,
+  entferneZertifikat,
+  fuegeSchluesseldateiHinzu,
+  fuegeZertifikatHinzu,
+  kennwortStimmt as smimeKennwortStimmt,
+  zertifikateFuer,
+} from './smimeStore.js';
 import {
   holeGesamtPosteingang,
   markeAlsText,
@@ -153,13 +252,15 @@ import {
 } from './contactStore.js';
 import { istVerbindungsfehler } from './verbindungsfehler.js';
 import {
+  ablageGroesse,
   anzahlAbgelegt,
   holeInhalt,
   holeSeite,
+  leereAblage,
   merkeInhalt,
   merkeKopfdaten,
   pruefeUidGueltigkeit,
-  schliesseAblage,
+  schliesseAlleAblagen,
   setzeGelesen as ablageGelesen,
   entferneNachrichten as ablageEntfernen,
   suchbestand,
@@ -182,11 +283,16 @@ import {
   verwirfNachrichten,
 } from './messageCache.js';
 import { clearFlow, getFlow, startOAuthFlow } from './oauthFlow.js';
-import { listOAuthClients, removeOAuthClient, setOAuthClient } from './oauthStore.js';
+import {
+  istVorgegeben,
+  listOAuthClients,
+  removeOAuthClient,
+  setOAuthClient,
+} from './oauthStore.js';
 import { installTokenRefresh } from './tokenRefresh.js';
 import { fastifyProtokollZiel } from './protokollDatei.js';
 import {
-  HINWEIS,
+  hinweis as sicherungsHinweis,
   SICHERUNG_FASSUNG,
   nurNeue,
   ohneGeheimnisse,
@@ -202,6 +308,7 @@ import {
   subscribe,
   syncWatchers,
 } from './watcherRegistry.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Liegt sowohl von src/ (tsx) als auch von dist/ aus eine Ebene unter packages/server.
@@ -222,6 +329,15 @@ function publicAccount(account: AccountConfig) {
     displayName: account.displayName,
     signature: account.signature,
     identitaeten: account.identitaeten ?? [],
+    /*
+     * Der Proxy OHNE Anmeldung.
+     *
+     * Er geht in die Oberfläche, damit dort steht, was eingetragen ist - aber ein
+     * Proxy-Kennwort ist in Firmen oft das Windows-Kennwort, und die Antwort dieser Route
+     * landet im Browserspeicher, in Entwicklerwerkzeugen und womöglich in einem
+     * Mitschnitt. Wer den Proxy ändern will, trägt ihn neu ein.
+     */
+    proxy: fuerAnzeige(account.proxy) === 'direkt' ? undefined : fuerAnzeige(account.proxy),
     // Bestimmt Farbgebung und anbietereigene Aktionen in der Oberfläche.
     provider: getProviderId(
       account.email,
@@ -249,10 +365,80 @@ export type ServerOptionen = {
    * zugang.ts braucht ihn, um die eigene Origin von einer fremden zu unterscheiden.
    */
   port?: number;
+  /**
+   * Für welchen Nutzer eine Anfrage arbeitet.
+   *
+   * Im Desktop-Betrieb immer derselbe ("lokal") - ein Rechner, ein Mensch. Sobald es
+   * eine Anmeldung gibt (Stufe 2), liest diese Funktion den Nutzer aus der Sitzung; der
+   * übrige Server merkt davon nichts. Ohne Angabe gilt der Einplatzbetrieb.
+   */
+  nutzerErmitteln?: NutzerErmitteln;
+  /**
+   * Ob den Kopfzeilen eines vorgelagerten Proxys geglaubt wird (X-Forwarded-For und
+   * Verwandte). `false` im Desktop-Betrieb - dort steht nichts davor. Siehe index.ts.
+   */
+  proxyVertrauen?: boolean | number | string;
+  /**
+   * Ob der Vite-Entwicklungsserver auf 5173 mitreden darf (CORS).
+   *
+   * Ausdrücklich vom Aufrufer und nicht mehr hier erraten. Vorher lautete die Bedingung
+   * "es gibt kein gebautes Frontend" - damit hing eine Sicherheitseinstellung daran, ob
+   * ein Bau geglückt ist. Ein halb durchgelaufenes `npm run build` im Betrieb oder ein
+   * falsch eingehängter Ordner im Container, und der Dienst nahm Anfragen mit
+   * Zugangsdaten von localhost:5173 entgegen. Die Desktop-Hülle setzt es nie: sie
+   * liefert die Oberfläche selbst aus.
+   */
+  viteErlauben?: boolean;
 };
+
+/**
+ * Der Nutzer, unter dem der Einplatzbetrieb läuft.
+ *
+ * Steht seit dem Rollenbegriff in nutzer/kontext.ts und wird hier nur weitergereicht:
+ * Auch das Befehlszeilenwerkzeug muss ihn kennen (es darf ihm keine Verwalterrolle
+ * geben), und um dafür app.ts einzubinden, müsste es den ganzen Server laden.
+ */
+export { EINPLATZ_NUTZER } from './nutzer/kontext.js';
+
+/**
+ * Führt etwas im Namen des Einplatznutzers aus - für die Desktop-Hülle.
+ *
+ * Sie ruft Speicher unmittelbar auf, außerhalb jeder HTTP-Anfrage: beim Beenden
+ * (Kontakte schreiben, Wartendes versenden) und nach dem Standby (Überwachung neu
+ * aufsetzen). Alle diese Wege gehen durch den Nutzerkontext, und ohne ihn werfen sie -
+ * was in der Hülle nicht als Fehlermeldung ankam, sondern als Absturzfenster beim
+ * Aufwachen und als stillschweigend übersprungenes Herunterfahren.
+ *
+ * Bewusst hier und nicht als roher alsNutzer()-Zugang: die Hülle hat genau einen
+ * Menschen und soll von der Nutzerverwaltung nichts wissen müssen. Sie sagt "das hier
+ * gehört dem Einplatznutzer" und nicht "dieser Ausführungsstrang gehört Kennung X".
+ */
+export function alsEinplatznutzer<T>(fn: () => T): T {
+  return alsNutzer(EINPLATZ_NUTZER, fn);
+}
 
 export async function buildServer(optionen: ServerOptionen = {}) {
   const port = optionen.port ?? 4000;
+  /**
+   * Wie der Nutzer einer Anfrage bestimmt wird.
+   *
+   * Zwei Wege, und sie schließen sich nicht aus:
+   *
+   *  - Die Desktop-Hülle weist sich mit dem Zugangsgeheimnis des Prozesses aus. Es kennt
+   *    nur ihr eigenes Fenster, und es gibt dort genau einen Menschen - eine Anmeldung
+   *    wäre eine Hürde ohne Gegenwert.
+   *  - Im Serverbetrieb ist kein Zugangsgeheimnis gesetzt; dann entscheidet die Sitzung
+   *    aus dem Keks.
+   *
+   * Der Aufrufer kann beides übergehen (die Prüfungen tun das).
+   */
+  const nutzerErmitteln: NutzerErmitteln =
+    optionen.nutzerErmitteln ??
+    ((request) => {
+      const geheimnis = holeZugangsgeheimnis();
+      if (geheimnis && geheimnisAusAnfrage(request) === geheimnis) return EINPLATZ_NUTZER;
+      return nutzerZurSitzung(request.cookies?.[KEKS_NAME]);
+    });
   /*
    * Das Protokoll geht zusaetzlich in eine Datei.
    *
@@ -264,6 +450,72 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   const app = Fastify({
     logger: { stream: fastifyProtokollZiel() },
     bodyLimit: BODY_LIMIT_BYTES,
+    /*
+     * Voreinstellung false: im Desktop-Betrieb steht nichts vor dem Server, und wer den
+     * Kopfzeilen dort glaubte, ließe sich von jedem Absender eine beliebige Herkunft
+     * vorschreiben. Im Serverbetrieb setzt index.ts den Wert bewusst.
+     */
+    trustProxy: optionen.proxyVertrauen ?? false,
+  });
+
+  /*
+   * Sicherheitskopfzeilen - von der Anwendung selbst, nicht vom Vorbau.
+   *
+   * Bisher gab es sie nur im Caddyfile. Das genügt nicht, und zwar aus zwei Gründen:
+   * der Desktop-Betrieb hat gar keinen Vorbau, und wer statt Caddy einen nginx
+   * davorstellt (der eingespielte Weg auf dem Zielrechner), muss die Liste von Hand
+   * nachbauen - eine vergessene Zeile fällt niemandem auf.
+   *
+   * frame-ancestors ist der Anlass. Es steht zwar in der Richtlinie in index.html, aber
+   * dort ist es WIRKUNGSLOS: der Browser ignoriert frame-ancestors, report-uri und
+   * sandbox, wenn die Richtlinie aus einem <meta>-Element stammt - sie müssen über eine
+   * Kopfzeile kommen. Die Anwendung glaubte sich also gegen das Einbetten in eine fremde
+   * Seite geschützt und war es nicht.
+   *
+   * Bewusst nur diese eine Richtlinien-Anweisung und nicht die ganze Richtlinie doppelt:
+   * mehrere Richtlinien gelten nebeneinander, jede für sich. Eine zweite vollständige
+   * Fassung hier hieße, sie bei jeder Änderung an zwei Stellen nachzuziehen - und die
+   * strengere von beiden gewänne still.
+   *
+   * HSTS stand hier lange bewusst NICHT, mit der Begründung: der Server spricht http, die
+   * Verschlüsselung endet am Vorbau, und wer sie von hier aus verspräche, verspräche
+   * etwas, das er nicht hält. Der erste Teil stimmt, der Schluss war zu kurz gegriffen -
+   * die Anwendung kann sehr wohl erkennen, ob die Anfrage über TLS hereinkam (dieselbe
+   * Prüfung, mit der der Sitzungskeks sein "secure" bekommt). Nur dann geht die Kopfzeile
+   * hinaus, und dann ist sie keine Behauptung, sondern eine Feststellung.
+   *
+   * Der Anlass ist der Firmenbetrieb: eine Anwendung ohne HSTS fällt in jeder
+   * Sicherheitsprüfung auf, und ohne sie genügt ein einziger Aufruf über http, um die
+   * Sitzung im Klartext mitlesen zu lassen.
+   */
+  app.addHook('onSend', async (request, reply) => {
+    /*
+     * Ein halbes Jahr, ohne Unterdomänen und ohne "preload".
+     *
+     * Beides bewusst: Unterdomänen gehören womöglich jemand anderem, und "preload" trägt
+     * die Adresse in eine Liste ein, aus der sie über Monate nicht wieder herauskommt -
+     * eine Entscheidung, die der Betreiber selbst treffen soll und nicht dieses Programm
+     * für ihn.
+     */
+    if (ueberTls(request)) {
+      reply.header('strict-transport-security', 'max-age=15552000');
+    }
+    // Diese Seite gehört in kein fremdes Fenster. X-Frame-Options daneben für alles,
+    // was frame-ancestors noch nicht auswertet.
+    reply.header('content-security-policy', "frame-ancestors 'none'");
+    reply.header('x-frame-options', 'DENY');
+    /*
+     * Kein Erraten des Inhaltstyps.
+     *
+     * Wichtig vor allem beim Anhang-Abruf: dessen Content-Type stammt aus der Kopfzeile
+     * der Mail, wird also vom Absender bestimmt. Content-Disposition: attachment hält
+     * den Browser schon davon ab, ihn anzuzeigen - nosniff nimmt ihm zusätzlich die
+     * Möglichkeit, sich den Typ selbst auszudenken.
+     */
+    reply.header('x-content-type-options', 'nosniff');
+    // Adressen dieser Anwendung tragen Kontokennungen und Ordnernamen - die gehen keinen
+    // fremden Server etwas an.
+    reply.header('referrer-policy', 'no-referrer');
   });
 
   /*
@@ -273,8 +525,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
    * damit jeder beliebigen Webseite, die Antworten dieses Servers zu lesen. Paketiert
    * wird die Oberflaeche vom selben Server ausgeliefert; dort ist CORS schlicht
    * ueberfluessig. Gebraucht wird es nur, solange Vite auf 5173 laeuft.
+   *
+   * Wann das gilt, entscheidet der Aufrufer - siehe ServerOptionen.viteErlauben. Ein
+   * fehlender dist-Ordner ist ein Unfall und kein Entwicklungsbetrieb.
    */
-  if (!fs.existsSync(webDistDir)) {
+  if (optionen.viteErlauben) {
     await app.register(cors, {
       origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
       credentials: true,
@@ -282,7 +537,183 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     });
   }
 
+  /*
+   * Bestandsdaten in den Nutzerordner holen - vor allem anderen.
+   *
+   * Muss vor dem ersten Speicherzugriff laufen, und das ist beim Aufbau der Watcher der
+   * Fall. Ohne den Umzug fände eine bestehende Installation nach der Aktualisierung
+   * nichts wieder: keine Konten, kein Adressbuch, keine Regeln.
+   */
+  const umzug = ziehePerBestandUm(EINPLATZ_NUTZER);
+  if (umzug.verschoben.length > 0) {
+    app.log.info(
+      `Bestandsdaten nach nutzer/${EINPLATZ_NUTZER}/ verschoben: ${umzug.verschoben.join(', ')}`,
+    );
+  }
+  for (const problem of umzug.probleme) app.log.warn(`Umzug: ${problem}`);
+
+  /*
+   * Nutzereintrag und Umschlagverschlüsselung - in dieser Reihenfolge.
+   *
+   * Der Eintrag muss zuerst da sein: dort liegt der Schlüssel des Nutzers, und ihn
+   * anzulegen braucht den Masterschlüssel (den die Hülle vor buildServer() gesetzt hat).
+   * Erst danach darf der Umschlag eingehängt werden - sonst versuchte schon das Verpacken
+   * des Nutzerschlüssels, durch den Umschlag zu gehen, den es noch nicht gibt.
+   *
+   * Ohne eingerichtete Verschlüsselung wird beides übersprungen. Das ist kein Notbehelf,
+   * sondern der bestehende Zustand: der Standalone-Server ohne Masterschlüssel kann
+   * ohnehin keine Konten lesen oder anlegen, und secretCrypto sagt das mit einer
+   * verständlichen Meldung.
+   */
+  if (istVerschluesselungVerfuegbar()) {
+    stelleEinplatznutzerSicher(EINPLATZ_NUTZER, `${EINPLATZ_NUTZER}@energy-mail.local`);
+    /*
+     * Es muss einen Verwalter geben - sonst ist die Verwaltung für niemanden erreichbar.
+     *
+     * Trifft vor allem bestehende Aufstellungen: In deren nutzer.json steht keine Rolle,
+     * und ohne diesen Schritt hätte nach der Aktualisierung niemand Rechte. Der Pseudo-
+     * Nutzer der Hülle ist ausgenommen - siehe stelleVerwalterSicher.
+     */
+    stelleVerwalterSicher(EINPLATZ_NUTZER);
+    richteUmschlagEin();
+  } else {
+    app.log.warn(
+      'Keine Verschlüsselung eingerichtet - Konten lassen sich weder lesen noch anlegen.',
+    );
+  }
+
+  // Muss vor allem stehen, was Kekse liest - also vor der Anmeldung und dem Kontext.
+  await app.register(cookie);
+
+  /*
+   * Die Sprache je Anfrage - VOR der Zugangspruefung, und das ist der Punkt.
+   *
+   * Hier stand dieser Aufruf zweihundert Zeilen weiter unten, hinter Zugangspruefung und
+   * Nutzerkontext. Fastify ruft die onRequest-Haken in der Reihenfolge ihrer Anmeldung -
+   * die Eingangskontrolle lief also AUSSERHALB des Sprachkontexts, und ihre beiden
+   * Meldungen ("Kein Zugang", "Anfrage aus fremder Herkunft") kamen deutsch heraus, ganz
+   * gleich was der Browser verlangte. Uebersetzt waren sie laengst.
+   *
+   * Aufgefallen an der laufenden Anwendung, nicht in einer Pruefung: Beide Meldungen
+   * kommen nur zustande, wenn die Anfrage abgewiesen wird - und die Pruefungen fragen
+   * ordnungsgemaess an. Der Kommentar in sprachkontext.ts behauptete dabei genau das
+   * Richtige ("vor allem anderen"); nur stand der Aufruf nicht dort, wo der Kommentar es
+   * sagte. Eine Beschreibung, die der Anordnung widerspricht, ist schlimmer als keine.
+   *
+   * Nach `cookie` und nicht davor: Woher die Sprache eines Nutzers kaeme, entscheidet der
+   * Nutzerspeicher; heute gibt es dort kein solches Feld, aber sobald es eines gibt, wird
+   * es aus einem Keks kommen.
+   *
+   * Im Serverbetrieb bedient ein Prozess viele Menschen gleichzeitig; die Sprache gehoert
+   * damit zur Anfrage und nicht zum Programm. Siehe sprachkontext.ts, dort steht auch,
+   * warum eine Variable im Modul hier nicht bloss unsauber, sondern falsch waere.
+   */
+  registriereSprachkontext(app, () => undefined);
+
+  /*
+   * Und die Kataloge dazu - ALLE.
+   *
+   * Ohne diese Zeile war der ganze Aufbau darueber wirkungslos: Die Sprache je Anfrage
+   * wurde ermittelt, t() stand an sechsundachtzig Stellen, und weil nie ein Katalog
+   * hinterlegt war, fiel jede Meldung auf Deutsch zurueck - auch fuer einen Browser, der
+   * ausdruecklich Englisch verlangte. Ein Fehler ohne Symptom: keine Ausnahme, keine
+   * leere Stelle, nur weiterhin Deutsch.
+   *
+   * Alle statt nur einer, weil "die eine Sprache" hier die falsche Frage ist: Zwischen
+   * zwei Anfragen liegt womoeglich ein anderer Mensch. Je Anfrage nachzuladen waere eine
+   * Wartezeit mitten in der Antwort; alles beim Start kostet einmalig ein paar hundert
+   * Kilobyte.
+   *
+   * Nicht abgewartet: Der Server soll horchen koennen, bevor die Kataloge da sind. Die
+   * erste Anfrage in den ersten Millisekunden bekaeme sonst gar keine Antwort statt einer
+   * deutschen.
+   */
+  void ladeAlle();
+
   registriereZugangspruefung(app, port);
+
+  /*
+   * Lebt der Dienst noch?
+   *
+   * Docker fragt das im Minutentakt; ohne eine solche Auskunft weiß der Container nur,
+   * ob der Prozess läuft - und ein Prozess, der läuft, aber auf keine Anfrage mehr
+   * antwortet, ist der häufigere Fall.
+   *
+   * Geprüft wird deshalb etwas, das tatsächlich schiefgehen kann: ob sich in den
+   * Datenordner schreiben lässt. Ein volles Laufwerk oder eine Einbindung mit falschen
+   * Rechten ist die Störung, die im Betrieb wirklich auftritt - und eine, bei der ein
+   * bloßes "ok" lügen würde, weil der Dienst zwar antwortet, aber nichts mehr sichern
+   * kann.
+   *
+   * Herausgegeben wird nichts, was jemanden angeht: keine Nutzer, keine Konten, keine
+   * Zahlen über den Bestand.
+   */
+  const gestartet = Date.now();
+  app.get(GESUNDHEITS_PFAD, async (_request, reply) => {
+    const fassung = process.env.ENERGY_MAIL_FASSUNG ?? 'unbekannt';
+    const laeuftSeit = Math.round((Date.now() - gestartet) / 1000);
+    try {
+      fs.accessSync(getWurzelDir(), fs.constants.W_OK);
+    } catch (err) {
+      app.log.error(`Gesundheitsprüfung: Datenordner nicht beschreibbar - ${(err as Error).message}`);
+      return reply.code(503).send({
+        ok: false,
+        grund: t('Der Datenordner ist nicht beschreibbar.'),
+        fassung,
+        laeuftSeit,
+      });
+    }
+    return { ok: true, fassung, laeuftSeit, verschluesselung: istVerschluesselungVerfuegbar() };
+  });
+
+  registriereAnmeldung(app, nutzerErmitteln);
+
+  /*
+   * Jede Anfrage bekommt einen Nutzer, bevor eine Route sie sieht.
+   *
+   * Ohne diesen Haken wirft jeder Speicherzugriff - siehe nutzer/kontext.ts. Das ist
+   * Absicht: eine Stelle, die den Kontext zu setzen vergisst, soll laut scheitern statt
+   * stillschweigend in fremden Daten zu landen.
+   */
+  /*
+   * Die Sperre gilt nur dort, wo es eine Sitzung gibt.
+   *
+   * In der Hülle weist sich das Fenster mit dem Zugangsgeheimnis des Prozesses aus - kein
+   * Keks, keine Sitzung, kein Kennwort. Dort etwas zu sperren, hieße etwas zu verschließen,
+   * das niemand wieder aufmachen kann.
+   */
+  registriereNutzerkontext(app, nutzerErmitteln, (request) =>
+    sitzungsstand(request.cookies?.[KEKS_NAME]).gesperrt,
+  );
+
+  /*
+   * Der Wechsel in ein freigegebenes Postfach - unmittelbar nach dem Nutzerkontext.
+   *
+   * Die Reihenfolge ist auch hier der Kern: Er fragt, wer da ist, und muss den Kontext
+   * vorfinden. Und er steht vor der Verwaltung, damit deren Riegel den HANDELNDEN prueft
+   * und nicht den Eigentuemer eines gerade geoeffneten fremden Postfachs.
+   */
+  registriereFreigabeWechsel(app);
+
+  /*
+   * Die Verwaltung NACH dem Nutzerkontext - und die Reihenfolge ist der Kern der Sache.
+   *
+   * Fastify ruft die preHandler in der Reihenfolge ihrer Anmeldung. Der Riegel der
+   * Verwaltung fragt, wer da ist; stünde er vor dem Kontext, gäbe es noch keinen, und die
+   * Prüfung liefe ins Leere - dieselbe Falle, die schon einmal dafür gesorgt hat, dass die
+   * Eingangskontrolle deutsch antwortete.
+   */
+  registriereVerwaltung(app);
+
+  /*
+   * Der zweite Faktor ebenfalls nach dem Kontext.
+   *
+   * Seine Wege liegen unter /ich/zweifaktor und sind bewusst NICHT in OFFENE_PFADE: Wer
+   * ihn einrichtet oder abschaltet, ist bereits angemeldet. Der Weg für die zweite Stufe
+   * der Anmeldung selbst steht dagegen in anmelden.ts - der muss ohne Sitzung erreichbar
+   * sein, denn genau darum geht es dort.
+   */
+  registriereZweiFaktor(app);
 
   /*
    * Geordnet zumachen.
@@ -312,13 +743,13 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     try {
       // Noch nicht geschriebener Zwischenspeicher - sonst kostet es beim nächsten Start
       // einen kalten Anlauf.
-      schreibeCacheSofort();
+      schreibeAlleCachesSofort();
     } catch {
       // Der Zwischenspeicher ist entbehrlich; ein Fehler hier darf das Beenden nicht
       // aufhalten.
     }
     try {
-      schliesseAblage();
+      schliesseAlleAblagen();
     } catch (err) {
       app.log.warn(`Lokale Ablage ließ sich nicht schließen: ${(err as Error).message}`);
     }
@@ -328,7 +759,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   function requireAccount(id: string): AccountConfig {
     const account = getAccount(id);
-    if (!account) throw new HttpError(404, 'Konto nicht gefunden');
+    if (!account) throw new HttpError(404, t('Konto nicht gefunden'));
     return account;
   }
 
@@ -367,16 +798,16 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     if (istVerbindungsfehler(err)) {
       app.log.warn(err);
       reply.code(503).send({
-        error:
-          'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – ' +
-          'sobald sie wieder steht, lässt sich neu laden.',
+        error: t(
+          'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.',
+        ),
       });
       return;
     }
     app.log.error(err);
     // Lokale Einzelplatz-Anwendung: die konkrete Meldung ist hier deutlich hilfreicher
     // als ein generisches "Interner Fehler" - etwa bei Entschlüsselungsproblemen.
-    reply.code(500).send({ error: err instanceof Error ? err.message : 'Interner Fehler' });
+    reply.code(500).send({ error: err instanceof Error ? err.message : t('Interner Fehler') });
   });
 
   /**
@@ -386,7 +817,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
    */
   app.get<{ Querystring: { email?: string } }>('/autoconfig', async (request) => {
     const email = request.query.email?.trim();
-    if (!email?.includes('@')) throw new HttpError(400, 'Feld "email" ist erforderlich');
+    if (!email?.includes('@')) throw new HttpError(400, t('Feld "email" ist erforderlich'));
     return { gefunden: await findeEinstellungen(email, getProviderPreset) };
   });
 
@@ -407,7 +838,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const { email, password, overrides } = request.body ?? {};
     if (!email || !password) {
       reply.code(400);
-      return { error: 'E-Mail und Passwort sind erforderlich' };
+      return { error: t('E-Mail und Passwort sind erforderlich') };
     }
 
     // Nur suchen, wenn nicht ohnehin alles von Hand angegeben ist - sonst wartet man
@@ -442,28 +873,148 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     return publicAccount(account);
   });
 
+  /**
+   * Die Konten dieses Menschen - eigene und freigegebene.
+   *
+   * Die freigegebenen werden einzeln und ausdrücklich aus dem Ordner ihres Eigentümers
+   * geholt: `alsNutzer(besitzer, …)` um genau einen Zugriff, auf genau die Kennung, die in
+   * der Freigabe steht. Kein Durchsuchen fremder Kontenlisten, kein "alle Konten aller
+   * Nutzer und dann filtern" - was hier steht, steht in einer Freigabe, oder es steht
+   * nicht hier.
+   */
   app.get('/accounts', async () => {
-    return listAccounts().map(publicAccount);
+    const eigene = listAccounts().map(publicAccount);
+    const ich = handelnderNutzer();
+
+    const geteilt = erhalteneFreigaben(ich).flatMap((freigabe) => {
+      const konto = alsNutzer(freigabe.besitzer, () => getAccount(freigabe.kontoId));
+      // Ein Konto, das der Eigentümer inzwischen entfernt hat: die Freigabe zeigt ins
+      // Leere. Sie verschwindet beim nächsten Aufräumen; hier wird sie schlicht
+      // ausgelassen, statt eine Zeile anzuzeigen, die sich nicht öffnen lässt.
+      if (!konto) return [];
+      return [
+        {
+          ...publicAccount(konto),
+          freigabe: {
+            id: freigabe.id,
+            von: freigabe.besitzer,
+            rechte: freigabe.rechte,
+          },
+        },
+      ];
+    });
+
+    return [...eigene, ...geteilt];
+  });
+
+  // --- Freigaben ---
+
+  /**
+   * Was ich verschenkt habe und was mir andere gegeben haben.
+   *
+   * Bewusst unter `/freigaben` und nicht unter `/accounts/:id/…`: Was dort liegt, wechselt
+   * bei einer Freigabe in den Kontext des Eigentümers (siehe freigabeHaken.ts). Die
+   * Verwaltung der Freigaben selbst muss aber im eigenen Kontext bleiben - sonst sähe ein
+   * Vertreter die Freigaben des Eigentümers.
+   */
+  app.get('/freigaben', async () => {
+    const ich = handelnderNutzer();
+    return { eigene: eigeneFreigaben(ich), erhalten: erhalteneFreigaben(ich) };
+  });
+
+  app.post<{ Body: { kontoId?: string; an?: string; rechte?: Recht } }>(
+    '/freigaben',
+    async (request) => {
+      const ich = handelnderNutzer();
+      const kontoId = request.body?.kontoId ?? '';
+      // requireAccount und nicht getAccount: Freigeben darf nur, wem das Konto gehört, und
+      // "gehört mir" heißt hier "steht in meinem eigenen Kontenspeicher".
+      const konto = requireAccount(kontoId);
+
+      const an = (request.body?.an ?? '').trim();
+      if (!an) throw new HttpError(400, t('An wen soll freigegeben werden?'));
+      const rechte: Recht = request.body?.rechte === 'voll' ? 'voll' : 'lesen';
+
+      try {
+        return legeFreigabeAn({ besitzer: ich, kontoId, email: konto.email, an, rechte });
+      } catch (err) {
+        if (err instanceof FreigabeFehler) throw new HttpError(400, err.message);
+        throw err;
+      }
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>('/freigaben/:id', async (request) => {
+    const ich = handelnderNutzer();
+    try {
+      const weg = entferneFreigabe(request.params.id, ich, istVerwalter(ich));
+      if (!weg) throw new HttpError(404, t('Diese Freigabe gibt es nicht.'));
+      return { ok: true };
+    } catch (err) {
+      if (err instanceof FreigabeFehler) throw new HttpError(403, err.message);
+      throw err;
+    }
   });
 
   app.patch<{
     Params: { id: string };
-    Body: { displayName?: string; signature?: string; identitaeten?: Identitaet[] };
+    Body: {
+      displayName?: string;
+      signature?: string;
+      identitaeten?: Identitaet[];
+      proxy?: string;
+    };
   }>(
     '/accounts/:id',
     async (request) => {
+      /*
+       * Eine unbrauchbare Proxyangabe wird hier abgewiesen und nicht erst beim naechsten
+       * Abruf. Sonst speicherte der Nutzer, saehe eine Bestaetigung und stuende Minuten
+       * spaeter vor einem Postfach, das nicht mehr laedt - ohne einen Zusammenhang zu dem,
+       * was er zuletzt getan hat.
+       */
+      const proxy = request.body?.proxy;
+      if (proxy !== undefined && proxy.trim()) {
+        const gelesen = leseProxyadresse(proxy);
+        if ('fehler' in gelesen) {
+          throw new HttpError(400, `Der Proxy taugt nicht: ${gelesen.fehler}`);
+        }
+      }
+
       const updated = updateAccountSettings(request.params.id, {
         displayName: request.body?.displayName,
         signature: request.body?.signature,
         identitaeten: request.body?.identitaeten,
+        proxy: request.body?.proxy,
       });
-      if (!updated) throw new HttpError(404, 'Konto nicht gefunden');
+      if (!updated) throw new HttpError(404, t('Konto nicht gefunden'));
       return publicAccount(updated);
     },
   );
 
+  /**
+   * Vorschläge beim Tippen eines Empfängers - aus dem eigenen Adressbuch und dem
+   * Firmenverzeichnis.
+   *
+   * Das eigene zuerst, und das ist keine Geschmacksfrage: Wer eine Adresse schon einmal
+   * benutzt hat, meint mit hoher Wahrscheinlichkeit genau die. Das Verzeichnis liefert die
+   * Kollegen, an die man noch nie geschrieben hat - wertvoll, aber die zweite Wahl.
+   *
+   * Wer schon im Adressbuch steht, kommt nicht doppelt: verglichen wird über die Adresse.
+   */
   app.get<{ Querystring: { q?: string } }>('/contacts', async (request) => {
-    return searchContacts(request.query.q ?? '');
+    const suchtext = request.query.q ?? '';
+    const eigene = searchContacts(suchtext);
+    const ausVerzeichnis = await sucheImVerzeichnis(suchtext, 15);
+    if (ausVerzeichnis.length === 0) return eigene;
+
+    const bekannt = new Set(eigene.map((k) => k.address.toLowerCase()));
+    return [...eigene, ...ausVerzeichnis.filter((e) => !bekannt.has(e.address.toLowerCase()))];
+  });
+
+  /** Nur das Firmenverzeichnis - für die eigene Ansicht im Adressbuch. */
+  app.get<{ Querystring: { q?: string } }>('/verzeichnis/suche', async (request) => {
+    return { treffer: await sucheImVerzeichnis(request.query.q ?? '', 50) };
   });
 
   // --- Das Adressbuch ---
@@ -489,7 +1040,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   app.delete<{ Params: { adresse: string } }>('/adressbuch/:adresse', async (request) => {
     const weg = loescheKontakt(decodeURIComponent(request.params.adresse));
-    if (!weg) throw new HttpError(404, 'Kontakt nicht gefunden');
+    if (!weg) throw new HttpError(404, t('Kontakt nicht gefunden'));
     return { ok: true };
   });
 
@@ -511,7 +1062,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   app.post<{ Body: { inhalt?: string } }>('/adressbuch/einfuhr', async (request) => {
     const inhalt = request.body?.inhalt;
     if (typeof inhalt !== 'string' || !inhalt.trim()) {
-      throw new HttpError(400, 'Die Datei ist leer');
+      throw new HttpError(400, t('Die Datei ist leer'));
     }
     return einfuhrVisitenkarten(inhalt);
   });
@@ -546,7 +1097,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   app.post<{ Body: { armored?: string; fuerKonto?: string } }>('/schluessel', async (request) => {
     const armored = request.body?.armored;
     if (typeof armored !== 'string' || !armored.trim()) {
-      throw new HttpError(400, 'Es wurde kein Schlüssel übergeben');
+      throw new HttpError(400, t('Es wurde kein Schlüssel übergeben'));
     }
     try {
       return await fuegeSchluesselHinzu(armored, request.body?.fuerKonto);
@@ -563,7 +1114,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
         request.params.fingerabdruck.toUpperCase(),
         request.query.geheim === '1',
       );
-      if (!weg) throw new HttpError(404, 'Schlüssel nicht gefunden');
+      if (!weg) throw new HttpError(404, t('Schlüssel nicht gefunden'));
       return { ok: true };
     },
   );
@@ -573,7 +1124,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     '/schluessel/:fingerabdruck/ausfuhr',
     async (request, reply) => {
       const text = oeffentlicherText(request.params.fingerabdruck.toUpperCase());
-      if (!text) throw new HttpError(404, 'Schlüssel nicht gefunden');
+      if (!text) throw new HttpError(404, t('Schlüssel nicht gefunden'));
       reply.type('application/pgp-keys; charset=utf-8');
       reply.header(
         'content-disposition',
@@ -655,6 +1206,237 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     return befund ?? { verschluesselt: false, geoeffnet: true, ohnePgp: true };
   });
 
+  // --- S/MIME: der Zertifikatsspeicher ---
+
+  app.get('/smime', async () => alleZertifikate());
+
+  /**
+   * Eine Schluesseldatei einlesen.
+   *
+   * Die Datei kommt als Base64 herein und nicht als Datei-Upload: Der Server nimmt sonst
+   * nirgends Dateien entgegen, und eine zweite Art, Daten hereinzureichen, waere eine
+   * zweite Stelle, an der man sich vertun kann. Das Kennwort geht denselben Weg und wird
+   * nirgends abgelegt - es dient nur zum Oeffnen.
+   */
+  app.post<{
+    Body: {
+      dateiBase64?: string;
+      kennwort?: string;
+      /** Kennwort, mit dem der Schluessel hier abgelegt wird. Leer = nur Windows-Schutz. */
+      neuesKennwort?: string;
+      fuerKonto?: string;
+    };
+  }>('/smime/schluesseldatei', async (request) => {
+    const roh = request.body?.dateiBase64;
+    if (typeof roh !== 'string' || !roh.trim()) {
+      throw new HttpError(400, t('Es wurde keine Datei übergeben'));
+    }
+    try {
+      return fuegeSchluesseldateiHinzu(Buffer.from(roh, 'base64'), request.body?.kennwort ?? '', {
+        fuerKonto: request.body?.fuerKonto,
+        neuesKennwort: request.body?.neuesKennwort || undefined,
+      });
+    } catch (err) {
+      if (err instanceof ZertifikatsspeicherFehler) throw new HttpError(400, err.message);
+      throw new HttpError(400, (err as Error).message);
+    }
+  });
+
+  /** Ein einzelnes Zertifikat - der Weg fuer jemanden, der noch nie unterschrieben schrieb. */
+  app.post<{ Body: { dateiBase64?: string } }>('/smime/zertifikat', async (request) => {
+    const roh = request.body?.dateiBase64;
+    if (typeof roh !== 'string' || !roh.trim()) {
+      throw new HttpError(400, t('Es wurde keine Datei übergeben'));
+    }
+    try {
+      return fuegeZertifikatHinzu(Buffer.from(roh, 'base64'));
+    } catch (err) {
+      throw new HttpError(400, (err as Error).message);
+    }
+  });
+
+  app.delete<{ Params: { fingerabdruck: string } }>('/smime/:fingerabdruck', async (request) => {
+    if (!entferneZertifikat(request.params.fingerabdruck.toUpperCase())) {
+      throw new HttpError(404, t('Zertifikat nicht gefunden'));
+    }
+    return { ok: true };
+  });
+
+  app.get<{ Params: { fingerabdruck: string } }>(
+    '/smime/:fingerabdruck/ausfuhr',
+    async (request, reply) => {
+      const text = smimeAlsPem(request.params.fingerabdruck.toUpperCase());
+      if (!text) throw new HttpError(404, t('Zertifikat nicht gefunden'));
+      reply.type('application/x-pem-file; charset=utf-8');
+      reply.header(
+        'content-disposition',
+        `attachment; filename="${request.params.fingerabdruck.slice(0, 16)}.pem"`,
+      );
+      return text;
+    },
+  );
+
+  app.get<{ Params: { id: string }; Querystring: { an?: string } }>(
+    '/accounts/:id/smime-lage',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+      const empfaenger = (request.query.an ?? '')
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean);
+      const eigene = eigeneFuer(account.id, adressen);
+
+      return {
+        kannSignieren: eigene.length > 0,
+        /** Ob beim Unterschreiben nach einem Kennwort gefragt werden muss. */
+        brauchtKennwort: eigene.some((e) => e.mitKennwort),
+        kannVerschluesseln:
+          eigene.length > 0 &&
+          empfaenger.length > 0 &&
+          empfaenger.every((a) => zertifikateFuer(a).length > 0),
+        ohneZertifikat: empfaenger.filter((a) => zertifikateFuer(a).length === 0),
+      };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { kennwort?: string } }>(
+    '/accounts/:id/smime-kennwort',
+    async (request) => {
+      const account = requireAccount(request.params.id);
+      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+      return { stimmt: smimeKennwortStimmt(account.id, adressen, request.body?.kennwort ?? '') };
+    },
+  );
+
+  /** Prueft und oeffnet, was an einer Nachricht mit S/MIME geschuetzt ist. */
+  app.post<{
+    Params: { id: string; folder: string; uid: string };
+    Body: { kennwort?: string };
+  }>('/accounts/:id/folders/:folder/messages/:uid/smime', async (request) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const nachricht = await getMessage(account, ordner, Number(request.params.uid));
+    const befund = await pruefeSmime(account, ordner, nachricht, request.body?.kennwort);
+    return befund ?? { verschluesselt: false, geoeffnet: true, ohneSmime: true };
+  });
+
+  // --- Das GoBD-Archiv ---
+
+  app.get('/archiv/stand', async () => {
+    const eintraege = alleArchivEintraege();
+    const nachrichten = eintraege.filter((e) => e.bezugAuf === undefined && e.datei);
+    const faellig = raeumeArchivAuf(new Date(), false);
+    return {
+      einstellungen: archivEinstellungen(),
+      anzahl: nachrichten.length,
+      kettenlaenge: eintraege.length,
+      siegel: archivSiegel(),
+      aeltesteAm: nachrichten[0]?.entstandenAm,
+      juengsteAm: nachrichten.at(-1)?.entstandenAm,
+      bytes: nachrichten.reduce((s, e) => s + e.groesse, 0),
+      /** Wie viel die Frist hinter sich hat - angezeigt, aber nicht von selbst entfernt. */
+      freigegeben: faellig.anzahl,
+    };
+  });
+
+  app.put<{ Body: ArchivEinstellungen }>('/archiv/einstellungen', async (request) => {
+    const koerper = request.body ?? { konten: [], vorgabe: 'geschaeftsbrief' as const };
+    // Nur Konten, die es auch gibt - sonst zeichnete eine Einstellung ins Leere auf.
+    const vorhanden = new Set(listAccounts().map((k) => k.id));
+    return setzeArchivEinstellungen({
+      ...koerper,
+      konten: (koerper.konten ?? []).filter((k) => vorhanden.has(k)),
+    });
+  });
+
+  app.get<{
+    Querystring: {
+      text?: string;
+      von?: string;
+      bis?: string;
+      richtung?: 'empfangen' | 'gesendet';
+      art?: Aufbewahrungsart;
+      konto?: string;
+    };
+  }>('/archiv/suche', async (request) => {
+    const q = request.query;
+    return sucheImArchiv({
+      text: q.text,
+      von: q.von,
+      bis: q.bis,
+      richtung: q.richtung,
+      art: q.art,
+      kontoId: q.konto,
+    });
+  });
+
+  /** Die Nachricht im Original. Der Abdruck wird dabei nachgerechnet - siehe original(). */
+  app.get<{ Params: { nr: string } }>('/archiv/:nr/original', async (request, reply) => {
+    try {
+      const { bytes, eintrag } = archivOriginal(Number(request.params.nr));
+      reply.type('message/rfc822');
+      reply.header(
+        'content-disposition',
+        `attachment; filename="archiv-${String(eintrag.nr).padStart(7, '0')}.eml"`,
+      );
+      return bytes;
+    } catch (err) {
+      throw new HttpError(404, (err as Error).message);
+    }
+  });
+
+  app.post<{ Params: { nr: string }; Body: { text?: string } }>(
+    '/archiv/:nr/vermerk',
+    async (request) => {
+      const text = request.body?.text?.trim();
+      if (!text) throw new HttpError(400, t('Ein leerer Vermerk hilft niemandem.'));
+      try {
+        return vermerkeImArchiv(Number(request.params.nr), text);
+      } catch (err) {
+        throw new HttpError(400, (err as Error).message);
+      }
+    },
+  );
+
+  app.post<{ Params: { nr: string }; Body: { art?: Aufbewahrungsart } }>(
+    '/archiv/:nr/art',
+    async (request) => {
+      const art = request.body?.art;
+      if (art !== 'geschaeftsbrief' && art !== 'buchungsbeleg' && art !== 'ohne-pflicht') {
+        throw new HttpError(400, t('Unbekannte Aufbewahrungsart.'));
+      }
+      try {
+        return trageArchivUm(Number(request.params.nr), art);
+      } catch (err) {
+        throw new HttpError(400, (err as Error).message);
+      }
+    },
+  );
+
+  /** Rechnet den ganzen Bestand nach - dauert bei einem grossen Archiv Minuten. */
+  app.post('/archiv/pruefen', async () => pruefeArchivBestand());
+
+  app.post<{ Body: { von?: string; bis?: string } }>('/archiv/ausfuhr', async (request) =>
+    erzeugeArchivAusfuhr(undefined, { von: request.body?.von, bis: request.body?.bis }),
+  );
+
+  /**
+   * Entfernt, was seine Frist hinter sich hat.
+   *
+   * Ohne "wirklich" wird nur gezaehlt. Zwei Schritte, weil hier etwas verschwindet, das
+   * per Gesetz aufzubewahren WAR - wer sich vertut, kann es nicht zurueckholen.
+   */
+  app.post<{ Body: { wirklich?: boolean } }>('/archiv/aufraeumen', async (request) =>
+    raeumeArchivAuf(new Date(), request.body?.wirklich === true),
+  );
+
+  app.get('/archiv/verfahrensdokumentation', async (_request, reply) => {
+    reply.type('text/markdown; charset=utf-8');
+    reply.header('content-disposition', 'attachment; filename="Verfahrensdokumentation.md"');
+    return verfahrensdokumentation();
+  });
+
   // --- Etiketten: das Verzeichnis von Namen und Farben ---
 
   app.get('/etiketten', async () => alleEtiketten());
@@ -670,7 +1452,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   app.delete<{ Params: { schluessel: string } }>('/etiketten/:schluessel', async (request) => {
     const weg = loescheEtikett(decodeURIComponent(request.params.schluessel));
-    if (!weg) throw new HttpError(404, 'Etikett nicht gefunden');
+    if (!weg) throw new HttpError(404, t('Etikett nicht gefunden'));
     return { ok: true };
   });
 
@@ -688,7 +1470,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   });
 
   app.delete<{ Params: { id: string } }>('/suchen/:id', async (request) => {
-    if (!loescheSuche(request.params.id)) throw new HttpError(404, 'Suche nicht gefunden');
+    if (!loescheSuche(request.params.id)) throw new HttpError(404, t('Suche nicht gefunden'));
     return { ok: true };
   });
 
@@ -696,17 +1478,32 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   app.get('/oauth/clients', async () => listOAuthClients());
 
-  app.put<{ Params: { provider: OAuthProviderId }; Body: { clientId?: string; clientSecret?: string } }>(
-    '/oauth/clients/:provider',
-    async (request) => {
-      const { clientId, clientSecret } = request.body ?? {};
-      if (!clientId?.trim()) throw new HttpError(400, 'Client-ID ist erforderlich');
-      setOAuthClient(request.params.provider, { clientId, clientSecret });
-      return listOAuthClients();
-    },
-  );
+  /*
+   * Wo die Organisation etwas vorgibt, hat der Nutzer hier nichts zu ändern.
+   *
+   * Abgewiesen statt still ignoriert: gespeichert und wirkungslos wäre die schlechteste
+   * Antwort - der Nutzer sähe eine Bestätigung, und die Anmeldung liefe trotzdem über die
+   * Anwendung der Organisation. Die Oberfläche zeigt das Formular in diesem Fall gar nicht
+   * erst an; diese Prüfung ist der Riegel dahinter.
+   */
+  const VORGEGEBEN = () =>
+    t(
+      'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.',
+    );
+
+  app.put<{
+    Params: { provider: OAuthProviderId };
+    Body: { clientId?: string; clientSecret?: string; mandant?: string };
+  }>('/oauth/clients/:provider', async (request) => {
+    if (istVorgegeben(request.params.provider)) throw new HttpError(409, VORGEGEBEN());
+    const { clientId, clientSecret, mandant } = request.body ?? {};
+    if (!clientId?.trim()) throw new HttpError(400, t('Client-ID ist erforderlich'));
+    setOAuthClient(request.params.provider, { clientId, clientSecret, mandant });
+    return listOAuthClients();
+  });
 
   app.delete<{ Params: { provider: OAuthProviderId } }>('/oauth/clients/:provider', async (request) => {
+    if (istVorgegeben(request.params.provider)) throw new HttpError(409, VORGEGEBEN());
     removeOAuthClient(request.params.provider);
     return listOAuthClients();
   });
@@ -737,7 +1534,9 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     if (account.auth.type !== 'oauth2') {
       throw new HttpError(
         400,
-        'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.',
+        t(
+          'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.',
+        ),
       );
     }
     try {
@@ -749,14 +1548,14 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   app.get<{ Params: { state: string } }>('/oauth/status/:state', async (request, reply) => {
     const flow = getFlow(request.params.state);
-    if (!flow) throw new HttpError(404, 'Unbekannter oder abgelaufener Anmeldevorgang');
+    if (!flow) throw new HttpError(404, t('Unbekannter oder abgelaufener Anmeldevorgang'));
     if (flow.status.status !== 'done') return flow.status;
 
     const { tokens } = flow.status;
     if (!tokens.email) {
       clearFlow(request.params.state);
       reply.code(400);
-      return { status: 'error', error: 'Der Anbieter hat keine Mailadresse mitgeteilt.' };
+      return { status: 'error', error: t('Der Anbieter hat keine Mailadresse mitgeteilt.') };
     }
 
     // --- Neuanmeldung eines bestehenden Kontos ---
@@ -765,7 +1564,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       clearFlow(request.params.state);
       if (!vorhanden) {
         reply.code(404);
-        return { status: 'error', error: 'Das Konto gibt es nicht mehr.' };
+        return { status: 'error', error: t('Das Konto gibt es nicht mehr.') };
       }
 
       // Sonst würde sich das Konto still auf ein anderes Postfach umstellen, während in
@@ -774,9 +1573,10 @@ export async function buildServer(optionen: ServerOptionen = {}) {
         reply.code(400);
         return {
           status: 'error',
-          error:
-            `Angemeldet wurde ${tokens.email}, dieses Konto ist aber ${vorhanden.email}. ` +
-            'Bitte mit derselben Adresse anmelden oder das andere Postfach als neues Konto hinzufügen.',
+          error: t(
+            'Angemeldet wurde {angemeldet}, dieses Konto ist aber {konto}. Bitte mit derselben Adresse anmelden oder das andere Postfach als neues Konto hinzufügen.',
+            { angemeldet: tokens.email, konto: vorhanden.email },
+          ),
         };
       }
 
@@ -784,9 +1584,10 @@ export async function buildServer(optionen: ServerOptionen = {}) {
         reply.code(400);
         return {
           status: 'error',
-          error:
-            'Die Anmeldung war erfolgreich, aber der Zugriff auf E-Mails wurde nicht gewährt ' +
-            `(erforderlich: "${getMailScope(flow.provider)}").`,
+          error: t(
+            'Die Anmeldung war erfolgreich, aber der Zugriff auf E-Mails wurde nicht gewährt (erforderlich: „{bereich}“).',
+            { bereich: getMailScope(flow.provider) },
+          ),
         };
       }
 
@@ -839,9 +1640,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       return {
         status: 'error',
         error: bereits.authExpired
-          ? `${tokens.email} ist bereits eingerichtet, die Anmeldung ist nur abgelaufen. ` +
-            'Nutze beim Konto "Neu anmelden" – dann bleiben Signatur und Einstellungen erhalten.'
-          : `${tokens.email} ist bereits eingerichtet.`,
+          ? t(
+              '{adresse} ist bereits eingerichtet, die Anmeldung ist nur abgelaufen. Nutze beim Konto „Neu anmelden“ – dann bleiben Signatur und Einstellungen erhalten.',
+              { adresse: tokens.email },
+            )
+          : t('{adresse} ist bereits eingerichtet.', { adresse: tokens.email }),
       };
     }
 
@@ -858,12 +1661,13 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       reply.code(400);
       return {
         status: 'error',
-        error:
-          `Die Anmeldung war erfolgreich, aber der Zugriff auf E-Mails wurde nicht gewährt. ` +
-          `Erforderlich ist der Bereich "${getMailScope(flow.provider)}". ` +
-          `Gewährt wurde: ${tokens.grantedScopes?.join(', ') || 'nichts'}. ` +
-          `Trage den Bereich beim Anbieter (OAuth-Zustimmungsbildschirm bzw. API-Berechtigungen) ` +
-          `nach und melde dich erneut an.`,
+        error: t(
+          'Die Anmeldung war erfolgreich, aber der Zugriff auf E-Mails wurde nicht gewährt. Erforderlich ist der Bereich „{bereich}“. Gewährt wurde: {gewaehrt}. Trage den Bereich beim Anbieter (OAuth-Zustimmungsbildschirm bzw. API-Berechtigungen) nach und melde dich erneut an.',
+          {
+            bereich: getMailScope(flow.provider),
+            gewaehrt: tokens.grantedScopes?.join(', ') || t('nichts'),
+          },
+        ),
       };
     }
 
@@ -891,14 +1695,18 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       // Gmail antwortet auf ein Token ohne Mailzugriff mit "Invalid credentials" - was
       // nach falschem Passwort klingt, obwohl die Anmeldung selbst geklappt hat.
       const hinweis = /invalid credentials|authentication failed/i.test(meldung)
-        ? ' Die Anmeldung selbst war erfolgreich, der Server lehnt aber das Token ab. ' +
-          'Häufigste Ursachen: der Mail-Bereich fehlt in der Anbieter-Konfiguration, ' +
-          'IMAP ist im Postfach abgeschaltet, oder die Berechtigungen wurden nach der ' +
-          'letzten Zustimmung geändert (dann erneut anmelden).'
+        ? ' ' +
+          t(
+            'Die Anmeldung selbst war erfolgreich, der Server lehnt aber das Token ab. Häufigste Ursachen: der Mail-Bereich fehlt in der Anbieter-Konfiguration, IMAP ist im Postfach abgeschaltet, oder die Berechtigungen wurden nach der letzten Zustimmung geändert (dann erneut anmelden).',
+          )
         : '';
       return {
         status: 'error',
-        error: `IMAP-Verbindung fehlgeschlagen (${account.imapHost}): ${meldung}.${hinweis}`,
+        error:
+          t('IMAP-Verbindung fehlgeschlagen ({server}): {grund}.', {
+            server: account.imapHost,
+            grund: meldung,
+          }) + hinweis,
       };
     }
 
@@ -911,7 +1719,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   app.delete<{ Params: { id: string } }>('/accounts/:id', async (request, reply) => {
     if (!deleteAccount(request.params.id)) {
       reply.code(404);
-      return { error: 'Konto nicht gefunden' };
+      return { error: t('Konto nicht gefunden') };
     }
     // Gepoolte Verbindung schließen, sonst bliebe sie bis zum Leerlauf-Timeout offen.
     closeConnection(request.params.id);
@@ -919,6 +1727,9 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     verwerfeKonto(request.params.id);
     verwirfNachrichten(`${request.params.id}:`);
     regelnVerwerfen(request.params.id);
+    abwesenheitVerwerfen(request.params.id);
+    freigabenZuKonto(request.params.id);
+    umgangVerwerfen(request.params.id);
     vertrauenVerwerfen(request.params.id);
     verwerfeKontoAblage(request.params.id);
     syncWatchers();
@@ -942,7 +1753,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       requireAccount(request.params.id);
       const adresse = request.body?.adresse?.trim();
-      if (!adresse) throw new HttpError(400, 'Feld "adresse" ist erforderlich');
+      if (!adresse) throw new HttpError(400, t('Feld "adresse" ist erforderlich'));
       return { absender: vertrauenGeben(request.params.id, adresse) };
     },
   );
@@ -1012,7 +1823,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       meldeAktualisierung({ type: 'data-updated', accountId, was: 'messages', folder: ordner });
     },
   );
-  ladeWiedervorlagen();
+  // ladeWiedervorlagen() steht bewusst nicht hier, sondern ganz am Ende - siehe dort.
 
   app.post<{
     Params: { id: string; folder: string };
@@ -1023,9 +1834,9 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const uid = Number(request.body?.uid);
     const faellig = new Date(String(request.body?.faellig)).getTime();
 
-    if (!Number.isInteger(uid) || uid <= 0) throw new HttpError(400, 'Feld "uid" ist erforderlich');
-    if (!Number.isFinite(faellig)) throw new HttpError(400, 'Unbrauchbarer Zeitpunkt.');
-    if (faellig <= Date.now()) throw new HttpError(400, 'Der Zeitpunkt liegt in der Vergangenheit.');
+    if (!Number.isInteger(uid) || uid <= 0) throw new HttpError(400, t('Feld "uid" ist erforderlich'));
+    if (!Number.isFinite(faellig)) throw new HttpError(400, t('Unbrauchbarer Zeitpunkt.'));
+    if (faellig <= Date.now()) throw new HttpError(400, t('Der Zeitpunkt liegt in der Vergangenheit.'));
 
     const nachricht = await getMessage(account, ordner, uid);
     const eintrag = await stelleZurueck(account, ordner, uid, nachricht.subject, faellig);
@@ -1045,7 +1856,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       requireAccount(request.params.id);
       if (!(await sofortZurueck(request.params.snoozeId))) {
-        throw new HttpError(404, 'Diese Wiedervorlage gibt es nicht mehr.');
+        throw new HttpError(404, t('Diese Wiedervorlage gibt es nicht mehr.'));
       }
       return { ok: true };
     },
@@ -1131,11 +1942,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       const account = requireAccount(request.params.id);
       const ordner = decodeURIComponent(request.params.folder);
       const uid = Number(request.body?.uid);
-      if (!Number.isInteger(uid) || uid <= 0) throw new HttpError(400, 'Feld "uid" ist erforderlich');
+      if (!Number.isInteger(uid) || uid <= 0) throw new HttpError(400, t('Feld "uid" ist erforderlich'));
 
       const nachricht = await getMessage(account, ordner, uid);
       if (!nachricht.listUnsubscribe) {
-        throw new HttpError(400, 'Diese Nachricht nennt keinen Abmeldeweg.');
+        throw new HttpError(400, t('Diese Nachricht nennt keinen Abmeldeweg.'));
       }
 
       const wege = leseAbmeldeWege(nachricht.listUnsubscribe, Boolean(nachricht.einKlickAbmeldung));
@@ -1143,7 +1954,9 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       if (!weg) {
         throw new HttpError(
           400,
-          'Der Absender gibt zwar eine Abmeldezeile an, darin steht aber keine brauchbare Adresse.',
+          t(
+            'Der Absender gibt zwar eine Abmeldezeile an, darin steht aber keine brauchbare Adresse.',
+          ),
         );
       }
 
@@ -1178,12 +1991,12 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const account = requireAccount(request.params.id);
     const ordner = decodeURIComponent(request.params.folder);
     const absender = request.body?.from?.trim();
-    if (!absender) throw new HttpError(400, 'Feld "from" ist erforderlich');
+    if (!absender) throw new HttpError(400, t('Feld "from" ist erforderlich'));
 
     const ziel =
       request.body?.targetFolder ??
       (await findSpecialFolder(account, '\\Trash', ['trash', 'papierkorb', 'gelöscht', 'deleted']));
-    if (!ziel) throw new HttpError(400, 'Für dieses Konto gibt es keinen Papierkorb.');
+    if (!ziel) throw new HttpError(400, t('Für dieses Konto gibt es keinen Papierkorb.'));
 
     const anzahl = await verschiebeVonAbsender(account, ordner, absender, ziel);
     verwerfeStaende(account.id, ordner, ziel);
@@ -1191,6 +2004,122 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     verwerfe(`absender:${account.id}:`);
     return { verschoben: anzahl, ziel };
   });
+
+  // --- Lesebestätigungen ---
+
+  app.get<{ Params: { id: string } }>('/accounts/:id/lesebestaetigung', async (request) => {
+    requireAccount(request.params.id);
+    return { umgang: umgangFuer(request.params.id) };
+  });
+
+  app.put<{ Params: { id: string }; Body: { umgang?: string } }>(
+    '/accounts/:id/lesebestaetigung',
+    async (request) => {
+      requireAccount(request.params.id);
+      const wert = request.body?.umgang;
+      if (wert !== 'nie' && wert !== 'fragen' && wert !== 'immer') {
+        throw new HttpError(400, t('Unbekannte Einstellung.'));
+      }
+      return { umgang: setzeUmgang(request.params.id, wert) };
+    },
+  );
+
+  /**
+   * Eine Lesebestätigung verschicken - oder ausdrücklich nicht.
+   *
+   * Gerufen wird das von der Oberfläche, wenn die Nachricht wirklich vor jemandem steht.
+   * Das ist der Grund, warum es diesen Weg überhaupt gibt und nicht der Abruf der
+   * Nachricht selbst genügt: Der Server sieht nur, dass jemand Daten geholt hat - das tut
+   * auch eine Vorschau. "Angezeigt" weiß nur, wer den Bildschirm kennt.
+   *
+   * `senden: false` ist kein Nichtstun, sondern eine Entscheidung, die gemerkt wird. Ein
+   * "Nein", das nicht hält, ist eine Frage, die so lange wiederkehrt, bis jemand aus
+   * Versehen zustimmt.
+   */
+  app.post<{
+    Params: { id: string; folder: string; uid: string };
+    Body: { senden?: boolean };
+  }>('/accounts/:id/folders/:folder/messages/:uid/lesebestaetigung', async (request) => {
+    const account = requireAccount(request.params.id);
+    const ordner = decodeURIComponent(request.params.folder);
+    const uid = Number(request.params.uid);
+    const nachricht = await getMessage(account, ordner, uid);
+    const schluessel = bestaetigungsSchluessel(nachricht, ordner);
+
+    if (request.body?.senden === false) {
+      merkeEntscheidung(account.id, schluessel, 'abgelehnt');
+      return { gesendet: false };
+    }
+
+    /*
+     * Auch hier noch einmal geprüft, obwohl die Oberfläche es schon getan hat.
+     *
+     * Sie entscheidet, WANN gefragt wird; ob überhaupt gesendet werden darf, entscheidet
+     * der Server. Sonst genügte ein Aufruf von Hand, um eine Bestätigung an eine beliebige
+     * Adresse zu schicken - und damit wäre genau die Absicherung offen, um die es hier
+     * die ganze Zeit geht.
+     */
+    const befund = pruefeBestaetigung({
+      account,
+      nachricht,
+      umgang: umgangFuer(account.id),
+      erledigt: entscheidungZu(account.id, schluessel),
+    });
+    if (befund.was === 'nein') {
+      throw new HttpError(400, t('Für diese Nachricht geht keine Lesebestätigung hinaus.'));
+    }
+
+    await verschickeBestaetigung(account, nachricht, befund.an, befund.was === 'fragen');
+    merkeEntscheidung(account.id, schluessel, 'gesendet');
+    return { gesendet: true, an: befund.an };
+  });
+
+  // --- Abwesenheitsnotiz ---
+
+  /**
+   * Welche Konten gerade wirklich antworten.
+   *
+   * Für die Seitenleiste, und das ist kein Beiwerk: Eine Abwesenheitsnotiz, die man nicht
+   * sieht, bleibt drei Monate nach dem Urlaub an. Deshalb "wirklich" - nicht nur
+   * eingeschaltet, sondern auch innerhalb ihres Zeitraums.
+   */
+  app.get('/abwesenheit', async () => {
+    return { aktiv: aktiveAbwesenheiten(listAccounts().map((a) => a.id)) };
+  });
+
+  app.get<{ Params: { id: string } }>('/accounts/:id/abwesenheit', async (request) => {
+    requireAccount(request.params.id);
+    return abwesenheitFuer(request.params.id);
+  });
+
+  app.put<{ Params: { id: string }; Body: Partial<Abwesenheit> }>(
+    '/accounts/:id/abwesenheit',
+    async (request) => {
+      requireAccount(request.params.id);
+      const eingabe = request.body ?? {};
+      /*
+       * Eine eingeschaltete Notiz ohne Text wird gar nicht erst gespeichert.
+       *
+       * Sie ginge sonst als leere Mail hinaus - und das ist schlimmer als keine Antwort:
+       * Der Absender denkt, er sei abgewimmelt worden.
+       */
+      if (eingabe.aktiv && !eingabe.text?.trim()) {
+        throw new HttpError(400, t('Die Abwesenheitsnotiz braucht einen Text.'));
+      }
+      if (eingabe.von && eingabe.bis && eingabe.von > eingabe.bis) {
+        throw new HttpError(400, t('Das Ende liegt vor dem Anfang.'));
+      }
+      return setzeAbwesenheit(request.params.id, {
+        aktiv: Boolean(eingabe.aktiv),
+        von: eingabe.von,
+        bis: eingabe.bis,
+        betreff: eingabe.betreff,
+        text: eingabe.text ?? '',
+        nurBekannte: eingabe.nurBekannte,
+        wiederholungTage: eingabe.wiederholungTage,
+      });
+    },
+  );
 
   // --- Regeln ---
 
@@ -1204,7 +2133,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       requireAccount(request.params.id);
       const { name, aktiv, bedingungen, aktionen, id } = request.body ?? {};
-      if (!name?.trim()) throw new HttpError(400, 'Die Regel braucht einen Namen.');
+      if (!name?.trim()) throw new HttpError(400, t('Die Regel braucht einen Namen.'));
 
       const regel = {
         id,
@@ -1218,7 +2147,9 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       if (!istBrauchbar(regel)) {
         throw new HttpError(
           400,
-          'Die Regel braucht mindestens eine Bedingung und eine Aktion - sonst würde sie auf alles zutreffen.',
+          t(
+            'Die Regel braucht mindestens eine Bedingung und eine Aktion - sonst würde sie auf alles zutreffen.',
+          ),
         );
       }
       return regelSpeichern(request.params.id, regel);
@@ -1230,7 +2161,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       requireAccount(request.params.id);
       if (!regelLoeschen(request.params.id, request.params.regelId)) {
-        throw new HttpError(404, 'Regel nicht gefunden');
+        throw new HttpError(404, t('Regel nicht gefunden'));
       }
       return { ok: true };
     },
@@ -1249,7 +2180,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const bedingungen = request.body?.bedingungen ?? {};
     const ordner = request.body?.folder ?? 'INBOX';
     if (!istBrauchbar({ bedingungen, aktionen: { alsGelesen: true } })) {
-      throw new HttpError(400, 'Ohne Bedingung lässt sich nichts vorführen.');
+      throw new HttpError(400, t('Ohne Bedingung lässt sich nichts vorführen.'));
     }
 
     // Über eine begrenzte Menge: die Vorschau soll eine Größenordnung zeigen, nicht den
@@ -1309,7 +2240,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       const account = requireAccount(request.params.id);
       const pfad = request.body?.path?.trim();
-      if (!pfad) throw new HttpError(400, 'Feld "path" ist erforderlich');
+      if (!pfad) throw new HttpError(400, t('Feld "path" ist erforderlich'));
       await createFolder(account, pfad);
       verwerfe(schluessel.ordner(account.id));
       return { ok: true, path: pfad };
@@ -1322,7 +2253,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       const account = requireAccount(request.params.id);
       const alt = decodeURIComponent(request.params.folder);
       const neu = request.body?.path?.trim();
-      if (!neu) throw new HttpError(400, 'Feld "path" ist erforderlich');
+      if (!neu) throw new HttpError(400, t('Feld "path" ist erforderlich'));
       await pruefeVeraenderbar(account, alt);
       await renameFolder(account, alt, neu);
       // Der alte Pfad ist weg - alles, was darunter zwischengespeichert war, ebenso.
@@ -1562,9 +2493,37 @@ export async function buildServer(optionen: ServerOptionen = {}) {
        * mitgespeichert: sonst zeigte eine Nachricht, die vor dem Freigeben schon einmal
        * offen war, weiterhin die Rückfrage.
        */
+      /**
+       * Was zur Lesebestätigung zu sagen ist - aber KEINE wird von hier aus verschickt.
+       *
+       * Dieser Weg wird auch von einer Vorschau, einem Zwischenspeicher oder einer Suche
+       * gerufen. Eine Bestätigung von hier aus behauptete "angezeigt", ohne es zu wissen.
+       * Ob die Nachricht wirklich vor jemandem steht, weiß nur die Oberfläche - sie
+       * verlangt die Bestätigung deshalb ausdrücklich über den Weg weiter unten.
+       */
+      const mitBestaetigung = (n: Awaited<ReturnType<typeof getMessage>>) => {
+        const umgang = umgangFuer(account.id);
+        const schluessel = bestaetigungsSchluessel(n, ordner);
+        const befund = pruefeBestaetigung({
+          account,
+          nachricht: n,
+          umgang,
+          erledigt: entscheidungZu(account.id, schluessel),
+        });
+        if (befund.was === 'nein') return undefined;
+        return {
+          an: befund.an,
+          /** Bei "senden" hat der Nutzer es vorab erlaubt; sonst wird gefragt. */
+          fragen: befund.was === 'fragen',
+          /** Die Bestätigungsadresse weicht vom Absender ab - siehe lesebestaetigung.ts. */
+          abweichend: befund.was === 'fragen' ? befund.abweichend : false,
+        };
+      };
+
       const mitVertrauen = (n: Awaited<ReturnType<typeof getMessage>>) => ({
         ...n,
         absenderVertraut: istVertraut(account.id, n.from[0]?.address ?? ''),
+        lesebestaetigung: mitBestaetigung(n),
       });
 
       const vorhanden = liesNachricht(key);
@@ -1584,7 +2543,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
         app.log.warn(`Ohne Verbindung - Nachricht ${uid} kommt aus der Ablage`);
         return mitVertrauen({
           uid,
-          subject: kopf?.subject ?? '(kein Betreff)',
+          subject: kopf?.subject ?? t('(kein Betreff)'),
           from: kopf?.from ?? [],
           to: kopf?.to ?? [],
           cc: [],
@@ -1705,11 +2664,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
    */
   function parseUids(value: unknown): number[] {
     if (!Array.isArray(value) || value.length === 0) {
-      throw new HttpError(400, 'Feld "uids" (nicht leere Liste) ist erforderlich');
+      throw new HttpError(400, t('Feld "uids" (nicht leere Liste) ist erforderlich'));
     }
     const uids = value.map(Number);
     if (uids.some((uid) => !Number.isInteger(uid) || uid <= 0)) {
-      throw new HttpError(400, 'Feld "uids" enthält ungültige Werte');
+      throw new HttpError(400, t('Feld "uids" enthält ungültige Werte'));
     }
     return uids;
   }
@@ -1719,7 +2678,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       const account = requireAccount(request.params.id);
       if (typeof request.body?.seen !== 'boolean') {
-        throw new HttpError(400, 'Feld "seen" (true/false) ist erforderlich');
+        throw new HttpError(400, t('Feld "seen" (true/false) ist erforderlich'));
       }
       const ordner = decodeURIComponent(request.params.folder);
       const uids = parseUids(request.body.uids);
@@ -1752,7 +2711,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const weg = (request.body?.weg ?? []).filter((s) => typeof s === 'string' && s.trim());
 
     if (hinzu.length === 0 && weg.length === 0) {
-      throw new HttpError(400, 'Es wurde weder ein Etikett angehängt noch eines abgenommen');
+      throw new HttpError(400, t('Es wurde weder ein Etikett angehängt noch eines abgenommen'));
     }
 
     const ergebnis = await setzeEtiketten(account, ordner, uids, hinzu, weg);
@@ -1802,7 +2761,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }>('/accounts/:id/folders/:folder/messages/move', async (request) => {
     const account = requireAccount(request.params.id);
     if (!request.body?.targetFolder) {
-      throw new HttpError(400, 'Feld "targetFolder" ist erforderlich');
+      throw new HttpError(400, t('Feld "targetFolder" ist erforderlich'));
     }
     const ordner = decodeURIComponent(request.params.folder);
     const uids = parseUids(request.body.uids);
@@ -1980,13 +2939,35 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     partIds: string[];
   }
 
-  type SendBody = Omit<OutgoingMessage, 'attachments'> & {
+  /**
+   * Was eine Oberfläche zum Senden schicken darf.
+   *
+   * `kopfzeilen` ist ausdrücklich AUSGENOMMEN, und das ist keine Aufräumarbeit. Es kam mit
+   * der Abwesenheitsnotiz hinzu, damit der Server `Auto-Submitted` setzen kann - und weil
+   * der Rest des Körpers unverändert in die Nachricht wandert, hätte ein Client damit
+   * beliebige Kopfzeilen einschleusen können: ein gefälschtes `Sender:`, ein
+   * `Auto-Submitted`, das die Nachricht bei der Gegenseite unsichtbar macht, ein
+   * `Disposition-Notification-To` auf ein fremdes Postfach. Kopfzeilen setzt der Server,
+   * nicht die Oberfläche.
+   */
+  type SendBody = Omit<OutgoingMessage, 'attachments' | 'kopfzeilen'> & {
     attachments?: WireAttachment[];
     attachOriginal?: ForwardSource;
     /** Ob mit OpenPGP geschuetzt versendet wird. */
     pgp?: 'signieren' | 'verschluesseln';
     /** Kennwort des geheimen Schluessels - wird nur benutzt, nie abgelegt. */
     pgpKennwort?: string;
+    /** Dasselbe mit S/MIME. Beides zugleich gibt es nicht - siehe baueGeschuetzt(). */
+    smime?: 'signieren' | 'verschluesseln';
+    smimeKennwort?: string;
+    /**
+     * Ob der Absender eine Lesebestätigung haben möchte.
+     *
+     * Ein Schalter und keine Adresse: Wohin sie geht, bestimmt der Server - es ist die
+     * Adresse, unter der gesendet wird. Eine mitgeschickte Adresse wäre genau der
+     * Missbrauch, gegen den die Bestätigungsseite abgesichert ist.
+     */
+    lesebestaetigung?: boolean;
   };
 
   type Attachment = NonNullable<OutgoingMessage['attachments']>[number];
@@ -2065,17 +3046,19 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
     const eigene = geheimeFuer(account.id, adressen);
     if (eigene.length === 0) {
-      throw new HttpError(400, 'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.');
+      throw new HttpError(400, t('Für dieses Konto ist kein geheimer Schlüssel hinterlegt.'));
     }
     if (attachments.length > 0) {
       throw new HttpError(
         400,
-        'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.',
+        t(
+          'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.',
+        ),
       );
     }
 
     const klartext = message.text?.trim() || entferneHtml(message.html ?? '');
-    if (!klartext) throw new HttpError(400, 'Eine leere Nachricht lässt sich nicht schützen.');
+    if (!klartext) throw new HttpError(400, t('Eine leere Nachricht lässt sich nicht schützen.'));
     const eigener = { armored: eigene[0]!, kennwort };
 
     if (pgp === 'verschluesseln') {
@@ -2113,6 +3096,108 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     };
   }
 
+  /**
+   * Dasselbe mit S/MIME.
+   *
+   * Ein eigener Weg und keine Verzweigung im PGP-Weg: Die beiden bauen die Nachricht
+   * verschieden, und ein gemeinsamer Weg mit zwei Wenn-Zweigen an jeder Stelle waere
+   * genau die Sorte Code, in der sich ein Fehler versteckt, den niemand sieht - weil ihn
+   * nur die Haelfte der Nutzer trifft.
+   *
+   * Ein Unterschied zu PGP steckt im Verschluesseln: Hier wird IMMER zuerst
+   * unterschrieben und dann verschlossen. Die Unterschrift steckt damit im Umschlag, und
+   * nur so beweist sie etwas - eine ausserhalb liesse sich austauschen, ohne den Inhalt
+   * zu beruehren.
+   */
+  async function baueSmimeGeschuetzt(
+    account: AccountConfig,
+    message: Omit<SendBody, 'attachments' | 'attachOriginal'>,
+    attachments: Attachment[],
+    smime: 'signieren' | 'verschluesseln',
+    kennwort: string | undefined,
+  ): Promise<OutgoingMessage> {
+    const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+    const eigene = eigeneFuer(account.id, adressen);
+    if (eigene.length === 0) {
+      throw new HttpError(400, t('Für dieses Konto ist kein eigenes Zertifikat hinterlegt.'));
+    }
+    if (attachments.length > 0) {
+      throw new HttpError(
+        400,
+        t(
+          'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.',
+        ),
+      );
+    }
+    const klartext = message.text?.trim() || entferneHtml(message.html ?? '');
+    if (!klartext) throw new HttpError(400, t('Eine leere Nachricht lässt sich nicht schützen.'));
+
+    const eigenes = eigene[0]!;
+    let schluessel;
+    try {
+      schluessel = eigenes.schluessel(kennwort);
+    } catch (err) {
+      throw new HttpError(400, (err as Error).message);
+    }
+
+    const teil = baueSigniertenTeil(klartext);
+    const signatur = baueSignierteDaten({
+      inhalt: Buffer.from(teil, 'utf8'),
+      zertifikat: eigenes.zertifikat,
+      schluessel,
+      kette: eigenes.kette,
+    });
+
+    if (smime === 'signieren') {
+      return {
+        ...message,
+        text: klartext,
+        html: undefined,
+        smimeSignierterTeil: teil,
+        smimeSignatur: signatur.toString('base64'),
+      };
+    }
+
+    const empfaenger = [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])];
+    const zertifikate: Buffer[] = [];
+    const faehigkeiten: string[][] = [];
+    const fehlend: string[] = [];
+    for (const adresse of empfaenger) {
+      const gefunden = zertifikateFuer(adresse);
+      if (gefunden.length === 0) fehlend.push(adresse);
+      else {
+        zertifikate.push(gefunden[0]!.zertifikat);
+        faehigkeiten.push(gefunden[0]!.faehigkeiten);
+      }
+    }
+    if (fehlend.length > 0) {
+      throw new HttpError(
+        400,
+        `Kein Zertifikat vorhanden für: ${fehlend.join(', ')}. Diese Empfänger könnten die Nachricht nicht lesen.`,
+      );
+    }
+
+    /*
+     * Das eigene Zertifikat gehoert mit unter die Empfaenger - sonst waere die Kopie im
+     * Gesendet-Ordner fuer immer unlesbar. Und die eigenen Faehigkeiten zaehlen mit: Was
+     * wir selbst nicht lesen koennen, darf nicht gewaehlt werden.
+     */
+    zertifikate.push(eigenes.zertifikat);
+    faehigkeiten.push([SmimeBezeichner.aes256Gcm]);
+
+    const innen = baueSigniertePost(teil, signatur, `=_EnergyMail_${randomBytes(18).toString('base64url')}`);
+    return {
+      ...message,
+      text: undefined,
+      html: undefined,
+      smimeGeheimtext: baueUmschlag({
+        inhalt: alsBytes(innen),
+        empfaenger: zertifikate,
+        verfahren: besteVerschluesselung(faehigkeiten),
+      }).toString('base64'),
+    };
+  }
+
   async function fuehreVersandAus(
     account: AccountConfig,
     koerper: SendBody & { draftFolder?: string; draftUid?: number },
@@ -2124,14 +3209,40 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       draftUid,
       pgp,
       pgpKennwort,
+      smime,
+      smimeKennwort,
+      lesebestaetigung,
+      /*
+       * Weggeworfen, und zwar ausdrücklich.
+       *
+       * Der Rest dieses Körpers wandert unverändert in die Nachricht. Käme hier ein
+       * `kopfzeilen` einer Oberfläche mit, ließen sich beliebige Kopfzeilen einschleusen -
+       * ein gefälschtes `Sender:`, ein `Disposition-Notification-To` auf ein fremdes
+       * Postfach. Was der Server setzt, setzt der Server.
+       */
+      kopfzeilen: _verworfen,
       ...message
     } = koerper as SendBody & {
       draftFolder?: string;
       draftUid?: number;
       pgp?: 'signieren' | 'verschluesseln';
       pgpKennwort?: string;
+      smime?: 'signieren' | 'verschluesseln';
+      smimeKennwort?: string;
+      kopfzeilen?: Record<string, string>;
     };
     const attachments = await collectAttachments(account, wire, attachOriginal);
+
+    /*
+     * Beides zugleich gibt es nicht, und zwar mit Absicht. Eine Nachricht, die mit PGP
+     * UND mit S/MIME unterschrieben ist, hat kein festes Aussehen - jedes Programm zeigt
+     * etwas anderes an, und manche zeigen die eine Unterschrift und verschlucken die
+     * andere. Zwei Haken, von denen der Empfaenger nur einen sieht, sind schlechter als
+     * einer, den er sicher sieht.
+     */
+    if (pgp && smime) {
+      throw new HttpError(400, t('Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.'));
+    }
 
     /**
      * Mit OpenPGP geschützt versenden.
@@ -2141,9 +3252,60 @@ export async function buildServer(optionen: ServerOptionen = {}) {
      * klarer Hinweis ist besser als eine Nachricht, bei der niemand weiß, was nun
      * geschützt ist und was nicht.
      */
-    const geschuetzt = await baueGeschuetzt(account, message, attachments, pgp, pgpKennwort);
+    const geschuetzt = smime
+      ? await baueSmimeGeschuetzt(account, message, attachments, smime, smimeKennwort)
+      : await baueGeschuetzt(account, message, attachments, pgp, pgpKennwort);
 
-    const result = await sendMessage(account, geschuetzt ?? { ...message, attachments });
+    /**
+     * Wer im Auftrag eines anderen sendet, sagt es in der Kopfzeile.
+     *
+     * `From` bleibt die Adresse des Postfachs - der Empfänger antwortet dorthin, und
+     * genau das ist gewollt. Daneben steht `Sender` mit der Adresse dessen, der wirklich
+     * getippt hat; Outlook und Thunderbird zeigen daraufhin "Bernd im Auftrag von Anna".
+     *
+     * Das ist keine Feinheit, sondern die einzige ehrliche Bauart. Ohne diese Zeile
+     * verschickte ein Vertreter Post, die aussieht, als hätte sie der Eigentümer
+     * geschrieben - im Namen eines Menschen, der nichts davon weiß. Auf SPF und DMARC
+     * wirkt sie nicht: Der Umschlagabsender bleibt unverändert, und DMARC richtet sich
+     * nach `From`.
+     */
+    const vertretung = vertretungFuer();
+    const imAuftrag = vertretung ? findeNutzer(vertretung.handelnd)?.email : undefined;
+
+    /**
+     * Die eigene Bitte um eine Lesebestätigung.
+     *
+     * Die Adresse bestimmt der Server: die, unter der gesendet wird. Sie vom Client
+     * setzen zu lassen wäre genau der Missbrauch, gegen den die Empfangsseite abgesichert
+     * ist - eine Nachricht an einen Verteiler, deren Bestätigungen woandershin gehen.
+     */
+    const bitteUmBestaetigung: Record<string, string> = lesebestaetigung
+      ? { 'Disposition-Notification-To': message.absender?.email ?? account.email }
+      : {};
+    if (imAuftrag) {
+      protokolliere(
+        'info',
+        'senden',
+        `"${vertretung!.handelnd}" sendet im Auftrag von "${vertretung!.besitzer}" über ${account.email}.`,
+      );
+    }
+
+    const zusatz = { ...bitteUmBestaetigung, ...(imAuftrag ? { Sender: imAuftrag } : {}) };
+    const result = await sendMessage(
+      account,
+      geschuetzt
+        ? { ...geschuetzt, kopfzeilen: { ...geschuetzt.kopfzeilen, ...zusatz } }
+        : { ...message, attachments, kopfzeilen: zusatz },
+    );
+
+    /*
+     * Ins Archiv, sofort nach dem Versand und mit den Bytes, die wirklich hinausgingen.
+     *
+     * Hier und nicht in sendMessage(): Die Frage, ob ein Konto aufgezeichnet wird, ist
+     * eine des Servers und nicht des Mailversands - mail-core weiss nichts von Nutzern,
+     * Fristen und Archiven, und das soll so bleiben.
+     */
+    erfasseVersand(account, message, result.raw);
 
     // Nach erfolgreichem Versand hat der Entwurf ausgedient.
     if (draftFolder && draftUid) {
@@ -2165,11 +3327,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   setSendeVerfahren(async (sendung) => {
     const account = getAccount(sendung.accountId);
-    if (!account) throw new Error('Das Konto gibt es nicht mehr.');
+    if (!account) throw new Error(t('Das Konto gibt es nicht mehr.'));
     await fuehreVersandAus(account, sendung.koerper as SendBody);
   }, (msg) => app.log.info(msg));
 
-  ladeGeplanteSendungen();
+  // ladeGeplanteSendungen() steht bewusst nicht hier, sondern ganz am Ende - siehe dort.
 
   app.post<{
     Params: { id: string };
@@ -2185,7 +3347,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const zeitpunkt = (request.body as { sendenAm?: string }).sendenAm;
     if (verzoegerung > 0 || zeitpunkt) {
       const faellig = zeitpunkt ? new Date(zeitpunkt).getTime() : Date.now() + verzoegerung * 1000;
-      if (!Number.isFinite(faellig)) throw new HttpError(400, 'Unbrauchbarer Zeitpunkt.');
+      if (!Number.isFinite(faellig)) throw new HttpError(400, t('Unbrauchbarer Zeitpunkt.'));
       const sendung = planeSendung(account.id, request.body as Record<string, unknown>, faellig);
       return { ok: true, geplant: true, id: sendung.id, faellig: sendung.faellig };
     }
@@ -2213,15 +3375,15 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const account = requireAccount(request.params.id);
     const antwort = request.body?.antwort;
     if (antwort !== 'zusagen' && antwort !== 'absagen' && antwort !== 'vorbehalten') {
-      throw new HttpError(400, 'Feld "antwort" muss zusagen, absagen oder vorbehalten sein');
+      throw new HttpError(400, t('Feld "antwort" muss zusagen, absagen oder vorbehalten sein'));
     }
 
     const ordner = decodeURIComponent(request.params.folder);
     const nachricht = await getMessage(account, ordner, Number(request.params.uid));
     const termin = nachricht.einladung?.termine[0];
-    if (!termin) throw new HttpError(400, 'Diese Nachricht enthält keine Einladung');
+    if (!termin) throw new HttpError(400, t('Diese Nachricht enthält keine Einladung'));
     if (!termin.organisator?.adresse) {
-      throw new HttpError(400, 'Die Einladung nennt niemanden, an den eine Antwort ginge');
+      throw new HttpError(400, t('Die Einladung nennt niemanden, an den eine Antwort ginge'));
     }
 
     /**
@@ -2240,7 +3402,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       (i) => i.email.toLowerCase() === alsWer.toLowerCase(),
     );
 
-    const wort = { zusagen: 'Zusage', absagen: 'Absage', vorbehalten: 'Mit Vorbehalt' }[antwort];
+    const wort = {
+      zusagen: t('Zusage'),
+      absagen: t('Absage'),
+      vorbehalten: t('Mit Vorbehalt'),
+    }[antwort];
     const ics = baueAntwort(
       termin,
       { adresse: alsWer, name: identitaet?.displayName ?? account.displayName },
@@ -2272,7 +3438,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       requireAccount(request.params.id);
       const sendung = storniereSendung(request.params.sendungId);
-      if (!sendung) throw new HttpError(404, 'Diese Nachricht ist bereits unterwegs.');
+      if (!sendung) throw new HttpError(404, t('Diese Nachricht ist bereits unterwegs.'));
       return { ok: true, koerper: sendung.koerper };
     },
   );
@@ -2316,10 +3482,18 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     },
   );
 
-  // Ein Kanal für alle Konten: der Client bekommt jedes Ereignis mitsamt accountId
-  // und entscheidet selbst, ob das die gerade sichtbare Ansicht betrifft.
+  /*
+   * Ein Kanal für alle Konten EINES Nutzers: der Client bekommt jedes Ereignis mitsamt
+   * accountId und entscheidet selbst, ob das die gerade sichtbare Ansicht betrifft.
+   *
+   * Der Nutzer wird beim Verbinden festgehalten und nicht bei jedem Ereignis neu
+   * bestimmt - die Ereignisse kommen aus fremden Ausführungssträngen (IMAP-Socket,
+   * Zeitgeber), dort gäbe es nichts zu bestimmen. Vorher hing jede Verbindung an einem
+   * prozessglobalen Satz Zuhörer: jeder Angemeldete bekam damit die Eingänge aller
+   * anderen, samt Betreff und Absender.
+   */
   app.get('/ws', { websocket: true }, (socket) => {
-    const unsubscribe = subscribe((event) => {
+    const unsubscribe = subscribe(aktuellerNutzer(), (event) => {
       if (socket.readyState === socket.OPEN) {
         socket.send(JSON.stringify(event));
       }
@@ -2350,7 +3524,86 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   // Zugriffstoken, und das wird hier bei Bedarf erneuert und gespeichert.
   installTokenRefresh((msg) => app.log.warn(msg));
 
-  syncWatchers();
+  /*
+   * Arbeit, die ohne Anfrage läuft - und deshalb ihren Nutzerkontext selbst mitbringen muss.
+   *
+   * Überwachung, Wiedervorlage und Sendewarteschlange gehören keinem Fenster und keiner
+   * HTTP-Anfrage: sie laufen von sich aus, im Hintergrund. Ohne ausdrücklichen Kontext
+   * wüssten die Speicher nicht, wessen Daten gemeint sind, und würfen (siehe
+   * nutzer/kontext.ts). Genau dieses Werfen macht die Umstellung sicher - was ich hier
+   * zu wickeln vergesse, meldet sich beim ersten Durchlauf.
+   *
+   * AsyncLocalStorage trägt den Kontext über Zeitgeber hinweg. Die Zeitgeber für geplante
+   * Sendungen und Wiedervorlagen entstehen INNERHALB dieses Blocks und behalten ihn
+   * deshalb bis zu ihrem Auslösen - auch Wochen später.
+   *
+   * Hier stand einmal `[EINPLATZ_NUTZER]` mit der Notiz, daraus werde später eine
+   * Schleife über alle. Der Zeitpunkt ist gekommen, und es war keine Formsache: im
+   * Serverbetrieb bekam nach jedem Neustart nur der Nutzer "lokal" seine
+   * Hintergrundarbeit zurück - und der hat dort gar keine Konten. Für alle anderen hieß
+   * das: keine Überwachung (also keine neue Post, bis jemand von Hand nachlädt), eine
+   * für Dienstag geplante Sendung, die nie hinausgeht, und eine auf morgen gelegte
+   * Nachricht, die nicht wiederkommt. Alles still, ohne eine einzige Fehlermeldung.
+   *
+   * Auf dem Einzelplatz ändert sich nichts: dort ist "lokal" der einzige Eintrag.
+   */
+  const hintergrundNutzer = alleNutzer()
+    .map((n) => n.id)
+    .filter((id) => !istGesperrt(id));
+
+  if (hintergrundNutzer.length === 0) {
+    app.log.warn(
+      'Kein Nutzer eingetragen - es läuft keine Überwachung. Bei einem neuen Server ist ' +
+        'das normal, bis der erste Nutzer angelegt ist (nutzerWerkzeug.js anlegen).',
+    );
+  }
+
+  for (const nutzer of hintergrundNutzer) {
+    /*
+     * Jeder für sich. Ein Nutzer, dessen Konten sich nicht entschlüsseln lassen oder
+     * dessen Ablage beschädigt ist, darf nicht die Hintergrundarbeit aller anderen
+     * verhindern - beim Einzelplatz war das egal, hier ist es der Unterschied zwischen
+     * "einer hat ein Problem" und "der Dienst tut nichts mehr".
+     */
+    try {
+      alsNutzer(nutzer, () => {
+        syncWatchers();
+
+        /*
+         * Erst hier, ganz am Ende - und das ist eine Behebung, keine Umsortierung.
+         *
+         * Vorher standen beide weiter oben im Aufbau, VOR installTokenRefresh. Überfällige
+         * Einträge werden mit Wartezeit 0 eingeplant, konnten also losfeuern, bevor die
+         * Markenerneuerung eingerichtet war. Bei einem OAuth-Konto scheiterte dann genau
+         * der überfällige Versand an einer abgelaufenen Marke - und wurde nach fünf
+         * Versuchen aufgegeben.
+         */
+        ladeWiedervorlagen();
+        ladeGeplanteSendungen();
+      });
+    } catch (err) {
+      app.log.error(
+        `Hintergrundarbeit für "${nutzer}" ließ sich nicht starten: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  if (hintergrundNutzer.length > 1) {
+    app.log.info(`Hintergrundarbeit für ${hintergrundNutzer.length} Nutzer gestartet.`);
+  }
+
+  /*
+   * Der zwischengespeicherte Nachrichtenbestand - nachsehen und wegwerfen.
+   *
+   * Die beiden Wege gehören zusammen und beantworten eine Frage, auf die die Anwendung
+   * bisher keine Antwort hatte: was liegt eigentlich auf dieser Platte, und wie werde ich
+   * es wieder los? Verschlüsselt sind die Zugangsdaten, nicht der Nachrichtenbestand -
+   * wer an einem entsperrten Rechner sitzt, kann ihn lesen. Solange das so ist, gehört
+   * zumindest ein Knopf dazu, der ihn wegräumt.
+   */
+  app.get('/ablage', async () => ablageGroesse());
+
+  app.delete('/ablage', async () => leereAblage());
 
   /*
    * Sicherung der Einstellungen.
@@ -2390,7 +3643,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
        */
       kontakte: listeKontakte({ limit: 100_000, auchAufgelesene: true }).eintraege,
       suchen: alleSuchen(),
-      hinweis: HINWEIS,
+      hinweis: sicherungsHinweis(),
     };
   });
 

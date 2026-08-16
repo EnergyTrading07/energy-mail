@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import {
   buildAuthUrl,
   createPendingAuth,
+  endpunkte,
   getProviderSpec,
   type OAuthProviderId,
 } from './provider.js';
@@ -103,6 +104,48 @@ pruefe('Microsoft fordert IMAP, SMTP und offline_access an', () => {
   assert.ok(scopes.some((s) => s.includes('IMAP.AccessAsUser.All')));
   assert.ok(scopes.some((s) => s.includes('SMTP.Send')));
   assert.ok(scopes.includes('offline_access'), 'ohne offline_access kein Refresh-Token');
+});
+
+console.log('\nDer Mandant bei Microsoft:');
+
+pruefe('ohne Angabe bleibt es bei /common', () => {
+  // Der richtige Weg fuer einen Privatnutzer: dort darf sich anmelden, wer will.
+  assert.match(endpunkte('microsoft').authUrl, /\/common\/oauth2/);
+  assert.match(endpunkte('microsoft', '   ').tokenUrl, /\/common\/oauth2/);
+});
+
+pruefe('mit Angabe steht er im Pfad - in beiden Adressen', () => {
+  /*
+   * Er gehoert in den PFAD und nicht als Parameter daneben. Und in BEIDE Adressen: stuende
+   * er nur in der Anmeldeadresse, liefe der Tausch in Token wieder ueber /common, und die
+   * Zustimmung des Administrators griffe dort nicht.
+   */
+  const e = endpunkte('microsoft', 'contoso.onmicrosoft.com');
+  assert.match(e.authUrl, /login\.microsoftonline\.com\/contoso\.onmicrosoft\.com\/oauth2/);
+  assert.match(e.tokenUrl, /login\.microsoftonline\.com\/contoso\.onmicrosoft\.com\/oauth2/);
+  assert.ok(!e.authUrl.includes('/common/'));
+});
+
+pruefe('ein Schraegstrich im Mandanten kann nicht umleiten', () => {
+  // Der Wert kommt aus einer Richtliniendatei. Ungeprueft zeigte "../../boese" auf eine
+  // ganz andere Stelle beim Anbieter.
+  const e = endpunkte('microsoft', '../../boese');
+  assert.ok(!e.authUrl.includes('../'), e.authUrl);
+  assert.match(e.authUrl, /login\.microsoftonline\.com\/\.\.%2F\.\.%2Fboese\//);
+});
+
+pruefe('Google hat keinen Mandanten', () => {
+  const e = endpunkte('google', 'contoso.onmicrosoft.com');
+  assert.equal(e.authUrl, getProviderSpec('google').authUrl);
+});
+
+pruefe('die Anmeldeadresse traegt den Mandanten', () => {
+  const pending = createPendingAuth('microsoft', 'http://127.0.0.1:1234/oauth/callback');
+  const url = buildAuthUrl({ clientId: 'abc', mandant: 'contoso.onmicrosoft.com' }, pending);
+  assert.match(url, /\/contoso\.onmicrosoft\.com\/oauth2/);
+  assert.match(url, /client_id=abc/);
+  // PKCE bleibt, auch ohne Client-Schluessel - das ist der Weg fuer einen public client.
+  assert.match(url, /code_challenge_method=S256/);
 });
 
 pruefe('unbekannter Anbieter wird abgewiesen', () => {

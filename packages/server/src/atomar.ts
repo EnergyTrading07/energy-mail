@@ -83,7 +83,25 @@ export type Lesebefund<T> = {
  * zur Seite (damit der naechste Schreibvorgang sie nicht endgueltig ueberschreibt) und
  * der Befund geht nach oben.
  */
-export function liesJson<T>(pfad: string, standard: T): Lesebefund<T> {
+export function liesJson<T>(
+  pfad: string,
+  standard: T,
+  /**
+   * Was vor dem Auswerten mit dem Dateiinhalt geschieht - fuer verschluesselte Speicher.
+   *
+   * Als Haken und nicht als eigene Lesefunktion, weil sonst alles darunter zweimal
+   * dastuende: die Sicherungskopie, das Beiseitelegen der kaputten Datei, die
+   * Unterscheidung von "gibt es noch nicht" und "unlesbar". Genau daran haengt, dass ein
+   * halb geschriebenes Adressbuch nicht das ganze Adressbuch kostet - das soll nicht
+   * davon abhaengen, ob eine Datei verschluesselt ist.
+   *
+   * Wirft der Haken, gilt der Kandidat als unlesbar, und die Sicherungskopie ist dran.
+   * Das ist richtig so: ein Schluesselwechsel und eine abgeschnittene Datei sehen von
+   * hier aus gleich aus, und in beiden Faellen ist die vorige Fassung der bessere
+   * Versuch.
+   */
+  entpacke?: (roh: string) => string,
+): Lesebefund<T> {
   if (!fs.existsSync(pfad)) return { wert: standard };
 
   const versuche: string[] = [pfad, `${pfad}${SICHERUNG}`];
@@ -96,7 +114,7 @@ export function liesJson<T>(pfad: string, standard: T): Lesebefund<T> {
       // Eine leere Datei ist kein gueltiges JSON, aber auch kein Schaden: sie entsteht,
       // wenn der Schreibvorgang genau zwischen Anlegen und Fuellen abbrach.
       if (!roh.trim()) throw new Error('Datei ist leer');
-      const wert = JSON.parse(roh) as T;
+      const wert = JSON.parse(entpacke ? entpacke(roh) : roh) as T;
       if (kandidat === pfad) return { wert };
 
       /*

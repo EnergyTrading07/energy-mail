@@ -3,6 +3,8 @@ import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { fortschrittsText, useFortschritt } from '../useFortschritt.js';
 import { Fenster } from './Fenster.js';
+import { datum, uhrzeit } from '../sprache.js';
+import { t } from '../sprache.js';
 
 /**
  * Was noch aussteht: geplante Nachrichten, zurückgestellte Post und Liegengebliebenes.
@@ -32,17 +34,17 @@ interface Props {
 function wann(zeitpunkt: number): string {
   const ziel = new Date(zeitpunkt);
   const jetzt = new Date();
-  const uhrzeit = ziel.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const zeit = uhrzeit(ziel, { hour: '2-digit', minute: '2-digit' });
 
   const tageDazwischen = Math.round(
     (new Date(ziel).setHours(0, 0, 0, 0) - new Date(jetzt).setHours(0, 0, 0, 0)) / 86_400_000,
   );
-  if (tageDazwischen === 0) return `heute um ${uhrzeit}`;
-  if (tageDazwischen === 1) return `morgen um ${uhrzeit}`;
+  if (tageDazwischen === 0) return `heute um ${zeit}`;
+  if (tageDazwischen === 1) return `morgen um ${zeit}`;
   if (tageDazwischen > 1 && tageDazwischen < 7) {
-    return `${ziel.toLocaleDateString('de-DE', { weekday: 'long' })} um ${uhrzeit}`;
+    return `${datum(ziel, { weekday: 'long' })} um ${zeit}`;
   }
-  return `${ziel.toLocaleDateString('de-DE')} um ${uhrzeit}`;
+  return `${datum(ziel)} um ${zeit}`;
 }
 
 /** "seit 12 Tagen" - eine Zahl sagt hier mehr als ein Datum. */
@@ -161,7 +163,7 @@ export function WartendModal({
             onClose();
           }}
         >
-          {vorgang.betreff || '(kein Betreff)'}
+          {vorgang.betreff || t('(kein Betreff)')}
         </button>
         <span>
           {wer(vorgang.gegenueber)} · {seit(vorgang.tageOffen)}
@@ -178,27 +180,23 @@ export function WartendModal({
     <Fenster titel={`Offen — ${account.email}`} onClose={onClose}>
 
       {fehler && <div className="error-banner">{fehler}</div>}
-      {laeuft && <div className="empty-state">Wird geladen…</div>}
+      {laeuft && <div className="empty-state">{t('Wird geladen…')}</div>}
       {!laeuft && leer && (
-        <div className="empty-state">
-          Nichts geplant und nichts zurückgestellt.
-        </div>
+        <div className="empty-state">{t('Nichts geplant und nichts zurückgestellt.')}</div>
       )}
 
       {sendungen.length > 0 && (
         <>
-          <h4 className="wartend-titel">Geplante Nachrichten</h4>
+          <h4 className="wartend-titel">{t('Geplante Nachrichten')}</h4>
           {sendungen.map((s) => (
             <div key={s.id} className="wartend-zeile">
               <div className="wartend-text">
-                <strong>{s.betreff || '(kein Betreff)'}</strong>
+                <strong>{s.betreff || t('(kein Betreff)')}</strong>
                 <span>
                   an {s.empfaenger.join(', ') || '(niemand)'} · geht {wann(s.faellig)} raus
                 </span>
               </div>
-              <button className="link-btn" onClick={() => void zurueckholen(s.id)}>
-                Zurückholen
-              </button>
+              <button className="link-btn" onClick={() => void zurueckholen(s.id)}>{t('Zurückholen')}</button>
             </div>
           ))}
         </>
@@ -206,25 +204,24 @@ export function WartendModal({
 
       {wiedervorlagen.length > 0 && (
         <>
-          <h4 className="wartend-titel">Zurückgestellt</h4>
+          <h4 className="wartend-titel">{t('Zurückgestellt')}</h4>
           {wiedervorlagen.map((w) => (
             <div key={w.id} className="wartend-zeile">
               <div className="wartend-text">
-                <strong>{w.betreff || '(kein Betreff)'}</strong>
+                <strong>{w.betreff || t('(kein Betreff)')}</strong>
                 <span>
                   kommt {wann(w.faellig)} zurück nach „{w.ursprung}"
-                  {w.uidImOrdner === undefined && ' · Achtung: der Server hat keine Kennung gemeldet'}
+                  {w.uidImOrdner === undefined &&
+                    t(' · Achtung: der Server hat keine Kennung gemeldet')}
                 </span>
               </div>
-              <button className="link-btn" onClick={() => void sofortVorlegen(w.id)}>
-                Jetzt zurück
-              </button>
+              <button className="link-btn" onClick={() => void sofortVorlegen(w.id)}>{t('Jetzt zurück')}</button>
             </div>
           ))}
         </>
       )}
 
-      <h4 className="wartend-titel">Liegengeblieben</h4>
+      <h4 className="wartend-titel">{t('Liegengeblieben')}</h4>
       {/* Standardmäßig nur Gespräche mit Bekannten und solche mit Hin und Her - sonst
           steht hier vor allem Versandbestätigung und Rechnung. Wer alles sehen will,
           schaltet es an. */}
@@ -236,25 +233,21 @@ export function WartendModal({
             setAuchUnbekannte(e.target.checked);
             ladeOffene(e.target.checked);
           }}
-        />
-        Auch einzelne Nachrichten von Unbekannten
-      </label>
+        />{t('Auch einzelne Nachrichten von Unbekannten')}</label>
       {offeneFehler && <div className="error-banner">{offeneFehler}</div>}
       {offeneLaeuft && (
         <div className="empty-state">
           {fortschrittsText(stand, 'Wird durchgesehen…')}
-          <span className="fortschritt-hinweis">
-            Bei großen Postfächern dauert das einen Moment.
-          </span>
+          <span className="fortschritt-hinweis">{t('Bei großen Postfächern dauert das einen Moment.')}</span>
         </div>
       )}
       {!offeneLaeuft && !offeneFehler && offene?.length === 0 && (
-        <div className="empty-state">Nichts liegengeblieben — alles beantwortet.</div>
+        <div className="empty-state">{t('Nichts liegengeblieben — alles beantwortet.')}</div>
       )}
 
       {wartetAufAntwort.length > 0 && (
         <>
-          <div className="wartend-untertitel">Du wartest auf Antwort</div>
+          <div className="wartend-untertitel">{t('Du wartest auf Antwort')}</div>
           {wartetAufAntwort.map((v) =>
             vorgangsZeile(v, 'Nachfassen', () => {
               onNachfassen(v.gegenueber, v.betreff);
@@ -266,7 +259,7 @@ export function WartendModal({
 
       {nichtBeantwortet.length > 0 && (
         <>
-          <div className="wartend-untertitel">Du hast noch nicht geantwortet</div>
+          <div className="wartend-untertitel">{t('Du hast noch nicht geantwortet')}</div>
           {nichtBeantwortet.map((v) =>
             vorgangsZeile(v, 'Öffnen', () => {
               onOeffnen(v.ordner, v.uid);
@@ -277,12 +270,8 @@ export function WartendModal({
       )}
 
       <div className="form-row regel-knoepfe">
-        <button className="btn secondary" disabled={laeuft || offeneLaeuft} onClick={laden}>
-          Neu laden
-        </button>
-        <button className="link-btn" onClick={onClose}>
-          Schließen
-        </button>
+        <button className="btn secondary" disabled={laeuft || offeneLaeuft} onClick={laden}>{t('Neu laden')}</button>
+        <button className="link-btn" onClick={onClose}>{t('Schließen')}</button>
       </div>
     </Fenster>
   );

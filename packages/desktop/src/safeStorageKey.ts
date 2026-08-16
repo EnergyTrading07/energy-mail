@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { safeStorage } from 'electron';
 import type { KeyProvider } from '@energy-mail/server/secrets';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Erzeugt einmalig einen zufälligen 32-Byte-Schlüssel und legt ihn - mit Electrons
@@ -18,8 +19,9 @@ export function createSafeStorageKeyProvider(dataDir: string): KeyProvider {
     getKey: () => {
       if (!safeStorage.isEncryptionAvailable()) {
         throw new Error(
-          'Das Betriebssystem stellt gerade keine Verschlüsselung bereit ' +
-            '(safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.',
+          t(
+            'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.',
+          ),
         );
       }
 

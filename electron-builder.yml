@@ -19,9 +19,39 @@ directories:
 # die ausgelieferte Anwendung selbst, wo sie nachschauen muss.
 publish:
   provider: github
-  # Ohne diese Zeile legt electron-builder einen Entwurf an - und Entwürfe sind für die
-  # Selbstaktualisierung unsichtbar, die Anwendung fände nie etwas.
-  releaseType: release
+
+  # Als Entwurf, und das ist seit der Freigabeprüfung eine bewusste Umkehr.
+  #
+  # Hier stand "release" mit der Begründung, Entwürfe seien für die Selbstaktualisierung
+  # unsichtbar - was stimmt und damals der Punkt war: die CI war der letzte Schritt, und
+  # was sie ablegte, sollte gelten.
+  #
+  # Jetzt ist die CI NICHT mehr der letzte Schritt. Nach ihr kommt die Freigabe von Hand
+  # (npm run freigeben), die die Unterschrift beilegt und die Veröffentlichung sichtbar
+  # macht. Genau dafür ist die Unsichtbarkeit richtig: zwischen "gebaut" und
+  # "unterschrieben" liegt ein Zeitraum, und läge die Fassung darin schon offen, würde
+  # jede laufende Anwendung sie ziehen, die Prüfung nicht bestehen und dem Nutzer
+  # "stammt nicht vom Herausgeber" melden - eine Warnung, die nach einem Angriff aussieht
+  # und nur bedeutet, dass jemand noch nicht dazu gekommen ist.
+  #
+  # Nebenbei ist es das, was man sich bei einer Anwendung mit Selbstaktualisierung
+  # ohnehin wünscht: nichts geht hinaus, ohne dass ein Mensch es freigibt.
+  releaseType: draft
+
+  # Schaltet die Signaturprüfung in electron-updater überhaupt erst ein.
+  #
+  # Ohne diesen Eintrag steigt verifySignature() in der ersten Zeile aus
+  # ("if (publisherName == null) return null") - und dann läuft auch der eigene
+  # Prüfhaken nicht, der daran hängt. Es fand vorher also keine schwache Prüfung statt,
+  # sondern gar keine.
+  #
+  # Der Wert selbst wird derzeit nicht ausgewertet: die Prüfung ist durch
+  # desktop/src/updateSignatur.ts ersetzt, und die sieht auf die eigene Unterschrift
+  # statt auf ein Zertifikat. Kommt später ein Codesignierzertifikat dazu, gehört hier
+  # dessen vollständiger Name (DN) hinein, und der Haken kann zusätzlich an die
+  # eingebaute Prüfung weiterreichen.
+  publisherName:
+    - Energy Mail
 
 # Die Electron-Hülle liegt nicht in node_modules, sondern als Arbeitsbereich im Baum -
 # deshalb hier ausdrücklich.
@@ -77,6 +107,14 @@ win:
     - target: portable
       arch: [x64]
   icon: build/icon.png
+
+# Das MSI steht bewusst NICHT in der Liste oben.
+#
+# Es wird gebaut, wenn man es verlangt ("npm run paket:firma"), und sonst nicht. Zwei
+# Gründe: ein Lauf mit allen Zielen dauerte sonst das Doppelte, obwohl das MSI die
+# allermeisten Male nicht gebraucht wird - und die Veröffentlichung soll es nicht
+# stillschweigend mitnehmen. Die CI baut ohnehin nur "--win nsis"; was ein Firmenkunde
+# bekommt, entscheidet damit ein Mensch und nicht eine Liste.
 
 # Damit sich Energy Mail als Standard-E-Mail-Programm einstellen lässt.
 #
@@ -149,3 +187,46 @@ nsis:
 
 portable:
   artifactName: ${productName} ${version} portabel.${ext}
+
+# Das Paket für die Verteilung im Unternehmen.
+#
+# Der NSIS-Installer oben bleibt unverändert - er ist der Weg für Privatnutzer, mit
+# Selbstaktualisierung und Installation ins eigene Profil. Für ein Unternehmen taugt er
+# nicht: Intune, SCCM und die Softwareverteilung per Gruppenrichtlinie verteilen
+# maschinenweit, und die Gruppenrichtlinie kennt ausschliesslich MSI. Ohne dieses Paket
+# muesste jemand an jeden einzelnen Arbeitsplatz.
+#
+# Zwei Pakete fuer zwei Zielgruppen also, und das ist kein Umweg, sondern der Unterschied
+# in zwei Punkten, die sich nicht vereinen lassen:
+#
+#  1. WOHIN. Der NSIS-Installer legt die Anwendung nach %LOCALAPPDATA%\Programs, also ins
+#     Profil des Nutzers - dort darf er ohne Rechteerhoehung installieren. Das MSI legt sie
+#     nach "Programme" und damit fuer alle. Nebenbei ist das die sicherere Stelle: dorthin
+#     kann ein Prozess im Nutzerkontext nicht schreiben, und der Austausch von app.asar,
+#     vor dem die Fuses oben schuetzen, waere schon am Dateisystem gescheitert.
+#  2. WER AKTUALISIERT. Das MSI kann sich nicht selbst aktualisieren - electron-updater
+#     kennt nur den NSIS-Weg. Das ist hier kein Mangel, sondern genau richtig: in einer
+#     verwalteten Aufstellung entscheidet die IT, welche Fassung wann kommt, und schaltet
+#     die Selbstaktualisierung ohnehin per Richtlinie ab (siehe BETRIEB.md).
+msi:
+  # Maschinenweit. Der eigentliche Zweck dieses Pakets - eine Verteilung laeuft als SYSTEM
+  # und richtet fuer alle Nutzer des Rechners ein.
+  perMachine: true
+
+  # Kein Fenster, keine Rueckfrage: bei "msiexec /qn" laeuft ohnehin nichts sichtbar, und
+  # ein Installationsassistent haette bei einer Verteilung niemanden vor sich.
+  oneClick: true
+  runAfterFinish: false
+
+  # Die Kennung, an der Windows eine Aktualisierung von einer zweiten Installation
+  # unterscheidet.
+  #
+  # AUSDRUECKLICH gesetzt und niemals zu aendern. Ohne Angabe leitet electron-builder sie
+  # aus der appId ab - das geht gut, solange niemand die appId anfasst, und geht am Tag
+  # danach still schief: Windows haelt die neue Fassung fuer ein anderes Programm,
+  # installiert sie daneben, und auf hundert Arbeitsplaetzen stehen zwei Energy Mail im
+  # Startmenue. Eine feste Kennung nimmt dieser Entscheidung ihre Fernwirkung.
+  upgradeCode: 8B1E4A2C-9D57-4F63-A0B8-6E3C7D51F94A
+
+  artifactName: ${productName} ${version} ${arch}.${ext}
+  shortcutName: Energy Mail

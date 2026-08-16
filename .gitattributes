@@ -1,0 +1,34 @@
+# Zeilenenden.
+#
+# Entwickelt wird unter Windows, betrieben wird unter Linux. Ohne diese Datei entscheidet
+# das darüber die örtliche Einstellung "core.autocrlf" jedes einzelnen Rechners - und wenn
+# dabei einmal CRLF in eine dieser Dateien gerät, sieht der Fehler auf dem Server so aus:
+#
+#     ./betrieb/sicherung.sh: /usr/bin/env: bad interpreter: No such file or directory
+#
+# Das ^M am Zeilenende ist unsichtbar, und die Meldung zeigt auf die Zeile, die als
+# einzige richtig ist. Dasselbe gilt für den Dockerfile und den Caddyfile.
+#
+# Deshalb: alles, was auf dem Server gelesen wird, ausdrücklich mit LF - unabhängig
+# davon, wie jemand seinen Git eingestellt hat.
+
+* text=auto eol=lf
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+Caddyfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows-eigenes bleibt Windows-eigen.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Nicht anfassen - eine "Zeilenendenkorrektur" macht daraus Bruch.
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary

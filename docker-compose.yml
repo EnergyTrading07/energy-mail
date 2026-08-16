@@ -1,0 +1,88 @@
+#
+# Energy Mail als Dienst.
+#
+# Diese Datei beschreibt den Dienst allein - ohne Vorbau. Sie passt damit auf beide
+# Aufstellungen:
+#
+#   a) Es steht schon ein Reverse Proxy im Haus (nginx, Traefik, ein anderer Rechner).
+#      Dann bindet der Dienst an dessen Adresse und ist von sonst nirgends erreichbar:
+#
+#          ENERGY_MAIL_BIND=100.71.217.53      (in .env)
+#          docker compose up -d --build
+#
+#   b) Es steht keiner. Dann kommt Caddy dazu, holt das Zertifikat selbst und nimmt
+#      80/443 an:
+#
+#          docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+#
+# Vor dem ersten Start: .env.beispiel nach .env kopieren und ausfüllen.
+#
+
+name: energy-mail
+
+services:
+  dienst:
+    build:
+      context: .
+      args:
+        FASSUNG: ${FASSUNG:-selbst-gebaut}
+    image: energy-mail:${FASSUNG:-selbst-gebaut}
+    restart: unless-stopped
+    environment:
+      #
+      # Die Werte kommen aus .env NEBEN dieser Datei - und nur von dort.
+      #
+      # Ein "env_file:" hätte es NICHT getan: das reicht Werte an den Container durch,
+      # füllt aber die ${...} in dieser Datei nicht. Compose liest dafür ausschließlich
+      # seine eigene Umgebung und ./.env. Wer das verwechselt, bekommt beim Start ein
+      # "variable is not set. Defaulting to a blank string" - und der Dienst weigert
+      # sich dann mit einer Meldung über die fehlende öffentliche Adresse.
+      #
+      ENERGY_MAIL_OEFFENTLICHE_ADRESSE: https://${DOMAIN:?DOMAIN fehlt - .env.beispiel nach .env kopieren}
+      # Genau einem Proxy glauben: dem, der davorsteht. Sonst wäre die Absenderadresse
+      # jeder Anfrage die des Proxys - und die Bremse gegen Kennwort-Durchprobieren
+      # zählte alle Menschen in denselben Topf.
+      ENERGY_MAIL_PROXY: "1"
+      # Bestimmt, was im Protokoll steht und wie Zeiten gerechnet werden.
+      TZ: ${TZ:-Europe/Berlin}
+    ports:
+      #
+      # Voreinstellung 127.0.0.1 - der Dienst ist damit von außerhalb des Rechners
+      # NICHT erreichbar.
+      #
+      # Ein blankes "4000:4000" wäre der häufigste Fehler dieses Aufbaus: Docker trägt
+      # seine Freigaben unterhalb der Firewall ein, der Dienst stünde damit
+      # unverschlüsselt im ganzen Netz - und die Verschlüsselung davor wäre eine
+      # Umleitung, die man umgehen kann.
+      #
+      # Steht der Vorbau auf einem anderen Rechner, gehört hier dessen Weg hinein -
+      # etwa die Tailscale-Adresse dieses Rechners.
+      #
+      - "${ENERGY_MAIL_BIND:-127.0.0.1}:${ENERGY_MAIL_PORT:-4000}:4000"
+    volumes:
+      # Die einzige Stelle, an der Daten liegen. Was hier nicht drin ist, ist beim
+      # nächsten Aktualisieren weg - und das ist so gewollt.
+      - ${ENERGY_MAIL_DATENORDNER:-./betrieb/daten}:/daten
+    networks:
+      - innen
+    # Kein Recht, das der Dienst nicht braucht. Er bindet Port 4000 (über 1024), also
+    # kommt er ohne jede besondere Fähigkeit aus.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Ein Postfach mit vielen Konten und offenen IMAP-Verbindungen darf sich nicht den
+    # ganzen Rechner nehmen. Auf einem Gerät, das noch andere Dienste trägt, ist das
+    # keine ferne Sorge.
+    mem_limit: ${ENERGY_MAIL_SPEICHER:-1500m}
+    # Ohne Begrenzung wächst die Protokolldatei von Docker, bis die Platte voll ist -
+    # bei einem Dienst, der Jahre läuft, keine ferne Sorge.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  innen:
+    driver: bridge

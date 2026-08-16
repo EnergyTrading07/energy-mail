@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { t } from '../sprache.js';
 
 /**
  * OAuth2 für Gmail und Outlook.
@@ -61,6 +62,46 @@ export interface OAuthClientCredentials {
   clientId: string;
   /** Bei reinen Desktop-Anwendungen ("public client") vergibt Microsoft keinen. */
   clientSecret?: string;
+  /**
+   * Der Mandant bei Microsoft - die Mandantenkennung oder die Domain des Unternehmens.
+   *
+   * Ohne Angabe geht die Anmeldung über `/common`, und das ist für einen Privatnutzer
+   * richtig: dort darf sich anmelden, wer will, ob mit Firmen- oder mit privatem Konto.
+   * Für ein Unternehmen ist es die falsche Adresse, und zwar aus zwei Gründen.
+   *
+   * Erstens die Zustimmung: Ein Administrator erteilt sie einmal für seinen Mandanten
+   * („admin consent"), und danach soll kein Mitarbeiter mehr gefragt werden. Diese
+   * Zustimmung hängt am Mandanten - über `/common` wird sie nicht zuverlässig gefunden,
+   * und jeder Mitarbeiter bekommt die Zustimmungsseite doch wieder vorgesetzt.
+   *
+   * Zweitens die Abgrenzung: Über `/common` kann sich jemand versehentlich mit seinem
+   * privaten Microsoft-Konto anmelden und wundert sich dann über ein leeres Postfach.
+   * Mit der Mandantenkennung weist die Anmeldeseite das gleich ab.
+   *
+   * Bei Google gibt es nichts Entsprechendes; das Feld bleibt dort leer.
+   */
+  mandant?: string;
+}
+
+/**
+ * Die Adressen, an die die Anmeldung geht - mit dem Mandanten, wenn einer genannt ist.
+ *
+ * Bei Microsoft steht der Mandant im PFAD der Adresse, nicht als Parameter. Deshalb wird
+ * hier ersetzt statt angehängt. Kodiert, weil der Wert aus einer Richtliniendatei kommt:
+ * ein Schrägstrich darin zeigte sonst auf eine ganz andere Stelle beim Anbieter.
+ */
+export function endpunkte(
+  provider: OAuthProviderId,
+  mandant?: string,
+): { authUrl: string; tokenUrl: string } {
+  const spec = getProviderSpec(provider);
+  const sauber = mandant?.trim();
+  if (provider !== 'microsoft' || !sauber) {
+    return { authUrl: spec.authUrl, tokenUrl: spec.tokenUrl };
+  }
+  const ersetze = (adresse: string) =>
+    adresse.replace('/common/', `/${encodeURIComponent(sauber)}/`);
+  return { authUrl: ersetze(spec.authUrl), tokenUrl: ersetze(spec.tokenUrl) };
 }
 
 export interface PendingAuth {
@@ -93,6 +134,7 @@ export function buildAuthUrl(
 ): string {
   const spec = getProviderSpec(pending.provider);
   const challenge = base64Url(crypto.createHash('sha256').update(pending.codeVerifier).digest());
+  const { authUrl } = endpunkte(pending.provider, credentials.mandant);
 
   const params = new URLSearchParams({
     client_id: credentials.clientId,
@@ -105,7 +147,7 @@ export function buildAuthUrl(
     ...spec.extraAuthParams,
   });
 
-  return `${spec.authUrl}?${params.toString()}`;
+  return `${authUrl}?${params.toString()}`;
 }
 
 export interface TokenSet {
@@ -200,8 +242,10 @@ async function postForm(url: string, body: Record<string, string>): Promise<Reco
     // sagt einem Nutzer nichts, deshalb hier eine, die den nächsten Schritt nennt.
     if (fehlercode === 'invalid_grant') {
       const err = new Error(
-        'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. ' +
-          `(Der Anbieter meldet: ${beschreibung})`,
+        t(
+          'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})',
+          { meldung: beschreibung },
+        ),
       ) as Error & { code?: string };
       err.code = REAUTH_REQUIRED;
       throw err;
@@ -235,7 +279,7 @@ export async function exchangeCode(
   code: string,
 ): Promise<TokenSet> {
   const spec = getProviderSpec(pending.provider);
-  const data = await postForm(spec.tokenUrl, {
+  const data = await postForm(endpunkte(pending.provider, credentials.mandant).tokenUrl, {
     client_id: credentials.clientId,
     ...(credentials.clientSecret ? { client_secret: credentials.clientSecret } : {}),
     code,
@@ -252,7 +296,7 @@ export async function refreshAccessToken(
   refreshToken: string,
 ): Promise<TokenSet> {
   const spec = getProviderSpec(provider);
-  const data = await postForm(spec.tokenUrl, {
+  const data = await postForm(endpunkte(provider, credentials.mandant).tokenUrl, {
     client_id: credentials.clientId,
     ...(credentials.clientSecret ? { client_secret: credentials.clientSecret } : {}),
     refresh_token: refreshToken,

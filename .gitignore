@@ -14,6 +14,16 @@ release/
 # Was hier noch liegt, ist ein Rückstand aus der Zeit davor und kann weg.
 packages/server/data/
 
+# Der Serverbetrieb.
+#
+# betrieb/.env enthält den Namen des Anschlusses und die Verwalteradresse; daten/ und
+# sicherungen/ enthalten Konten, Adressbücher und den Masterschlüssel. Nichts davon
+# gehört in ein Repository - und der Masterschlüssel dort wäre gleichbedeutend damit,
+# sämtliche Postfach-Kennwörter zu veröffentlichen.
+.env
+betrieb/daten/
+betrieb/sicherungen/
+
 # Protokolle und Zwischenstände
 *.log
 .DS_Store

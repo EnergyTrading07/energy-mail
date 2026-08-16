@@ -35,6 +35,14 @@ interface EnergyMailBruecke {
   /** Fassung der Anwendung, für das Über-Fenster und den Fehlerbericht. */
   readonly fassung: string;
   /**
+   * Die Sprache, auf die sich die Hülle festgelegt hat: 'de' oder 'en'.
+   *
+   * Sie kommt von dort und wird nicht in der Oberfläche ermittelt - die Hülle kennt die
+   * Richtliniendatei des Unternehmens, der Browser nicht. Ohne Brücke (Serverbetrieb im
+   * Browser) ist sie leer, dann entscheidet die Oberfläche selbst.
+   */
+  readonly sprache: string;
+  /**
    * Zugangsgeheimnis für den lokalen Server, bei jedem Start neu.
    *
    * Ohne es beantwortet der Server keine Anfrage. api.ts hängt es an jede Anfrage,

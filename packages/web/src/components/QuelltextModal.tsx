@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api.js';
 import { Fenster } from './Fenster.js';
+import { t } from '../sprache.js';
 
 /**
  * Die Nachricht im Original.
@@ -78,14 +79,18 @@ export function QuelltextModal({ accountId, ordner, uid, betreff, onClose }: Pro
   };
 
   return (
-    <Fenster titel={`Quelltext — ${betreff || '(kein Betreff)'}`} onClose={onClose} klasse="modal-breit">
+    <Fenster
+      titel={t('Quelltext — {betreff}', { betreff: betreff || t('(kein Betreff)') })}
+      onClose={onClose}
+      klasse="modal-breit"
+    >
 
       {fehler && <div className="error-banner">{fehler}</div>}
-      {!roh && !fehler && <div className="empty-state">Wird geholt…</div>}
+      {!roh && !fehler && <div className="empty-state">{t('Wird geholt…')}</div>}
 
       {roh && (
         <>
-          <h4 className="wartend-titel">Kopfzeilen</h4>
+          <h4 className="wartend-titel">{t('Kopfzeilen')}</h4>
           <pre className="quelltext">
             {kopf.split(/\r?\n/).map((zeile, i) => (
               <div key={i} className={PRUEFZEILEN.test(zeile) ? 'quell-pruefzeile' : undefined}>
@@ -108,12 +113,8 @@ export function QuelltextModal({ accountId, ordner, uid, betreff, onClose }: Pro
         <button className="btn secondary" disabled={!roh} onClick={() => void kopieren()}>
           {kopiert ? 'Kopiert' : 'Alles kopieren'}
         </button>
-        <button className="btn secondary" disabled={!roh} onClick={sichern}>
-          Als Datei sichern
-        </button>
-        <button className="link-btn" onClick={onClose}>
-          Schließen
-        </button>
+        <button className="btn secondary" disabled={!roh} onClick={sichern}>{t('Als Datei sichern')}</button>
+        <button className="link-btn" onClick={onClose}>{t('Schließen')}</button>
       </div>
     </Fenster>
   );

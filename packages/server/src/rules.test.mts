@@ -4,10 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import type { MessageSummary, Regel } from '@energy-mail/mail-core';
 import { setDataDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 
 // Vor dem ersten Zugriff umlenken, sonst landen Testregeln im echten Benutzerordner.
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-rules-test-'));
 setDataDir(tempDir);
+// Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
+// Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
+betreteNutzerFuerProzess('pruefung');
+
 
 const { passt, istBrauchbar, regelSpeichern, regelnFuer, regelLoeschen, regelnVerwerfen } =
   await import('./rules.js');

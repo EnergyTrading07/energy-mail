@@ -1,5 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { buildImapAuth } from './imapAuth.js';
+import { beschreibeProxy, proxyFuer } from './proxy.js';
 import type { AccountConfig } from './types.js';
 
 /**
@@ -33,11 +34,31 @@ const REAPER_INTERVAL_MS = 60 * 1000;
 
 const imapLogger = process.env.ENERGY_MAIL_IMAP_DEBUG ? undefined : false;
 
-function erzeuge(config: AccountConfig, auth: Awaited<ReturnType<typeof buildImapAuth>>): ImapFlow {
+async function erzeuge(
+  config: AccountConfig,
+  auth: Awaited<ReturnType<typeof buildImapAuth>>,
+): Promise<ImapFlow> {
+  /*
+   * Der Weg nach draußen, wenn es keinen direkten gibt.
+   *
+   * In vielen Firmennetzen ist Port 993 an der Firewall zu und alles läuft über einen
+   * Proxy. imapflow bringt HTTP CONNECT und SOCKS mit; gefehlt hat nur die Antwort auf
+   * die Frage, welcher Proxy für diesen Rechner gilt - siehe proxy.ts.
+   *
+   * Je Verbindungsaufbau ermittelt und nicht einmal beim Start: ein PAC-Skript
+   * beantwortet die Frage für jeden Zielrechner anders, und ein Rechner wechselt zwischen
+   * Büro und Heimarbeit das Netz, ohne dass das Programm neu startet.
+   */
+  const proxy = await proxyFuer(config.imapHost, config.proxy);
+  if (proxy.beanstandet) {
+    console.warn(`[energy-mail] ${beschreibeProxy(proxy)}`);
+  }
+
   return new ImapFlow({
     host: config.imapHost,
     port: config.imapPort,
     secure: config.imapSecure,
+    ...(proxy.adresse ? { proxy: proxy.adresse } : {}),
     /*
      * STARTTLS verlangen, wo nicht ohnehin von Anfang an verschluesselt wird.
      *
@@ -88,7 +109,7 @@ async function beschaffen(config: AccountConfig): Promise<ImapFlow> {
   };
 
   eintrag.aufbau = (async () => {
-    const client = erzeuge(config, await buildImapAuth(config));
+    const client = await erzeuge(config, await buildImapAuth(config));
     // Ohne Listener beendet ein Verbindungsfehler den gesamten Prozess.
     client.on('error', () => verwerfen(config.id));
     client.on('close', () => {
@@ -156,7 +177,7 @@ export async function withThrowawayClient<T>(
   config: AccountConfig,
   fn: (client: ImapFlow) => Promise<T>,
 ): Promise<T> {
-  const client = erzeuge(config, await buildImapAuth(config));
+  const client = await erzeuge(config, await buildImapAuth(config));
   client.on('error', () => {});
   await client.connect();
   try {

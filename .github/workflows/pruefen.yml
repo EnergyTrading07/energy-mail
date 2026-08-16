@@ -29,9 +29,9 @@ jobs:
     timeout-minutes: 35
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           # An Electron gekoppelt, nicht an die neueste Node-Fassung.
           #
@@ -105,11 +105,31 @@ jobs:
             echo "FEHLER: build/icon.png fehlt im Paket - Windows-Meldungen bekämen das leere Standardsymbol."
             exit 1
           fi
+
+          # Das Symbol muss zusätzlich ENTPACKT neben dem Archiv liegen: die Windows-Shell
+          # kann nicht in eine asar-Datei hineinsehen, und sowohl die Meldungen als auch
+          # das Symbol im Infobereich reichen ihr den Pfad weiter.
+          if [ ! -f "release/win-unpacked/resources/app.asar.unpacked/build/icon.png" ]; then
+            echo "FEHLER: build/icon.png liegt nicht entpackt neben dem Archiv (asarUnpack)."
+            exit 1
+          fi
+
+          # Die Grundlage der Selbstaktualisierung. Fehlt sie, sucht die ausgelieferte
+          # Anwendung nirgends nach neuen Fassungen - und zwar lautlos: es gibt keine
+          # Fehlermeldung für eine Aktualisierung, die gar nicht erst versucht wird.
+          # Sie liegt NEBEN dem Archiv, nicht darin, und stand deshalb in keiner Prüfung.
+          if [ ! -f "release/win-unpacked/resources/app-update.yml" ]; then
+            echo "FEHLER: resources/app-update.yml fehlt - die Selbstaktualisierung wäre tot."
+            exit 1
+          fi
+          echo "--- app-update.yml ---"
+          cat release/win-unpacked/resources/app-update.yml
+
           echo "Paketinhalt in Ordnung."
 
       - name: Paketinhalt aufheben
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: paketinhalt
           path: paketinhalt.txt

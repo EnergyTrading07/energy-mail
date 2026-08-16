@@ -1,5 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { buildImapAuth } from './imapAuth.js';
+import { proxyFuer } from './proxy.js';
 import type { AccountConfig } from './types.js';
 
 export interface NewMailEvent {
@@ -85,10 +86,23 @@ export function watchMailbox(
       return;
     }
 
+    /*
+     * Auch die Überwachung geht über den Proxy.
+     *
+     * Sie baut ihre Verbindungen bewusst selbst auf und nicht über den Pool (siehe oben:
+     * sie hält eine Mailbox dauerhaft im IDLE-Zustand). Genau deshalb wäre sie beim
+     * Einbau des Proxys fast durchgerutscht - der Pool war angebunden, diese Stelle
+     * nicht. Aufgefallen ist es erst am laufenden Programm hinter einem echten Proxy:
+     * die Anwendung startete, meldete keinen Fehler, und im Mitschrieb des Proxys stand
+     * nichts. Es IST die wichtigste Verbindung von allen; sie steht den ganzen Tag.
+     */
+    const proxy = await proxyFuer(config.imapHost, config.proxy);
+
     const current = new ImapFlow({
       host: config.imapHost,
       port: config.imapPort,
       secure: config.imapSecure,
+      ...(proxy.adresse ? { proxy: proxy.adresse } : {}),
       // Dieselbe Erzwingung wie im Verbindungspool - siehe die Begründung dort.
       ...(config.imapSecure ? {} : { doSTARTTLS: true as const }),
       tls: { minVersion: 'TLSv1.2' as const },

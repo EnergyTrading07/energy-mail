@@ -6,8 +6,13 @@ import { moveTargets } from '../folderTargets.js';
 import { Auffangnetz } from './Auffangnetz.js';
 import { Einladung } from './Einladung.js';
 import { EtikettMarken, EtikettMenue } from './Etiketten.js';
+import { Monogramm } from './Monogramm.js';
 import { PgpBefund } from './PgpBefund.js';
+import { SmimeBefund } from './SmimeBefund.js';
 import { LeererKorb } from './Symbole.js';
+import { t, tp, zeitpunkt } from '../sprache.js';
+import { Lesebestaetigung } from './Lesebestaetigung.js';
+import type { Bestaetigungslage } from '../api.js';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -16,7 +21,7 @@ function formatSize(bytes: number): string {
 }
 
 interface Props {
-  message: FullMessage | null;
+  message: (FullMessage & { lesebestaetigung?: Bestaetigungslage }) | null;
   loading: boolean;
   folders: FolderInfo[];
   currentFolder: string | null;
@@ -73,6 +78,20 @@ function siehtNachPgpAus(message: FullMessage): boolean {
     text.includes('-----BEGIN PGP SIGNED MESSAGE-----');
 }
 
+/**
+ * Und dasselbe für S/MIME.
+ *
+ * Hier reicht der Blick auf die Anhänge: Bei S/MIME steckt der Schutz immer in einem
+ * eigenen Teil - `smime.p7s` bei einer Unterschrift, `smime.p7m` bei allem anderen. Die
+ * alten Schreibweisen mit `x-` sind mitgemeint; Outlook hat sie jahrelang benutzt und
+ * manche Server schreiben sie bis heute.
+ */
+function siehtNachSmimeAus(message: FullMessage): boolean {
+  return message.attachments.some((a) =>
+    /application\/(x-)?pkcs7-(signature|mime)/i.test(a.contentType ?? ''),
+  );
+}
+
 function formatAddresses(addresses: { name?: string; address: string }[]): string {
   return addresses.map((a) => a.name || a.address).join(', ');
 }
@@ -113,10 +132,13 @@ const GRUNDSTIL = `<style>
   img { max-width: 100%; height: auto; }
   table { max-width: 100%; }
   pre { white-space: pre-wrap; overflow-wrap: break-word; }
-  a { color: #2f5fd8; }
+  /* Ausgeschriebene Werte und keine Variablen: dieser Rahmen ist eine eigene Seite und
+     erbt nichts aus tokens.css. Es sind die Werte der hellen Ansicht - der Bogen ist
+     immer hell, siehe oben. */
+  a { color: #2b48d4; }
   blockquote {
     margin: 10px 0 10px 2px; padding-left: 12px;
-    border-left: 2px solid #c2d2fb; color: #4d5867;
+    border-left: 2px solid #c5cdf7; color: #55504a;
   }
 </style>`;
 
@@ -195,7 +217,7 @@ function HtmlMailBody({ html }: { html: string }) {
     <iframe
       ref={ref}
       className="mail-bogen"
-      title="Nachrichteninhalt"
+      title={t('Nachrichteninhalt')}
       /*
        * Mit der Tastatur ansteuerbar. Ohne tabindex kam man in den Rahmen gar nicht
        * hinein - wer nicht mit der Maus scrollen kann, konnte eine lange Nachricht
@@ -285,21 +307,18 @@ function ExterneLeiste({
   return (
     <div className="externe-leiste">
       <span className="externe-text">
-        {anzahl === 1
-          ? 'Ein Bild von einem fremden Server wurde nicht geladen'
-          : `${anzahl} Inhalte von fremden Servern wurden nicht geladen`}
-        <span className="externe-grund">
-          Geladen melden sie dem Absender, dass du die Nachricht gerade liest.
-        </span>
+        {tp(
+          anzahl,
+          'Ein Bild von einem fremden Server wurde nicht geladen',
+          '{anzahl} Inhalte von fremden Servern wurden nicht geladen',
+          { anzahl },
+        )}
+        <span className="externe-grund">{t('Geladen melden sie dem Absender, dass du die Nachricht gerade liest.')}</span>
       </span>
       <span className="externe-knoepfe">
-        <button className="btn secondary" onClick={onLaden}>
-          Einmal laden
-        </button>
+        <button className="btn secondary" onClick={onLaden}>{t('Einmal laden')}</button>
         {absender && onVertrauen && (
-          <button className="link-btn" onClick={onVertrauen} title={`Gilt künftig für ${absender}`}>
-            Absender immer erlauben
-          </button>
+          <button className="link-btn" onClick={onVertrauen} title={`Gilt künftig für ${absender}`}>{t('Absender immer erlauben')}</button>
         )}
       </span>
     </div>
@@ -355,13 +374,13 @@ export function MessageView({
   );
 
   if (loading) {
-    return <div className="reader empty-state">Lade Nachricht…</div>;
+    return <div className="reader empty-state">{t('Lade Nachricht…')}</div>;
   }
   if (!message) {
     return (
       <div className="reader empty-state">
         <LeererKorb />
-        <span>Keine Nachricht ausgewählt</span>
+        <span>{t('Keine Nachricht ausgewählt')}</span>
       </div>
     );
   }
@@ -374,9 +393,13 @@ export function MessageView({
       <div className="mail-head">
         <h2>{message.subject}</h2>
         <div className="mail-meta">
+          {/* Dasselbe Kürzel und dieselbe Farbe wie in der Zeile, die man eben
+              angeklickt hat - das ist die sichtbare Klammer zwischen Liste und
+              Leseansicht. */}
+          <Monogramm name={absender?.name} adresse={absender?.address} className="mail-monogramm" />
           <div className="mail-from">
             <span className="mail-from-name">{absender?.name || absender?.address || '(unbekannt)'}</span>
-            {absender?.name && <span className="mail-from-address">&lt;{absender.address}&gt;</span>}
+            {absender?.name && <span className="mail-from-address">{absender.address}</span>}
           </div>
           {/* Ausserhalb von .mail-from: das kuerzt lange Absendernamen ab und wuerde den
               Knopf mit abschneiden. */}
@@ -385,12 +408,10 @@ export function MessageView({
               className="link-btn zum-adressbuch"
               onClick={() => onZumAdressbuch(absender.address, absender.name)}
               title={`${absender.address} ins Adressbuch aufnehmen`}
-            >
-              Ins Adressbuch
-            </button>
+            >{t('Ins Adressbuch')}</button>
           )}
           <span className="mail-date">
-            {message.date ? new Date(message.date).toLocaleString('de-DE') : ''}
+            {message.date ? zeitpunkt(new Date(message.date)) : ''}
           </span>
         </div>
         <div className="mail-to" title={formatAddresses(message.to)}>
@@ -405,9 +426,7 @@ export function MessageView({
               onClick={() => setEtikettMenue((v) => !v)}
               aria-expanded={etikettMenue}
               aria-haspopup="menu"
-            >
-              Etiketten
-            </button>
+            >{t('Etiketten')}</button>
             {etikettMenue && (
               <EtikettMenue
                 bekannte={etiketten}
@@ -421,6 +440,22 @@ export function MessageView({
           </span>
         </div>
       </div>
+
+      {/*
+        Noch vor dem PGP-Befund: Hier wird etwas verschickt, sobald die Nachricht offen
+        ist. Was der Nutzer entscheiden oder wenigstens sehen soll, gehoert nach oben und
+        nicht unter den Text.
+      */}
+      {message.lesebestaetigung && accountId && currentFolder && (
+        <Lesebestaetigung
+          accountId={accountId}
+          ordner={currentFolder}
+          uid={message.uid}
+          an={message.lesebestaetigung.an}
+          fragen={message.lesebestaetigung.fragen}
+          abweichend={message.lesebestaetigung.abweichend}
+        />
+      )}
 
       {/* Ganz oben: ob dem Inhalt zu trauen ist, muss man wissen, BEVOR man ihn liest. */}
       {accountId && currentFolder && (
@@ -443,6 +478,26 @@ export function MessageView({
         </Auffangnetz>
       )}
 
+      {accountId && currentFolder && (
+        <Auffangnetz
+          schluessel={`smime:${accountId}:${currentFolder}:${message.uid}`}
+          ersatz={(fehler) => (
+            <div className="pgp-band warnung">
+              <span className="pgp-wort">
+                Der S/MIME-Befund liess sich nicht darstellen ({fehler.message}).
+              </span>
+            </div>
+          )}
+        >
+          <SmimeBefund
+            accountId={accountId}
+            ordner={currentFolder}
+            uid={message.uid}
+            verdacht={siehtNachSmimeAus(message)}
+          />
+        </Auffangnetz>
+      )}
+
       {/* Ueber der Werkzeugleiste: eine Einladung ist das Wichtigste an so einer
           Nachricht, und die Antwort darauf gehoert nicht unter den Text. */}
       {message.einladung && accountId && currentFolder && (
@@ -450,7 +505,7 @@ export function MessageView({
           schluessel={`${accountId}:${currentFolder}:${message.uid}`}
           ersatz={(fehler) => (
             <div className="einladung">
-              <span className="einladung-art">Einladung</span>
+              <span className="einladung-art">{t('Einladung')}</span>
               <p className="hint einladung-hinweis">
                 Diese Einladung liess sich nicht darstellen ({fehler.message}). Die Nachricht
                 selbst steht unten; die Kalenderdatei laesst sich als Anhang oeffnen.
@@ -470,42 +525,30 @@ export function MessageView({
 
       <div className="toolbar">
         {isDraft ? (
-          <button className="btn" onClick={() => onEditDraft(message)}>
-            Entwurf bearbeiten
-          </button>
+          <button className="btn" onClick={() => onEditDraft(message)}>{t('Entwurf bearbeiten')}</button>
         ) : (
           <>
-            <button className="btn" onClick={() => onReply(message, false)}>
-              Antworten
-            </button>
+            <button className="btn" onClick={() => onReply(message, false)}>{t('Antworten')}</button>
             {canReplyAll && (
-              <button className="btn secondary" onClick={() => onReply(message, true)}>
-                Allen antworten
-              </button>
+              <button className="btn secondary" onClick={() => onReply(message, true)}>{t('Allen antworten')}</button>
             )}
-            <button className="btn secondary" onClick={() => onForward(message)}>
-              Weiterleiten
-            </button>
+            <button className="btn secondary" onClick={() => onForward(message)}>{t('Weiterleiten')}</button>
           </>
         )}
         {archiveLabel && (
-          <button className="btn secondary" onClick={() => onArchive(message.uid)} title={archiveLabel}>
-            Archivieren
-          </button>
+          <button className="btn secondary" onClick={() => onArchive(message.uid)} title={archiveLabel}>{t('Archivieren')}</button>
         )}
         <button className="btn secondary" onClick={() => onSetSeen(message.uid, !message.seen)}>
           {message.seen ? 'Als ungelesen' : 'Als gelesen'}
         </button>
         <button
           className="btn secondary"
-          title="Aus dem Posteingang nehmen und spaeter wieder vorlegen"
+          title={t('Aus dem Posteingang nehmen und spaeter wieder vorlegen')}
           onClick={() => onSnooze(message.uid)}
-        >
-          Wiedervorlage
-        </button>
+        >{t('Wiedervorlage')}</button>
         <button
           className="btn secondary"
-          title="Nachricht drucken oder als PDF sichern"
+          title={t('Nachricht drucken oder als PDF sichern')}
           onClick={() =>
             druckeNachricht(
               message.subject,
@@ -513,7 +556,7 @@ export function MessageView({
                 `Von: ${escapeHtml(absender?.name ? `${absender.name} <${absender.address}>` : (absender?.address ?? '(unbekannt)'))}<br>` +
                 `An: ${escapeHtml(formatAddresses(message.to) || '(unbekannt)')}<br>` +
                 (message.cc.length > 0 ? `Kopie: ${escapeHtml(formatAddresses(message.cc))}<br>` : '') +
-                `Datum: ${escapeHtml(message.date ? new Date(message.date).toLocaleString('de-DE') : '(unbekannt)')}` +
+                `Datum: ${escapeHtml(message.date ? zeitpunkt(new Date(message.date)) : '(unbekannt)')}` +
                 `</div></div>`,
               // Gedruckt wird, was auf dem Bildschirm steht: sind die entfernten Bilder
               // angehalten, kommen sie auch nicht aufs Papier.
@@ -524,18 +567,14 @@ export function MessageView({
                 : `<pre>${escapeHtml(message.text ?? '')}</pre>`,
             )
           }
-        >
-          Drucken
-        </button>
+        >{t('Drucken')}</button>
         <button
           className="btn secondary"
-          title="Die Nachricht im Original mit allen Kopfzeilen"
+          title={t('Die Nachricht im Original mit allen Kopfzeilen')}
           onClick={() => onQuelltext?.(message)}
-        >
-          Quelltext
-        </button>
+        >{t('Quelltext')}</button>
         <button className="btn danger" onClick={() => onDelete(message.uid)}>
-          {isInTrash ? 'Endgültig löschen' : 'Löschen'}
+          {isInTrash ? t('Endgültig löschen') : t('Löschen')}
         </button>
         <select
           className="move-select"
@@ -544,7 +583,7 @@ export function MessageView({
             if (e.target.value) onMove(message.uid, e.target.value);
           }}
         >
-          <option value="">Verschieben nach…</option>
+          <option value="">{t('Verschieben nach…')}</option>
           {moveTargets(folders, currentFolder).map((folder) => (
             <option key={folder.path} value={folder.path}>
               {folder.name}

@@ -1,21 +1,43 @@
 /*
  * Die Farb- und Maßwerte der Anwendung - an einer Stelle, benannt nach ihrem Zweck.
  *
- * Vorher standen rund zweihundert Farbwerte als Ziffernfolgen im Regelwerk verstreut.
- * Das ließ sich pflegen, solange es nur eine Ansicht gab; mit einer zweiten (dunkel)
- * müsste jeder dieser Werte doppelt geführt und von Hand auseinandergehalten werden.
- * Hier steht stattdessen, wozu eine Farbe dient - "Grundfläche", "Nebentext", "Fehler" -
- * und weiter unten, welchen Wert das je Ansicht bedeutet. Die Regeln selbst kennen nur
- * noch den Zweck und gelten dadurch in beiden Ansichten unverändert.
+ * Die Regeln in index.css kennen nur den Zweck einer Farbe ("Grundfläche", "Nebentext",
+ * "Fehler") und gelten dadurch in der hellen wie in der dunklen Ansicht unverändert.
+ * Was sich je Ansicht ändert, steht ausschließlich hier.
  *
- * Die Namen sind deutsch wie der übrige Quelltext. Kurz gehalten, weil sie in fast jeder
- * Regel vorkommen.
+ * ==========================================================================
+ * Papier & Strom - woran sich die Gestaltung hält
+ * ==========================================================================
+ *
+ * Eine Mail ist ein Brief. Deshalb ist der Grund der Anwendung kein blaustichiges
+ * Grau, sondern ein warmes Papier: eine Schreibfläche, auf der die Nachrichtenliste
+ * und die Leseansicht als zusammenhängendes Blatt liegen. Das ist kein Geschmack,
+ * sondern der Unterschied zwischen einem Werkzeugfenster und etwas, in dem man
+ * stundenlang liest - ein leicht warmer Untergrund ermüdet nachweislich weniger als
+ * das Blauweiß, das Bildschirme von sich aus abgeben.
+ *
+ * Dazu kommen genau zwei Farben, und sie haben verschiedene Aufgaben:
+ *
+ *   BLAU   (--marke) heißt "hier kannst du etwas tun". Knöpfe, Verweise, der
+ *          Fokusring, die ausgewählte Zeile. Nur dort - sonst verliert es die
+ *          Bedeutung, und der Nutzer klickt auf Dinge, die nichts tun.
+ *
+ *   BERNSTEIN (--blitz) heißt "hier ist Energie". Ungelesenes, Fortschritt, neue
+ *          Post. Es ist der Blitz aus dem Programmsymbol, und es steht nie an
+ *          etwas Anklickbarem. Wer die Regel bricht, hat wieder eine Oberfläche,
+ *          in der alles gleich laut ist.
+ *
+ * Die dritte Farbe im Bild ist keine aus dieser Liste: das Monogramm eines Absenders
+ * leitet seinen Farbton aus der Adresse ab (siehe monogramm.ts). Dadurch bekommt jede
+ * Liste ein eigenes, aber immer gleiches Muster - Post von derselben Person sieht auch
+ * morgen noch gleich aus, und das Auge findet sie, bevor es den Namen gelesen hat.
  */
 
 :root {
   /* --- Maße ---------------------------------------------------------------
    * Abstände als Folge statt beliebiger Zahlen: dadurch stehen Dinge im ganzen
    * Programm auf denselben Linien. Wer eine Lücke braucht, nimmt die nächste Stufe. */
+  --a-0: 2px;
   --a-1: 4px;
   --a-2: 6px;
   --a-3: 8px;
@@ -23,11 +45,15 @@
   --a-5: 16px;
   --a-6: 22px;
   --a-7: 30px;
+  --a-8: 44px;
 
-  /* Eckenradien. Drei Stufen reichen: Bedienelement, Karte, schwebendes Fenster. */
-  --r-1: 6px;
-  --r-2: 9px;
-  --r-3: 14px;
+  /* Eckenradien. Vier Stufen: Bedienelement, Karte, Blatt, Kreis. Die Werte liegen
+     etwas höher als üblich - ein Blatt Papier mit scharfen Ecken sieht geschnitten
+     aus, eines mit runden gelegt. */
+  --r-1: 7px;
+  --r-2: 11px;
+  --r-3: 16px;
+  --r-4: 22px;
   --r-voll: 999px;
 
   /* --- Schrift ------------------------------------------------------------
@@ -40,6 +66,21 @@
   /* Für Überschriften: dieselbe Familie, aber der für große Grade gezeichnete Schnitt. */
   --sf-gross: 'Segoe UI Variable Display', 'Segoe UI Variable Text', 'Segoe UI', system-ui,
     sans-serif;
+
+  /*
+   * Die Stimme der Marke.
+   *
+   * Bahnschrift liegt seit Windows 10 auf jedem Rechner und ist die DIN 1451 - die
+   * Schrift deutscher Verkehrszeichen und Typenschilder. Schmal, technisch, ohne
+   * jede Verspieltheit. Sie steht deshalb genau an drei Sorten Stelle: im Wortzeichen,
+   * in den Abschnittsüberschriften der Seitenleiste und über Zahlenfeldern. Für
+   * Fließtext taugt sie nicht (dafür ist sie zu eng), und außerhalb von Windows fehlt
+   * sie - die Rückfallkette landet dann bei einer schmalen Systemschrift, und wo auch
+   * die fehlt, sieht man schlicht die gewöhnliche Schrift. Nichts geht kaputt.
+   */
+  --sf-marke: 'Bahnschrift', 'DIN Alternate', 'Roboto Condensed', 'Segoe UI Variable Display',
+    system-ui, sans-serif;
+
   /* Für Zahlenkolonnen, in denen Ziffern untereinander stehen müssen. */
   --sf-zahl: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
 
@@ -51,158 +92,212 @@
   --t-xl: 16px;
   --t-2xl: 19px;
   --t-3xl: 23px;
+  --t-4xl: 27px;
 
   /* --- Bewegung -----------------------------------------------------------
-   * Eine einzige Kurve für alles. Sie beginnt schnell und läuft weich aus - das
-   * wirkt wie eine Reaktion auf den Klick und nicht wie eine Verzögerung. */
-  --weich: 140ms cubic-bezier(0.2, 0.7, 0.3, 1);
-  --weich-lang: 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+   * Zwei Kurven, und beide beginnen schnell: das wirkt wie eine Reaktion auf den
+   * Klick und nicht wie eine Verzögerung. --sprung läuft weiter aus und ist für
+   * Dinge, die ankommen (Fenster, Meldungen, Karten) - dort darf man das Eintreffen
+   * sehen. */
+  --weich: 150ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --weich-lang: 280ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --sprung: 420ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* --- Marke --------------------------------------------------------------
-   * Aus dem Programmsymbol: das Blau des Grundes, das Gelb des Blitzes. Diese
-   * beiden Werte sind in beiden Ansichten dieselben - sie sind die Marke und
-   * nicht Teil der Ansicht. Was sich je Ansicht ändert, sind die daraus
-   * abgeleiteten Gebrauchsfarben weiter unten. */
-  --marke-rein: #2f5fd8;
-  --blitz-rein: #f5c518;
+   * Die beiden Werte des Programmsymbols. Sie sind in beiden Ansichten dieselben -
+   * sie sind die Marke und nicht Teil der Ansicht. Was sich je Ansicht ändert, sind
+   * die daraus abgeleiteten Gebrauchsfarben weiter unten. */
+  --marke-rein: #2b48d4;
+  --blitz-rein: #ffb225;
 }
 
 /* ==========================================================================
- * Helle Ansicht
+ * Helle Ansicht - Papier
  *
- * Der Grund ist nicht reinweiß, sondern leicht ins Blaue gezogen: die
- * Nachrichtenliste und die Leseansicht stehen als weiße Flächen darauf und
- * heben sich dadurch ab, ohne dass es dafür überall Linien braucht.
+ * Kein Reinweiß und kein Blaugrau, sondern ein warmes, sehr helles Papier. Die
+ * Nachrichtenliste und die Leseansicht liegen als hellere Fläche darauf; der
+ * Nachrichtenbogen selbst (fremdes HTML) bleibt weiß und hebt sich dadurch als
+ * "eingelegtes Blatt" ab, ohne dass es dafür eine Linie braucht.
  * ========================================================================== */
 :root,
 :root[data-thema='hell'] {
   color-scheme: light;
 
-  --grund: #eaeef5;
-  --flaeche: #ffffff;
-  --flaeche-leise: #f6f8fc;
-  --flaeche-hover: #eef2f8;
-  --flaeche-tief: #e3e9f2;
-  --erhoben: #ffffff;
+  --grund: #f0ede6;
+  --flaeche: #fffdf9;
+  --flaeche-leise: #f7f4ee;
+  --flaeche-hover: #eceae2;
+  --flaeche-tief: #e5e1d7;
+  --erhoben: #fffefb;
 
-  --rand-fein: #edf0f5;
-  --rand: #dce2ec;
-  --rand-stark: #c3ccdb;
+  --rand-fein: #efece4;
+  --rand: #ded9ce;
+  --rand-stark: #bfb8a9;
 
-  --text: #131a24;
-  --text-2: #4d5867;
-  /* Gemessen: 4.86 auf weiss, 4.57 auf der leisen Flaeche. Vorher 3.64 - zu wenig
-     fuer gewoehnlichen Text, und daran haengen Betreff und Datum jeder Zeile. */
-  --text-3: #697280;
-  --text-aus: #aeb6c2;
+  /* Warmes Schwarz statt Blauschwarz - auf Papier liegt Tinte, kein Bildschirmgrau. */
+  --text: #1b1917;
+  --text-2: #55504a;
+  /* Gemessen: 5.49 auf der Fläche, 5.08 auf der leisen, 4.63 beim Überfahren. Daran
+     hängen Betreff und Datum jeder Zeile, also die meistgelesene Schrift überhaupt. */
+  --text-3: #6e675e;
+  --text-aus: #aba396;
 
-  --marke: #2f5fd8;
-  --marke-hover: #2549ac;
-  --marke-leise: #eaf0ff;
-  --marke-rand: #c2d2fb;
+  --marke: #2b48d4;
+  --marke-hover: #1f35a9;
+  --marke-leise: #eaecfc;
+  --marke-rand: #c5cdf7;
   --auf-marke: #ffffff;
 
-  --blitz: #d99b00;
-  --blitz-leise: #fff6e0;
+  /* Bernstein in zwei Gestalten: --blitz ist die lesbare Schriftfarbe (5.54 auf der
+     Fläche), --blitz-rein die Fläche selbst. Wer beides verwechselt, bekommt entweder
+     unlesbare Schrift oder ein stumpfes Braun. */
+  --blitz: #96590a;
+  --blitz-leise: #fdf1da;
+  --blitz-rand: #f0d69e;
 
-  --gut: #146c43;
-  --gut-grund: #e7f5ed;
-  --gut-rand: #b3ddc5;
+  --gut: #16663f;
+  --gut-grund: #e6f2ea;
+  --gut-rand: #b2d8c3;
 
-  --warn: #97590a;
-  --warn-grund: #fff5e4;
-  --warn-rand: #f0d7a6;
+  --warn: #855207;
+  --warn-grund: #fbf1de;
+  --warn-rand: #edd5a4;
 
-  --fehler: #bf2517;
-  --fehler-grund: #fdecea;
-  --fehler-rand: #f5c3be;
+  --fehler: #b32a1c;
+  --fehler-grund: #fceceb;
+  --fehler-rand: #f3c5c0;
 
-  --schatten-1: 0 1px 2px rgba(19, 26, 36, 0.06), 0 1px 3px rgba(19, 26, 36, 0.07);
-  --schatten-2: 0 2px 4px rgba(19, 26, 36, 0.05), 0 6px 16px rgba(19, 26, 36, 0.1);
-  --schatten-3: 0 4px 10px rgba(19, 26, 36, 0.08), 0 20px 48px rgba(19, 26, 36, 0.2);
-  --schleier: rgba(19, 26, 36, 0.4);
+  /*
+   * Schatten in der Farbe des Papiers, nicht in Grau.
+   *
+   * Ein neutralgrauer Schatten auf warmem Grund sieht schmutzig aus; der Ton hier ist
+   * derselbe warme Braunton wie der Text, nur sehr durchsichtig. --schatten-blatt ist
+   * der einzige mit negativer Streuung: er hält den Schein unter dem Blatt, statt ihn
+   * seitlich an die Nachbarfläche zu werfen.
+   */
+  --schatten-1: 0 1px 2px rgba(58, 48, 34, 0.07), 0 1px 3px rgba(58, 48, 34, 0.05);
+  --schatten-2: 0 2px 6px rgba(58, 48, 34, 0.06), 0 8px 22px rgba(58, 48, 34, 0.1);
+  --schatten-3: 0 6px 14px rgba(58, 48, 34, 0.09), 0 26px 56px rgba(30, 24, 16, 0.22);
+  --schatten-blatt: 0 1px 2px rgba(58, 48, 34, 0.05), 0 12px 34px -14px rgba(58, 48, 34, 0.28);
+  --schleier: rgba(34, 28, 20, 0.36);
+
+  /* Eine feine helle Kante an der Oberkante erhobener Flächen. Im Hellen fast nicht
+     zu sehen und trotzdem der Unterschied zwischen "liegt auf" und "ist aufgemalt". */
+  --glanz: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
   /* Auswahl in Textfeldern und in der Leseansicht. */
-  --auswahl: #cddcff;
+  --auswahl: #d3daf9;
+
+  /* Wie stark das Korn (siehe --korn weiter unten) durchkommt. */
+  --korn-staerke: 0.032;
 }
 
 /* ==========================================================================
- * Dunkle Ansicht
+ * Dunkle Ansicht - Nacht
  *
- * Nicht schwarz, sondern ein sehr dunkles Blaugrau: reines Schwarz lässt jede
- * Kante hart erscheinen und ermüdet bei Text, der über Stunden gelesen wird.
- * Die Markenfarbe wird aufgehellt - das Blau des Symbols hätte auf dunklem
- * Grund zu wenig Abstand, um als Beschriftung lesbar zu sein.
+ * Nicht Schwarz und nicht Grau, sondern ein sehr dunkles Tintenblau: reines Schwarz
+ * lässt jede Kante hart erscheinen und ermüdet bei Text, der über Stunden gelesen
+ * wird. Die Schrift bleibt elfenbeinfarben statt reinweiß - das ist dasselbe warme
+ * Papier, nur bei Nacht, und es flimmert deutlich weniger.
+ *
+ * Die Markenfarbe wird aufgehellt: das Blau des Symbols hätte auf dunklem Grund zu
+ * wenig Abstand, um als Beschriftung lesbar zu sein.
  * ========================================================================== */
 :root[data-thema='dunkel'] {
   color-scheme: dark;
 
-  --grund: #0d1117;
-  --flaeche: #151b24;
-  --flaeche-leise: #11161e;
-  --flaeche-hover: #1d2530;
-  --flaeche-tief: #0a0e14;
-  --erhoben: #1a212b;
+  --grund: #090b11;
+  --flaeche: #11141c;
+  --flaeche-leise: #0d1017;
+  --flaeche-hover: #1a1e28;
+  --flaeche-tief: #070910;
+  --erhoben: #161a23;
 
-  --rand-fein: #1c242f;
-  --rand: #27313e;
-  --rand-stark: #3a4655;
+  --rand-fein: #171b24;
+  --rand: #242935;
+  --rand-stark: #39404e;
 
-  --text: #e6ecf4;
-  --text-2: #a2b0c1;
-  /* Gemessen: 5.47 auf der Flaeche, vorher 4.07. */
-  --text-3: #8592a3;
-  --text-aus: #4c5766;
+  --text: #ebe8e2;
+  --text-2: #a8a49c;
+  /* Gemessen: 5.09 auf der Fläche, 4.81 auf der erhobenen. */
+  --text-3: #8b867d;
+  --text-aus: #4e5261;
 
-  --marke: #7ea6ff;
-  --marke-hover: #9dbdff;
-  --marke-leise: #16243d;
-  --marke-rand: #2b4270;
-  --auf-marke: #0b1120;
+  --marke: #8da6ff;
+  --marke-hover: #a9bcff;
+  --marke-leise: #151d34;
+  --marke-rand: #2b3868;
+  --auf-marke: #080c18;
 
-  --blitz: #ffd23f;
-  --blitz-leise: #2a2109;
+  --blitz: #ffc247;
+  --blitz-leise: #241b09;
+  --blitz-rand: #4a3712;
 
-  --gut: #52cf88;
-  --gut-grund: #0f2419;
-  --gut-rand: #1f4931;
+  --gut: #5cd191;
+  --gut-grund: #0c2118;
+  --gut-rand: #1e4633;
 
-  --warn: #f0ba62;
-  --warn-grund: #291e0c;
-  --warn-rand: #4d3915;
+  --warn: #f0b95e;
+  --warn-grund: #261d0b;
+  --warn-rand: #4a3714;
 
-  --fehler: #ff8b7e;
-  --fehler-grund: #2a1512;
-  --fehler-rand: #55231d;
+  --fehler: #ff8f81;
+  --fehler-grund: #291513;
+  --fehler-rand: #54221e;
 
-  /* Schatten tragen im Dunkeln kaum - stattdessen werden schwebende Flächen
-     über eine hellere Eigenfarbe (--erhoben) abgesetzt. Der Schatten bleibt,
-     aber tiefer und weicher, damit Ränder nicht doppelt gezeichnet wirken. */
-  --schatten-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --schatten-2: 0 4px 14px rgba(0, 0, 0, 0.45);
-  --schatten-3: 0 18px 50px rgba(0, 0, 0, 0.6);
-  --schleier: rgba(3, 6, 10, 0.62);
+  /* Schatten tragen im Dunkeln kaum - stattdessen werden schwebende Flächen über eine
+     hellere Eigenfarbe (--erhoben) und die helle Oberkante (--glanz) abgesetzt. Der
+     Schatten bleibt, aber tiefer und weicher, damit Ränder nicht doppelt wirken. */
+  --schatten-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --schatten-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --schatten-3: 0 20px 54px rgba(0, 0, 0, 0.65);
+  --schatten-blatt: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -18px rgba(0, 0, 0, 0.8);
+  --schleier: rgba(3, 5, 9, 0.66);
 
-  --auswahl: #2b4270;
+  --glanz: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
+  --auswahl: #2b3868;
+
+  /* Im Dunkeln darf das Korn etwas kräftiger sein: dunkle Flächen zeigen die
+     Streifenbildung des Bildschirms (Banding), und genau die bricht es auf. */
+  --korn-staerke: 0.05;
 }
 
 /*
  * Ableitungen, die in beiden Ansichten gleich gebildet werden.
  *
  * Stehen hinter beiden Blöcken, damit sie die jeweils gesetzten Werte benutzen.
- * --akzent ist der Name, unter dem die Regeln die Farbe des Programms ansprechen;
- * --konto-farbe trägt daneben die Hausfarbe des gerade gewählten Anbieters und
- * wird nur noch für Kennzeichen und schmale Streifen verwendet.
  */
 :root {
   --akzent: var(--marke);
+  /* Die Hausfarbe des gerade gewählten Anbieters. Wird von App.tsx und der Titelleiste
+     gesetzt und nur noch für Kennzeichen und schmale Adern verwendet. */
   --konto-farbe: var(--marke);
 
-  /* Sichtbarer Fokusring für die Tastaturbedienung. Ein eigener Wert, weil er
-     auf jedem Untergrund erkennbar bleiben muss - deshalb halbdurchsichtig. */
-  --fokus: 0 0 0 3px color-mix(in srgb, var(--marke) 38%, transparent);
+  /* Sichtbarer Fokusring für die Tastaturbedienung. Ein eigener Wert, weil er auf
+     jedem Untergrund erkennbar bleiben muss - deshalb halbdurchsichtig. */
+  --fokus: 0 0 0 3px color-mix(in srgb, var(--marke) 40%, transparent);
 
-  /* Höhe der eigenen Titelleiste. Steht hier, weil sowohl die Leiste selbst als
-     auch das darunterliegende Raster damit rechnen. */
-  --leiste-hoehe: 40px;
+  /* Höhe der eigenen Titelleiste. Steht hier, weil sowohl die Leiste selbst als auch
+     das darunterliegende Raster damit rechnen. */
+  --leiste-hoehe: 42px;
+
+  /* Luft zwischen Desk (Seitenleiste) und Blatt (Liste + Leseansicht). */
+  --blatt-luft: 10px;
+
+  /*
+   * Das Korn.
+   *
+   * Eine winzige, gekachelte Rauschgrafik, die als unsichtbare Scheibe über der
+   * ganzen Anwendung liegt (siehe #root::after in index.css). Sie kostet nichts -
+   * die Grafik steht als Text in dieser Datei, wird einmal gezeichnet und dann
+   * gekachelt - und nimmt Flächen die Plastikglätte, die entsteht, wenn jede Fläche
+   * eine mathematisch reine Farbe ist. Auf Papier gibt es das nicht, auf einem
+   * Bildschirm ohne Zutun immer.
+   *
+   * baseFrequency bestimmt die Körnung: höhere Werte ergeben feineres Korn. 0.8 liegt
+   * knapp über der Pixelgröße bei 100 % Skalierung und verschwindet deshalb nicht,
+   * wenn Windows auf 125 oder 150 % steht.
+   */
+  --korn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='k'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23k)'/%3E%3C/svg%3E");
 }

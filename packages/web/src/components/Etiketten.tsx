@@ -4,6 +4,7 @@ import { etikettenAusFlags, pruefeEtikettName } from '@energy-mail/mail-core/eti
 import * as api from '../api.js';
 import { bestaetige } from '../dialoge.js';
 import { meldeFehler, meldeWarnung } from '../meldungen.js';
+import { t } from '../sprache.js';
 
 /**
  * Die Anzeige und Vergabe von Etiketten.
@@ -125,9 +126,11 @@ export function EtikettMenue({
   const entfernen = async (etikett: Etikett) => {
     const ja = await bestaetige({
       titel: `Etikett „${etikett.name}“ löschen?`,
-      text: 'Nachrichten, die es tragen, behalten das Schlüsselwort auf dem Server – dort steht danach nur noch der nackte Name in Grau. Legen Sie das Etikett unter demselben Namen wieder an, sind sie wieder eingeordnet.',
+      text: t(
+        'Nachrichten, die es tragen, behalten das Schlüsselwort auf dem Server – dort steht danach nur noch der nackte Name in Grau. Legen Sie das Etikett unter demselben Namen wieder an, sind sie wieder eingeordnet.',
+      ),
       stil: 'warnung',
-      ok: 'Löschen',
+      ok: t('Löschen'),
     });
     if (!ja) return;
     await api.loescheEtikett(etikett.schluessel);

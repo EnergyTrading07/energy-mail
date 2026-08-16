@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { t } from '../sprache.js';
 
 /**
  * Meldung nach dem Absenden, mit Bedenkzeit.
@@ -40,17 +41,16 @@ export function SendeMeldung({ betreff, faellig, onRueckgaengig, onFertig }: Pro
   return (
     <div className="sende-meldung" role="status">
       <span>
-        {restSekunden > 0 ? (
-          <>
-            „{betreff || '(kein Betreff)'}" wird in {restSekunden} s gesendet
-          </>
-        ) : (
-          <>„{betreff || '(kein Betreff)'}" wurde gesendet</>
-        )}
+        {restSekunden > 0
+          ? t('„{betreff}“ wird in {sekunden} s gesendet', {
+              betreff: betreff || t('(kein Betreff)'),
+              sekunden: restSekunden,
+            })
+          : t('„{betreff}“ wurde gesendet', { betreff: betreff || t('(kein Betreff)') })}
       </span>
       {restSekunden > 0 && (
         <button className="btn secondary" onClick={onRueckgaengig}>
-          Rückgängig
+          {t('Rückgängig')}
         </button>
       )}
     </div>

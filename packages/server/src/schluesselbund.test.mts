@@ -3,11 +3,21 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setDataDir } from './paths.js';
+import { setDataDir, getNutzerDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 import { setKeyProvider } from './secretCrypto.js';
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-schluessel-test-'));
 setDataDir(tempDir);
+// Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
+// Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
+betreteNutzerFuerProzess('pruefung');
+
+// Die Speicher legen ihre Dateien im Ordner des Nutzers ab, nicht in der Wurzel.
+const datenDir = getNutzerDir();
+// Anlegen, bevor eine Pruefung hineinsieht - die Speicher taeten es erst beim Schreiben.
+fs.mkdirSync(datenDir, { recursive: true });
+
 
 // Ein fester Schluessel fuer die Probe - sonst laesst sich das Verschluesseln der
 // geheimen Schluessel gar nicht pruefen.
@@ -31,7 +41,7 @@ let bestanden = 0;
 let gescheitert = 0;
 
 async function pruefe(name: string, fn: () => Promise<void>): Promise<void> {
-  fs.rmSync(path.join(tempDir, 'schluesselbund.json'), { force: true });
+  fs.rmSync(path.join(datenDir, 'schluesselbund.json'), { force: true });
   try {
     await fn();
     console.log(`  ok   ${name}`);
@@ -98,7 +108,7 @@ console.log('\nGeheime Schluessel - hier zaehlt jedes Detail:');
 await pruefe('ein geheimer Schluessel liegt NICHT im Klartext auf der Platte', async () => {
   // Der wichtigste Punkt des ganzen Moduls.
   await fuegeSchluesselHinzu(bernd.geheim, 'konto1');
-  const roh = fs.readFileSync(path.join(tempDir, 'schluesselbund.json'), 'utf-8');
+  const roh = fs.readFileSync(path.join(datenDir, 'schluesselbund.json'), 'utf-8');
   assert.ok(
     !roh.includes('BEGIN PGP PRIVATE KEY BLOCK'),
     'der geheime Schluessel steht im Klartext in der Datei!',
@@ -133,7 +143,7 @@ await pruefe('hatGeheimen sagt die Wahrheit', async () => {
 
 await pruefe('das Kennwort wird nirgends abgelegt', async () => {
   await fuegeSchluesselHinzu(bernd.geheim, 'konto1');
-  const roh = fs.readFileSync(path.join(tempDir, 'schluesselbund.json'), 'utf-8');
+  const roh = fs.readFileSync(path.join(datenDir, 'schluesselbund.json'), 'utf-8');
   assert.ok(!roh.includes('geheim123'), 'das Kennwort steht in der Datei!');
 });
 
@@ -188,12 +198,12 @@ await pruefe('eigene stehen in der Liste oben', async () => {
 
 await pruefe('der Stand ueberdauert einen Neustart', async () => {
   await fuegeSchluesselHinzu(anna.oeffentlich);
-  const wieder = JSON.parse(fs.readFileSync(path.join(tempDir, 'schluesselbund.json'), 'utf-8'));
+  const wieder = JSON.parse(fs.readFileSync(path.join(datenDir, 'schluesselbund.json'), 'utf-8'));
   assert.equal(wieder.schluessel.length, 1);
 });
 
 await pruefe('eine beschaedigte Datei ergibt einen leeren Bund, keinen Absturz', async () => {
-  fs.writeFileSync(path.join(tempDir, 'schluesselbund.json'), '{kaputt', 'utf-8');
+  fs.writeFileSync(path.join(datenDir, 'schluesselbund.json'), '{kaputt', 'utf-8');
   assert.deepEqual(alleSchluessel(), []);
 });
 

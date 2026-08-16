@@ -9,5 +9,9 @@
   // *.test.mjs samt Quellkarten im ausgelieferten app.asar - nachgewiesen mit
   // "asar list". Ausgelieferter Code, den niemand geprueft hat, und in
   // routen.test.mjs steht eine vollstaendige Serverkonfiguration samt festem Schluessel.
-  "exclude": ["src/**/*.test.mts"]
+  // Aus demselben Grund bleiben die S/MIME-Pruefdaten draussen: 30 kB Zertifikate und
+  // fertige Nachrichten, die nur die Pruefung braucht. Uebersetzt landeten sie in jeder
+  // ausgelieferten Fassung - samt zweier geheimer Schluessel, die zwar wertlos sind, in
+  // einem Auslieferungspaket aber nichts zu suchen haben.
+  "exclude": ["src/**/*.test.mts", "src/**/pruefdaten/**"]
 }

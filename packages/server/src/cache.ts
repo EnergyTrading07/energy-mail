@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getDataDir } from './paths.js';
-import { schreibeAtomar } from './atomar.js';
+import { getNutzerDir } from './paths.js';
+import { istVerschluesselt, schreibeGeschuetzt } from './geschuetzteAblage.js';
+import { decryptSecret } from './secretCrypto.js';
+import { jeNutzer } from './nutzer/jeNutzer.js';
+import { aktuellerNutzer, alsNutzer } from './nutzer/kontext.js';
 
 /**
  * Zwischenspeicher für alles, was der Server sonst bei jedem Klick neu über IMAP holt:
@@ -32,34 +35,72 @@ interface Eintrag<T = unknown> {
  */
 const MAX_EINTRAEGE = 200;
 
-const speicher = new Map<string, Eintrag>();
-let geladen = false;
-let schreibTimer: ReturnType<typeof setTimeout> | undefined;
+/**
+ * Der Zwischenspeicher gehört je einem Nutzer.
+ *
+ * Vorher lag hier eine prozessglobale Map. Der Nutzerkontext schaltete nur die DATEI um -
+ * gelesen wurde weiterhin, was ein anderer Nutzer hineingelegt hatte, und geschrieben
+ * wurde die vermischte Menge in die Datei dessen, der gerade dran war. Ordnerlisten und
+ * Nachrichtenköpfe fremder Postfächer, sichtbar für den Falschen.
+ *
+ * Gedeckelt: bei vielen Nutzern soll der Speicher nicht unbegrenzt wachsen. Ein
+ * herausgefallener Nutzer liest seinen Stand beim nächsten Zugriff von der Platte.
+ */
+const MAX_NUTZER_IM_SPEICHER = 200;
 
-const dateiPfad = () => path.join(getDataDir(), 'cache.json');
+interface NutzerCache {
+  speicher: Map<string, Eintrag>;
+  geladen: boolean;
+  schreibTimer?: ReturnType<typeof setTimeout>;
+}
 
-function laden(): void {
-  if (geladen) return;
-  geladen = true;
+const caches = jeNutzer<NutzerCache>(() => ({ speicher: new Map(), geladen: false }), {
+  hoechstens: MAX_NUTZER_IM_SPEICHER,
+  beimVerwerfen: (c) => {
+    // Ein eingeplanter Schreibvorgang darf nicht mit dem Eintrag verschwinden - sonst
+    // wäre der zuletzt gelesene Stand weg, bevor er auf der Platte stand.
+    if (c.schreibTimer) clearTimeout(c.schreibTimer);
+  },
+});
+
+const dateiPfad = () => path.join(getNutzerDir(), 'cache.json');
+
+function laden(): NutzerCache {
+  const c = caches.hole();
+  if (c.geladen) return c;
+  c.geladen = true;
   try {
     const roh = fs.readFileSync(dateiPfad(), 'utf-8');
-    for (const [schluessel, eintrag] of Object.entries(JSON.parse(roh) as Record<string, Eintrag>)) {
-      speicher.set(schluessel, eintrag);
+    // Klartext aus einer Installation von vor der Umstellung wird weiter gelesen; beim
+    // nächsten Schreiben ist die Datei verschlüsselt. Siehe geschuetzteAblage.ts.
+    const klar = istVerschluesselt(roh) ? decryptSecret(roh.trim()) : roh;
+    for (const [schluessel, eintrag] of Object.entries(JSON.parse(klar) as Record<string, Eintrag>)) {
+      c.speicher.set(schluessel, eintrag);
     }
   } catch {
-    // Fehlende oder beschädigte Datei ist unkritisch: der Zwischenspeicher füllt sich
-    // beim ersten Abruf von selbst wieder.
+    // Fehlende, beschädigte oder mit einem anderen Schlüssel angelegte Datei ist
+    // unkritisch: der Zwischenspeicher füllt sich beim ersten Abruf von selbst wieder.
   }
+  return c;
 }
 
 /** Gebündelt schreiben - sonst fiele bei jedem Ordnerwechsel ein Schreibvorgang an. */
 function planeSpeichern(): void {
-  if (schreibTimer) return;
-  schreibTimer = setTimeout(() => {
-    schreibTimer = undefined;
-    schreibeSofort();
+  const c = caches.hole();
+  if (c.schreibTimer) return;
+  /*
+   * Den Nutzer für später festhalten.
+   *
+   * Der Zeitgeber trägt den Kontext zwar mit (AsyncLocalStorage), aber der Eintrag muss
+   * derselbe bleiben - schreibeSofort() darf nicht den Zwischenspeicher dessen
+   * schreiben, der zufällig gerade dran ist.
+   */
+  const nutzer = aktuellerNutzer();
+  c.schreibTimer = setTimeout(() => {
+    c.schreibTimer = undefined;
+    alsNutzer(nutzer, () => schreibeSofort());
   }, 3000);
-  schreibTimer.unref?.();
+  c.schreibTimer.unref?.();
 }
 
 /**
@@ -71,24 +112,33 @@ function planeSpeichern(): void {
  * war trotzdem eine Falle für den Nächsten, der hier etwas Wichtigeres ablegt.
  */
 export function schreibeSofort(): void {
-  if (schreibTimer) {
-    clearTimeout(schreibTimer);
-    schreibTimer = undefined;
+  const c = caches.hole();
+  if (c.schreibTimer) {
+    clearTimeout(c.schreibTimer);
+    c.schreibTimer = undefined;
   }
   try {
-    schreibeAtomar(dateiPfad(), JSON.stringify(Object.fromEntries(speicher)));
+    schreibeGeschuetzt(dateiPfad(), JSON.stringify(Object.fromEntries(c.speicher)));
   } catch {
     // Der Zwischenspeicher ist Beiwerk; scheitert das Schreiben, arbeitet alles weiter.
   }
 }
 
+/** Schreibt alles Ausstehende - beim Herunterfahren, für alle Nutzer. */
+export function schreibeAlleSofort(): void {
+  for (const [nutzer, c] of caches.alle()) {
+    if (!c.schreibTimer) continue;
+    alsNutzer(nutzer, () => schreibeSofort());
+  }
+}
+
 export function lies<T>(schluessel: string): Eintrag<T> | null {
-  laden();
-  return (speicher.get(schluessel) as Eintrag<T> | undefined) ?? null;
+  const c = laden();
+  return (c.speicher.get(schluessel) as Eintrag<T> | undefined) ?? null;
 }
 
 export function schreibe<T>(schluessel: string, wert: T): void {
-  laden();
+  const { speicher } = laden();
   speicher.set(schluessel, { wert, stand: Date.now() });
 
   if (speicher.size > MAX_EINTRAEGE) {
@@ -102,7 +152,7 @@ export function schreibe<T>(schluessel: string, wert: T): void {
 
 /** Verwirft alle Einträge, deren Schlüssel mit dem Präfix beginnt. */
 export function verwerfe(praefix: string): void {
-  laden();
+  const { speicher } = laden();
   let etwasEntfernt = false;
   for (const schluessel of speicher.keys()) {
     if (schluessel.startsWith(praefix)) {

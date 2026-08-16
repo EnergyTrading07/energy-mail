@@ -1,11 +1,17 @@
 import { fileURLToPath } from 'node:url';
-import { BrowserWindow, app, dialog, ipcMain, nativeImage, powerMonitor, shell } from 'electron';
-import { mailtoAusArgumenten } from '@energy-mail/mail-core';
-import { buildServer } from '@energy-mail/server/app';
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, powerMonitor, session, shell } from 'electron';
+import {
+  beschreibeProxy,
+  beschreibeZertifikate,
+  mailtoAusArgumenten,
+  nutzeSystemZertifikate,
+  richteHttpProxyEin,
+} from '@energy-mail/mail-core';
+import { EINPLATZ_NUTZER, alsEinplatznutzer, buildServer } from '@energy-mail/server/app';
 import { erzeugeZugangsgeheimnis, setzeZugangsgeheimnis } from '@energy-mail/server/zugang';
 import { listAccounts } from '@energy-mail/server/konten';
 import { restartWatcher } from '@energy-mail/server/events';
-import { getDataDir, setDataDir } from '@energy-mail/server/paths';
+import { getWurzelDir, setDataDir } from '@energy-mail/server/paths';
 import { setKeyProvider } from '@energy-mail/server/secrets';
 import { speichereKontakteSofort } from '@energy-mail/server/kontakte';
 import { sendeAusstehendeSofort } from '@energy-mail/server/sendqueue';
@@ -32,6 +38,12 @@ import {
   setzeUngelesenImInfobereich,
 } from './infobereich.js';
 import { starteBenachrichtigungen } from './notifications.js';
+import { richteNetzhygieneEin } from './netzhygiene.js';
+import { beschreibeRichtlinien, richtlinien } from './richtlinien.js';
+import { quellenFuer, richteProxyEin } from './proxyQuellen.js';
+import { beschreibeSprache } from './spracheWaehlen.js';
+import { sprache, t } from '@energy-mail/mail-core/sprache';
+import { setzeOAuthVorgabe } from '@energy-mail/server/oauth';
 import { richteRechtschreibungEin } from './rechtschreibung.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 import { horcheAufFensterfehler, richteAbsturzbehandlungEin } from './diagnose.js';
@@ -71,6 +83,15 @@ const ZUGANG = erzeugeZugangsgeheimnis();
 
 /** Das laufende Serverobjekt - beim Beenden wird es geordnet geschlossen. */
 let laufenderServer: Awaited<ReturnType<typeof buildServer>> | null = null;
+
+/**
+ * Die Anzeigeprozesse, die diese Anwendung selbst gebaut hat.
+ *
+ * Nur sie bekommen das Zugangsgeheimnis über 'zugang:holen'. Eingetragen wird beim Bauen
+ * des Fensters und damit VOR dem Laden - das Vorschaltskript fragt früh, und eine
+ * Prüfung, die zu diesem Zeitpunkt noch nichts weiß, wiese das eigene Fenster ab.
+ */
+const eigeneAnzeigeprozesse = new Set<number>();
 
 /**
  * Ob wirklich beendet werden soll.
@@ -151,14 +172,24 @@ function zeigeInfobereichHinweis(): void {
   const antwort = dialog.showMessageBoxSync({
     type: 'info',
     title: 'Energy Mail',
-    message: 'Energy Mail läuft weiter',
+    message: t('Energy Mail läuft weiter'),
+    /*
+     * Der ganze Absatz als EIN Text, nicht als drei zusammengesetzte Stücke.
+     *
+     * Aneinandergehängte Halbsätze sind die häufigste Art, eine Übersetzung unmöglich zu
+     * machen: Im Englischen steht die Wortstellung anders, und wer nur "Sie finden es
+     * unten rechts" übersetzen darf, kann den Satz nicht bauen. Die Länge im Quelltext
+     * ist der Preis dafür.
+     */
     detail:
-      'Das Fenster ist zu, das Programm nicht – nur so kann es neue Post melden. Sie ' +
-      'finden es unten rechts im Infobereich neben der Uhr; ein Klick darauf holt es ' +
-      'zurück.\n\n' +
-      'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den ' +
-      'Infobereich" abschalten.',
-    buttons: ['Verstanden', 'Lieber beenden'],
+      t(
+        'Das Fenster ist zu, das Programm nicht – nur so kann es neue Post melden. Sie finden es unten rechts im Infobereich neben der Uhr; ein Klick darauf holt es zurück.',
+      ) +
+      '\n\n' +
+      t(
+        'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.',
+      ),
+    buttons: [t('Verstanden'), t('Lieber beenden')],
     defaultId: 0,
     cancelId: 0,
     noLink: true,
@@ -256,14 +287,36 @@ function createWindow(url: string) {
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
       nodeIntegrationInSubFrames: false,
-      // Die Fassung und das Zugangsgeheimnis, ohne dafür einen eigenen Kanal zu
-      // brauchen (siehe preload.cts).
+      /*
+       * Nur die Fassung, und ausdrücklich NICHT das Zugangsgeheimnis.
+       *
+       * Hier stand es einmal mit drin, weil es bequem war - kein eigener Kanal nötig.
+       * Der Preis: additionalArguments landen in der Befehlszeile des
+       * Anzeigeprozesses, und die kann unter Windows jeder Prozess desselben
+       * Benutzers auslesen ("Get-CimInstance Win32_Process | select CommandLine").
+       * Damit war genau der Riegel offen, den zugang.ts als den einen beschreibt, der
+       * auch gegen Programme ohne Browser hält: wer das Geheimnis kennt, kommt an
+       * jede Route, also an das gesamte Postfach.
+       *
+       * Es kommt jetzt über eine gerichtete Rückfrage - siehe 'zugang:holen' unten.
+       * Die Fassung darf bleiben; sie ist kein Geheimnis.
+       */
       additionalArguments: [
         `--energy-mail-fassung=${app.getVersion()}`,
-        `--energy-mail-zugang=${ZUGANG}`,
+        // Kein Geheimnis, deshalb darf sie hier stehen - siehe die Begründung darüber.
+        `--energy-mail-sprache=${sprache()}`,
       ],
     },
   });
+
+  // Vor loadURL: das Vorschaltskript fragt das Zugangsgeheimnis ab, sobald die Seite
+  // zu laden beginnt - steht die Kennung dann noch nicht hier, bekäme das eigene
+  // Fenster nichts.
+  // Die Kennung vorher festhalten: nach 'closed' ist webContents abgebaut, und ein
+  // Zugriff darauf würde dort werfen.
+  const anzeigeprozessId = win.webContents.id;
+  eigeneAnzeigeprozesse.add(anzeigeprozessId);
+  win.on('closed', () => eigeneAnzeigeprozesse.delete(anzeigeprozessId));
 
   /**
    * Alles, was die Anwendung in einem neuen Fenster öffnen will, geht in den
@@ -272,9 +325,22 @@ function createWindow(url: string) {
    * man sein Passwort gibt. Nebeneffekt: Links aus Mails öffnen auch außerhalb.
    */
   win.webContents.setWindowOpenHandler(({ url: ziel }) => {
-    if (/^https?:$/.test(new URL(ziel).protocol)) {
-      void shell.openExternal(ziel);
+    /*
+     * Der Auffang gehört dazu.
+     *
+     * new URL() wirft bei einer unbrauchbaren Adresse, und eine Ausnahme in diesem
+     * Behandler landet im Hauptprozess - also in uncaughtException und im
+     * Absturzfenster. Der will-navigate-Behandler weiter unten macht es seit jeher
+     * richtig; hier fehlte es. Im Zweifel wird nichts geöffnet: 'deny' steht ohnehin
+     * am Ende, gleich wie die Prüfung ausgeht.
+     */
+    let erlaubt = false;
+    try {
+      erlaubt = /^https?:$/.test(new URL(ziel).protocol);
+    } catch {
+      // Unbrauchbare Adresse - dann eben gar nichts.
     }
+    if (erlaubt) void shell.openExternal(ziel);
     return { action: 'deny' };
   });
 
@@ -379,8 +445,9 @@ function createWindow(url: string) {
     protokolliere('fehler', 'anzeige', `Seite nicht geladen (${code} ${beschreibung}): ${adresse}`);
     zeigeStartfehler(
       `${beschreibung} (${code})`,
-      'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr ' +
-        'erreichbar – ein Neustart der Anwendung behebt das.',
+      t(
+        'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.',
+      ),
     );
   });
 
@@ -397,6 +464,42 @@ function createWindow(url: string) {
  */
 function richteBrueckeEin(): void {
   const fenster = (): BrowserWindow | null => hauptfenster;
+
+  /**
+   * Das Zugangsgeheimnis - nur an ein Fenster, das diese Anwendung selbst gebaut hat.
+   *
+   * Synchron, weil das Vorschaltskript es beim Laden braucht: window.energyMail.zugang
+   * muss stehen, bevor die Oberfläche ihre erste Anfrage stellt. Eine asynchrone
+   * Rückfrage hieße, dass die ersten Abrufe ohne Geheimnis losgingen und mit 401
+   * zurückkämen. Der eine Aufruf beim Fensterstart fällt gegen den Seitenaufbau nicht
+   * ins Gewicht - anders als eine Abfrage, die sich wiederholt.
+   *
+   * Geprüft wird über die Kennung des Anzeigeprozesses und NICHT über die Adresse des
+   * Rahmens. Das ist der Unterschied zwischen einer Prüfung, die trägt, und einer, die
+   * zufällig funktioniert: zum Zeitpunkt des Vorschaltskripts ist die Navigation noch
+   * nicht abgeschlossen, senderFrame.url kann dort noch leer oder "about:blank" sein.
+   * Eine Adressprüfung wiese dann das eigene Fenster ab - die Anwendung käme gar nicht
+   * erst hoch. Die Kennung steht dagegen fest, sobald das Fenster gebaut ist.
+   *
+   * Der Hauptrahmen zusätzlich, obwohl Unterrahmen ohnehin kein Vorschaltskript
+   * bekommen (nodeIntegrationInSubFrames: false): das ist der Riegel für den Fall, dass
+   * daran einmal jemand etwas ändert.
+   */
+  ipcMain.on('zugang:holen', (e) => {
+    const ausEigenemFenster = eigeneAnzeigeprozesse.has(e.sender.id);
+    const vomHauptrahmen = e.senderFrame !== null && e.senderFrame.parent === null;
+
+    if (!ausEigenemFenster || !vomHauptrahmen) {
+      protokolliere(
+        'warnung',
+        'zugang',
+        'Zugangsgeheimnis nicht herausgegeben - die Anfrage kam nicht aus dem eigenen Fenster.',
+      );
+      e.returnValue = '';
+      return;
+    }
+    e.returnValue = ZUGANG;
+  });
 
   ipcMain.on('fenster:minimieren', () => fenster()?.minimize());
   ipcMain.on('fenster:maximieren', () => {
@@ -561,13 +664,63 @@ app.whenReady().then(async () => {
   richteAbsturzbehandlungEin();
   protokolliere('info', 'start', `Energy Mail ${app.getVersion()} startet`);
 
+  /*
+   * Den Zertifikatsspeicher von Windows dazunehmen - vor der ersten Verbindung.
+   *
+   * In einem Firmennetz führt der Weg nach draußen fast immer über einen prüfenden
+   * Vorbau, der TLS aufbricht und mit einer firmeneigenen Wurzel neu unterschreibt. Die
+   * liegt per Gruppenrichtlinie im Windows-Speicher, den Node aber nicht ansieht - ohne
+   * diese Zeile bräche dort JEDE IMAP- und SMTP-Verbindung ab, und zwar so, dass weder
+   * Nutzer noch Administrator etwas einstellen könnten. Einzelheiten in zertifikate.ts.
+   */
+  protokolliere('info', 'start', beschreibeZertifikate(nutzeSystemZertifikate()));
+  // Was die Organisation vorgibt, gehört in den Fehlerbericht: sonst sucht jemand den
+  // Grund für ein Verhalten im Programm, das in einer Datei unter %PROGRAMDATA% steht.
+  protokolliere('info', 'start', beschreibeRichtlinien());
+
+  /*
+   * Der Weg nach draußen - vor der ersten Verbindung.
+   *
+   * In vielen Firmennetzen ist Port 993 an der Firewall zu und alles läuft über einen
+   * Proxy. richteProxyEin() hängt die Ermittlung ein (Richtlinie, Umgebung, Systemproxy
+   * samt PAC-Skript); richteHttpProxyEin() nimmt zusätzlich die gewöhnlichen Abrufe mit,
+   * also den OAuth-Markentausch und die Serversuche. Ohne den zweiten Teil liefe die Post,
+   * aber kein OAuth-Konto könnte sich anmelden.
+   */
+  richteProxyEin();
+  /*
+   * Die von der IT registrierte Anwendung, falls es eine gibt.
+   *
+   * Damit entfällt für den Mitarbeiter die gesamte Einrichtung: keine Cloud Console, kein
+   * Azure-Portal, kein Client-Geheimnis - er klickt auf „Anmelden". Ohne Richtlinie
+   * bleibt alles wie bisher, und der Privatnutzer registriert weiterhin selbst.
+   */
+  setzeOAuthVorgabe((anbieter) => {
+    const eintrag = richtlinien().oauth?.[anbieter];
+    return eintrag
+      ? {
+          clientId: eintrag.clientId,
+          clientSecret: eintrag.clientSecret,
+          mandant: eintrag.mandant,
+        }
+      : null;
+  });
+  protokolliere(
+    'info',
+    'start',
+    beschreibeProxy(await richteHttpProxyEin(await quellenFuer('login.microsoftonline.com'))),
+  );
+
   // Als Allererstes, noch vor dem Server: von hier an dauert es je nach Rechner ein bis
   // drei Sekunden, und in dieser Zeit soll etwas zu sehen sein.
   const startbild = zeigeStartbild();
 
   // Muss vor buildServer() stehen: der Server liest beim Start die Konten (für die
   // Postfach-Watcher) und braucht dafür bereits den Entschlüsselungsschlüssel.
-  setKeyProvider(createSafeStorageKeyProvider(getDataDir()));
+  // Die Schlüsseldatei gehört in die Wurzel, nicht in den Ordner eines Nutzers: mit ihr
+  // werden die Geheimnisse ALLER Nutzer verschlüsselt. Auf diesem Rechner ist das
+  // derzeit genau einer, aber der Ort entscheidet sich hier und nicht später.
+  setKeyProvider(createSafeStorageKeyProvider(getWurzelDir()));
 
   try {
     await startLocalServer();
@@ -575,16 +728,33 @@ app.whenReady().then(async () => {
     startbild.destroy();
     zeigeStartfehler(
       (err as Error).message,
-      `Der lokale Server auf Port ${LOCAL_PORT} ließ sich nicht starten. ` +
-        'Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein ' +
-        '"npm run dev:server" aus dem Quellbaum.',
+      t(
+        'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.',
+        { port: LOCAL_PORT },
+      ),
     );
     return;
   }
 
+  /*
+   * Die Sprache VOR dem Menü.
+   *
+   * Danach umzustellen ginge auch - das Menü wird beim Umschalten ohnehin neu gebaut -,
+   * aber beim Start baute es sich sonst einmal auf Deutsch auf und gleich darauf noch
+   * einmal richtig. Sichtbar wäre das als kurzes Flackern in der Menüleiste.
+   */
+  protokolliere('info', 'start', beschreibeSprache());
+
   // Vor dem Fenster: sonst blitzt kurz Electrons englisches Standardmenü auf.
   setzeMenue();
   richteBrueckeEin();
+
+  /*
+   * Ebenfalls vor dem Fenster, und aus demselben Grund wie das Menü: was hier eingerichtet
+   * wird, muss stehen, bevor der erste Abruf hinausgeht. Am gemeinsamen Sitzungsobjekt und
+   * nicht am Fenster - dann gilt es auch für jedes weitere, das später dazukommt.
+   */
+  richteNetzhygieneEin(session.defaultSession);
 
   const fenster = createWindow(url);
   horcheAufFensterfehler(fenster);
@@ -630,7 +800,7 @@ app.whenReady().then(async () => {
     },
   );
 
-  starteBenachrichtigungen(() => hauptfenster);
+  starteBenachrichtigungen(EINPLATZ_NUTZER, () => hauptfenster);
 
   /*
    * Das Symbol im Infobereich.
@@ -694,7 +864,30 @@ app.whenReady().then(async () => {
    */
   const watcherNeuStarten = (grund: string) => {
     protokolliere('info', 'ueberwachung', `${grund} - Überwachung wird neu aufgebaut.`);
-    for (const konto of listAccounts()) restartWatcher(konto.id);
+    /*
+     * Im Nutzerkontext, und mit eigener Fehlerbehandlung.
+     *
+     * Beides fehlte. listAccounts() greift auf den Ordner eines Nutzers zu und wirft
+     * ohne Kontext - hier lief es aus einem powerMonitor-Behandler, also außerhalb jeder
+     * Anfrage. Die Ausnahme landete in uncaughtException und damit im Absturzfenster:
+     * die Anwendung beendete sich bei JEDEM Aufwachen aus dem Ruhezustand und bei jedem
+     * Entsperren des Bildschirms. Ausgerechnet der Weg, der die Überwachung retten soll,
+     * war der, der das Programm umbrachte.
+     *
+     * Das try/catch ist der zweite Riegel: eine Störung beim Wiederaufsetzen der
+     * Überwachung ist ein Grund für eine Protokollzeile, nicht für ein Programmende.
+     */
+    try {
+      alsEinplatznutzer(() => {
+        for (const konto of listAccounts()) restartWatcher(konto.id);
+      });
+    } catch (err) {
+      protokolliere(
+        'warnung',
+        'ueberwachung',
+        `Überwachung nicht neu aufgebaut: ${(err as Error).message}`,
+      );
+    }
   };
   powerMonitor.on('resume', () => watcherNeuStarten('Rechner aus dem Ruhezustand'));
   powerMonitor.on('unlock-screen', () => watcherNeuStarten('Bildschirm entsperrt'));
@@ -741,15 +934,43 @@ function mitFrist<T>(arbeit: Promise<T>, ms: number): Promise<T | 'zeitueberschr
  *    connections" - ein Verbindungsfehler, den das Programm selbst verursacht hatte.
  */
 async function fahreHerunter(): Promise<void> {
-  // Adressen werden gebündelt geschrieben - die letzten Sekunden sonst verloren.
-  speichereKontakteSofort();
+  /*
+   * Anfang und Ende ausdrücklich protokollieren.
+   *
+   * Vorher schrieb dieser Weg nur im Fehlerfall etwas - ein geordnetes Beenden
+   * hinterließ gar keine Spur. Bei einem paketierten Programm ist das Protokoll das
+   * einzige Werkzeug zum Nachsehen, und "lief das Beenden sauber durch?" ist die erste
+   * Frage nach einer beschädigten Ablage oder einem Postfach, das beim nächsten Start
+   * "zu viele Verbindungen" meldet. Fehlt die Schlusszeile, hat es unterwegs gehangen -
+   * und genau das sieht man sonst nirgends.
+   */
+  protokolliere('info', 'beenden', 'Beenden angefordert - Ablage und Verbindungen werden geschlossen.');
 
-  const gesendet = await mitFrist(sendeAusstehendeSofort(), BEENDEN_FRIST_MS).catch(
-    (err: unknown) => {
+  /*
+   * Kontakte und Warteschlange gehören einem Nutzer - also im Kontext.
+   *
+   * Ohne ihn warf schon die erste Zeile, und zwar mitten im Beenden: die Ausnahme riss
+   * den ganzen Rest dieser Funktion mit, sodass weder ausstehende Post hinausging noch
+   * der Server geordnet schloss. Übrig blieb genau der Zustand, den die Erklärung unter
+   * fahreHerunter() als behoben beschreibt - eine liegengebliebene SQLite-Ablage samt
+   * -wal, und IMAP-Verbindungen ohne LOGOUT.
+   *
+   * Eingeklammert wird nur, was einen Nutzer braucht. Der Server, das Infobereichssymbol
+   * und das Protokoll darunter gehören keinem.
+   */
+  const gesendet = await alsEinplatznutzer(async () => {
+    // Adressen werden gebündelt geschrieben - die letzten Sekunden sonst verloren.
+    try {
+      speichereKontakteSofort();
+    } catch (err) {
+      protokolliere('warnung', 'beenden', `Adressen nicht gesichert: ${(err as Error).message}`);
+    }
+
+    return mitFrist(sendeAusstehendeSofort(), BEENDEN_FRIST_MS).catch((err: unknown) => {
       protokolliere('warnung', 'beenden', `Nicht versendet: ${(err as Error).message}`);
       return 0 as const;
-    },
-  );
+    });
+  });
   if (gesendet === 'zeitueberschreitung') {
     protokolliere(
       'warnung',
@@ -774,6 +995,8 @@ async function fahreHerunter(): Promise<void> {
   // Sonst bleibt ein totes Symbol im Infobereich stehen, bis Windows von selbst
   // aufräumt - was es erst tut, wenn jemand mit der Maus darüberfährt.
   raeumeInfobereichAb();
+
+  protokolliere('info', 'beenden', 'Geordnet beendet.');
 }
 
 app.on('before-quit', (event) => {

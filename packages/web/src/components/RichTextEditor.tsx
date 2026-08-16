@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { frage } from '../dialoge.js';
 import {
-  TEXTFARBEN,
-  WERKZEUGE,
+  textfarben,
+  werkzeuge,
   befehlFuerTaste,
   normalisiereAdresse,
   raeumeEingefuegtesAuf,
 } from '../formatierung.js';
+import { t } from '../sprache.js';
 
 interface Props {
   html: string;
@@ -30,7 +31,7 @@ interface Props {
  * beides für sich geprüft, weil das eine eine Tabelle und das andere eine
  * Sicherheitsfrage ist.
  */
-export function RichTextEditor({ html, onChange, disabled, beschriftung = 'Nachrichtentext' }: Props) {
+export function RichTextEditor({ html, onChange, disabled, beschriftung }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   /** Welche Auszeichnungen an der Schreibmarke gerade gelten - für die Knöpfe. */
   const [aktiv, setAktiv] = useState<Set<string>>(new Set());
@@ -52,7 +53,7 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung = 'Nachr
    */
   const standAblesen = useCallback(() => {
     const gesetzt = new Set<string>();
-    for (const w of WERKZEUGE.flat()) {
+    for (const w of werkzeuge().flat()) {
       if (!w.zeigtZustand) continue;
       try {
         if (document.queryCommandState(w.befehl)) gesetzt.add(w.befehl);
@@ -92,16 +93,16 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung = 'Nachr
     const markiert = bereich?.toString().trim() ?? '';
 
     void frage({
-      titel: 'Link einfügen',
+      titel: t('Link einfügen'),
       text: markiert
         ? `„${markiert.slice(0, 60)}“ wird damit verknüpft.`
-        : 'Die Adresse wird als Verweis eingefügt.',
+        : t('Die Adresse wird als Verweis eingefügt.'),
       // Eine markierte Adresse gleich vorschlagen - dann muss man sie nicht abtippen.
       vorgabe: /^(https?:|www\.|[^\s@]+@)/i.test(markiert) ? markiert : '',
       platzhalter: 'firma.de oder https://firma.de',
-      ok: 'Einfügen',
+      ok: t('Einfügen'),
       pruefe: (ziel) =>
-        normalisiereAdresse(ziel) ? null : 'Bitte eine Adresse angeben.',
+        normalisiereAdresse(ziel) ? null : t('Bitte eine Adresse angeben.'),
     }).then((eingabe) => {
       if (!eingabe) return;
       // "firma.de" meint die Webseite, nicht eine Datei dieses Namens.
@@ -135,7 +136,7 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung = 'Nachr
   return (
     <div className="editor">
       <div className="editor-toolbar" role="toolbar" aria-label={`Formatierung: ${beschriftung}`}>
-        {WERKZEUGE.map((gruppe, i) => (
+        {werkzeuge().map((gruppe, i) => (
           <div className="werkzeug-gruppe" key={i}>
             {gruppe.map((w) => (
               <button
@@ -168,7 +169,7 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung = 'Nachr
           >
             🔗
           </button>
-          {TEXTFARBEN.map((farbe) => (
+          {textfarben().map((farbe) => (
             <button
               key={farbe.wert}
               type="button"

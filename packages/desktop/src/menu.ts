@@ -1,9 +1,14 @@
 import { BrowserWindow, Menu, app, shell, type MenuItemConstructorOptions } from 'electron';
+import { t } from '@energy-mail/mail-core/sprache';
 import { sucheAktualisierung } from './autoUpdate.js';
 import { zeigeUeber } from './kleineFenster.js';
 import { einstellungen, setzeEinstellung, wendeAutostartAn } from './einstellungen.js';
+import { wendeRechtschreibungAn } from './rechtschreibung.js';
+import { richtlinien } from './richtlinien.js';
+import { SPRACHWAHL, wendeSpracheAn } from './spracheWaehlen.js';
 import {
   erzeugeFehlerbericht,
+  leereZwischenspeicher,
   leseEinstellungen,
   oeffneProtokollordner,
   sichereEinstellungen,
@@ -70,63 +75,63 @@ const eintrag = (
 export function setzeMenue(): void {
   const vorlage: MenuItemConstructorOptions[] = [
     {
-      label: '&Nachricht',
+      label: t('&Nachricht'),
       submenu: [
-        eintrag('Neue Nachricht', 'verfassen', 'CmdOrCtrl+N'),
+        eintrag(t('Neue Nachricht'), 'verfassen', 'CmdOrCtrl+N'),
         { type: 'separator' },
-        eintrag('Antworten', 'antworten', 'CmdOrCtrl+R'),
-        eintrag('Allen antworten', 'allenAntworten', 'CmdOrCtrl+Shift+R'),
-        eintrag('Weiterleiten', 'weiterleiten', 'CmdOrCtrl+L'),
+        eintrag(t('Antworten'), 'antworten', 'CmdOrCtrl+R'),
+        eintrag(t('Allen antworten'), 'allenAntworten', 'CmdOrCtrl+Shift+R'),
+        eintrag(t('Weiterleiten'), 'weiterleiten', 'CmdOrCtrl+L'),
         { type: 'separator' },
-        eintrag('Gelesen / ungelesen', 'gelesenUmschalten', 'CmdOrCtrl+U'),
-        eintrag('Archivieren', 'archivieren', 'CmdOrCtrl+E'),
+        eintrag(t('Gelesen / ungelesen'), 'gelesenUmschalten', 'CmdOrCtrl+U'),
+        eintrag(t('Archivieren'), 'archivieren', 'CmdOrCtrl+E'),
         // Bewusst ohne Menü-Kürzel: als solches gälte Entf überall und würde beim
         // Schreiben Zeichen statt Nachrichten löschen. Die Taste behandelt die
         // Oberfläche selbst, wo bekannt ist, worauf der Fokus liegt - der Hinweis im
         // Menü nennt sie trotzdem, damit man sie findet.
-        eintrag('Löschen (Entf)', 'loeschen'),
+        eintrag(t('Löschen (Entf)'), 'loeschen'),
         { type: 'separator' },
-        { label: 'Beenden', role: 'quit' },
+        { label: t('Beenden'), role: 'quit' },
       ],
     },
     {
-      label: '&Bearbeiten',
+      label: t('&Bearbeiten'),
       submenu: [
-        { label: 'Rückgängig', role: 'undo' },
-        { label: 'Wiederholen', role: 'redo' },
+        { label: t('Rückgängig'), role: 'undo' },
+        { label: t('Wiederholen'), role: 'redo' },
         { type: 'separator' },
-        { label: 'Ausschneiden', role: 'cut' },
-        { label: 'Kopieren', role: 'copy' },
-        { label: 'Einfügen', role: 'paste' },
-        { label: 'Alles auswählen', role: 'selectAll' },
+        { label: t('Ausschneiden'), role: 'cut' },
+        { label: t('Kopieren'), role: 'copy' },
+        { label: t('Einfügen'), role: 'paste' },
+        { label: t('Alles auswählen'), role: 'selectAll' },
         { type: 'separator' },
-        eintrag('Suchen', 'suchen', 'CmdOrCtrl+F'),
+        eintrag(t('Suchen'), 'suchen', 'CmdOrCtrl+F'),
       ],
     },
     {
-      label: '&Ansicht',
+      label: t('&Ansicht'),
       submenu: [
         // Auch über den Knopf in der Titelleiste erreichbar - im Menü steht es, weil
         // dort das Tastenkürzel dabeisteht und man es sonst nirgends nachschlagen kann.
-        eintrag('Hell / dunkel umschalten', 'ansichtUmschalten', 'CmdOrCtrl+Shift+D'),
+        eintrag(t('Hell / dunkel umschalten'), 'ansichtUmschalten', 'CmdOrCtrl+Shift+D'),
         { type: 'separator' },
-        eintrag('Neu laden', 'neuLaden', 'F5'),
-        eintrag('Nächstes Konto', 'kontoWeiter', 'CmdOrCtrl+Tab'),
+        eintrag(t('Neu laden'), 'neuLaden', 'F5'),
+        eintrag(t('Nächstes Konto'), 'kontoWeiter', 'CmdOrCtrl+Tab'),
         { type: 'separator' },
-        { label: 'Vergrößern', role: 'zoomIn' },
-        { label: 'Verkleinern', role: 'zoomOut' },
-        { label: 'Normale Größe', role: 'resetZoom' },
+        { label: t('Vergrößern'), role: 'zoomIn' },
+        { label: t('Verkleinern'), role: 'zoomOut' },
+        { label: t('Normale Größe'), role: 'resetZoom' },
         { type: 'separator' },
-        { label: 'Vollbild', role: 'togglefullscreen' },
-        { label: 'Entwicklerwerkzeuge', role: 'toggleDevTools' },
+        { label: t('Vollbild'), role: 'togglefullscreen' },
+        { label: t('Entwicklerwerkzeuge'), role: 'toggleDevTools' },
       ],
     },
     {
-      label: '&Extras',
+      label: t('&Extras'),
       submenu: [
-        eintrag('Offen (Liegengebliebenes & Geplantes)…', 'wartet'),
-        eintrag('Postfach aufräumen…', 'aufraeumen'),
-        eintrag('Regeln…', 'regeln'),
+        eintrag(t('Offen (Liegengebliebenes & Geplantes)…'), 'wartet'),
+        eintrag(t('Postfach aufräumen…'), 'aufraeumen'),
+        eintrag(t('Regeln…'), 'regeln'),
         { type: 'separator' },
         /*
          * Der Weg auf einen neuen Rechner.
@@ -136,12 +141,25 @@ export function setzeMenue(): void {
          * Punkte nehmen einem die Entscheidung ab.
          */
         {
-          label: 'Einstellungen sichern…',
+          label: t('Einstellungen sichern…'),
           click: () => void sichereEinstellungen(SERVER),
         },
         {
-          label: 'Sicherung einlesen…',
+          label: t('Sicherung einlesen…'),
           click: () => void leseEinstellungen(SERVER),
+        },
+        /*
+         * Der Gegenpol zu den beiden darüber: nicht mitnehmen, sondern loswerden.
+         *
+         * Was das Programm zwischenspeichert - Betreffzeilen, Absender, den Wortlaut der
+         * zuletzt gelesenen Nachrichten -, liegt unverschlüsselt im Benutzerordner, und
+         * bis hierher gab es keinen Weg dorthin außer der Suche von Hand nach ablage.db.
+         * Für einen Rechner, der weitergegeben wird, ist das der wichtigste Punkt in
+         * diesem Menü.
+         */
+        {
+          label: t('Zwischengespeicherte Nachrichten…'),
+          click: () => void leereZwischenspeicher(SERVER),
         },
         { type: 'separator' },
         /*
@@ -153,7 +171,7 @@ export function setzeMenue(): void {
          * keinen neuen Kanal in der Brücke - die absichtlich schmal gehalten ist.
          */
         {
-          label: 'Beim Schließen in den Infobereich',
+          label: t('Beim Schließen in den Infobereich'),
           type: 'checkbox',
           checked: einstellungen().imInfobereich,
           click: (eintrag) => {
@@ -164,7 +182,7 @@ export function setzeMenue(): void {
           },
         },
         {
-          label: 'Mit Windows starten',
+          label: t('Mit Windows starten'),
           type: 'checkbox',
           checked: einstellungen().mitWindowsStarten,
           click: (eintrag) => {
@@ -173,17 +191,83 @@ export function setzeMenue(): void {
             setzeMenue();
           },
         },
+        /*
+         * Der einzige Schalter hier, der nicht das Fensterverhalten betrifft, sondern
+         * eine Verbindung nach draußen.
+         *
+         * Die Prüfung ist die von Chromium, und die Wörterbücher, die Windows nicht
+         * mitbringt, holt sie sich von einem Server von Google. Geschriebener Text geht
+         * dabei nicht hinaus - aber ein Abruf ist es, und in einem Programm, das für sich
+         * in Anspruch nimmt, nur mit dem Postfach zu sprechen, gehört er abstellbar.
+         * Ausgeschrieben statt "Rechtschreibprüfung": ein Schalter, dessen Wirkung man
+         * erst nach dem Umlegen versteht, ist keiner.
+         */
+        /*
+         * Nicht der Rechner, sondern der Raum.
+         *
+         * Eine Meldung erscheint über allem, was gerade auf dem Bildschirm ist - im
+         * Vortrag, in der Bildschirmübertragung, auf dem Sperrbildschirm, wo Windows sie
+         * im Info-Center aufhebt. Wer daneben steht, liest mit.
+         */
+        {
+          label: t('Absender und Betreff in Meldungen zeigen'),
+          type: 'checkbox',
+          checked: einstellungen().meldungsvorschau,
+          click: (eintrag) => {
+            setzeEinstellung('meldungsvorschau', eintrag.checked);
+            // Nichts weiter anzuwenden: die nächste Meldung fragt den Wert selbst ab.
+            setzeMenue();
+          },
+        },
+        /*
+         * Die Sprache der Oberfläche.
+         *
+         * Als Untermenü mit Punkten und nicht als Haken: „automatisch" ist eine eigene
+         * Wahl und nicht die Abwesenheit einer Wahl - wer sie trifft, will die Sprache von
+         * Windows, auch wenn die sich später ändert.
+         *
+         * Gibt die Organisation eine Sprache vor, steht sie hier ausgegraut. Den Punkt
+         * ganz wegzulassen wäre der naheliegende Weg und der schlechtere: Wer die Sprache
+         * sucht und nichts findet, hält es für ein fehlendes Merkmal statt für eine
+         * Entscheidung seines Hauses.
+         */
+        {
+          label: t('Sprache'),
+          submenu: SPRACHWAHL.map(({ wert, name }) => ({
+            label: name,
+            type: 'radio' as const,
+            checked: einstellungen().sprache === wert,
+            enabled: !richtlinien().sprache,
+            click: () => {
+              setzeEinstellung('sprache', wert);
+              wendeSpracheAn();
+              // Das Menü ist bereits gebaut; seine Beschriftungen ändern sich nicht von
+              // selbst. Neu aufbauen ist hier kein Umweg, sondern der ganze Vorgang.
+              setzeMenue();
+            },
+          })),
+        },
+        {
+          label: t('Rechtschreibprüfung (lädt Wörterbücher von Google)'),
+          type: 'checkbox',
+          checked: einstellungen().rechtschreibung,
+          click: (eintrag) => {
+            setzeEinstellung('rechtschreibung', eintrag.checked);
+            wendeRechtschreibungAn();
+            setzeMenue();
+          },
+        },
       ],
     },
     {
-      label: '&Hilfe',
+      label: t('&Hilfe'),
       submenu: [
         {
-          label: 'Nach Aktualisierungen suchen',
+          label: t('Nach Aktualisierungen suchen'),
           click: () => sucheAktualisierung(),
         },
         {
-          label: 'Projektseite öffnen',
+          label: t('Projektseite öffnen'),
           click: () => void shell.openExternal('https://github.com/EnergyTrading07/energy-mail'),
         },
         { type: 'separator' },
@@ -195,17 +279,17 @@ export function setzeMenue(): void {
          * ohne Kennwörter, Zugangsmarken und Mailadressen.
          */
         {
-          label: 'Fehlerbericht erzeugen…',
+          label: t('Fehlerbericht erzeugen…'),
           click: () => void erzeugeFehlerbericht(),
         },
         {
-          label: 'Protokollordner öffnen',
+          label: t('Protokollordner öffnen'),
           click: () => oeffneProtokollordner(),
         },
         { type: 'separator' },
         // Ein eigenes Fenster statt einer gesperrten Zeile mit der Fassungsnummer: dort
         // steht auch, worauf die Anwendung aufsetzt und wo die Zugangsdaten liegen.
-        { label: `Über Energy Mail ${app.getVersion()}`, click: () => void zeigeUeber() },
+        { label: t('Über Energy Mail {fassung}', { fassung: app.getVersion() }), click: () => void zeigeUeber() },
       ],
     },
   ];

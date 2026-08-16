@@ -4,6 +4,7 @@ import type { Account } from '../api.js';
 import { bestaetige, frage } from '../dialoge.js';
 import { meldeErfolg, meldeFehler, meldeWarnung } from '../meldungen.js';
 import { Fenster } from './Fenster.js';
+import { t } from '../sprache.js';
 
 /**
  * Der Schlüsselbund.
@@ -67,12 +68,16 @@ export function SchluesselModal({ accounts, onClose }: Props) {
   const entfernen = async (eintrag: api.SchluesselEintrag) => {
     const geheim = eintrag.angaben.geheim;
     const ja = await bestaetige({
-      titel: geheim ? 'Geheimen Schlüssel wirklich entfernen?' : 'Schlüssel entfernen?',
+      titel: geheim ? t('Geheimen Schlüssel wirklich entfernen?') : t('Schlüssel entfernen?'),
       text: geheim
-        ? 'Ohne diesen Schlüssel lassen sich alle bisher an Sie verschlüsselten Nachrichten NIE WIEDER öffnen – auch die, die schon in Ihrem Postfach liegen. Es gibt keinen Weg zurück. Legen Sie vorher eine Sicherung an.'
-        : 'Unterschriften dieses Absenders lassen sich danach nicht mehr prüfen, und an ihn verschlüsseln geht auch nicht mehr. Der Schlüssel lässt sich jederzeit wieder aufnehmen.',
+        ? t(
+            'Ohne diesen Schlüssel lassen sich alle bisher an Sie verschlüsselten Nachrichten NIE WIEDER öffnen – auch die, die schon in Ihrem Postfach liegen. Es gibt keinen Weg zurück. Legen Sie vorher eine Sicherung an.',
+          )
+        : t(
+            'Unterschriften dieses Absenders lassen sich danach nicht mehr prüfen, und an ihn verschlüsseln geht auch nicht mehr. Der Schlüssel lässt sich jederzeit wieder aufnehmen.',
+          ),
       stil: geheim ? 'gefahr' : 'warnung',
-      ok: 'Entfernen',
+      ok: t('Entfernen'),
     });
     if (!ja) return;
 
@@ -86,9 +91,11 @@ export function SchluesselModal({ accounts, onClose }: Props) {
 
   const neuesPaar = async (konto: Account) => {
     const kennwort = await frage({
-      titel: `Schlüsselpaar für ${konto.email}`,
-      text: 'Vergeben Sie ein Kennwort für den geheimen Schlüssel. Es schützt ihn, falls jemand an Ihren Rechner kommt, und wird nirgends gespeichert – Sie brauchen es bei jeder Unterschrift. Leer lassen geht auch, dann ist der Schlüssel ungeschützt.',
-      ok: 'Erzeugen',
+      titel: t('Schlüsselpaar für {adresse}', { adresse: konto.email }),
+      text: t(
+        'Vergeben Sie ein Kennwort für den geheimen Schlüssel. Es schützt ihn, falls jemand an Ihren Rechner kommt, und wird nirgends gespeichert – Sie brauchen es bei jeder Unterschrift. Leer lassen geht auch, dann ist der Schlüssel ungeschützt.',
+      ),
+      ok: t('Erzeugen'),
       geheim: true,
     });
     if (kennwort === null) return;
@@ -99,13 +106,17 @@ export function SchluesselModal({ accounts, onClose }: Props) {
       const erzeugt = await api.erzeugeSchluesselpaar(konto.id, kennwort || undefined);
       await laden();
       meldeErfolg(
-        'Schlüsselpaar angelegt',
-        `${gruppiert(erzeugt.angaben.kennung)} – geben Sie den öffentlichen Teil an Ihre Gegenstellen weiter.`,
+        t('Schlüsselpaar angelegt'),
+        t('{kennung} – geben Sie den öffentlichen Teil an Ihre Gegenstellen weiter.', {
+          kennung: gruppiert(erzeugt.angaben.kennung),
+        }),
       );
       if (!kennwort) {
         meldeWarnung(
-          'Der Schlüssel ist ohne Kennwort',
-          'Wer an Ihren angemeldeten Rechner kommt, kann damit unterschreiben und Ihre Post lesen.',
+          t('Der Schlüssel ist ohne Kennwort'),
+          t(
+            'Wer an Ihren angemeldeten Rechner kommt, kann damit unterschreiben und Ihre Post lesen.',
+          ),
         );
       }
     } catch (err) {
@@ -128,16 +139,18 @@ export function SchluesselModal({ accounts, onClose }: Props) {
       <div key={`${eintrag.fingerabdruck}-${a.geheim}`} className={`schluessel-zeile${unbrauchbar ? ' hinfaellig' : ''}`}>
         <div className="schluessel-text">
           <div className="schluessel-wer">
-            {a.namen[0] ?? a.adressen[0] ?? '(ohne Namen)'}
+            {a.namen[0] ?? a.adressen[0] ?? t('(ohne Namen)')}
             {a.namen[0] && a.adressen[0] && (
               <span className="schluessel-adresse">{a.adressen.join(', ')}</span>
             )}
-            {a.zurueckgezogen && <span className="schluessel-marke gefahr">zurückgezogen</span>}
+            {a.zurueckgezogen && (
+              <span className="schluessel-marke gefahr">{t('zurückgezogen')}</span>
+            )}
             {a.abgelaufen && !a.zurueckgezogen && (
-              <span className="schluessel-marke gefahr">abgelaufen</span>
+              <span className="schluessel-marke gefahr">{t('abgelaufen')}</span>
             )}
           </div>
-          <div className="schluessel-abdruck" title="Fingerabdruck – lesen Sie ihn Ihrer Gegenstelle vor, um sicherzugehen">
+          <div className="schluessel-abdruck" title={t('Fingerabdruck – lesen Sie ihn Ihrer Gegenstelle vor, um sicherzugehen')}>
             {gruppiert(eintrag.fingerabdruck)}
           </div>
         </div>
@@ -147,13 +160,9 @@ export function SchluesselModal({ accounts, onClose }: Props) {
             onClick={() => {
               window.location.href = api.schluesselAusfuhrAdresse(eintrag.fingerabdruck);
             }}
-          >
-            Ausgeben
-          </button>
+          >{t('Ausgeben')}</button>
         )}
-        <button className="link-btn gefaehrlich" onClick={() => void entfernen(eintrag)}>
-          Entfernen
-        </button>
+        <button className="link-btn gefaehrlich" onClick={() => void entfernen(eintrag)}>{t('Entfernen')}</button>
       </div>
     );
   };
@@ -168,9 +177,9 @@ export function SchluesselModal({ accounts, onClose }: Props) {
 
       {fehler && <div className="error-banner">{fehler}</div>}
 
-      <h4>Ihre eigenen</h4>
+      <h4>{t('Ihre eigenen')}</h4>
       {eigene.length === 0 ? (
-        <div className="empty-state">Noch kein eigener Schlüssel.</div>
+        <div className="empty-state">{t('Noch kein eigener Schlüssel.')}</div>
       ) : (
         eigene.map(zeile)
       )}
@@ -190,14 +199,14 @@ export function SchluesselModal({ accounts, onClose }: Props) {
         </div>
       )}
 
-      <h4>Schlüssel anderer</h4>
+      <h4>{t('Schlüssel anderer')}</h4>
       {fremde.length === 0 ? (
-        <div className="empty-state">Noch keine fremden Schlüssel.</div>
+        <div className="empty-state">{t('Noch keine fremden Schlüssel.')}</div>
       ) : (
         fremde.map(zeile)
       )}
 
-      <h4>Aufnehmen</h4>
+      <h4>{t('Aufnehmen')}</h4>
       <div className="form-row">
         <textarea
           rows={4}
@@ -229,16 +238,10 @@ export function SchluesselModal({ accounts, onClose }: Props) {
           className="btn"
           disabled={busy || !einfuegen.trim()}
           onClick={() => void aufnehmen(einfuegen)}
-        >
-          Aus dem Feld aufnehmen
-        </button>
-        <button className="btn secondary" disabled={busy} onClick={() => dateiwahl.current?.click()}>
-          Aus einer Datei
-        </button>
+        >{t('Aus dem Feld aufnehmen')}</button>
+        <button className="btn secondary" disabled={busy} onClick={() => dateiwahl.current?.click()}>{t('Aus einer Datei')}</button>
         <span className="adressbuch-fueller" />
-        <button className="btn" onClick={onClose}>
-          Schließen
-        </button>
+        <button className="btn" onClick={onClose}>{t('Schließen')}</button>
       </div>
     </Fenster>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import * as api from '../api.js';
 import type { Contact } from '../api.js';
+import { t } from '../sprache.js';
 
 interface Props {
   value: string;
@@ -123,6 +124,19 @@ export function AddressInput({ value, onChange, placeholder, required, disabled,
             >
               {contact.name && <span className="suggestion-name">{contact.name}</span>}
               <span className="suggestion-address">{contact.address}</span>
+              {/*
+                Woher der Vorschlag stammt.
+
+                Aus dem eigenen Adressbuch heisst "damit hatte ich schon zu tun"; aus dem
+                Firmenverzeichnis heisst "so heisst diese Person laut Verzeichnis" - und
+                das ist ein Unterschied, den man beim Auswaehlen kennen will.
+              */}
+              {contact.ausVerzeichnis && (
+                <span className="suggestion-quelle">
+                  {[contact.abteilung, contact.organisation].filter(Boolean).join(' · ') ||
+                    t('Firmenverzeichnis')}
+                </span>
+              )}
             </li>
           ))}
         </ul>

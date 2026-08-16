@@ -1,4 +1,5 @@
 import type { Listeneintrag } from './listenTypen.js';
+import { t } from './sprache.js';
 
 /**
  * Sortierung und Anzeigedichte der Nachrichtenliste.
@@ -146,11 +147,13 @@ export function sortiere(
 
 export type Dichte = 'eng' | 'normal' | 'weit';
 
-export const DICHTEN: { wert: Dichte; name: string; erklaerung: string }[] = [
-  { wert: 'eng', name: 'Eng', erklaerung: 'Mehr Nachrichten auf einen Blick' },
-  { wert: 'normal', name: 'Normal', erklaerung: 'Die gewohnte Höhe' },
-  { wert: 'weit', name: 'Weit', erklaerung: 'Mehr Luft zwischen den Zeilen' },
-];
+export function dichten(): { wert: Dichte; name: string; erklaerung: string }[] {
+  return [
+    { wert: 'eng', name: t('Eng'), erklaerung: t('Mehr Nachrichten auf einen Blick') },
+    { wert: 'normal', name: t('Normal'), erklaerung: t('Die gewohnte Höhe') },
+    { wert: 'weit', name: t('Weit'), erklaerung: t('Mehr Luft zwischen den Zeilen') },
+  ];
+}
 
 const DICHTE_WERTE: Dichte[] = ['eng', 'normal', 'weit'];
 
@@ -176,9 +179,9 @@ export const alsText = (sortierung: Sortierung) =>
 /** Wie die Sortierung in der Leiste heißt. */
 export function beschreibeSortierung(sortierung: Sortierung): string {
   const wort = {
-    datum: sortierung.richtung === 'ab' ? 'Neueste zuerst' : 'Älteste zuerst',
-    absender: sortierung.richtung === 'ab' ? 'Absender Z–A' : 'Absender A–Z',
-    betreff: sortierung.richtung === 'ab' ? 'Betreff Z–A' : 'Betreff A–Z',
+    datum: sortierung.richtung === 'ab' ? t('Neueste zuerst') : t('Älteste zuerst'),
+    absender: sortierung.richtung === 'ab' ? t('Absender Z–A') : t('Absender A–Z'),
+    betreff: sortierung.richtung === 'ab' ? t('Betreff Z–A') : t('Betreff A–Z'),
   };
   return wort[sortierung.schluessel];
 }

@@ -30,6 +30,52 @@ export interface HuellenEinstellungen {
   mitWindowsStarten: boolean;
 
   /**
+   * Ob beim Verfassen auf Rechtschreibung geprüft wird. Vorgabe: an.
+   *
+   * Steht hier, weil daran etwas hängt, das man ihr nicht ansieht: die Prüfung ist die
+   * von Chromium, und Chromium holt sich die Wörterbücher, die Windows nicht mitbringt,
+   * von einem Server von Google. Das ist der einzige Abruf der Anwendung, der weder dem
+   * Postfach noch der Aktualisierungssuche gilt - und der einzige, den DATENSCHUTZ.md
+   * lange nicht nannte, weil er in Electron steckt und nicht in diesem Quelltext.
+   *
+   * Übertragen wird dabei nichts über den Nutzer außer dem, was jeder Abruf überträgt
+   * (IP-Adresse, gewünschte Sprache) - insbesondere geht kein geschriebener Text hinaus,
+   * die Prüfung läuft danach vollständig auf dem Rechner. Wem auch das zu viel ist, der
+   * schaltet es hier ab; dann unterbleibt der Abruf.
+   */
+  rechtschreibung: boolean;
+
+  /**
+   * Ob in einer Meldung des Betriebssystems steht, von wem sie kommt und worum es geht.
+   * Vorgabe: an.
+   *
+   * Der Grund für den Schalter ist nicht der Rechner, sondern der Raum. Eine Meldung
+   * erscheint über allem, was gerade auf dem Bildschirm ist - im Vortrag, in der
+   * Bildschirmübertragung einer Besprechung, auf dem Sperrbildschirm, wo Windows sie im
+   * Info-Center aufhebt. Wer daneben steht, liest mit, ohne etwas dafür tun zu müssen.
+   * „Praxis Dr. Behrens: Ihr Befund liegt vor“ ist eine Auskunft, die man nicht
+   * zurücknehmen kann.
+   *
+   * Vorgabe an, weil eine Meldung ohne Absender und Betreff die Frage offenlässt, für
+   * die es sie gibt - lohnt sich das Hinsehen? Wer den Bildschirm regelmäßig teilt,
+   * schaltet um; die Meldung nennt dann nur noch das Konto.
+   */
+  meldungsvorschau: boolean;
+
+  /**
+   * Die Sprache der Oberfläche: "automatisch", "de" oder "en".
+   *
+   * Vorgabe: automatisch, also die Sprache von Windows. Das ist für den Regelfall richtig
+   * und kommt ohne jede Einstellung aus. Wer umstellt, meint es - und wird nicht beim
+   * nächsten Start überstimmt.
+   *
+   * Muss in der Hülle stehen und nicht im Browserspeicher der Oberfläche: das Menü, die
+   * Meldungen und die Fenster der Hülle brauchen die Sprache, bevor überhaupt eine
+   * Oberfläche geladen ist.
+   */
+  sprache: string;
+
+  /**
    * Ob der einmalige Hinweis beim ersten Schließen schon gezeigt wurde.
    *
    * Er erscheint genau einmal. Ein Programm, das nach dem Klick auf X einfach
@@ -42,6 +88,9 @@ export interface HuellenEinstellungen {
 const VORGABE: HuellenEinstellungen = {
   imInfobereich: true,
   mitWindowsStarten: false,
+  rechtschreibung: true,
+  meldungsvorschau: true,
+  sprache: 'automatisch',
   hinweisGezeigt: false,
 };
 
@@ -58,6 +107,9 @@ export function einstellungen(): HuellenEinstellungen {
     zwischenspeicher = {
       imInfobereich: roh.imInfobereich !== false,
       mitWindowsStarten: roh.mitWindowsStarten === true,
+      rechtschreibung: roh.rechtschreibung !== false,
+      meldungsvorschau: roh.meldungsvorschau !== false,
+      sprache: typeof roh.sprache === 'string' ? roh.sprache : 'automatisch',
       hinweisGezeigt: roh.hinweisGezeigt === true,
     };
   } catch {

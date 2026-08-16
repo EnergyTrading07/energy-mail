@@ -8,7 +8,11 @@ import {
 import { listAccounts } from './accountStore.js';
 import { verwerfe } from './cache.js';
 import { aktualisiereGelesen, nachrichtenSchluessel, verwirfNachrichten } from './messageCache.js';
+import { aktuellerNutzer, alsNutzer } from './nutzer/kontext.js';
+import { jeNutzer } from './nutzer/jeNutzer.js';
 import { passt, regelnFuer, wendeRegelnAn } from './rules.js';
+import { beantworteNeue } from './abwesenheit.js';
+import { erfasseEingang } from './archiv/erfassen.js';
 
 interface EventBase {
   accountId: string;
@@ -64,10 +68,32 @@ export type MailEvent =
 
 type Listener = (event: MailEvent) => void;
 
-const listeners = new Set<Listener>();
+/**
+ * Zuhörer, Überwachungen und angesehene Ordner - je Nutzer getrennt.
+ *
+ * Hier stand dreimal eine prozessglobale Map, und das war die letzte Stelle, an der die
+ * Umstellung auf mehrere Nutzer nicht angekommen war. Alles, was mit einer Datei
+ * arbeitet, hing längst am Nutzerkontext; dieses Modul arbeitet mit keiner und ist
+ * deshalb durchgerutscht. Zwei Folgen, beide schwer:
+ *
+ *  - `listeners` war ein einziger Satz. Jede WebSocket-Verbindung hing daran, und emit()
+ *    ging an alle. Der Browser jedes angemeldeten Nutzers bekam damit die
+ *    'new-mail'-Ereignisse ALLER Nutzer - und die tragen Betreff, Absender und
+ *    Empfänger der eingegangenen Nachricht mit sich. Fremde Post, in Echtzeit, ohne
+ *    dass irgendetwas danach gefragt hätte.
+ *
+ *  - `watchers` war eine einzige Map, syncWatchers() baute sein Soll aber immer nur aus
+ *    den Konten des gerade laufenden Nutzers und stoppte alles, was nicht darin stand.
+ *    Wer einen Ordner öffnete, beendete damit die Überwachung aller anderen. Beim Start
+ *    behielt nur der letzte Nutzer der Schleife überhaupt eine.
+ *
+ * jeNutzer() ist dasselbe Werkzeug, mit dem cache.ts und die lokale Ablage dasselbe
+ * Problem lösen - siehe nutzer/jeNutzer.ts.
+ */
+const zuhoerer = jeNutzer<Set<Listener>>(() => new Set());
 
-/** Laufende Überwachungen, Schlüssel ist Konto + Ordner. */
-const watchers = new Map<string, () => void>();
+/** Laufende Überwachungen je Nutzer, Schlüssel ist Konto + Ordner. */
+const watchers = jeNutzer<Map<string, () => void>>(() => new Map());
 
 /**
  * Der Ordner, der immer überwacht wird. Nur für ihn gibt es Benachrichtigungen - sonst
@@ -84,7 +110,7 @@ export const POSTEINGANG = 'INBOX';
  * Konto ins Leere. Überwacht wird deshalb, was man sich gerade ansieht: das deckt den
  * Zweck ab, ohne die Grenze zu berühren.
  */
-const zusatzOrdner = new Map<string, Map<string, number>>();
+const zusatzOrdner = jeNutzer<Map<string, Map<string, number>>>(() => new Map());
 
 /** Höchstzahl zusätzlicher Ordner je Konto - macht mit dem Posteingang drei. */
 const MAX_ZUSATZ = 2;
@@ -104,7 +130,7 @@ const watcherSchluessel = (accountId: string, folder: string) =>
 
 /** Welche Ordner eines Kontos derzeit überwacht werden sollen. */
 function gewuenschteOrdner(accountId: string): string[] {
-  const zusatz = zusatzOrdner.get(accountId);
+  const zusatz = zusatzOrdner.hole().get(accountId);
   return [POSTEINGANG, ...(zusatz ? [...zusatz.keys()] : [])];
 }
 
@@ -116,7 +142,8 @@ function gewuenschteOrdner(accountId: string): string[] {
 export function meldeAnsicht(accountId: string, folder: string): void {
   if (folder === POSTEINGANG) return;
 
-  const bisher = zusatzOrdner.get(accountId) ?? new Map<string, number>();
+  const jeKonto = zusatzOrdner.hole();
+  const bisher = jeKonto.get(accountId) ?? new Map<string, number>();
   const schonDa = bisher.has(folder);
   bisher.set(folder, Date.now());
 
@@ -125,27 +152,43 @@ export function meldeAnsicht(accountId: string, folder: string): void {
     const [aeltester] = [...bisher.entries()].sort((a, b) => a[1] - b[1]);
     bisher.delete(aeltester[0]);
   }
-  zusatzOrdner.set(accountId, bisher);
+  jeKonto.set(accountId, bisher);
 
   // Nur abgleichen, wenn wirklich ein Ordner hinzugekommen ist - sonst würde jeder
   // Klick in denselben Ordner einen Durchlauf auslösen.
   if (!schonDa) syncWatchers();
 }
 
-/** Beendet Überwachungen von Ordnern, die längere Zeit niemand angesehen hat. */
+/**
+ * Beendet Überwachungen von Ordnern, die längere Zeit niemand angesehen hat.
+ *
+ * Läuft auf einem Zeitgeber und damit ohne Nutzerkontext - jeder Nutzer wird deshalb
+ * ausdrücklich betreten. Das ist genau der Fall, für den kontext.ts das Werfen ohne
+ * Kontext vorsieht: Hintergrundarbeit bringt ihren Nutzer selbst mit.
+ */
 function raeumeZusatzAuf(): void {
   const grenze = Date.now() - ZUSATZ_LEBENSDAUER_MS;
-  let etwasEntfernt = false;
-  for (const [accountId, ordner] of zusatzOrdner) {
-    for (const [folder, zuletzt] of ordner) {
-      if (zuletzt < grenze) {
-        ordner.delete(folder);
-        etwasEntfernt = true;
+  for (const [nutzerId, jeKonto] of zusatzOrdner.alle()) {
+    let etwasEntfernt = false;
+    for (const [accountId, ordner] of jeKonto) {
+      for (const [folder, zuletzt] of ordner) {
+        if (zuletzt < grenze) {
+          ordner.delete(folder);
+          etwasEntfernt = true;
+        }
+      }
+      if (ordner.size === 0) jeKonto.delete(accountId);
+    }
+    // Je Nutzer für sich abgleichen: ein Fehler bei einem darf die übrigen nicht
+    // mitreißen, und syncWatchers() gilt immer nur für den betretenen Nutzer.
+    if (etwasEntfernt) {
+      try {
+        alsNutzer(nutzerId, syncWatchers);
+      } catch (err) {
+        log.warn(`Überwachung von "${nutzerId}" nicht abgeglichen: ${(err as Error).message}`);
       }
     }
-    if (ordner.size === 0) zusatzOrdner.delete(accountId);
   }
-  if (etwasEntfernt) syncWatchers();
 }
 
 const aufraeumer = setInterval(raeumeZusatzAuf, 60_000);
@@ -163,18 +206,28 @@ export function setRegistryLogger(logger: RegistryLogger): void {
 }
 
 /**
- * Registriert einen Empfänger für Ereignisse *aller* Konten. Die Watcher laufen
- * unabhängig davon weiter, ob gerade jemand zuhört - so ist der Zustand nicht an
+ * Registriert einen Empfänger für Ereignisse aller Konten EINES Nutzers. Die Watcher
+ * laufen unabhängig davon weiter, ob gerade jemand zuhört - so ist der Zustand nicht an
  * eine einzelne WebSocket-Verbindung gekoppelt und mehrere Fenster erzeugen keine
  * doppelte IMAP-Last.
+ *
+ * Der Nutzer wird ausdrücklich übergeben und nicht aus dem Kontext gelesen. Zwei Gründe:
+ * die Desktop-Hülle meldet sich von außerhalb jeder Anfrage an (notifications.ts), und
+ * ein stillschweigender Rückfall auf "dann eben alle" wäre genau die Vermischung, gegen
+ * die dieses Modul umgebaut wurde.
  */
-export function subscribe(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+export function subscribe(nutzerId: string, listener: Listener): () => void {
+  zuhoerer.holeFuer(nutzerId).add(listener);
+  return () => {
+    zuhoerer.vorhanden(nutzerId)?.delete(listener);
+  };
 }
 
-function emit(event: MailEvent): void {
-  for (const listener of listeners) {
+/** Schickt ein Ereignis an die Zuhörer genau eines Nutzers - an niemanden sonst. */
+function emit(nutzerId: string, event: MailEvent): void {
+  const menge = zuhoerer.vorhanden(nutzerId);
+  if (!menge) return;
+  for (const listener of menge) {
     try {
       listener(event);
     } catch {
@@ -206,14 +259,19 @@ async function holeNeue(config: AccountConfig, event: NewMailEvent): Promise<Mes
   }
 }
 
-/** Meldet der Oberfläche, dass ein zwischengespeicherter Stand überholt ist. */
+/**
+ * Meldet der Oberfläche, dass ein zwischengespeicherter Stand überholt ist.
+ *
+ * Gerufen wird das aus Routen und aus Zeitgebern der Wiedervorlage - beide laufen in
+ * einem Nutzerkontext, und genau dessen Zuhörer sind gemeint.
+ */
 export function meldeAktualisierung(event: Extract<MailEvent, { type: 'data-updated' }>): void {
-  emit(event);
+  emit(aktuellerNutzer(), event);
 }
 
 /** Meldet, wie weit ein länger dauernder Vorgang ist. */
 export function meldeFortschritt(event: Extract<MailEvent, { type: 'fortschritt' }>): void {
-  emit(event);
+  emit(aktuellerNutzer(), event);
 }
 
 /**
@@ -235,6 +293,11 @@ function verwerfeStaende(accountId: string, folder: string): void {
  * wenn sich die Menge der angesehenen Ordner ändert.
  */
 export function syncWatchers(): void {
+  // Ganz vorn und nicht erst beim Zugriff: ohne Kontext ist gar nicht bestimmt, wessen
+  // Überwachung hier abgeglichen werden soll, und ein Abgleich gegen den falschen Satz
+  // Konten würde fremde Watcher stoppen. Genau das war der Fehler.
+  const nutzerId = aktuellerNutzer();
+
   let accounts;
   try {
     accounts = listAccounts();
@@ -252,27 +315,45 @@ export function syncWatchers(): void {
     }
   }
 
-  for (const [key, stop] of watchers) {
+  // Nur die Überwachungen DIESES Nutzers. Vorher lief die Schleife über eine
+  // prozessglobale Map, während "soll" nur die Konten des laufenden Nutzers kannte -
+  // damit stoppte jeder Abgleich die Watcher aller anderen.
+  const laufende = watchers.hole();
+
+  for (const [key, stop] of laufende) {
     if (!soll.has(key)) {
       stop();
-      watchers.delete(key);
+      laufende.delete(key);
       log.info(`Überwachung beendet: ${key}`);
     }
   }
 
   for (const [key, { account, folder }] of soll) {
-    if (watchers.has(key)) continue;
-    watchers.set(key, starteWatcher(account, folder));
+    if (laufende.has(key)) continue;
+    laufende.set(key, starteWatcher(nutzerId, account, folder));
   }
 }
 
 /** Startet die Überwachung eines einzelnen Ordners und liefert die Stoppfunktion. */
-function starteWatcher(account: AccountConfig, ordner: string): () => void {
+function starteWatcher(nutzerId: string, account: AccountConfig, ordner: string): () => void {
   {
     const base = { accountId: account.id, email: account.email };
 
+    /**
+     * Jeder Rückruf betritt den Nutzer ausdrücklich.
+     *
+     * Die Behandler hängen an einem IMAP-Socket und feuern, wenn der Anbieter etwas
+     * schickt - also außerhalb jeder Anfrage. Was darin läuft, greift auf
+     * Zwischenspeicher, Regeln und die abgelegten Nachrichten zu, und all das fragt den
+     * Kontext. Dass er heute über die Socket-Erzeugung vererbt wird, ist eine Eigenschaft
+     * von AsyncLocalStorage, auf die man sich nicht verlassen sollte: sie hängt daran,
+     * dass der Client innerhalb von alsNutzer() gebaut wurde, und fiele beim nächsten
+     * Umbau des Verbindungsaufbaus still weg. Hier steht sie ausdrücklich.
+     */
+    const imNutzer = <T,>(fn: () => T): T => alsNutzer(nutzerId, fn);
+
     const stop = watchMailbox(account, ordner, {
-      onNewMail: (event: NewMailEvent) => {
+      onNewMail: (event: NewMailEvent) => imNutzer(() => {
         log.info(`Neue Mail für ${account.email} in ${event.folder} (${event.count})`);
         verwerfeStaende(account.id, event.folder);
         // Kopfdaten nachholen, bevor gemeldet wird: die Verzögerung von ein paar
@@ -296,7 +377,41 @@ function starteWatcher(account: AccountConfig, ordner: string): () => void {
             log.warn(`Regeln konnten nicht angewendet werden: ${(err as Error).message}`);
           }
 
-          emit({
+          /*
+           * Die Abwesenheitsnotiz - nach den Regeln und auf dem, was übrig blieb.
+           *
+           * Auf `uebrig` und nicht auf `neue`: Was eine Regel gerade wegsortiert hat, hat
+           * der Nutzer ausdrücklich als etwas gekennzeichnet, das ihn nicht erreichen
+           * soll. Darauf zu antworten hieße, einem Verteiler zu schreiben, den er längst
+           * beiseitegelegt hat.
+           *
+           * Fehler bleiben hier drin. Eine Notiz, die nicht hinausgeht, ist ärgerlich -
+           * eine, die die Postfachüberwachung mitreißt, ist ein Ausfall des ganzen
+           * Postfachs.
+           */
+          try {
+            await beantworteNeue(account, event.folder, uebrig);
+          } catch (err) {
+            log.warn(`Abwesenheitsnotiz nicht möglich: ${(err as Error).message}`);
+          }
+
+          /*
+           * Ins Archiv - und zwar auf `neue`, nicht auf `uebrig`.
+           *
+           * Der Unterschied zur Abwesenheitsnotiz ist der Zweck. Dort ging es darum, wem
+           * geantwortet wird, und was eine Regel wegsortiert hat, soll keine Antwort
+           * bekommen. Hier geht es um Vollständigkeit: Eine Regel, die eine Nachricht in
+           * einen anderen Ordner schiebt, macht sie nicht weniger aufbewahrungspflichtig.
+           * Wer sie an dieser Stelle übergeht, hat ein Archiv mit Lücken, die genau dem
+           * folgen, was jemand einmal eingerichtet hat.
+           */
+          try {
+            await erfasseEingang(account, event.folder, neue);
+          } catch (err) {
+            log.warn(`Archivierung nicht möglich: ${(err as Error).message}`);
+          }
+
+          emit(nutzerId, {
             ...base,
             type: 'new-mail',
             folder: event.folder,
@@ -305,8 +420,8 @@ function starteWatcher(account: AccountConfig, ordner: string): () => void {
             neue: uebrig,
           });
         })();
-      },
-      onFlagsChanged: (event) => {
+      }),
+      onFlagsChanged: (event) => imNutzer(() => {
         log.info(
           `Status geändert für ${account.email} in ${event.folder}` +
             `${event.uid ? ` (uid ${event.uid})` : ''}: seen=${event.seen}`,
@@ -320,9 +435,15 @@ function starteWatcher(account: AccountConfig, ordner: string): () => void {
         } else {
           verwirfNachrichten(`${account.id}:${event.folder}:`);
         }
-        emit({ ...base, type: 'flags-changed', folder: event.folder, uid: event.uid, seen: event.seen });
-      },
-      onMessagesRemoved: (event) => {
+        emit(nutzerId, {
+          ...base,
+          type: 'flags-changed',
+          folder: event.folder,
+          uid: event.uid,
+          seen: event.seen,
+        });
+      }),
+      onMessagesRemoved: (event) => imNutzer(() => {
         log.info(`Nachricht entfernt für ${account.email} in ${event.folder}`);
         verwerfeStaende(account.id, event.folder);
         verwirfNachrichten(
@@ -330,8 +451,8 @@ function starteWatcher(account: AccountConfig, ordner: string): () => void {
             ? nachrichtenSchluessel(account.id, event.folder, event.uid)
             : `${account.id}:${event.folder}:`,
         );
-        emit({ ...base, type: 'messages-removed', folder: event.folder, uid: event.uid });
-      },
+        emit(nutzerId, { ...base, type: 'messages-removed', folder: event.folder, uid: event.uid });
+      }),
       onError: (err) => log.warn(`Überwachung ${account.email} (${ordner}): ${err.message}`),
     });
 
@@ -346,16 +467,25 @@ function starteWatcher(account: AccountConfig, ordner: string): () => void {
  * syncWatchers() allein genügt nicht, weil dort schon Einträge stehen.
  */
 export function restartWatcher(accountId: string): void {
-  for (const [key, stop] of watchers) {
+  const laufende = watchers.hole();
+  for (const [key, stop] of laufende) {
     if (key.startsWith(`${accountId}${TRENNER}`)) {
       stop();
-      watchers.delete(key);
+      laufende.delete(key);
     }
   }
   syncWatchers();
 }
 
+/**
+ * Beendet die Überwachung ALLER Nutzer - beim Herunterfahren.
+ *
+ * Die einzige Stelle, die bewusst über alle geht, und sie tut es ohne Nutzerkontext:
+ * gerufen wird sie aus dem onClose-Haken des Servers, und dort gibt es keinen.
+ */
 export function stopAllWatchers(): void {
-  for (const stop of watchers.values()) stop();
-  watchers.clear();
+  for (const [, laufende] of watchers.alle()) {
+    for (const stop of laufende.values()) stop();
+    laufende.clear();
+  }
 }

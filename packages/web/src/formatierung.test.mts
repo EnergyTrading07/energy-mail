@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import {
-  WERKZEUGE,
+  werkzeuge,
   befehlFuerTaste,
   istUnbedenklicheAdresse,
   normalisiereAdresse,
   raeumeEingefuegtesAuf,
+  raeumeEntwurfAuf,
 } from './formatierung.js';
 
 let ok = 0;
@@ -30,10 +31,16 @@ function aufgeraeumt(html: string): string {
   return wurzel.innerHTML;
 }
 
+/** Dasselbe fuer einen Entwurf, der aus dem Postfach zurueckkommt. */
+function entwurf(html: string): string {
+  const dom = new JSDOM('');
+  return raeumeEntwurfAuf(html, dom.window.document);
+}
+
 console.log('\nDie Leiste:');
 
 pruefe('jeder Knopf hat Befehl, Titel und Aufschrift', () => {
-  for (const gruppe of WERKZEUGE) {
+  for (const gruppe of werkzeuge()) {
     for (const w of gruppe) {
       assert.ok(w.befehl, 'ohne Befehl');
       assert.ok(w.titel, `${w.befehl}: ohne Titel`);
@@ -43,14 +50,14 @@ pruefe('jeder Knopf hat Befehl, Titel und Aufschrift', () => {
 });
 
 pruefe('kein Befehl steht zweimal in derselben Gruppe', () => {
-  for (const gruppe of WERKZEUGE) {
+  for (const gruppe of werkzeuge()) {
     const schluessel = gruppe.map((w) => `${w.befehl}:${w.wert ?? ''}`);
     assert.equal(new Set(schluessel).size, schluessel.length);
   }
 });
 
 pruefe('jeder Titel nennt sein Tastenkuerzel, wenn es eines gibt', () => {
-  const mitKuerzel = WERKZEUGE.flat().filter((w) => /Strg\+/.test(w.titel));
+  const mitKuerzel = werkzeuge().flat().filter((w) => /Strg\+/.test(w.titel));
   assert.ok(mitKuerzel.length >= 4, `nur ${mitKuerzel.length}`);
 });
 
@@ -155,6 +162,21 @@ pruefe('verschleierte Adressen ebenso', () => {
   assert.equal(istUnbedenklicheAdresse('file:///C:/Windows'), false);
 });
 
+pruefe('auch mit Steuerzeichen dazwischen', () => {
+  /*
+   * Die Zeichen, die der Browser beim Auswerten einer Adresse ueberliest - genau damit
+   * wird ein verbotenes Schema ueblicherweise verschleiert. Die Zeichenklasse in
+   * istUnbedenklicheAdresse deckt sie ab; hier steht, dass sie es tut. Sie enthielt die
+   * Zeichen frueher als ROHE Bytes im Quelltext, also unsichtbar und anfaellig dafuer,
+   * bei einem Editor- oder Git-Durchlauf still zu verschwinden - dann waere die Pruefung
+   * loechrig gewesen, ohne dass man es der Zeile ansaehe.
+   */
+  for (const zeichen of ['\t', '\n', '\r', '\0', '', '']) {
+    const adresse = `java${zeichen}script:alert(1)`;
+    assert.equal(istUnbedenklicheAdresse(adresse), false, `durchgekommen: ${JSON.stringify(adresse)}`);
+  }
+});
+
 pruefe('gewoehnliche Adressen sind unbedenklich', () => {
   assert.equal(istUnbedenklicheAdresse('https://beispiel.de'), true);
   assert.equal(istUnbedenklicheAdresse('http://beispiel.de'), true);
@@ -206,6 +228,70 @@ pruefe('Leerraum stoert nicht, Leeres bleibt leer', () => {
   assert.equal(normalisiereAdresse('  firma.de  '), 'https://firma.de');
   assert.equal(normalisiereAdresse(''), '');
   assert.equal(normalisiereAdresse('   '), '');
+});
+
+console.log('\nEin Entwurf aus dem Postfach:');
+
+pruefe('Bilder von fremden Servern kommen nicht mit', () => {
+  /*
+   * Der Zaehlpixel im eigenen Entwurf. Er klingt weit hergeholt und ist es nicht: der
+   * Entwurf liegt beim Anbieter, und wer dorthin schreiben kann, bestimmt, was beim
+   * Oeffnen abgerufen wird. Genau dieselbe Luecke war bei der Antwort schon einmal da.
+   */
+  const raus = entwurf('<p>Hallo</p><img src="https://verfolger.example/pixel.gif" width="1">');
+  assert.ok(!raus.includes('verfolger.example'), `Bild blieb stehen: ${raus}`);
+  assert.ok(raus.includes('Hallo'), 'der Text ging verloren');
+});
+
+pruefe('ein Stilblock gilt sonst im ganzen Fenster', () => {
+  const raus = entwurf('<style>.btn{display:none}</style><p>Text</p>');
+  assert.ok(!raus.includes('display:none'), `Stilblock blieb stehen: ${raus}`);
+  assert.ok(raus.includes('Text'));
+});
+
+pruefe('Skript und Ereignismerkmale ebenso', () => {
+  const raus = entwurf('<p onclick="boese()">Text</p><script>boese()</script>');
+  assert.ok(!raus.includes('onclick'), `Merkmal blieb stehen: ${raus}`);
+  assert.ok(!raus.includes('boese()'), `Skript blieb stehen: ${raus}`);
+});
+
+pruefe('die eigene Formatierung ueberlebt das Oeffnen', () => {
+  /*
+   * Der Grund fuer das eigene Regelwerk. Der Editor schreibt fuer seine Farbknoepfe
+   * <font color> - mit der Liste fuer fremdes HTML gereinigt verlore ein Entwurf beim
+   * Oeffnen die Farben, die der Nutzer selbst gesetzt hat.
+   */
+  const raus = entwurf(
+    '<p><b>fett</b> <i>kursiv</i> <font color="#c1121f">rot</font></p>' +
+      '<ul><li>Punkt</li></ul><a href="https://firma.de">Verweis</a>',
+  );
+  assert.ok(raus.includes('<b>fett</b>'), `Fettdruck weg: ${raus}`);
+  assert.ok(raus.includes('<i>kursiv</i>'), `Kursiv weg: ${raus}`);
+  assert.ok(raus.includes('color="#c1121f"'), `Farbe weg: ${raus}`);
+  assert.ok(raus.includes('<li>Punkt</li>'), `Liste weg: ${raus}`);
+  assert.ok(raus.includes('href="https://firma.de"'), `Verweis weg: ${raus}`);
+});
+
+pruefe('eine Farbangabe, die keine ist, fliegt heraus', () => {
+  // Auch ein zugelassenes Merkmal traegt einen Wert aus dem Postfach. Ihn durchzulassen,
+  // ohne hinzusehen, waere die Art Luecke, die man spaeter nicht mehr findet.
+  const raus = entwurf('<font color="url(https://verfolger.example/x)">Text</font>');
+  assert.ok(!raus.includes('verfolger.example'), `Farbwert blieb stehen: ${raus}`);
+  assert.ok(raus.includes('Text'));
+});
+
+pruefe('ein javascript:-Verweis verliert sein Ziel', () => {
+  const raus = entwurf('<a href="javascript:boese()">Klick</a>');
+  assert.ok(!raus.includes('javascript:'), `Ziel blieb stehen: ${raus}`);
+  assert.ok(raus.includes('Klick'));
+});
+
+pruefe('das Regelwerk fuer Fremdes bleibt eng - kein <font>', () => {
+  // Die Erweiterung gilt NUR fuer den eigenen Entwurf. Beim Einfuegen aus einem anderen
+  // Programm soll die Gestaltung weiterhin draussen bleiben.
+  const raus = aufgeraeumt('<font color="#c1121f">rot</font>');
+  assert.ok(!raus.includes('color'), `Farbe kam beim Einfuegen durch: ${raus}`);
+  assert.ok(raus.includes('rot'));
 });
 
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);

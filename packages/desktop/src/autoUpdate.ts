@@ -1,9 +1,30 @@
 import { app } from 'electron';
 import electronUpdater from 'electron-updater';
+import { protokolliere } from '@energy-mail/server/protokoll';
+import { pruefeAktualisierung, schluesselHinterlegt } from './updateSignatur.js';
+import { richtlinien } from './richtlinien.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 // electron-updater ist ein CommonJS-Paket; aus einem ES-Modul heraus kommt es als
 // Standardexport an und muss erst aufgeteilt werden.
-const { autoUpdater } = electronUpdater;
+const { autoUpdater, NsisUpdater } = electronUpdater;
+
+/**
+ * Wo die Veröffentlichungen liegen. Muss zum "repository"-Eintrag der package.json
+ * passen - daraus baut electron-builder die app-update.yml, und daraus wird hier die
+ * Adresse der Freigabedatei.
+ */
+const BESITZER = 'EnergyTrading07';
+const ABLAGE = 'energy-mail';
+
+/**
+ * Die Fassung, die gerade geladen wird.
+ *
+ * Der Prüfhaken von electron-updater bekommt nur den Pfad der heruntergeladenen Datei -
+ * nicht, zu welcher Fassung sie gehört. Die steht aber in der Auskunft, die kurz vorher
+ * eintrifft, und ohne sie ließe sich die zugehörige Freigabe nicht finden.
+ */
+let geladeneFassung: string | null = null;
 
 /**
  * Selbstaktualisierung über die Veröffentlichungen (Releases) des GitHub-Repositorys.
@@ -91,12 +112,27 @@ function alsText(roh: string | { note: string | null }[] | null | undefined): st
 
 /** Von Hand angestoßen (Knopf in der Titelleiste). */
 export function sucheAktualisierung(): void {
+  /*
+   * Die Organisation hat entschieden - und sagt das auch.
+   *
+   * Den Knopf stillschweigend wirkungslos zu machen wäre schlimmer als eine Absage: der
+   * Nutzer klickte, bekäme nichts und wüsste nicht warum. Siehe richtlinien.ts.
+   */
+  if (richtlinien().aktualisierungAbschalten) {
+    setze({
+      phase: 'fehler',
+      grund: t('Die Aktualisierung wird von Ihrer Organisation vorgegeben. {wohin}', {
+        wohin: richtlinien().ansprechpartner ?? t('Wenden Sie sich an Ihre IT-Abteilung.'),
+      }),
+    });
+    return;
+  }
   if (!app.isPackaged) {
     setze({
       phase: 'fehler',
-      grund:
-        'Aus dem Quellbaum gestartet gibt es nichts zu aktualisieren – ' +
-        'die Selbstaktualisierung gilt nur für die installierte Fassung.',
+      grund: t(
+        'Aus dem Quellbaum gestartet gibt es nichts zu aktualisieren – die Selbstaktualisierung gilt nur für die installierte Fassung.',
+      ),
     });
     return;
   }
@@ -116,6 +152,20 @@ export function starteAktualisierungspruefung(
 ): void {
   melde = aufStand;
 
+  /*
+   * Vor allem anderen: hat die Organisation es untersagt?
+   *
+   * Muss hier stehen und nicht erst bei der Suche - autoDownload und
+   * autoInstallOnAppQuit weiter unten machen aus einer bloßen Prüfung sonst ein
+   * Herunterladen und ein Einspielen beim nächsten Beenden. Genau das soll in einer
+   * verwalteten Aufstellung nicht passieren: dort bestimmt die IT, welche Fassung wann
+   * auf welchen Rechner kommt.
+   */
+  if (richtlinien().aktualisierungAbschalten) {
+    log.info('Aktualisierung: von der Organisation abgeschaltet (richtlinien.json).');
+    return;
+  }
+
   // Aus dem Quellbaum heraus gibt es keine app-update.yml; die Prüfung würde mit einem
   // Fehler abbrechen, der nichts bedeutet.
   if (!app.isPackaged) {
@@ -127,6 +177,68 @@ export function starteAktualisierungspruefung(
   // soll sich die Anwendung nicht selbst neu starten.
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  /**
+   * Die eigene Unterschrift prüfen, bevor die Datei als brauchbar gilt.
+   *
+   * Gehängt wird es an genau diesen Haken und nicht an ein späteres Ereignis, und das
+   * ist wesentlich: electron-updater ruft ihn INNERHALB des Ladevorgangs, und ein
+   * Befund führt dort zu einem Abbruch mit ERR_UPDATER_INVALID_SIGNATURE. Damit sind
+   * beide Wege abgedeckt - der Knopf in der Oberfläche und das stille Einspielen beim
+   * Beenden (autoInstallOnAppQuit). Eine Prüfung erst vor quitAndInstall() ließe den
+   * zweiten Weg offen, und der ist der häufigere.
+   *
+   * Der Haken wird nur gerufen, wenn in der app-update.yml ein publisherName steht -
+   * sonst steigt verifySignature() vorher aus. Deshalb steht dort einer, obwohl es
+   * (noch) kein Zertifikat gibt; siehe electron-builder.yml.
+   *
+   * Die Abfrage auf NsisUpdater ist keine Formsache: den Haken gibt es nur dort. Auf
+   * einem anderen Betriebssystem ist `autoUpdater` ein MacUpdater oder AppImageUpdater,
+   * und ein Zuweisen ginge ins Leere - still, versteht sich. Heute wird ohnehin nur für
+   * Windows gebaut; die Abfrage ist der Riegel für den Tag, an dem sich das ändert.
+   */
+  if (!(autoUpdater instanceof NsisUpdater)) {
+    protokolliere(
+      'warnung',
+      'aktualisierung',
+      `Keine Freigabeprüfung: ${process.platform} kennt den Prüfhaken nicht.`,
+    );
+    return;
+  }
+
+  autoUpdater.verifyUpdateCodeSignature = async (_namen: string[], datei: string) => {
+    if (!schluesselHinterlegt()) {
+      /*
+       * Noch kein Schlüssel erzeugt (scripts/schluessel-erzeugen.mjs).
+       *
+       * Hier NICHT abweisen: das schaltete die Selbstaktualisierung ganz ab, und zwar
+       * für einen Zustand, der eine fehlende Einrichtung ist und kein Angriff. Es bleibt
+       * damit beim Stand von vorher - keine Prüfung -, aber es steht laut im Protokoll,
+       * statt still zu geschehen.
+       */
+      protokolliere(
+        'warnung',
+        'aktualisierung',
+        'Keine Freigabeprüfung: es ist kein öffentlicher Schlüssel hinterlegt ' +
+          '(scripts/schluessel-erzeugen.mjs).',
+      );
+      return null;
+    }
+
+    if (!geladeneFassung) {
+      return t(
+        'Zu dieser Datei ist keine Fassung bekannt - die Freigabe lässt sich nicht zuordnen.',
+      );
+    }
+
+    const befund = await pruefeAktualisierung(datei, geladeneFassung, BESITZER, ABLAGE);
+    if (befund) {
+      protokolliere('fehler', 'aktualisierung', `Freigabe abgelehnt: ${befund}`);
+    } else {
+      protokolliere('info', 'aktualisierung', `Freigabe für ${geladeneFassung} geprüft und in Ordnung.`);
+    }
+    return befund;
+  };
 
   autoUpdater.on('checking-for-update', () => {
     log.info('Aktualisierung: suche…');
@@ -142,6 +254,9 @@ export function starteAktualisierungspruefung(
     'update-available',
     (info: { version: string; releaseNotes?: string | { note: string | null }[] | null }) => {
       log.info(`Aktualisierung: Fassung ${info.version} gefunden, wird geladen…`);
+      // Merken für den Prüfhaken: er bekommt später nur den Dateipfad und wüsste sonst
+      // nicht, zu welcher Veröffentlichung die Freigabe zu holen ist.
+      geladeneFassung = info.version;
       setze({ phase: 'gefunden', fassung: info.version, neuerungen: alsText(info.releaseNotes) });
     },
   );

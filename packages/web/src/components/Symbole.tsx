@@ -43,14 +43,41 @@ function Strichzeichen({
 }
 
 /**
- * Das Programmsymbol: Umschlag mit Blitz, wie auf der Verknüpfung und im Startmenü.
+ * Das Programmsymbol: eine Briefmarke, durch die ein Blitz schlägt.
  *
- * Der Farbverlauf braucht eine Kennung, und die muss innerhalb der Seite eindeutig sein -
- * das Zeichen steht an mehreren Stellen gleichzeitig (Titelleiste, Über-Fenster). useId
- * liefert genau dafür einen Wert, der auch bei serverseitigem Vorzeichnen stimmt.
+ * Vorher stand hier ein blaues Kästchen mit einem weißen Umschlag darin - das Zeichen,
+ * das jedes zweite Mailprogramm trägt und das man auf der Taskleiste nur an der Farbe
+ * wiedererkennt. Eine Briefmarke ist eindeutiger: den gezackten Rand hat sonst nichts
+ * auf einem Bildschirm, er ist schon in der kleinsten Größe als Umriss zu erkennen, und
+ * er sagt "Post", ohne dafür einen Umschlag zeichnen zu müssen. Der Blitz aus dem
+ * Namen schlägt quer hindurch und ragt bewusst über den Rand hinaus - eine Marke, die
+ * ihren Rahmen sprengt, hat mehr Leben als eine, die brav darin sitzt.
+ *
+ * Der Zackenrand entsteht als Maske: die Marke ist ein Rechteck, aus dem Kreise entlang
+ * der Kanten herausgeschnitten sind. Das ist eine Angabe statt zwanzig Pfadpunkten und
+ * bleibt bei jeder Größe rund.
+ *
+ * Verlauf und Maske brauchen Kennungen, und die müssen innerhalb der Seite eindeutig
+ * sein - das Zeichen steht an mehreren Stellen gleichzeitig (Titelleiste, Anmeldung,
+ * Über-Fenster). useId liefert genau dafür einen Wert.
  */
+
+/** Wo die Zacken sitzen: fünf je Kante, gleichmäßig zwischen den Ecken verteilt. */
+const ZACKEN = [7, 11.5, 16, 20.5, 25];
+
+/**
+ * Der Blitz, als geschlossener Weg auf dem 32er-Raster.
+ *
+ * Er reicht oben und unten über das Papier hinaus in den Rahmen der Marke - das ist der
+ * Punkt der ganzen Form. Ein Blitz, der brav in seinem Feld sitzt, ist ein Piktogramm;
+ * einer, der den Rahmen sprengt, ist ein Zeichen.
+ */
+const BLITZWEG = 'M19.6 4.4 L10.6 17.2 h4.4 L12.4 27.6 L21.4 14.8 h-4.4 Z';
+
 export function Marke({ groesse = 18, className }: { groesse?: number; className?: string }) {
   const id = useId();
+  const verlauf = `${id}-v`;
+  const maske = `${id}-m`;
   return (
     <svg
       className={className}
@@ -60,28 +87,39 @@ export function Marke({ groesse = 18, className }: { groesse?: number; className
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#4a7ce6" />
-          <stop offset="1" stopColor="#1c42a8" />
+        <linearGradient id={verlauf} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#3f5cf0" />
+          <stop offset="1" stopColor="#1b2f9c" />
         </linearGradient>
+        <mask id={maske}>
+          <rect x="2.5" y="2.5" width="27" height="27" rx="4.5" fill="#fff" />
+          {ZACKEN.map((p) => (
+            <g key={p} fill="#000">
+              <circle cx={p} cy="2.5" r="1.6" />
+              <circle cx={p} cy="29.5" r="1.6" />
+              <circle cx="2.5" cy={p} r="1.6" />
+              <circle cx="29.5" cy={p} r="1.6" />
+            </g>
+          ))}
+        </mask>
       </defs>
-      <rect width="32" height="32" rx="7.5" fill={`url(#${id})`} />
-      <rect x="5.5" y="9.5" width="21" height="13.5" rx="2" fill="#fff" />
-      <path
-        d="M6.6 10.8 L16 18.4 L25.4 10.8"
-        fill="none"
-        stroke="#1b3a86"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M23.4 6.6 L16.4 18 L20 18 L18 27 L25.6 15.4 L22 15.4 Z"
-        fill="#f5c518"
-        stroke="#1b3a86"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
+
+      <g mask={`url(#${maske})`}>
+        <rect x="2.5" y="2.5" width="27" height="27" rx="4.5" fill={`url(#${verlauf})`} />
+        {/*
+          Das Papier in der Marke - derselbe warme Ton wie der Grund der Anwendung.
+
+          Hier stand zunächst noch die angedeutete Falz eines Umschlags. Sie ist wieder
+          heraus: eine Briefmarke sagt bereits "Post", ein Umschlag darin sagt es ein
+          zweites Mal, und weil der Blitz genau über der Spitze der Falz lag, blieben
+          von ihr ohnehin nur zwei Striche übrig, die wie ein Kreuz aussahen.
+        */}
+        <rect x="6.4" y="7.6" width="19.2" height="16.8" rx="2" fill="#fffdf9" />
+      </g>
+
+      {/* Der Blitz liegt über der Maske und wird deshalb nicht beschnitten: er reicht
+          über die Zacken hinaus. */}
+      <path d={BLITZWEG} fill="#ffb225" stroke="#16205e" strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -153,6 +191,56 @@ export const Sonne = (p: { groesse?: number }) => (
 /** Mond - dunkle Ansicht. */
 export const Mond = (p: { groesse?: number }) => (
   <Strichzeichen {...p} d="M13.4 9.6A5.9 5.9 0 016.4 2.6a5.9 5.9 0 107 7z" />
+);
+
+/** Federhalter - eine neue Nachricht verfassen. */
+export const Feder = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M2.6 13.4l1-3.2 7-7a1.9 1.9 0 012.7 2.7l-7 7z M9.6 4.2l2.2 2.2 M2.6 13.4l2.6-.8" />
+);
+
+/** Lupe - Suchfeld. */
+export const Lupe = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M7.2 2.4a4.8 4.8 0 100 9.6 4.8 4.8 0 000-9.6z M10.8 10.8l3 3" />
+);
+
+/**
+ * Büroklammer - eine Nachricht mit Anhang.
+ *
+ * Vorher stand an dieser Stelle das Schriftzeichen 📎. Das zeichnet jedes System anders,
+ * es bringt seine eigene Farbe mit (auf einer dunklen Zeile ein graues Kästchen) und es
+ * ist deutlich größer als die Zeichen daneben - in einer Liste, in der jede Zeile 17
+ * Pixel hoch ist, fällt genau das auf.
+ */
+export const Klammer = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    strich={1.3}
+    d="M11.6 7.6l-4.7 4.7a2.6 2.6 0 01-3.7-3.7l5.6-5.6a1.7 1.7 0 012.4 2.4l-5.5 5.5a.8.8 0 01-1.2-1.1l5-5"
+  />
+);
+
+/**
+ * Der Blitz aus dem Programmsymbol, als Zeichen für sich.
+ *
+ * Ausgefüllt statt gestrichen - anders als alle übrigen Zeichen hier. Das ist Absicht:
+ * er steht nicht für eine Handlung, sondern für Energie (Ungelesenes, neue Post), und
+ * eine gefüllte Form liest sich als Zustand, eine gestrichene als Knopf.
+ */
+export const Blitz = ({ groesse = 12 }: { groesse?: number }) => (
+  <svg
+    viewBox="0 0 16 16"
+    width={groesse}
+    height={groesse}
+    fill="currentColor"
+    aria-hidden="true"
+  >
+    <path d="M9.8 1.2 3.6 9.1h3.2l-1.1 5.7 6.2-7.9H8.7z" />
+  </svg>
+);
+
+/** Winkel nach rechts - klappt einen Bereich auf und zu. Gedreht wird er per CSS. */
+export const Winkel = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} strich={1.6} d="M6 3.4L10.6 8 6 12.6" />
 );
 
 /** Leerer Posteingang - für Bereiche, in denen nichts (mehr) liegt. */

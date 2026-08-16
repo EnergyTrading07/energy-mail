@@ -1,5 +1,7 @@
 import { BrowserWindow, Notification } from 'electron';
 import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/events';
+import { t, tp } from '@energy-mail/mail-core/sprache';
+import { einstellungen } from './einstellungen.js';
 import { programmSymbolPfad } from './programmSymbol.js';
 
 /**
@@ -41,7 +43,7 @@ const SYMBOL = programmSymbolPfad() ?? '';
 
 function absenderName(nachricht: { from: { name?: string; address: string }[] }): string {
   const erster = nachricht.from[0];
-  return erster?.name || erster?.address || 'Unbekannter Absender';
+  return erster?.name || erster?.address || t('Unbekannter Absender');
 }
 
 /**
@@ -64,14 +66,22 @@ function zeigeNachricht(fenster: BrowserWindow, accountId: string, folder: strin
   );
 }
 
-export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | null): () => void {
+/**
+ * @param nutzerId Wessen Eingänge gemeldet werden. In der Hülle immer der
+ *   Einplatznutzer - der Ereignisstrom ist seit der Trennung je Nutzer geführt, und wer
+ *   zuhören will, muss sagen, wem er zuhört.
+ */
+export function starteBenachrichtigungen(
+  nutzerId: string,
+  fensterHolen: () => BrowserWindow | null,
+): () => void {
   if (!Notification.isSupported()) {
     console.warn('Benachrichtigungen: vom System nicht unterstützt.');
     return () => {};
   }
   console.log('Benachrichtigungen: aktiv.');
 
-  return subscribe((event: MailEvent) => {
+  return subscribe(nutzerId, (event: MailEvent) => {
     if (event.type !== 'new-mail') return;
     // Seit auch angesehene Ordner überwacht werden, treffen hier Eingänge aus Gesendet
     // oder Entwürfe ein. Eine Meldung über die eigene, gerade abgeschickte Nachricht
@@ -95,23 +105,23 @@ export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | nul
       console.log('Benachrichtigung entfällt: Fenster ist im Vordergrund.');
       return;
     }
-    console.log(
-      `Benachrichtigung für ${event.email}: ${event.neue.length} neue Nachricht(en) von ` +
-        event.neue.map(absenderName).join(', '),
-    );
+    /*
+     * Ohne Namen und ohne Betreff.
+     *
+     * Hier standen sie einmal ausgeschrieben - aus dem Quellbaum gestartet läuft das ins
+     * Terminal, und in einer Bildschirmübertragung steht das Terminal oft mit im Bild.
+     * Für die Frage, die diese Zeile beantworten soll ("kam die Meldung überhaupt?"),
+     * genügt die Anzahl.
+     */
+    console.log(`Benachrichtigung: ${event.neue.length} neue Nachricht(en).`);
 
-    for (const nachricht of event.neue.slice(0, MAX_MELDUNGEN)) {
-      const meldung = new Notification({
-        title: absenderName(nachricht),
-        body: nachricht.subject || '(kein Betreff)',
-        // Bei mehreren Konten muss erkennbar sein, welches gemeint ist.
-        subtitle: event.email,
-        icon: SYMBOL,
-        silent: false,
-      });
+    /**
+     * Öffnet beim Klick die gemeldete Nachricht - für jede Meldung derselbe Weg.
+     */
+    const beimKlicken = (meldung: Notification, uid: number) => {
       meldung.on('click', () => {
         const aktuell = fensterHolen();
-        if (aktuell) zeigeNachricht(aktuell, event.accountId, event.folder, nachricht.uid);
+        if (aktuell) zeigeNachricht(aktuell, event.accountId, event.folder, uid);
       });
       // Windows meldet hierüber, wenn die Anzeige nicht geklappt hat - etwa weil
       // Meldungen für die Anwendung abgeschaltet sind oder der Fokus-Assistent sie
@@ -120,13 +130,57 @@ export function starteBenachrichtigungen(fensterHolen: () => BrowserWindow | nul
         console.warn(`Benachrichtigung wurde nicht angezeigt: ${fehler}`),
       );
       meldung.show();
+    };
+
+    /*
+     * Ohne Vorschau: eine Meldung für den ganzen Eingang, nicht drei.
+     *
+     * Drei Meldungen, auf denen dreimal dasselbe steht, sind keine Auskunft, sondern
+     * Lärm - der Unterschied zwischen ihnen war ja gerade der Absender. Übrig bleibt,
+     * wofür es die Meldung gibt: dass etwas da ist und für welches Konto. Wer hineinsehen
+     * will, klickt und sieht es dort, wo er es sehen wollte.
+     *
+     * Das Konto steht dabei im Titel und nicht im Untertitel: Windows setzt den
+     * Untertitel klein und blass, und eine Meldung, deren einzige Auskunft blass
+     * daherkommt, ist keine.
+     */
+    if (!einstellungen().meldungsvorschau) {
+      const anzahl = event.neue.length;
+      beimKlicken(
+        new Notification({
+          title: event.email,
+          body: tp(anzahl, 'Eine neue Nachricht', '{anzahl} neue Nachrichten'),
+          icon: SYMBOL,
+          silent: false,
+        }),
+        event.neue[0]!.uid,
+      );
+      return;
+    }
+
+    for (const nachricht of event.neue.slice(0, MAX_MELDUNGEN)) {
+      beimKlicken(
+        new Notification({
+          title: absenderName(nachricht),
+          body: nachricht.subject || t('(kein Betreff)'),
+          // Bei mehreren Konten muss erkennbar sein, welches gemeint ist.
+          subtitle: event.email,
+          icon: SYMBOL,
+          silent: false,
+        }),
+        nachricht.uid,
+      );
     }
 
     const weitere = event.neue.length - MAX_MELDUNGEN;
     if (weitere > 0) {
       new Notification({
         title: event.email,
-        body: `und ${weitere} weitere neue ${weitere === 1 ? 'Nachricht' : 'Nachrichten'}`,
+        body: tp(
+          weitere,
+          'und {anzahl} weitere neue Nachricht',
+          'und {anzahl} weitere neue Nachrichten',
+        ),
         icon: SYMBOL,
       }).show();
     }

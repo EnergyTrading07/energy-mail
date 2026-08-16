@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Haken, Herunterladen, Kreispfeil, Achtung } from './Symbole.js';
+import { t } from '../sprache.js';
 
 /**
  * Der Aktualisierungsablauf, sichtbar gemacht.
@@ -41,8 +42,9 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
   useEffect(() => {
     if (stand.phase !== 'bereit') return;
     setBetont(true);
-    const t = setTimeout(() => setBetont(false), 1400);
-    return () => clearTimeout(t);
+    // Nicht "t" - siehe AdressbuchModal: der Uebersetzer heisst so.
+    const uhr = setTimeout(() => setBetont(false), 1400);
+    return () => clearTimeout(uhr);
   }, [stand.phase]);
 
   if (stand.phase === 'ruhe') return null;
@@ -64,23 +66,23 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
           <Kreispfeil groesse={18} />
         )}
         <strong>
-          {stand.phase === 'suche' && 'Suche nach Aktualisierungen'}
-          {stand.phase === 'aktuell' && 'Alles aktuell'}
-          {stand.phase === 'gefunden' && `Fassung ${stand.fassung} gefunden`}
-          {stand.phase === 'laedt' && `Fassung ${stand.fassung} wird geladen`}
-          {stand.phase === 'bereit' && `Fassung ${stand.fassung} steht bereit`}
-          {stand.phase === 'fehler' && 'Aktualisierung nicht möglich'}
+          {stand.phase === 'suche' && t('Suche nach Aktualisierungen')}
+          {stand.phase === 'aktuell' && t('Alles aktuell')}
+          {stand.phase === 'gefunden' && t('Fassung {fassung} gefunden', { fassung: stand.fassung })}
+          {stand.phase === 'laedt' && t('Fassung {fassung} wird geladen', { fassung: stand.fassung })}
+          {stand.phase === 'bereit' && t('Fassung {fassung} steht bereit', { fassung: stand.fassung })}
+          {stand.phase === 'fehler' && t('Aktualisierung nicht möglich')}
         </strong>
-        <button className="icon-btn" onClick={onSchliessen} title="Ausblenden" aria-label="Ausblenden">
+        <button className="icon-btn" onClick={onSchliessen} title={t('Ausblenden')} aria-label={t('Ausblenden')}>
           ×
         </button>
       </div>
 
       {stand.phase === 'aktuell' && (
-        <p>Diese Fassung ({stand.fassung}) ist die neueste.</p>
+        <p>{t('Diese Fassung ({fassung}) ist die neueste.', { fassung: stand.fassung })}</p>
       )}
 
-      {stand.phase === 'gefunden' && <p>Wird im Hintergrund geladen – du kannst weiterarbeiten.</p>}
+      {stand.phase === 'gefunden' && <p>{t('Wird im Hintergrund geladen – du kannst weiterarbeiten.')}</p>}
 
       {stand.phase === 'laedt' && (
         <>
@@ -94,7 +96,7 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
             <span>{Math.round(stand.prozent)} %</span>
             <span>{proSekunde(stand.proSekunde)}</span>
           </div>
-          <p>Du kannst weiterarbeiten – eingespielt wird erst beim Beenden.</p>
+          <p>{t('Du kannst weiterarbeiten – eingespielt wird erst beim Beenden.')}</p>
         </>
       )}
 
@@ -113,12 +115,8 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
             startest. Es geht nichts verloren.
           </p>
           <div className="aktualisierung-fuss">
-            <button className="btn" onClick={onNeuStarten}>
-              Jetzt neu starten
-            </button>
-            <button className="btn secondary" onClick={onSchliessen}>
-              Später
-            </button>
+            <button className="btn" onClick={onNeuStarten}>{t('Jetzt neu starten')}</button>
+            <button className="btn secondary" onClick={onSchliessen}>{t('Später')}</button>
           </div>
         </>
       )}

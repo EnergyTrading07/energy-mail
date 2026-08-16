@@ -10,8 +10,8 @@ import {
   type MessageSummary,
   type Regel,
 } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { getNutzerDir } from './paths.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { protokolliere } from './protokollDatei.js';
 
 /**
@@ -26,7 +26,7 @@ import { protokolliere } from './protokollDatei.js';
  * bestehenden Ordner anwenden; das ist der Weg, ein zugewachsenes Postfach aufzuräumen.
  */
 
-const getPfad = () => path.join(getDataDir(), 'regeln.json');
+const getPfad = () => path.join(getNutzerDir(), 'regeln.json');
 
 /** Regeln je Konto. Getrennt, weil Zielordner von Konto zu Konto verschieden heißen. */
 type Ablage = Record<string, Regel[]>;
@@ -41,7 +41,7 @@ type Ablage = Record<string, Regel[]>;
  * "ist beschaedigt" und legt Letzteres zur Seite, statt es ueberschreiben zu lassen.
  */
 function lesen(): Ablage {
-  const befund = liesJson<Ablage>(getPfad(), {});
+  const befund = liesGeschuetzt<Ablage>(getPfad(), {});
   if (befund.beschaedigt) {
     protokolliere(
       'fehler',
@@ -54,7 +54,7 @@ function lesen(): Ablage {
 }
 
 function schreiben(ablage: Ablage): void {
-  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
+  schreibeGeschuetzt(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function regelnFuer(accountId: string): Regel[] {

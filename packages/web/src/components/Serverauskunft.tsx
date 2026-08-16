@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as api from '../api.js';
+import { t } from '../sprache.js';
 
 /**
  * Zeigt beim Anlegen eines Kontos, was die Serversuche ergeben hat.
@@ -32,12 +33,22 @@ interface Props {
   onWert: (feld: keyof HandWerte, wert: string) => void;
 }
 
-const HERKUNFT: Record<string, string> = {
-  eingebaut: 'bekannter Anbieter',
-  anbieterdatenbank: 'aus der Anbieterdatenbank',
-  domain: 'von der Domain selbst',
-  dns: 'aus den DNS-Einträgen',
-};
+/**
+ * Woher die Adressen stammen - als Funktion, damit die Sprache schon feststeht.
+ *
+ * Eine Konstante auf Modulebene würde beim Einbinden gebaut, also noch vor der Wahl der
+ * Sprache; die Herkunft stünde dann als einziges deutsch in einer englischen Zeile.
+ */
+function herkunft(): Record<string, string> {
+  return {
+    eingebaut: t('bekannter Anbieter'),
+    anbieterdatenbank: t('aus der Anbieterdatenbank'),
+    domain: t('von der Domain selbst'),
+    dns: t('aus den DNS-Einträgen'),
+    autodiscover: t('über Autodiscover'),
+    mx: t('am Postweg der Domain erkannt'),
+  };
+}
 
 export function Serverauskunft({ email, vonHand, onVonHand, werte, onWert }: Props) {
   const [gefunden, setGefunden] = useState<api.GefundeneEinstellungen | null>(null);
@@ -91,35 +102,67 @@ export function Serverauskunft({ email, vonHand, onVonHand, werte, onWert }: Pro
 
   return (
     <div className="serverauskunft">
-      {sucht && <span className="server-status">Serveradressen werden gesucht…</span>}
+      {sucht && <span className="server-status">{t('Serveradressen werden gesucht…')}</span>}
+
+      {/*
+        Der Fall, den ein Firmenkunde als Erstes trifft.
+
+        Liegt die Domain bei Microsoft 365 oder Google Workspace, nimmt dort niemand mehr
+        ein Kennwort an - Microsoft hat die Kennwortanmeldung für Exchange Online
+        abgeschaltet, Google verlangt ein eigens erzeugtes App-Kennwort. Ohne diesen
+        Hinweis tippt jemand sein Windows-Kennwort in das Formular direkt darüber,
+        bekommt "Anmeldung fehlgeschlagen" und sucht den Fehler bei sich. Die Auskunft
+        gehört genau hierhin, wo er gerade tippt.
+      */}
+      {fertig && gefunden?.oauthProvider && (
+        <span className="server-status server-fehlt">
+          {t(
+            '{anbieter} verlangt eine Anmeldung über den Anbieter – ein Kennwort wird hier nicht angenommen.',
+            { anbieter: gefunden.anbieter ?? t('Dieser Anbieter') },
+          )}
+          <span className="server-details">
+            {t(
+              'Bitte den Knopf „Mit {anbieter} anmelden“ weiter oben verwenden. Die Serveradressen stehen dann von selbst richtig.',
+              {
+                anbieter:
+                  gefunden.oauthProvider === 'microsoft'
+                    ? 'Microsoft / Outlook'
+                    : 'Google / Gmail',
+              },
+            )}
+          </span>
+        </span>
+      )}
 
       {fertig && gefunden && (
         <span className="server-status server-gefunden">
           {/* Manche Anbieter tragen einen ganzen Werbesatz als Namen ein
               ("mailbox.org -- damit Privates privat bleibt"). Nur der Anfang. */}
           {gefunden.anbieter
-            ? `${gefunden.anbieter.split(/\s[-–—]{1,2}\s/)[0]!.slice(0, 40)} erkannt`
-            : 'Serveradressen gefunden'}
+            ? t('{anbieter} erkannt', {
+                anbieter: gefunden.anbieter.split(/\s[-–—]{1,2}\s/)[0]!.slice(0, 40),
+              })
+            : t('Serveradressen gefunden')}
           <span className="server-details">
             {gefunden.imapHost}:{gefunden.imapPort} · {gefunden.smtpHost}:{gefunden.smtpPort}
             {' · '}
-            {HERKUNFT[gefunden.fundort] ?? gefunden.fundort}
+            {herkunft()[gefunden.fundort] ?? gefunden.fundort}
           </span>
         </span>
       )}
 
       {fertig && !gefunden && (
         <span className="server-status server-fehlt">
-          Für {domain} ist nichts hinterlegt
+          {t('Für {domain} ist nichts hinterlegt', { domain: domain ?? '' })}
           <span className="server-details">
-            Die Adressen stehen in der Hilfe deines Anbieters, meist unter „IMAP“.
+            {t('Die Adressen stehen in der Hilfe deines Anbieters, meist unter „IMAP“.')}
           </span>
         </span>
       )}
 
       {fertig && gefunden && !vonHand && (
         <button type="button" className="link-btn" onClick={() => onVonHand(true)}>
-          Andere Server eintragen
+          {t('Andere Server eintragen')}
         </button>
       )}
 
@@ -131,14 +174,14 @@ export function Serverauskunft({ email, vonHand, onVonHand, werte, onWert }: Pro
               value={werte.imapHost}
               onChange={(e) => onWert('imapHost', e.target.value)}
               placeholder={gefunden?.imapHost ?? 'imap.anbieter.de'}
-              aria-label="IMAP-Server"
+              aria-label={t('IMAP-Server')}
             />
             <input
               type="text"
               className="server-port"
               value={werte.imapPort}
               onChange={(e) => onWert('imapPort', e.target.value)}
-              aria-label="IMAP-Anschluss"
+              aria-label={t('IMAP-Anschluss')}
             />
           </div>
           <div className="form-row">
@@ -147,19 +190,19 @@ export function Serverauskunft({ email, vonHand, onVonHand, werte, onWert }: Pro
               value={werte.smtpHost}
               onChange={(e) => onWert('smtpHost', e.target.value)}
               placeholder={gefunden?.smtpHost ?? 'smtp.anbieter.de'}
-              aria-label="SMTP-Server"
+              aria-label={t('SMTP-Server')}
             />
             <input
               type="text"
               className="server-port"
               value={werte.smtpPort}
               onChange={(e) => onWert('smtpPort', e.target.value)}
-              aria-label="SMTP-Anschluss"
+              aria-label={t('SMTP-Anschluss')}
             />
           </div>
           {gefunden && (
             <button type="button" className="link-btn" onClick={() => onVonHand(false)}>
-              Doch das Gefundene nehmen
+              {t('Doch das Gefundene nehmen')}
             </button>
           )}
         </div>

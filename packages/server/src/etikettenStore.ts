@@ -6,8 +6,9 @@ import {
   schluesselFuer,
   type Etikett,
 } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { t } from '@energy-mail/mail-core/sprache';
+import { getNutzerDir } from './paths.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { protokolliere } from './protokollDatei.js';
 
 /**
@@ -27,7 +28,7 @@ import { protokolliere } from './protokollDatei.js';
  * jedem Server dieselben, also passt das auch technisch.
  */
 
-const getPfad = () => path.join(getDataDir(), 'etiketten.json');
+const getPfad = () => path.join(getNutzerDir(), 'etiketten.json');
 
 interface Ablage {
   etiketten: Etikett[];
@@ -41,7 +42,7 @@ interface Ablage {
  * fünf sind ohnehin schon da - Thunderbird setzt sie unter denselben Schlüsselwörtern.
  */
 function lesen(): Ablage {
-  const befund = liesJson<Ablage | null>(getPfad(), null);
+  const befund = liesGeschuetzt<Ablage | null>(getPfad(), null);
   if (befund.beschaedigt) {
     protokolliere(
       'fehler',
@@ -51,11 +52,27 @@ function lesen(): Ablage {
     );
   }
   if (Array.isArray(befund.wert?.etiketten)) return befund.wert;
-  return { etiketten: STANDARD_ETIKETTEN.map((e) => ({ ...e })) };
+  /*
+   * Die Vorgaben in der Sprache des Nutzers - und zwar HIER, beim Anlegen.
+   *
+   * Weder früher noch später, und beides hat einen Grund:
+   *
+   * Nicht bei der Anzeige, denn diese fünf Etiketten sind umbenennbar. Wer "Wichtig" in
+   * "Rechnungen" umbenannt hat, bekäme es sonst beim Sprachwechsel wieder als "Important"
+   * vorgesetzt - seine eigene Benennung wäre überschrieben, ohne dass er etwas getan hat.
+   *
+   * Nicht schon bei der Definition in mail-core, denn dort steht der deutsche Text als
+   * SCHLÜSSEL des Katalogs. Er muss deutsch bleiben, sonst findet die Übersetzung ihn
+   * nicht mehr.
+   *
+   * Ab hier stehen sie in der Datei des Nutzers und gehören ihm - genau wie ein Etikett,
+   * das er selbst angelegt hat.
+   */
+  return { etiketten: STANDARD_ETIKETTEN.map((e) => ({ ...e, name: t(e.name) })) };
 }
 
 function schreiben(ablage: Ablage): void {
-  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
+  schreibeGeschuetzt(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function alleEtiketten(): Etikett[] {
@@ -90,7 +107,7 @@ export function speichereEtikett(eingabe: EtikettEingabe): Etikett {
 
   if (eingabe.schluessel) {
     const vorhanden = ablage.etiketten.find((e) => e.schluessel === eingabe.schluessel);
-    if (!vorhanden) throw new EtikettFehler('Dieses Etikett gibt es nicht mehr.');
+    if (!vorhanden) throw new EtikettFehler(t('Dieses Etikett gibt es nicht mehr.'));
     vorhanden.name = name;
     if (eingabe.farbe) vorhanden.farbe = eingabe.farbe;
     schreiben(ablage);

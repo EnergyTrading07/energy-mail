@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { baueZeile, saeubere, type Stufe } from '@energy-mail/mail-core/protokoll';
-import { getDataDir } from './paths.js';
+import { getWurzelDir } from './paths.js';
 
 /**
  * Das Protokoll auf der Platte.
@@ -22,7 +22,7 @@ import { getDataDir } from './paths.js';
 const HOECHSTENS_ZEICHEN = 1_000_000;
 
 function ordner(): string {
-  return path.join(getDataDir(), 'protokoll');
+  return path.join(getWurzelDir(), 'protokoll');
 }
 
 /** Die laufende Datei. */

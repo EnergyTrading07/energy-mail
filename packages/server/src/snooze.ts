@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createFolder, listFolders, setMessagesSeen, type AccountConfig } from '@energy-mail/mail-core';
 import { verschiebeMitKennung } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { getNutzerDir } from './paths.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
+import { jeNutzer } from './nutzer/jeNutzer.js';
 import { istVerbindungsfehler } from './verbindungsfehler.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Wiedervorlage: eine Nachricht verschwindet aus dem Posteingang und kommt zur
@@ -36,10 +38,25 @@ export interface Zurueckgestellt {
   versuche?: number;
 }
 
-const getPfad = () => path.join(getDataDir(), 'wiedervorlage.json');
+const getPfad = () => path.join(getNutzerDir(), 'wiedervorlage.json');
 
-const offen = new Map<string, Zurueckgestellt>();
-const timer = new Map<string, ReturnType<typeof setTimeout>>();
+/**
+ * Wiedervorlagen und Zeitgeber JE NUTZER - aus demselben Grund wie bei der
+ * Sendewarteschlange, und ebenfalls ohne Obergrenze: ein verworfener Eintrag hieße eine
+ * Nachricht, die nie zurückkommt.
+ */
+interface NutzerWiedervorlage {
+  offen: Map<string, Zurueckgestellt>;
+  timer: Map<string, ReturnType<typeof setTimeout>>;
+}
+
+const wiedervorlagen = jeNutzer<NutzerWiedervorlage>(() => ({
+  offen: new Map(),
+  timer: new Map(),
+}));
+
+const offenVon = () => wiedervorlagen.hole().offen;
+const timerVon = () => wiedervorlagen.hole().timer;
 
 let kontoHolen: ((accountId: string) => AccountConfig | null) | null = null;
 let log: (msg: string) => void = () => {};
@@ -57,7 +74,7 @@ export function setWiedervorlageUmgebung(
 
 function speichern(): void {
   try {
-    schreibeAtomar(getPfad(), JSON.stringify([...offen.values()], null, 2));
+    schreibeGeschuetzt(getPfad(), JSON.stringify([...offenVon().values()], null, 2));
   } catch (err) {
     log(`Wiedervorlagen konnten nicht gesichert werden: ${(err as Error).message}`);
   }
@@ -71,11 +88,11 @@ async function stelleOrdnerSicher(account: AccountConfig): Promise<void> {
 }
 
 async function holeZurueck(id: string): Promise<void> {
-  const eintrag = offen.get(id);
+  const eintrag = offenVon().get(id);
   if (!eintrag || !kontoHolen) return;
   const account = kontoHolen(eintrag.accountId);
   if (!account) {
-    offen.delete(id);
+    offenVon().delete(id);
     speichern();
     return;
   }
@@ -83,8 +100,10 @@ async function holeZurueck(id: string): Promise<void> {
   try {
     if (eintrag.uidImOrdner === undefined) {
       throw new Error(
-        'Der Server hat beim Zurückstellen keine Kennung mitgeteilt - die Nachricht ' +
-          `liegt weiterhin im Ordner "${WIEDERVORLAGE_ORDNER}".`,
+        t(
+          'Der Server hat beim Zurückstellen keine Kennung mitgeteilt - die Nachricht liegt weiterhin im Ordner „{ordner}“.',
+          { ordner: WIEDERVORLAGE_ORDNER },
+        ),
       );
     }
     const { neueUids } = await verschiebeMitKennung(
@@ -101,11 +120,11 @@ async function holeZurueck(id: string): Promise<void> {
     log(`Wiedervorlage: "${eintrag.betreff}" zurück in "${eintrag.ursprung}".`);
     nachHolen?.(eintrag.accountId, eintrag.ursprung);
     // Erst jetzt austragen: nur ein tatsächlich zurückgeholter Eintrag ist erledigt.
-    offen.delete(id);
-    timer.delete(id);
+    offenVon().delete(id);
+    timerVon().delete(id);
     speichern();
   } catch (err) {
-    timer.delete(id);
+    timerVon().delete(id);
     /*
      * Nicht löschen, sondern erneut versuchen.
      *
@@ -124,7 +143,7 @@ async function holeZurueck(id: string): Promise<void> {
     const nochmal = istVerbindungsfehler(err) ? versuche <= 20 : versuche <= 3;
 
     if (!nochmal) {
-      offen.delete(id);
+      offenVon().delete(id);
       speichern();
       log(
         `Wiedervorlage "${eintrag.betreff}" nach ${versuche} Versuchen aufgegeben: ${grund}. ` +
@@ -136,7 +155,7 @@ async function holeZurueck(id: string): Promise<void> {
     eintrag.versuche = versuche;
     // Wachsender Abstand, gedeckelt bei einer Stunde.
     eintrag.faellig = Date.now() + Math.min(60_000 * 2 ** (versuche - 1), 60 * 60_000);
-    offen.set(id, eintrag);
+    offenVon().set(id, eintrag);
     speichern();
     planen(eintrag);
     log(`Wiedervorlage "${eintrag.betreff}" fehlgeschlagen (Versuch ${versuche}): ${grund}`);
@@ -160,11 +179,11 @@ function planen(eintrag: Zurueckgestellt): void {
     void holeZurueck(eintrag.id);
   }, Math.min(wartezeit, MAX_TIMEOUT_MS));
   t.unref?.();
-  timer.set(eintrag.id, t);
+  timerVon().set(eintrag.id, t);
 }
 
 export function ladeWiedervorlagen(): void {
-  const befund = liesJson<unknown>(getPfad(), []);
+  const befund = liesGeschuetzt<unknown>(getPfad(), []);
   if (befund.beschaedigt) {
     log(
       `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +
@@ -179,7 +198,7 @@ export function ladeWiedervorlagen(): void {
     );
   });
   for (const eintrag of gespeichert) {
-    offen.set(eintrag.id, eintrag);
+    offenVon().set(eintrag.id, eintrag);
     planen(eintrag);
   }
   if (gespeichert.length > 0) log(`${gespeichert.length} Wiedervorlage(n) geladen.`);
@@ -203,7 +222,7 @@ export async function stelleZurueck(
     betreff,
     faellig,
   };
-  offen.set(eintrag.id, eintrag);
+  offenVon().set(eintrag.id, eintrag);
   speichern();
   planen(eintrag);
 
@@ -217,15 +236,15 @@ export async function stelleZurueck(
 }
 
 export function listeWiedervorlagen(accountId?: string): Zurueckgestellt[] {
-  return [...offen.values()]
+  return [...offenVon().values()]
     .filter((e) => !accountId || e.accountId === accountId)
     .sort((a, b) => a.faellig - b.faellig);
 }
 
 /** Holt eine Nachricht vorzeitig zurück. */
 export async function sofortZurueck(id: string): Promise<boolean> {
-  if (!offen.has(id)) return false;
-  clearTimeout(timer.get(id));
+  if (!offenVon().has(id)) return false;
+  clearTimeout(timerVon().get(id));
   await holeZurueck(id);
   return true;
 }

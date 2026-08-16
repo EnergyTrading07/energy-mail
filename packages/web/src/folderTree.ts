@@ -1,4 +1,5 @@
 import type { FolderInfo } from '@energy-mail/mail-core';
+import { t } from './sprache.js';
 
 /**
  * Ordnet die Ordnerliste für die Anzeige.
@@ -21,17 +22,25 @@ const ROLLEN_REIHENFOLGE = [
   '\\All',
 ];
 
-/** Anzeigenamen für Sonderordner - vereinheitlicht die Bezeichnungen der Anbieter. */
-const ROLLEN_NAMEN: Record<string, string> = {
-  '\\Inbox': 'Posteingang',
-  '\\Drafts': 'Entwürfe',
-  '\\Sent': 'Gesendet',
-  '\\Junk': 'Spam',
-  '\\Trash': 'Papierkorb',
-  '\\Flagged': 'Markiert',
-  '\\All': 'Alle Nachrichten',
-  '\\Archive': 'Archiv',
-};
+/**
+ * Anzeigenamen für Sonderordner - vereinheitlicht die Bezeichnungen der Anbieter.
+ *
+ * Als Funktion, nicht als Konstante: auf Modulebene stünde die Sprache noch nicht fest,
+ * und in der Seitenleiste - der sichtbarsten Stelle des Programms - stünde für immer
+ * "Posteingang".
+ */
+function rollenNamen(): Record<string, string> {
+  return {
+    '\\Inbox': t('Posteingang'),
+    '\\Drafts': t('Entwürfe'),
+    '\\Sent': t('Gesendet'),
+    '\\Junk': t('Spam'),
+    '\\Trash': t('Papierkorb'),
+    '\\Flagged': t('Markiert'),
+    '\\All': t('Alle Nachrichten'),
+    '\\Archive': t('Archiv'),
+  };
+}
 
 /**
  * Namen, die typischerweise leere Altlasten sind, wenn der Anbieter für dieselbe Rolle
@@ -82,7 +91,7 @@ export function buildFolderView(folders: FolderInfo[], alleZeigen = false): Ordn
   for (const rolle of ROLLEN_REIHENFOLGE) {
     const treffer = sichtbar.find((f) => f.specialUse === rolle);
     if (treffer) {
-      sonder.push({ folder: treffer, tiefe: 0, label: ROLLEN_NAMEN[rolle] ?? treffer.name });
+      sonder.push({ folder: treffer, tiefe: 0, label: rollenNamen()[rolle] ?? treffer.name });
     }
   }
 

@@ -2,6 +2,7 @@ import type { EmailAddress, FullMessage } from '@energy-mail/mail-core';
 import type { Draft } from './api.js';
 import { escapeHtml, textToHtml } from './htmlText.js';
 import { raeumeZitatAuf } from './formatierung.js';
+import { t, zeitpunkt } from './sprache.js';
 
 function normalize(address: string): string {
   return address.trim().toLowerCase();
@@ -29,7 +30,14 @@ function withPrefix(subject: string, prefix: 'Re' | 'Fwd' | 'Nachfrage'): string
       : prefix === 'Fwd'
         ? /^\s*(fwd?|wg)\s*:/i.test(subject)
         : /^\s*nachfrage\s*:/i.test(subject);
-  return alreadyPrefixed ? subject : `${prefix}: ${subject}`;
+  /*
+   * "Re:" und "Fwd:" bleiben, wie sie sind - sie sind keine deutschen Wörter, sondern
+   * das, was jedes Mailprogramm der Welt schreibt und woran jedes andere die Antwort
+   * erkennt. "Nachfrage:" dagegen ist eine Erfindung dieses Programms und gehört in die
+   * Sprache des Absenders, so wie Outlook auf einem deutschen Rechner "AW:" schreibt.
+   */
+  const wort = prefix === 'Nachfrage' ? t('Nachfrage') : prefix;
+  return alreadyPrefixed ? subject : `${wort}: ${subject}`;
 }
 
 /**
@@ -42,7 +50,7 @@ export function buildFollowUpSubject(subject: string): string {
   const ohneKuerzel = subject.replace(/^\s*((re|aw|antw|fwd?|wg)\s*:\s*)+/i, '').trim();
   // "(kein Betreff)" ist ein Platzhalter der Anzeige, kein Inhalt - er darf nicht in der
   // Betreffzeile der hinausgehenden Nachricht landen.
-  if (!ohneKuerzel || ohneKuerzel === '(kein Betreff)') return 'Nachfrage';
+  if (!ohneKuerzel || ohneKuerzel === t('(kein Betreff)')) return t('Nachfrage');
   return withPrefix(ohneKuerzel, 'Nachfrage');
 }
 
@@ -51,7 +59,7 @@ function formatAddressList(addresses: EmailAddress[]): string {
 }
 
 function formatDate(date: Date | null): string {
-  return date ? new Date(date).toLocaleString('de-DE') : 'unbekannt';
+  return date ? zeitpunkt(new Date(date)) : 'unbekannt';
 }
 
 /**

@@ -2,11 +2,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setDataDir } from './paths.js';
+import { setDataDir, getNutzerDir } from './paths.js';
+import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
 
 // Vor dem ersten Zugriff umlenken, sonst landet die Probe im echten Benutzerordner.
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-etiketten-test-'));
 setDataDir(tempDir);
+// Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
+// Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
+betreteNutzerFuerProzess('pruefung');
+
+// Die Speicher legen ihre Dateien im Ordner des Nutzers ab, nicht in der Wurzel.
+const datenDir = getNutzerDir();
+// Anlegen, bevor eine Pruefung hineinsieht - die Speicher taeten es erst beim Schreiben.
+fs.mkdirSync(datenDir, { recursive: true });
+
 
 const { alleEtiketten, loescheEtikett, speichereEtikett, EtikettFehler } = await import(
   './etikettenStore.js'
@@ -22,9 +32,9 @@ let gescheitert = 0;
 function pruefe(name: string, fn: () => void): void {
   // Jede Pruefung faengt bei null an - einschliesslich der Begleitdateien, die das
   // atomare Schreiben anlegt (.bak, .neu) und der beiseite gelegten Fassungen.
-  for (const datei of fs.readdirSync(tempDir)) {
+  for (const datei of fs.readdirSync(datenDir)) {
     if (datei.startsWith('etiketten.json') || datei.startsWith('suchen.json')) {
-      fs.rmSync(path.join(tempDir, datei), { force: true });
+      fs.rmSync(path.join(datenDir, datei), { force: true });
     }
   }
   try {
@@ -94,7 +104,7 @@ pruefe('loeschen nimmt es aus dem Verzeichnis', () => {
 
 pruefe('der Stand ueberdauert einen Neustart', () => {
   speichereEtikett({ name: 'Bleibt' });
-  const wieder = JSON.parse(fs.readFileSync(path.join(tempDir, 'etiketten.json'), 'utf-8'));
+  const wieder = JSON.parse(fs.readFileSync(path.join(datenDir, 'etiketten.json'), 'utf-8'));
   assert.ok(wieder.etiketten.some((e: { name: string }) => e.name === 'Bleibt'));
 });
 
@@ -112,7 +122,7 @@ pruefe('eine beschaedigte Datei wird aus der Sicherungskopie geheilt', () => {
   const vorher = alleEtiketten().length;
   assert.ok(vorher > 5, 'Voraussetzung: es gibt mehr als die Vorgaben');
 
-  fs.writeFileSync(path.join(tempDir, 'etiketten.json'), '{kaputt', 'utf-8');
+  fs.writeFileSync(path.join(datenDir, 'etiketten.json'), '{kaputt', 'utf-8');
 
   const geheilt = alleEtiketten();
   assert.ok(
@@ -128,20 +138,20 @@ pruefe('eine beschaedigte Datei wird aus der Sicherungskopie geheilt', () => {
 pruefe('die kaputte Datei wird beiseite gelegt, nicht ueberschrieben', () => {
   speichereEtikett({ name: 'Bleibt' });
   speichereEtikett({ name: 'Auch' });
-  fs.writeFileSync(path.join(tempDir, 'etiketten.json'), '{kaputt', 'utf-8');
+  fs.writeFileSync(path.join(datenDir, 'etiketten.json'), '{kaputt', 'utf-8');
   alleEtiketten();
 
-  const beiseite = fs.readdirSync(tempDir).filter((n) => n.includes('etiketten.json.kaputt-'));
+  const beiseite = fs.readdirSync(datenDir).filter((n) => n.includes('etiketten.json.kaputt-'));
   assert.equal(beiseite.length, 1, 'genau eine beiseite gelegte Fassung');
   assert.equal(
-    fs.readFileSync(path.join(tempDir, beiseite[0]!), 'utf-8'),
+    fs.readFileSync(path.join(datenDir, beiseite[0]!), 'utf-8'),
     '{kaputt',
     'und zwar unveraendert - daraus laesst sich von Hand noch etwas retten',
   );
 });
 
 pruefe('ohne Sicherungskopie bleibt nur die Voreinstellung', () => {
-  fs.writeFileSync(path.join(tempDir, 'etiketten.json'), '{kaputt', 'utf-8');
+  fs.writeFileSync(path.join(datenDir, 'etiketten.json'), '{kaputt', 'utf-8');
   assert.equal(alleEtiketten().length, 5);
 });
 

@@ -3,15 +3,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { AccountAuth, AccountConfig } from '@energy-mail/mail-core';
 import { getProviderPreset, type GefundeneEinstellungen } from '@energy-mail/mail-core';
-import { getDataDir } from './paths.js';
+import { getNutzerDir } from './paths.js';
 import { liesJson, schreibeAtomar } from './atomar.js';
 import { protokolliere } from './protokollDatei.js';
 import { decryptSecret, encryptSecret } from './secretCrypto.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 // Bei jedem Zugriff neu gebildet statt einmalig beim Laden: der Ablageort wird von der
 // Desktop-App beim Start gesetzt, und die Reihenfolge der Modulladung ist nichts, worauf
 // man sich verlassen sollte.
-const getStorePath = () => path.join(getDataDir(), 'accounts.json');
+const getStorePath = () => path.join(getNutzerDir(), 'accounts.json');
 
 /**
  * Auf der Platte liegt statt des Passworts bzw. der OAuth-Token nur ein verschlüsselter
@@ -152,8 +153,10 @@ export function buildPasswordAccount(input: CreatePasswordAccountInput): Account
   const smtpHost = input.overrides?.smtpHost ?? gefunden?.smtpHost ?? preset?.smtpHost;
   if (!imapHost || !smtpHost) {
     throw new Error(
-      `Für "${input.email}" ließen sich die Serveradressen nicht ermitteln. ` +
-        'Bitte IMAP- und SMTP-Server von Hand angeben.',
+      t(
+        'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.',
+        { adresse: input.email },
+      ),
     );
   }
 
@@ -266,7 +269,10 @@ export function buildOAuthAccount(input: CreateOAuthAccountInput): AccountConfig
   };
 }
 
-export type AccountSettings = Pick<AccountConfig, 'displayName' | 'signature' | 'identitaeten'>;
+export type AccountSettings = Pick<
+  AccountConfig,
+  'displayName' | 'signature' | 'identitaeten' | 'proxy'
+>;
 
 /** Ändert die Einstellungen eines Kontos; Zugangsdaten bleiben unangetastet. */
 export function updateAccountSettings(id: string, settings: AccountSettings): AccountConfig | null {
@@ -276,6 +282,16 @@ export function updateAccountSettings(id: string, settings: AccountSettings): Ac
 
   account.displayName = settings.displayName?.trim() || undefined;
   account.signature = settings.signature?.trim() || undefined;
+  /*
+   * Nur anfassen, wenn der Aufrufer das Feld ueberhaupt mitschickt.
+   *
+   * Sonst loeschte ein Aendern des Anzeigenamens den Proxy gleich mit - und der Nutzer
+   * saesse danach in einem Firmennetz ohne Verbindung, ohne einen Zusammenhang zu sehen.
+   * Ein leerer String heisst dagegen ausdruecklich "wieder weg damit".
+   */
+  if (settings.proxy !== undefined) {
+    account.proxy = settings.proxy.trim() || undefined;
+  }
   // Nur anfassen, wenn der Aufrufer sie mitschickt - sonst loeschte ein Aendern des
   // Anzeigenamens die weiteren Absenderadressen gleich mit.
   if (settings.identitaeten) {

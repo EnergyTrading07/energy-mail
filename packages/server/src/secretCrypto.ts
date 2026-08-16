@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Liefert den 32-Byte-Schlüssel, mit dem Zugangsdaten verschlüsselt werden. Woher der
@@ -34,9 +35,9 @@ export function isEncryptionAvailable(): boolean {
 function requireKey(): Buffer {
   if (!provider) {
     throw new Error(
-      'Keine Verschlüsselung eingerichtet - Zugangsdaten würden im Klartext liegen. ' +
-        'In der Desktop-App passiert das automatisch; beim Standalone-Server muss ' +
-        'ENERGY_MAIL_MASTER_KEY gesetzt sein.',
+      t(
+        'Keine Verschlüsselung eingerichtet - Zugangsdaten würden im Klartext liegen. In der Desktop-App passiert das automatisch; beim Standalone-Server muss ENERGY_MAIL_MASTER_KEY gesetzt sein.',
+      ),
     );
   }
   if (!cachedKey) {
@@ -49,8 +50,16 @@ function requireKey(): Buffer {
   return cachedKey;
 }
 
-/** AES-256-GCM: verschlüsselt und authentifiziert zugleich (erkennt Manipulation). */
-export function encryptSecret(plain: string): string {
+/**
+ * Verschlüsselt unmittelbar mit dem Masterschlüssel.
+ *
+ * Nur für das Verpacken der Nutzerschlüssel gedacht - siehe nutzer/schluesselHuelle.ts.
+ * Geheimnisse eines Nutzers (Postfachkennwörter, Marken, PGP) gehen NICHT hierdurch,
+ * sondern durch seinen eigenen Schlüssel: sonst hinge alles an einem einzigen Schlüssel,
+ * ein Wechsel bedeutete, sämtliche Daten aller Nutzer neu zu verschlüsseln, und das
+ * Löschen eines Nutzers ließe seine Daten in jeder Sicherung lesbar zurück.
+ */
+export function verschluesselMitMaster(plain: string): string {
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv('aes-256-gcm', requireKey(), iv);
   const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
@@ -62,7 +71,8 @@ export function encryptSecret(plain: string): string {
   ].join('.');
 }
 
-export function decryptSecret(payload: string): string {
+/** Gegenstück zu verschluesselMitMaster - und der Weg für Altbestand (v1). */
+export function entschluesselMitMaster(payload: string): string {
   const [version, ivB64, tagB64, dataB64] = payload.split('.');
   if (version !== PREFIX || !ivB64 || !tagB64 || !dataB64) {
     throw new Error('Verschlüsselte Zugangsdaten haben ein unbekanntes Format.');
@@ -81,16 +91,100 @@ export function decryptSecret(payload: string): string {
   } catch {
     // Der häufigste Grund ist ein anderer Schlüssel, nicht ein defekter Datensatz.
     throw new Error(
-      'Zugangsdaten konnten nicht entschlüsselt werden. Wurden sie unter einem anderen ' +
-        'Windows-Benutzer angelegt oder fehlt die Schlüsseldatei (data/key.enc)?',
+      t(
+        'Zugangsdaten konnten nicht entschlüsselt werden. Wurden sie unter einem anderen Windows-Benutzer angelegt oder fehlt die Schlüsseldatei (data/key.enc)?',
+      ),
     );
   }
 }
 
-/** Leitet einen Schlüssel aus einem Master-Passwort ab (nur Standalone-Server). */
-export function createPassphraseKeyProvider(passphrase: string, salt: Buffer): KeyProvider {
+/**
+ * Wie ein Geheimnis eines Nutzers verschlüsselt wird.
+ *
+ * Von aussen gesetzt, damit dieses Modul nichts über Nutzer wissen muss - sonst zögen
+ * sich secretCrypto, nutzerStore und schluesselHuelle gegenseitig im Kreis.
+ */
+let umschlag: { hinein: (klar: string) => string; heraus: (nutzlast: string) => string } | null =
+  null;
+
+export function setzeUmschlag(verfahren: typeof umschlag): void {
+  umschlag = verfahren;
+}
+
+/**
+ * Verschlüsselt ein Geheimnis eines Nutzers.
+ *
+ * Neue Geheimnisse gehen durch den Umschlag (v2, Schlüssel des Nutzers). Ist keiner
+ * eingerichtet - Werkzeuge, Prüfungen, sehr früher Start -, gilt weiter der
+ * Masterschlüssel; das Ergebnis ist dann v1 und bleibt lesbar.
+ */
+export function encryptSecret(plain: string): string {
+  return umschlag ? umschlag.hinein(plain) : verschluesselMitMaster(plain);
+}
+
+/**
+ * Entschlüsselt ein Geheimnis - gleich in welchem Format es vorliegt.
+ *
+ * Das ist die Stelle, an der bestehende Installationen heil bleiben: alles, was vor der
+ * Umstellung angelegt wurde, trägt "v1" und wurde unmittelbar mit dem Masterschlüssel
+ * verschlüsselt. Es wird weiterhin so gelesen. Neues trägt "v2" und geht durch den
+ * Schlüssel des Nutzers.
+ *
+ * Umgeschrieben wird nichts von selbst: ein v1-Geheimnis wird zu v2, sobald sein
+ * Datensatz ohnehin neu geschrieben wird - beim nächsten Speichern des Kontos etwa. Ein
+ * Zwangsdurchlauf über alle Dateien wäre ein Vorgang, bei dem viel schiefgehen kann, für
+ * einen Gewinn, der sich auch von selbst einstellt.
+ */
+export function decryptSecret(payload: string): string {
+  if (payload.startsWith('v2.') && umschlag) return umschlag.heraus(payload);
+  return entschluesselMitMaster(payload);
+}
+
+export interface ScryptParameter {
+  N: number;
+  r: number;
+  p: number;
+}
+
+/**
+ * Womit NEUE Ableitungen gerechnet werden.
+ *
+ * N = 2^17 sind rund 128 MB und gut eine Sekunde - einmal beim Start des Prozesses, denn
+ * das Ergebnis wird zwischengespeichert (siehe requireKey). Bei den Anmeldekennwörtern
+ * steht bewusst der kleinere Wert 2^16: die werden bei JEDER Anmeldung gerechnet, hier
+ * einmal je Serverlauf. Was man sich einmal leisten kann, soll man sich leisten.
+ */
+export const SCRYPT_HEUTE: ScryptParameter = { N: 2 ** 17, r: 8, p: 1 };
+
+/**
+ * Was Node ohne Angabe nimmt - und was deshalb bis hierher galt.
+ *
+ * Bleibt als Rückfallweg bestehen, und das ist keine Bequemlichkeit: aus dem
+ * Master-Passwort wird der Schlüssel abgeleitet, mit dem sämtliche Zugangsdaten
+ * verschlüsselt sind. Andere Parameter ergeben einen anderen Schlüssel - eine
+ * bestehende Aufstellung käme nach der Änderung an kein einziges Postfach mehr, und
+ * zwar ohne dass man den Grund ansähe. Welche Werte gelten, entscheidet deshalb die
+ * Aufstellung selbst und nicht die Fassung des Programms (siehe index.ts).
+ */
+export const SCRYPT_ALTBESTAND: ScryptParameter = { N: 2 ** 14, r: 8, p: 1 };
+
+/** scrypt braucht ausdrücklich Erlaubnis für den Speicher, den es anfordert. */
+const MAXMEM = 512 * 1024 * 1024;
+
+/**
+ * Leitet einen Schlüssel aus einem Master-Passwort ab (nur Standalone-Server).
+ *
+ * Die Parameter kommen von außen und haben als Voreinstellung den Altbestand. Bewusst
+ * herum: wer diese Funktion ohne Angabe ruft, meint eine bestehende Aufstellung, und
+ * für die wäre ein stillschweigend stärkerer Wert der Verlust aller Zugangsdaten.
+ */
+export function createPassphraseKeyProvider(
+  passphrase: string,
+  salt: Buffer,
+  parameter: ScryptParameter = SCRYPT_ALTBESTAND,
+): KeyProvider {
   return {
-    name: 'Master-Passwort (ENERGY_MAIL_MASTER_KEY)',
-    getKey: () => crypto.scryptSync(passphrase, salt, 32),
+    name: `Master-Passwort (ENERGY_MAIL_MASTER_KEY, scrypt N=${parameter.N})`,
+    getKey: () => crypto.scryptSync(passphrase, salt, 32, { ...parameter, maxmem: MAXMEM }),
   };
 }

@@ -5,6 +5,7 @@ import type { Account } from '../api.js';
 import { bestaetige } from '../dialoge.js';
 import { meldeErfolg, meldeHinweis } from '../meldungen.js';
 import { Fenster } from './Fenster.js';
+import { t } from '../sprache.js';
 
 /**
  * Verwaltung der Regeln eines Kontos.
@@ -95,10 +96,12 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
 
   const anwenden = async () => {
     const ja = await bestaetige({
-      titel: 'Regeln jetzt anwenden?',
-      text: 'Alle aktiven Regeln laufen über die neuesten 200 Nachrichten des Posteingangs. Nachrichten werden dabei verschoben, markiert oder als gelesen gesetzt.',
+      titel: t('Regeln jetzt anwenden?'),
+      text: t(
+        'Alle aktiven Regeln laufen über die neuesten 200 Nachrichten des Posteingangs. Nachrichten werden dabei verschoben, markiert oder als gelesen gesetzt.',
+      ),
       stil: 'warnung',
-      ok: 'Anwenden',
+      ok: t('Anwenden'),
     });
     if (!ja) return;
 
@@ -110,12 +113,17 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
       // berichtet - und wer weiterarbeiten will, soll dafür nichts wegklicken müssen.
       if (ergebnis.betroffen === 0) {
         meldeHinweis(
-          'Keine Regel hat gegriffen',
-          `Keine der ${ergebnis.geprueft} geprüften Nachrichten passte auf eine Regel.`,
+          t('Keine Regel hat gegriffen'),
+          t('Keine der {geprueft} geprüften Nachrichten passte auf eine Regel.', {
+            geprueft: ergebnis.geprueft,
+          }),
         );
       } else {
         meldeErfolg(
-          `${ergebnis.betroffen} von ${ergebnis.geprueft} Nachrichten bearbeitet`,
+          t('{betroffen} von {geprueft} Nachrichten bearbeitet', {
+            betroffen: ergebnis.betroffen,
+            geprueft: ergebnis.geprueft,
+          }),
           ergebnis.schritte.join(' · '),
         );
       }
@@ -130,40 +138,56 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
   const beschreibe = (regel: Regel): string => {
     const b = regel.bedingungen;
     const wenn = [
-      b.von && `Absender enthält „${b.von}“`,
-      b.betreff && `Betreff enthält „${b.betreff}“`,
-      b.an && `Empfänger enthält „${b.an}“`,
-      b.listId && `Verteiler enthält „${b.listId}“`,
-      b.nurRundmail && 'es eine Rundmail ist',
+      b.von && t('Absender enthält „{wert}“', { wert: b.von }),
+      b.betreff && t('Betreff enthält „{wert}“', { wert: b.betreff }),
+      b.an && t('Empfänger enthält „{wert}“', { wert: b.an }),
+      b.listId && t('Verteiler enthält „{wert}“', { wert: b.listId }),
+      b.nurRundmail && t('es eine Rundmail ist'),
     ].filter(Boolean);
 
     const a = regel.aktionen;
     const dann = [
-      a.verschiebeNach && `nach „${a.verschiebeNach}“ verschieben`,
-      a.alsGelesen && 'als gelesen markieren',
-      a.markieren && 'markieren',
-      a.inDenPapierkorb && 'in den Papierkorb',
+      a.verschiebeNach && t('nach „{ordner}“ verschieben', { ordner: a.verschiebeNach }),
+      a.alsGelesen && t('als gelesen markieren'),
+      a.markieren && t('markieren'),
+      a.inDenPapierkorb && t('in den Papierkorb'),
     ].filter(Boolean);
 
-    return `Wenn ${wenn.join(' und ')}, dann ${dann.join(' und ')}.`;
+    /*
+     * Der Rahmen und die Teilstücke getrennt übersetzt.
+     *
+     * Ein Satz, der sich aus Bedingungen und Folgen zusammensetzt, lässt sich nicht als
+     * Ganzes in den Katalog schreiben - es gibt zu viele Kombinationen. Was geht: jedes
+     * Teilstück für sich, und der Rahmen mit Platzhaltern. So kann eine Sprache mit
+     * anderer Wortstellung wenigstens den Rahmen umbauen.
+     */
+    return t('Wenn {wenn}, dann {dann}.', {
+      wenn: wenn.join(t(' und ')),
+      dann: dann.join(t(' und ')),
+    });
   };
 
   return (
-    <Fenster titel={`Regeln für ${account.email}`} onClose={onClose} klasse="modal-wide">
+    <Fenster
+      titel={t('Regeln für {adresse}', { adresse: account.email })}
+      onClose={onClose}
+      klasse="modal-wide"
+    >
       <p className="hint">
-        Regeln greifen, sobald neue Post eintrifft. Für bereits vorhandene Nachrichten
-        lassen sie sich unten von Hand anwenden.
+        {t(
+          'Regeln greifen, sobald neue Post eintrifft. Für bereits vorhandene Nachrichten lassen sie sich unten von Hand anwenden.',
+        )}
       </p>
 
       {fehler && <div className="error-banner">{fehler}</div>}
 
       {regeln.length === 0 && !entwurf && (
-        <div className="empty-state">Noch keine Regeln angelegt.</div>
+        <div className="empty-state">{t('Noch keine Regeln angelegt.')}</div>
       )}
 
       {regeln.map((regel) => (
         <div key={regel.id} className={`regel-zeile${regel.aktiv ? '' : ' inaktiv'}`}>
-          <label className="regel-schalter" title={regel.aktiv ? 'Regel ist aktiv' : 'Regel ruht'}>
+          <label className="regel-schalter" title={regel.aktiv ? t('Regel ist aktiv') : t('Regel ruht')}>
             <input
               type="checkbox"
               checked={regel.aktiv}
@@ -177,25 +201,23 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
             <strong>{regel.name}</strong>
             <span>{beschreibe(regel)}</span>
           </div>
-          <button className="link-btn" onClick={() => setEntwurf(regel)}>
-            Bearbeiten
-          </button>
+          <button className="link-btn" onClick={() => setEntwurf(regel)}>{t('Bearbeiten')}</button>
           <button
             className="link-btn gefaehrlich"
             onClick={async () => {
               const ja = await bestaetige({
-                titel: `Regel „${regel.name}“ löschen?`,
-                text: 'Bereits verschobene Nachrichten bleiben, wo sie sind – die Regel greift nur künftig nicht mehr.',
+                titel: t('Regel „{name}“ löschen?', { name: regel.name }),
+                text: t(
+                  'Bereits verschobene Nachrichten bleiben, wo sie sind – die Regel greift nur künftig nicht mehr.',
+                ),
                 stil: 'gefahr',
-                ok: 'Regel löschen',
+                ok: t('Regel löschen'),
               });
               if (!ja) return;
               await api.deleteRule(account.id, regel.id);
               await laden();
             }}
-          >
-            Löschen
-          </button>
+          >{t('Löschen')}</button>
         </div>
       ))}
 
@@ -204,25 +226,25 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
           <div className="form-row">
             <input
               type="text"
-              placeholder="Name der Regel, z.B. „Pinterest wegsortieren“"
+              placeholder={t('Name der Regel, z.B. „Pinterest wegsortieren“')}
               value={entwurf.name}
               onChange={(e) => setEntwurf({ ...entwurf, name: e.target.value })}
             />
           </div>
 
           <div className="regel-block">
-            <strong>Wenn …</strong>
+            <strong>{t('Wenn …')}</strong>
             <label>
-              <span>Absender</span>
+              <span>{t('Absender')}</span>
               <input
                 type="text"
-                placeholder="enthält…"
+                placeholder={t('enthält…')}
                 value={entwurf.bedingungen.von ?? ''}
                 onChange={(e) => setzeBedingung('von', e.target.value)}
               />
             </label>
             <label>
-              <span>Betreff</span>
+              <span>{t('Betreff')}</span>
               <input
                 type="text"
                 placeholder="enthält…"
@@ -231,7 +253,7 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
               />
             </label>
             <label>
-              <span>Empfänger</span>
+              <span>{t('Empfänger')}</span>
               <input
                 type="text"
                 placeholder="enthält…"
@@ -247,13 +269,13 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
               />
               nur Rundmails (erkennbar an der Abmelde-Kopfzeile)
             </label>
-            <p className="hint">Alles Angegebene muss zutreffen.</p>
+            <p className="hint">{t('Alles Angegebene muss zutreffen.')}</p>
           </div>
 
           <div className="regel-block">
             <strong>… dann</strong>
             <label>
-              <span>Verschieben</span>
+              <span>{t('Verschieben')}</span>
               <select
                 value={entwurf.aktionen.verschiebeNach ?? ''}
                 onChange={(e) => setzeAktion('verschiebeNach', e.target.value)}
@@ -307,21 +329,15 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
           )}
 
           <div className="form-row regel-knoepfe">
-            <button className="btn secondary" disabled={busy} onClick={() => void vorfuehren()}>
-              Vorführen
-            </button>
-            <button className="btn" disabled={busy || !entwurf.name.trim()} onClick={() => void speichern()}>
-              Speichern
-            </button>
+            <button className="btn secondary" disabled={busy} onClick={() => void vorfuehren()}>{t('Vorführen')}</button>
+            <button className="btn" disabled={busy || !entwurf.name.trim()} onClick={() => void speichern()}>{t('Speichern')}</button>
             <button
               className="link-btn"
               onClick={() => {
                 setEntwurf(null);
                 setVorschau(null);
               }}
-            >
-              Abbrechen
-            </button>
+            >{t('Abbrechen')}</button>
           </div>
         </div>
       ) : (
@@ -330,13 +346,9 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
             + Regel anlegen
           </button>
           {regeln.some((r) => r.aktiv) && (
-            <button className="btn secondary" disabled={busy} onClick={() => void anwenden()}>
-              Auf Posteingang anwenden
-            </button>
+            <button className="btn secondary" disabled={busy} onClick={() => void anwenden()}>{t('Auf Posteingang anwenden')}</button>
           )}
-          <button className="link-btn" onClick={onClose}>
-            Schließen
-          </button>
+          <button className="link-btn" onClick={onClose}>{t('Schließen')}</button>
         </div>
       )}
     </Fenster>

@@ -7,6 +7,7 @@ import {
 } from '@energy-mail/mail-core';
 import { setAuthExpired, updateAccountAuth } from './accountStore.js';
 import { getOAuthClient } from './oauthStore.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Sorgt dafür, dass IMAP- und SMTP-Verbindungen immer ein gültiges Zugriffstoken
@@ -25,8 +26,9 @@ async function erneuern(config: AccountConfig): Promise<string> {
   const credentials = getOAuthClient(config.auth.provider);
   if (!credentials) {
     throw new Error(
-      `Für ${config.auth.provider} sind keine OAuth-Zugangsdaten hinterlegt - ` +
-        'das Konto kann nicht erneuert werden.',
+      t('Für {anbieter} sind keine OAuth-Zugangsdaten hinterlegt - das Konto kann nicht erneuert werden.', {
+        anbieter: config.auth.provider,
+      }),
     );
   }
   if (!config.auth.refreshToken) {

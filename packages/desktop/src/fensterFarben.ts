@@ -8,25 +8,48 @@
  * Startfehler, Über).
  *
  * Deshalb stehen sie hier ein zweites Mal - und nur diese. Ändert sich in tokens.css
- * einer der beiden Grundtöne, gehört er hier nachgezogen; es sind vier Werte.
+ * einer der Grundtöne, gehört er hier nachgezogen; es ist eine Handvoll Werte, und sie
+ * stehen alle in diesem einen Block.
  */
 
 export interface Fensterfarben {
-  /** Grund des Fensters, bevor die Oberfläche geladen ist. */
+  /** Grund des Fensters, bevor die Oberfläche geladen ist - muss zu --grund passen. */
   grund: string;
-  /** Fläche der Titelleiste - muss zu --flaeche-leise passen. */
+  /** Fläche der Titelleiste. Sie trägt seit der Umgestaltung denselben Ton wie der
+      Grund: die Leiste ist der obere Rand der Anwendung und kein eigenes Band. */
   leiste: string;
   /** Zeichen der Fensterknöpfe - muss zu --text-2 passen. */
   zeichen: string;
+  /** Fläche und Schrift der kleinen eigenen Fenster - muss zu --flaeche/--text passen. */
+  flaeche: string;
+  text: string;
+  text2: string;
+  rand: string;
 }
 
 export const FARBEN: Record<'hell' | 'dunkel', Fensterfarben> = {
-  hell: { grund: '#eaeef5', leiste: '#f6f8fc', zeichen: '#4d5867' },
-  dunkel: { grund: '#0d1117', leiste: '#11161e', zeichen: '#a2b0c1' },
+  hell: {
+    grund: '#f0ede6',
+    leiste: '#f0ede6',
+    zeichen: '#55504a',
+    flaeche: '#fffdf9',
+    text: '#1b1917',
+    text2: '#55504a',
+    rand: '#ded9ce',
+  },
+  dunkel: {
+    grund: '#090b11',
+    leiste: '#090b11',
+    zeichen: '#a8a49c',
+    flaeche: '#11141c',
+    text: '#ebe8e2',
+    text2: '#a8a49c',
+    rand: '#242935',
+  },
 };
 
 /** Höhe der Titelleiste; muss zu --leiste-hoehe in tokens.css passen. */
-export const LEISTE_HOEHE = 40;
+export const LEISTE_HOEHE = 42;
 
-export const MARKE = '#2f5fd8';
-export const BLITZ = '#f5c518';
+export const MARKE = '#2b48d4';
+export const BLITZ = '#ffb225';
