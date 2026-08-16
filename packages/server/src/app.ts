@@ -763,6 +763,63 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     return account;
   }
 
+  /**
+   * Eine Zahl aus einer Anfrage - geprüft und nicht geraten.
+   *
+   * ## Warum es diese Zeilen gibt
+   *
+   * `Number('abc')` ist NaN, und NaN ist die gefährlichste Zahl in JavaScript: Sie
+   * verhält sich in keinem Vergleich wie eine Zahl, wirft aber auch nicht. Sie wandert
+   * unbemerkt weiter, bis sie irgendwo unten in `slice(-n)` steckt - und dort bedeutet
+   * sie das Gegenteil dessen, was sie sollte: keine Begrenzung.
+   *
+   * Gefunden wurde das an fünf Wegen. Der schlimmste war `apply-rules`: mit einer
+   * unbrauchbaren Seitengröße wurden die Regeln nicht auf die neuesten zweihundert
+   * Nachrichten angewandt, sondern auf den gesamten Ordner - und Regeln verschieben und
+   * löschen. Ein Tippfehler in einer Adresszeile hätte damit ein Postfach umgeräumt.
+   *
+   * ## Warum 400 und nicht die Voreinstellung
+   *
+   * Weil eine stillschweigend eingesetzte Voreinstellung dem Aufrufer etwas anderes tut,
+   * als er verlangt hat, ohne es zu sagen. Wer `pageSize=abc` schickt, hat einen Fehler
+   * im Programm oder in der Adresse - und den soll er sehen. Die Bibliothek darunter
+   * fängt denselben Fall zusätzlich ab (siehe `brauchbareAnzahl` in imapClient.ts); zwei
+   * Sicherungen, weil eine davon irgendwann bei einem Umbau wegfällt.
+   */
+  function zahlAus(
+    roh: unknown,
+    feld: string,
+    grenzen: { von: number; bis: number; standard?: number },
+  ): number {
+    if (roh === undefined || roh === null || roh === '') {
+      if (grenzen.standard !== undefined) return grenzen.standard;
+      throw new HttpError(400, t('Feld „{feld}“ fehlt.', { feld }));
+    }
+    const wert = Number(roh);
+    if (!Number.isInteger(wert) || wert < grenzen.von || wert > grenzen.bis) {
+      throw new HttpError(
+        400,
+        t('„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.', {
+          feld,
+          von: String(grenzen.von),
+          bis: String(grenzen.bis),
+        }),
+      );
+    }
+    return wert;
+  }
+
+  /**
+   * Die Nummer einer Nachricht.
+   *
+   * Eigener Weg, weil die Obergrenze hier keine Frage des Geschmacks ist: IMAP-UIDs sind
+   * vorzeichenlose 32-Bit-Zahlen (RFC 3501). Was darüber liegt, kann keine Nachricht sein.
+   */
+  const UID_HOECHSTENS = 4_294_967_295;
+  function uidAus(roh: unknown, feld = 'uid'): number {
+    return zahlAus(roh, feld, { von: 1, bis: UID_HOECHSTENS });
+  }
+
   app.setErrorHandler((err: unknown, _request, reply) => {
     if (err instanceof HttpError) {
       reply.code(err.statusCode).send({ error: err.message });
@@ -1198,7 +1255,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }>('/accounts/:id/folders/:folder/messages/:uid/pgp', async (request) => {
     const account = requireAccount(request.params.id);
     const ordner = decodeURIComponent(request.params.folder);
-    const uid = Number(request.params.uid);
+    const uid = uidAus(request.params.uid);
 
     const nachricht = await getMessage(account, ordner, uid);
     const struktur = await getBodyStructure(account, ordner, uid);
@@ -1316,7 +1373,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }>('/accounts/:id/folders/:folder/messages/:uid/smime', async (request) => {
     const account = requireAccount(request.params.id);
     const ordner = decodeURIComponent(request.params.folder);
-    const nachricht = await getMessage(account, ordner, Number(request.params.uid));
+    const nachricht = await getMessage(account, ordner, uidAus(request.params.uid));
     const befund = await pruefeSmime(account, ordner, nachricht, request.body?.kennwort);
     return befund ?? { verschluesselt: false, geoeffnet: true, ohneSmime: true };
   });
@@ -1374,7 +1431,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   /** Die Nachricht im Original. Der Abdruck wird dabei nachgerechnet - siehe original(). */
   app.get<{ Params: { nr: string } }>('/archiv/:nr/original', async (request, reply) => {
     try {
-      const { bytes, eintrag } = archivOriginal(Number(request.params.nr));
+      const { bytes, eintrag } = archivOriginal(zahlAus(request.params.nr, 'nr', { von: 1, bis: Number.MAX_SAFE_INTEGER }));
       reply.type('message/rfc822');
       reply.header(
         'content-disposition',
@@ -1392,7 +1449,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       const text = request.body?.text?.trim();
       if (!text) throw new HttpError(400, t('Ein leerer Vermerk hilft niemandem.'));
       try {
-        return vermerkeImArchiv(Number(request.params.nr), text);
+        return vermerkeImArchiv(zahlAus(request.params.nr, 'nr', { von: 1, bis: Number.MAX_SAFE_INTEGER }), text);
       } catch (err) {
         throw new HttpError(400, (err as Error).message);
       }
@@ -1407,7 +1464,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
         throw new HttpError(400, t('Unbekannte Aufbewahrungsart.'));
       }
       try {
-        return trageArchivUm(Number(request.params.nr), art);
+        return trageArchivUm(zahlAus(request.params.nr, 'nr', { von: 1, bis: Number.MAX_SAFE_INTEGER }), art);
       } catch (err) {
         throw new HttpError(400, (err as Error).message);
       }
@@ -1876,8 +1933,8 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     Querystring: { minDays?: string; maxDays?: string; all?: string };
   }>('/accounts/:id/offen', async (request) => {
     const account = requireAccount(request.params.id);
-    const mindestTage = Math.max(0, Number(request.query.minDays ?? 3));
-    const hoechstTage = Math.min(Number(request.query.maxDays ?? 90), 365);
+    const mindestTage = zahlAus(request.query.minDays, 'minDays', { von: 0, bis: 3650, standard: 3 });
+    const hoechstTage = zahlAus(request.query.maxDays, 'maxDays', { von: 1, bis: 365, standard: 90 });
     const auchUnbekannte = request.query.all === '1';
 
     const { wert } = await ausSpeicherOderHolen(
@@ -1907,7 +1964,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       const account = requireAccount(request.params.id);
       const ordner = request.query.folder ? decodeURIComponent(request.query.folder) : 'INBOX';
-      const stichprobe = Math.min(Number(request.query.sample ?? 500), 2000);
+      const stichprobe = zahlAus(request.query.sample, 'sample', { von: 1, bis: 2000, standard: 500 });
 
       const { wert } = await ausSpeicherOderHolen(
         `absender:${account.id}:${ordner}:${stichprobe}`,
@@ -2042,7 +2099,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }>('/accounts/:id/folders/:folder/messages/:uid/lesebestaetigung', async (request) => {
     const account = requireAccount(request.params.id);
     const ordner = decodeURIComponent(request.params.folder);
-    const uid = Number(request.params.uid);
+    const uid = uidAus(request.params.uid);
     const nachricht = await getMessage(account, ordner, uid);
     const schluessel = bestaetigungsSchluessel(nachricht, ordner);
 
@@ -2185,7 +2242,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
     // Über eine begrenzte Menge: die Vorschau soll eine Größenordnung zeigen, nicht den
     // gesamten Ordner durchmustern.
-    const stichprobe = Math.min(Number(request.body?.pageSize ?? 200), 500);
+    const stichprobe = zahlAus(request.body?.pageSize, 'pageSize', { von: 1, bis: 500, standard: 200 });
     const seite = await listMessages(account, ordner, { pageSize: stichprobe });
     const probe = { id: 'vorschau', name: 'Vorschau', aktiv: true, bedingungen, aktionen: {} };
     const treffer = seite.messages.filter((m) => passt(probe as Regel, m));
@@ -2207,7 +2264,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       const account = requireAccount(request.params.id);
       const ordner = decodeURIComponent(request.params.folder);
-      const menge = Math.min(Number(request.query.pageSize ?? 200), 500);
+      const menge = zahlAus(request.query.pageSize, 'pageSize', { von: 1, bis: 500, standard: 200 });
 
       const seite = await listMessages(account, ordner, { pageSize: menge });
       const ergebnis = await wendeRegelnAn(account, ordner, seite.messages, (m) => app.log.info(m));
@@ -2485,7 +2542,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       const account = requireAccount(request.params.id);
       const ordner = decodeURIComponent(request.params.folder);
-      const uid = Number(request.params.uid);
+      const uid = uidAus(request.params.uid);
       const key = nachrichtenSchluessel(account.id, ordner, uid);
 
       /**
@@ -2593,7 +2650,17 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }>('/accounts/:id/folders/:folder/sicherung', async (request, reply) => {
     const account = requireAccount(request.params.id);
     const ordner = decodeURIComponent(request.params.folder);
-    const hoechstens = request.query.max ? Number(request.query.max) : undefined;
+    /*
+     * `max` ist freiwillig: ohne Angabe geht der ganze Ordner hinaus, und das ist der
+     * gewollte Regelfall einer Sicherung. Ein leeres `?max=` zählt dabei als "nicht
+     * angegeben" - es entsteht von selbst, wenn eine Oberfläche ein leeres Feld anhängt,
+     * und wäre als Fehler nur lästig. Steht dagegen etwas da, muss es eine Zahl sein.
+     */
+    const rohMax = request.query.max;
+    const hoechstens =
+      rohMax === undefined || rohMax === ''
+        ? undefined
+        : zahlAus(rohMax, 'max', { von: 1, bis: 1_000_000 });
 
     reply.raw.setHeader('content-type', 'application/mbox; charset=utf-8');
     reply.raw.setHeader(
@@ -2650,7 +2717,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       const roh = await getRawMessage(
         account,
         decodeURIComponent(request.params.folder),
-        Number(request.params.uid),
+        uidAus(request.params.uid),
       );
       reply.type('text/plain; charset=utf-8');
       return roh;
@@ -2737,7 +2804,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       const attachment = await downloadAttachment(
         account,
         decodeURIComponent(request.params.folder),
-        Number(request.params.uid),
+        uidAus(request.params.uid),
         request.params.partId,
       );
 
@@ -2883,7 +2950,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       const kriterien = parseKriterien(request.query);
       if (!hatEinschraenkung(kriterien)) return { hits: [], total: 0, hasMore: false };
 
-      const grenze = request.query.pageSize ? Number(request.query.pageSize) : DEFAULT_SEITENGROESSE;
+      const grenze = zahlAus(request.query.pageSize, 'pageSize', { von: 1, bis: 500, standard: DEFAULT_SEITENGROESSE });
       const ergebnis = await searchFolders(account, await suchOrdner(account), kriterien, grenze);
       return {
         ...ergebnis,
@@ -2901,7 +2968,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     const kriterien = parseKriterien(request.query);
     if (!hatEinschraenkung(kriterien)) return { hits: [], total: 0, hasMore: false };
 
-    const grenze = request.query.pageSize ? Number(request.query.pageSize) : DEFAULT_SEITENGROESSE;
+    const grenze = zahlAus(request.query.pageSize, 'pageSize', { von: 1, bis: 500, standard: DEFAULT_SEITENGROESSE });
     const treffer = [];
     let gesamt = 0;
 
@@ -3379,7 +3446,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     }
 
     const ordner = decodeURIComponent(request.params.folder);
-    const nachricht = await getMessage(account, ordner, Number(request.params.uid));
+    const nachricht = await getMessage(account, ordner, uidAus(request.params.uid));
     const termin = nachricht.einladung?.termine[0];
     if (!termin) throw new HttpError(400, t('Diese Nachricht enthält keine Einladung'));
     if (!termin.organisator?.adresse) {
@@ -3476,7 +3543,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     async (request) => {
       const account = requireAccount(request.params.id);
       const ordner = decodeURIComponent(request.params.folder);
-      await discardDraft(account, ordner, Number(request.params.uid));
+      await discardDraft(account, ordner, uidAus(request.params.uid));
       verwerfeStaende(account.id, ordner);
       return { ok: true };
     },

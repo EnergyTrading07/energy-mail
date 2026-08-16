@@ -4,6 +4,7 @@ import { withClient, withThrowawayClient } from './connectionPool.js';
 import { nimmtEtikettenAn } from './etiketten.js';
 import { leseEinladung, type Einladung } from './ics.js';
 import { alsMboxEintragBytes } from './mbox.js';
+import { brauchbareAnzahl } from './seitengroesse.js';
 import { findeOffeneVorgaenge, type OffenerVorgang } from './nachfassen.js';
 import {
   GMAIL_CATEGORIES,
@@ -617,7 +618,7 @@ export async function listMessages(
   folder: string,
   options: ListMessagesOptions = {},
 ): Promise<MessagePage> {
-  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = brauchbareAnzahl(options.pageSize, DEFAULT_PAGE_SIZE);
 
   return withClient(config, async (client) => {
     const lock = await client.getMailboxLock(folder);
@@ -995,7 +996,11 @@ export async function exportiereAlsMbox(
     const lock = await client.getMailboxLock(folder);
     try {
       const alle = (await client.search({ all: true }, { uid: true })) || [];
-      const uids = optionen.hoechstens ? alle.slice(-optionen.hoechstens) : alle;
+      const deckel = optionen.hoechstens;
+      const uids =
+        deckel !== undefined && Number.isFinite(deckel) && deckel >= 1
+          ? alle.slice(-Math.floor(deckel))
+          : alle;
 
       let ausgegeben = 0;
       let uebersprungen = 0;
@@ -1505,7 +1510,7 @@ export async function senderUebersicht(
     const lock = await client.getMailboxLock(folder);
     try {
       const alle = (await client.search({ all: true }, { uid: true })) || [];
-      const juengste = alle.slice(-stichprobe);
+      const juengste = alle.slice(-brauchbareAnzahl(stichprobe, 500));
       if (juengste.length === 0) {
         return { eintraege: [], stichprobe: 0, imOrdner: alle.length };
       }
@@ -1605,6 +1610,15 @@ export async function searchFolders(
   kriterien: SearchCriteria,
   limit = DEFAULT_PAGE_SIZE,
 ): Promise<SearchResult> {
+  /*
+   * Einmal geprüft, dann überall dieselbe Zahl.
+   *
+   * Hier stand `limit` an drei Stellen unmittelbar: zweimal als Begrenzung und einmal in
+   * `gesamt > limit`. Mit NaN hiess das gleichzeitig "hole alles" (slice(-NaN)) und "gib
+   * nichts zurück" (slice(0, NaN)) - der teuerste denkbare Weg zu einem leeren Ergebnis.
+   */
+  const menge = brauchbareAnzahl(limit, DEFAULT_PAGE_SIZE);
+
   return withClient(config, async (client) => {
     const bedingung = baueSuchbedingung(kriterien, supportsCategories(client));
     const treffer: SearchHit[] = [];
@@ -1623,7 +1637,7 @@ export async function searchFolders(
         gesamt += uids.length;
         if (uids.length === 0) continue;
 
-        const juengste = uids.slice(-limit);
+        const juengste = uids.slice(-menge);
         for (const zusammenfassung of await fetchSummaries(client, juengste)) {
           treffer.push({ ...zusammenfassung, folder: pfad });
         }
@@ -1633,7 +1647,7 @@ export async function searchFolders(
     }
 
     treffer.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
-    return { hits: treffer.slice(0, limit), total: gesamt, hasMore: gesamt > limit };
+    return { hits: treffer.slice(0, menge), total: gesamt, hasMore: gesamt > menge };
   });
 }
 
@@ -1651,7 +1665,7 @@ export async function searchMessages(
   kriterien: SearchCriteria,
   options: ListMessagesOptions = {},
 ): Promise<MessagePage> {
-  const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = brauchbareAnzahl(options.pageSize, DEFAULT_PAGE_SIZE);
 
   return withClient(config, async (client) => {
     const lock = await client.getMailboxLock(folder);
