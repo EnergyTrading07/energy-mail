@@ -9,7 +9,7 @@ was sich geändert hat.
 
 ---
 
-## Unveröffentlicht
+## 0.3.1
 
 ### Sicherheit: ein gewöhnlicher Nutzer kam in die Verwaltung
 
