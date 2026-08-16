@@ -9,6 +9,79 @@ was sich geändert hat.
 
 ---
 
+## Unveröffentlicht
+
+### Sicherheit: ein gewöhnlicher Nutzer kam in die Verwaltung
+
+**Behoben.** Wer angemeldet war, erreichte sämtliche Verwaltungswege, indem er einen
+einzigen Buchstaben der Adresse in Prozentschreibweise schrieb:
+
+```
+GET /verwaltung/nutzer     →  403, richtig abgewiesen
+GET /%76erwaltung/nutzer   →  200, vollständige Nutzerliste
+```
+
+**Die Ursache** liegt an einer Stelle, an der zwei Sichten auf dieselbe Anfrage
+auseinanderfallen: Fastifys Router entschlüsselt den Pfad, bevor er eine Route sucht,
+lässt `request.url` dabei aber unverändert. Der Riegel verglich die rohe Adresse, fand
+kein „/verwaltung" darin und ließ die Anfrage durch — während die Route dahinter
+ordnungsgemäß lief.
+
+**Die Tragweite** reichte weiter als die Nutzerliste. Über denselben Weg standen alle
+Verwaltungswege offen: Nutzer anlegen, Kennwörter zurücksetzen, sich selbst zum Verwalter
+machen. Und wer ein Kennwort zurücksetzen kann, kann sich als dieser Mensch anmelden —
+der Weg führte vom gewöhnlichen Konto bis in fremde Postfächer.
+
+Betroffen war ausschließlich der **Serverbetrieb mit mehreren Nutzern**. Auf dem
+Einzelplatz gibt es nur einen Nutzer, und der ist ohnehin Verwalter.
+
+Maßgeblich ist jetzt die getroffene Route und nicht die geschriebene Adresse. Eine Prüfung
+hält den Fall fest — sie fällt durch, sobald jemand zur alten Fassung zurückkehrt.
+
+### Eine unbrauchbare Seitengröße hob die Begrenzung auf
+
+`?pageSize=abc` ergab NaN, und `slice(-NaN)` ist in JavaScript nicht „nichts", sondern
+**alles**. Aus einer Begrenzung wurde damit ihr Gegenteil, lautlos:
+
+- Die **Suche** holte die Kopfdaten jeder Nachricht in jedem durchsuchten Ordner — und gab
+  am Ende null Treffer zurück, weil dieselbe Zahl weiter unten in `slice(0, NaN)` steckte.
+- Die **Absenderübersicht** nahm statt einer Stichprobe den ganzen Ordner.
+- Am schwersten wog **Regeln anwenden**: Sie liefen nicht über die neuesten zweihundert
+  Nachrichten, sondern über den gesamten Ordner. Regeln verschieben und löschen.
+
+Zahlen aus einer Anfrage werden jetzt geprüft und mit einer klaren Meldung abgewiesen; die
+Bibliothek darunter fällt zusätzlich auf ihre Voreinstellung zurück, statt „unbegrenzt"
+daraus zu machen.
+
+### Eingefügter Text verriet dem Absender, dass er eingefügt wurde
+
+Beim Einfügen aus der Zwischenablage entstand das fremde HTML im angezeigten Dokument —
+also holte der Browser jedes Bild darin sofort, bevor die Reinigung es entfernen konnte.
+Wer einen Abschnitt aus einer Werbemail in eine Antwort einfügte, bestätigte damit dem
+Absender den Empfang. Für Zitate war derselbe Fehler längst behoben; der Weg über die
+Zwischenablage war übersehen worden. Aufgeräumt wird jetzt in beiden Fällen abseits.
+
+### Archiv: eine geteilte Datei konnte zu früh verschwinden
+
+Dieselbe Nachricht in zwei archivierten Postfächern ergibt zwei Einträge, die sich eine
+Datei teilen. Ihre Aufbewahrungsfristen können auseinanderlaufen — sechs Jahre als
+Geschäftsbrief, acht als Buchungsbeleg. Das Aufräumen sah nur den ablaufenden Eintrag und
+löschte die gemeinsame Datei; der Beleg, der noch zwei Jahre aufzubewahren war, gab nichts
+mehr her. Gelöscht wird jetzt erst, wenn kein Eintrag mehr auf die Datei wartet.
+
+### Kleineres
+
+- Ein Fehler beim Abruf warf nicht mehr die **gemeinsame IMAP-Verbindung** weg. Bisher
+  genügte „Nachricht nicht gefunden", um sie zu schließen — das kostete den nächsten
+  Abruf einen vollständigen Neuaufbau und riss nebenher laufende Abrufe mit.
+- Fehler, die ihren eigenen Rang kennen (etwa die 403 des Dateiauslieferers gegen
+  Pfadausbrüche), werden nicht mehr als **500** gemeldet und nicht mehr mit Stapelspur
+  protokolliert.
+- Der Hinweistext im Fenster „Start gescheitert" wird maskiert wie jeder andere Wert
+  daneben.
+
+---
+
 ## 0.3.0
 
 Dreierlei: eine neue Gestalt für Programm und Browserfassung, das Ergebnis einer
