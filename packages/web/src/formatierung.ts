@@ -357,6 +357,34 @@ export function raeumeEntwurfAuf(html: string, dokument: Document): string {
 }
 
 /**
+ * Räumt auf, was jemand aus einem anderen Programm eingefügt hat.
+ *
+ * ## Warum es diese Funktion gibt und nicht nur `raeumeEingefuegtesAuf`
+ *
+ * Die untere Fassung arbeitet auf einem Baum, den der Aufrufer selbst baut - und genau
+ * dort lag der Fehler. Der Editor tat das so:
+ *
+ * ```
+ * const behaelter = document.createElement('div');   // das ANGEZEIGTE Dokument
+ * behaelter.innerHTML = fremd;                       // <- hier gehen die Bilder schon raus
+ * raeumeEingefuegtesAuf(behaelter, document);
+ * ```
+ *
+ * Der Browser holt jedes Bild aus dem eingefügten HTML in dem Augenblick, in dem es im
+ * laufenden Dokument entsteht - bevor eine einzige Zeile aufgeräumt hat, und unabhängig
+ * davon, dass das Element nirgends hängt und gleich darauf verworfen wird. Wer einen
+ * Abschnitt aus einer Werbemail in eine Antwort einfügte, meldete damit dem fremden Server,
+ * dass er das gerade tut. Für ein Zählpixel ist das alles, was es braucht.
+ *
+ * Derselbe Fehler war für Zitate längst gefunden und in `raeumeZitatAuf` behoben - der Weg
+ * über die Zwischenablage war dabei übersehen worden. Ein Kommentar hätte das nicht
+ * verhindert; die Regel gehört in eine Funktion, die man nicht falsch aufrufen kann.
+ */
+export function raeumeEingefuegtesHtmlAuf(html: string, dokument: Document): string {
+  return raeumeZitatAuf(html, dokument, REGELN_FREMD);
+}
+
+/**
  * Ergänzt bei einer Adresse ohne Vorsatz das "https://".
  *
  * Wer "firma.de" eintippt, meint die Webseite und nicht eine Datei namens "firma.de".

@@ -6,7 +6,9 @@ import {
   istUnbedenklicheAdresse,
   normalisiereAdresse,
   raeumeEingefuegtesAuf,
+  raeumeEingefuegtesHtmlAuf,
   raeumeEntwurfAuf,
+  raeumeZitatAuf,
 } from './formatierung.js';
 
 let ok = 0;
@@ -292,6 +294,70 @@ pruefe('das Regelwerk fuer Fremdes bleibt eng - kein <font>', () => {
   const raus = aufgeraeumt('<font color="#c1121f">rot</font>');
   assert.ok(!raus.includes('color'), `Farbe kam beim Einfuegen durch: ${raus}`);
   assert.ok(raus.includes('rot'));
+});
+
+console.log('\nBeim Aufraeumen darf nichts nach draussen gehen:');
+
+/**
+ * Zaehlt mit, in WELCHEM Dokument fremdes HTML zusammengebaut wird.
+ *
+ * ## Warum so und nicht mit einem Netzwerkzaehler
+ *
+ * Weil ein Netzwerkzaehler hier nichts beweisen wuerde: JSDOM laedt Unterressourcen von
+ * sich aus gar nicht, eine solche Pruefung waere also auch MIT dem Fehler gruen gewesen.
+ * Das Bilderholen ist Verhalten eines echten Browsers.
+ *
+ * Nachgewiesen wird deshalb die Eigenschaft, die im Browser genau davor schuetzt: Der
+ * fremde Text darf nie in einem Element des angezeigten Dokuments entstehen, sondern nur
+ * in einem aus `createHTMLDocument` - und ein solches laedt nichts nach und fuehrt nichts
+ * aus.
+ */
+function beobachte(dokument: Document) {
+  const buch = { abseits: 0, imLaufenden: 0 };
+  const echtesCreateHTMLDocument = dokument.implementation.createHTMLDocument.bind(
+    dokument.implementation,
+  );
+  dokument.implementation.createHTMLDocument = ((titel?: string) => {
+    buch.abseits++;
+    return echtesCreateHTMLDocument(titel ?? '');
+  }) as Document['implementation']['createHTMLDocument'];
+
+  const echtesCreateElement = dokument.createElement.bind(dokument);
+  dokument.createElement = ((name: string) => {
+    buch.imLaufenden++;
+    return echtesCreateElement(name);
+  }) as Document['createElement'];
+
+  return buch;
+}
+
+pruefe('eingefuegtes HTML entsteht abseits des angezeigten Dokuments', () => {
+  const dom = new JSDOM('');
+  const buch = beobachte(dom.window.document);
+
+  const fremd =
+    '<p>Text</p>' +
+    '<img src="https://verfolger.example/pixel.gif" width="1" height="1">' +
+    '<img src="https://verfolger.example/logo.png" onerror="boese()">';
+  const sauber = raeumeEingefuegtesHtmlAuf(fremd, dom.window.document);
+
+  assert.equal(buch.abseits, 1, 'Es wurde kein unbeteiligtes Dokument angelegt');
+  assert.equal(
+    buch.imLaufenden,
+    0,
+    'Fremdes HTML entstand im angezeigten Dokument - dort holt der Browser die Bilder sofort',
+  );
+  assert.ok(!sauber.includes('verfolger.example'), `Fremde Adresse blieb stehen: ${sauber}`);
+  assert.ok(!sauber.includes('onerror'), `Behandler blieb stehen: ${sauber}`);
+  assert.ok(sauber.includes('Text'), 'Der Inhalt selbst ging verloren');
+});
+
+pruefe('dasselbe gilt fuer das Zitat einer Antwort', () => {
+  const dom = new JSDOM('');
+  const buch = beobachte(dom.window.document);
+  raeumeZitatAuf('<img src="https://verfolger.example/pixel.gif"><p>Zitat</p>', dom.window.document);
+  assert.equal(buch.abseits, 1, 'Es wurde kein unbeteiligtes Dokument angelegt');
+  assert.equal(buch.imLaufenden, 0, 'Das Zitat entstand im angezeigten Dokument');
 });
 
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);
