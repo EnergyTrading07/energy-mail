@@ -861,6 +861,29 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       });
       return;
     }
+    /*
+     * Ein Fehler, der seinen eigenen Rang schon kennt, behält ihn.
+     *
+     * Fastify und seine Zusätze werfen Fehler mit `statusCode` daran. Ohne diese Zeilen
+     * wurde daraus eine 500 - aus einer Antwort "so nicht" also eine Antwort "hier ist
+     * etwas kaputt".
+     *
+     * Aufgefallen an @fastify/static: Es weist Pfade wie `//verwaltung/nutzer` oder
+     * `/x/../verwaltung/nutzer` von sich aus mit 403 ab - genau richtig, das ist sein
+     * Schutz gegen Ausbrüche aus dem Ordner. Der Dienst meldete daraufhin 500 und schrieb
+     * jedes Mal einen Fehler mit vollständiger Stapelspur ins Protokoll. Wer bei einer
+     * Störung ins Protokoll sieht, sucht dann nach einem Serverfehler, den es nicht gibt.
+     *
+     * Nur der 4xx-Bereich wird übernommen. Ein Zusatz, der 500 sagt, bekommt weiterhin
+     * die volle Behandlung samt Protokolleintrag - dort IST etwas kaputt.
+     */
+    const eigener = (err as { statusCode?: unknown }).statusCode;
+    if (typeof eigener === 'number' && eigener >= 400 && eigener < 500) {
+      app.log.warn(`${eigener}: ${err instanceof Error ? err.message : String(err)}`);
+      reply.code(eigener).send({ error: err instanceof Error ? err.message : t('Interner Fehler') });
+      return;
+    }
+
     app.log.error(err);
     // Lokale Einzelplatz-Anwendung: die konkrete Meldung ist hier deutlich hilfreicher
     // als ein generisches "Interner Fehler" - etwa bei Entschlüsselungsproblemen.
