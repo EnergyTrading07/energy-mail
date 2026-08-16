@@ -9,7 +9,7 @@ was sich geändert hat.
 
 ---
 
-## Unveröffentlicht
+## 0.3.0
 
 Dreierlei: eine neue Gestalt für Programm und Browserfassung, das Ergebnis einer
 vollständigen Durchsicht auf Produktionsreife – und der Umbau vom Einzelplatzprogramm zu
