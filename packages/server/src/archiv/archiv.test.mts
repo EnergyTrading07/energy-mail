@@ -551,6 +551,60 @@ await pruefe('eine abgeschnittene letzte Zeile reisst den Bestand nicht mit', ()
   }
 });
 
+await pruefe('dieselbe Nachricht in zwei Konten verliert nicht die laengere Frist', () => {
+  /*
+   * Der Fehler, den diese Pruefung festhaelt.
+   *
+   * Der Dateiname ist der Abdruck der Bytes - das Konto steht NICHT darin. Der Schutz
+   * gegen Doppeleintraege greift dagegen je Konto. Dieselbe Rechnung an Buchhaltung UND
+   * Geschaeftsfuehrung ergibt deshalb zwei Eintraege auf EINE Datei.
+   *
+   * Die Fristen haengen aber am Eintrag: sechs Jahre als Geschaeftsbrief, acht als
+   * Buchungsbeleg. Nach sechs Jahren raeumte das Aufraeumen die gemeinsame Datei weg -
+   * und der Beleg, der noch zwei Jahre aufzubewahren war, gab nichts mehr her. Bei einem
+   * Archiv, dessen einziger Zweck die Aufbewahrungspflicht ist, faellt so etwas erst bei
+   * einer Pruefung auf.
+   */
+  const bytes = NACHRICHT('Rechnung an zwei Stellen');
+  const gemeinsam = {
+    richtung: 'empfangen' as const,
+    ordner: 'INBOX',
+    absender: 'meier@beispiel.de',
+    empfaenger: ['buchhaltung@wir.example'],
+    betreff: 'Rechnung an zwei Stellen',
+    entstandenAm: new Date('2026-06-15T10:00:00Z'),
+  };
+
+  const kurz = alsAnna(() =>
+    archiviere(bytes, { ...gemeinsam, kontoId: 'kurz', art: 'geschaeftsbrief' }),
+  );
+  const lang = alsAnna(() =>
+    archiviere(bytes, { ...gemeinsam, kontoId: 'lang', art: 'buchungsbeleg' }),
+  );
+  assert.ok(kurz && lang, 'Beide Eintraege muessen entstehen');
+  assert.equal(kurz.datei, lang.datei, 'Sie sollen sich dieselbe Datei teilen');
+
+  /*
+   * Geprueft wird die Eigenschaft, nicht die Gesamtzahl: In dieser Pruefdatei liegen
+   * weitere Eintraege, die zum selben Zeitpunkt ablaufen. Ob die gemeinsame Datei noch da
+   * ist, sagt `original()` - und darauf kommt es an.
+   */
+  const gemeinsameDatei = path.join(ORDNER, 'nutzer', 'anna', 'archiv', 'post', kurz.datei);
+
+  // Sechs Jahre spaeter: der Geschaeftsbrief ist frei, der Buchungsbeleg nicht.
+  alsAnna(() => raeumeAuf(new Date('2033-06-01T00:00:00Z'), true));
+  assert.ok(fs.existsSync(gemeinsameDatei), 'Die gemeinsame Datei wurde zu frueh entfernt');
+  const nochDa = alsAnna(() => original(lang.nr));
+  assert.equal(nochDa.bytes.length, bytes.length, 'Der Buchungsbeleg ist nicht mehr lesbar');
+
+  // Und nach Ablauf beider Fristen darf sie weg.
+  alsAnna(() => raeumeAuf(new Date('2036-01-01T00:00:00Z'), true));
+  assert.ok(
+    !fs.existsSync(gemeinsameDatei),
+    'Nach Ablauf beider Fristen muss die Datei verschwinden',
+  );
+});
+
 fs.rmSync(ORDNER, { recursive: true, force: true });
 
 console.log(`\n${ok}/${gesamt} Pruefungen bestanden`);

@@ -562,6 +562,35 @@ export function raeumeAuf(jetzt = new Date(), wirklich = false): { anzahl: numbe
     const voll = path.join(postOrdner(), e.datei);
     if (!fs.existsSync(voll)) continue;
 
+    /*
+     * Gehört diese Datei noch jemand anderem?
+     *
+     * Der Dateiname ist der Abdruck der Bytes (`<jahr>/<abdruck>.eml`) und enthält das
+     * Konto NICHT. Der Schutz gegen Doppeleinträge greift dagegen je Konto
+     * (`abdruck === … && kontoId === …`). Dieselbe Nachricht in zwei archivierten
+     * Postfächern - eine Rechnung an Buchhaltung UND Geschäftsführung, ein Verteiler -
+     * ergibt also ZWEI Einträge, die auf EINE Datei zeigen. Das ist so gewollt und spart
+     * den Platz.
+     *
+     * Ihre Fristen können aber auseinanderlaufen: Die Art hängt am Eintrag, nicht an der
+     * Datei, und `trageUm` kann eine davon nachträglich verlängern - genau dafür ist es
+     * da. Ohne diese Prüfung löschte der Ablauf des einen Eintrags die Datei des anderen:
+     * Ein Beleg, der noch zwei Jahre aufzubewahren ist, wäre weg, und `original()` gäbe
+     * für ihn nichts mehr heraus. Für ein Archiv, dessen einziger Zweck die
+     * Aufbewahrungspflicht ist, ist das der schlimmste denkbare Fehler - und einer, der
+     * erst bei einer Prüfung auffiele.
+     *
+     * Der Eintrag selbst bleibt in der Kette stehen; verschwinden darf nur die Datei, und
+     * nur wenn KEIN Eintrag mehr auf sie wartet.
+     */
+    const nochGebraucht = eintraege.some((andere) => {
+      if (andere.bezugAuf !== undefined || andere.nr === roh.nr) return false;
+      const stand = letzterStand(eintraege, andere.nr);
+      if (!stand || stand.datei !== e.datei) return false;
+      return !fristAbgelaufen(stand.aufbewahrenBis, jetzt);
+    });
+    if (nochGebraucht) continue;
+
     anzahl++;
     bytes += e.groesse;
     if (!wirklich) continue;

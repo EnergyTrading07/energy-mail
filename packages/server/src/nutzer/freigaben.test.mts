@@ -281,6 +281,43 @@ await pruefe('das Konto selbst bleibt Annas - auch bei vollem Zugriff', async ()
   assert.ok((liste.json() as { id: string }[]).some((k) => k.id === ANNAS_KONTO));
 });
 
+await pruefe('auch nicht in einer anderen Schreibweise desselben Weges', async () => {
+  /*
+   * Warum diese Pruefung hier steht.
+   *
+   * Der Freigabehaken liest den ROHEN Pfad und entscheidet an zwei verschieden strengen
+   * Mustern: `KONTO_PFAD` (/^\/accounts\/([^/]+)(?:\/|$)/) schaltet in das fremde
+   * Postfach, `NUR_BESITZER` (/^\/accounts\/[^/]+$/) haelt die Wege zurueck, die nur dem
+   * Eigentuemer gehoeren. Faellt eine Schreibweise zwischen beide - das erste Muster
+   * trifft, das zweite nicht -, dann wechselt der Haken in Annas Daten UND laesst das
+   * Loeschen durch.
+   *
+   * `/accounts/<kennung>/` mit Schraegstrich am Ende ist genau so eine Schreibweise. Sie
+   * ist heute ungefaehrlich, weil Fastify sie mangels `ignoreTrailingSlash` gar nicht
+   * erst auf `/accounts/:id` abbildet - also 404. Diese Pruefung haelt beides zusammen
+   * fest: Wer die Einstellung eines Tages umlegt, faellt hier durch und findet den Grund.
+   *
+   * Dass so etwas kein gedachter Fall ist, hat derselbe Durchgang gezeigt - der Riegel
+   * der Verwaltung stand aus genau diesem Grund offen (siehe verwaltung.test.mts).
+   */
+  const schreibweisen = [
+    `/accounts/${ANNAS_KONTO}/`,
+    `/%61ccounts/${ANNAS_KONTO}`,
+    `/accounts/${ANNAS_KONTO}%2f`,
+  ];
+
+  for (const weg of schreibweisen) {
+    const a = await ruf(keksBernd, 'DELETE', weg);
+    assert.notEqual(a.statusCode, 200, `DELETE ${weg} ging durch`);
+  }
+
+  const liste = await ruf(keksAnna, 'GET', '/accounts');
+  assert.ok(
+    (liste.json() as { id: string }[]).some((k) => k.id === ANNAS_KONTO),
+    'Annas Konto ist weg',
+  );
+});
+
 console.log('\nDie Falle mit der Verwalterrolle:');
 
 await pruefe('ein freigegebenes Verwalterpostfach macht niemanden zum Verwalter', async () => {

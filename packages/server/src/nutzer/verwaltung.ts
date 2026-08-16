@@ -59,6 +59,58 @@ import { erzeugeUnterlagen } from '../datenschutz/unterlagen.js';
 
 const PRAEFIX = '/verwaltung';
 
+/**
+ * Ob diese Anfrage auf einem Verwaltungsweg landet.
+ *
+ * ## Der Fehler, den diese Funktion behebt
+ *
+ * Hier stand `request.url.split('?')[0].startsWith('/verwaltung')` - die ROHE Adresse.
+ * Fastifys Router entschlüsselt die Prozentschreibweise aber, BEVOR er eine Route sucht,
+ * und lässt `request.url` dabei unverändert. Beides fällt auseinander:
+ *
+ *     GET /%76erwaltung/nutzer
+ *         request.url        = "/%76erwaltung/nutzer"   -> Riegel greift NICHT
+ *         getroffene Route   = "/verwaltung/nutzer"     -> Route laeuft
+ *
+ * Ein angemeldeter gewöhnlicher Nutzer bekam damit die vollständige Nutzerliste, und über
+ * denselben Weg jede weitere Verwaltungsroute: Nutzer anlegen, Kennwörter zurücksetzen,
+ * sich selbst zum Verwalter machen. Wer ein Kennwort zurücksetzen kann, kann sich als
+ * dieser Mensch anmelden und dessen Post lesen - der Weg führte also vom gewöhnlichen
+ * Konto bis in fremde Postfächer. Ein einziger Buchstabe in Prozentschreibweise genügte.
+ *
+ * Nachgewiesen gegen den laufenden Dienst, nicht hergeleitet: `/%76erwaltung/nutzer` und
+ * `/verwaltun%67/nutzer` gaben beide 200 samt Nutzerliste, `/verwaltung/nutzer` daneben
+ * korrekt 403.
+ *
+ * ## Warum jetzt drei Vergleiche und nicht ein anderer
+ *
+ * Maßgeblich ist die GETROFFENE Route (`routeOptions.url`) - das ist genau die Angabe,
+ * nach der Fastify entschieden hat, und sie kann mit keiner Schreibweise auseinanderlaufen.
+ * Die beiden anderen bleiben trotzdem stehen:
+ *
+ *  - Die rohe Adresse, falls eine künftige Fastify-Fassung `routeOptions` in einem Haken
+ *    nicht mehr füllt. Dann gilt wieder das alte Verhalten - schlechter als heute, aber
+ *    nicht schlechter als vorher.
+ *  - Die entschlüsselte Adresse als dritte Sicherung.
+ *
+ * Der Riegel greift, sobald EINER davon anschlägt. Bei einer Rechteprüfung ist die
+ * Richtung des Zweifels immer dieselbe: lieber einmal zu viel prüfen als einmal zu wenig.
+ */
+export function istVerwaltungsweg(request: FastifyRequest): boolean {
+  const gemustert = request.routeOptions?.url;
+  if (typeof gemustert === 'string' && gemustert.startsWith(PRAEFIX)) return true;
+
+  const roh = request.url.split('?')[0] ?? '/';
+  if (roh.startsWith(PRAEFIX)) return true;
+
+  try {
+    return decodeURIComponent(roh).startsWith(PRAEFIX);
+  } catch {
+    // Eine Adresse, die sich nicht entschlüsseln lässt ("%zz"), trifft auch keine Route.
+    return false;
+  }
+}
+
 /** Ein neues Kennwort, das man vorlesen kann, ohne sich zu verhaspeln. */
 function frischesKennwort(): string {
   /*
@@ -111,8 +163,8 @@ export function registriereVerwaltung(app: FastifyInstance): void {
    * Nutzer, und die Prüfung liefe ins Leere.
    */
   app.addHook('preHandler', async (request, reply) => {
-    const pfad = request.url.split('?')[0] ?? '/';
-    if (!pfad.startsWith(PRAEFIX)) return;
+    if (!istVerwaltungsweg(request)) return;
+    const pfad = request.routeOptions?.url ?? request.url.split('?')[0] ?? '/';
 
     /*
      * Der HANDELNDE, nicht der Eigentuemer der gerade offenen Daten.

@@ -172,6 +172,16 @@ export function zeigeStartbild(): BrowserWindow {
  * wirft alles in einen Absatz.
  */
 export function zeigeStartfehler(grund: string, hinweis: string): BrowserWindow {
+  /*
+   * Auch der Hinweis wird maskiert.
+   *
+   * Er stand als einziger Wert dieser Datei ungefiltert im Text. Heute ist das harmlos:
+   * beide Aufrufer reichen einen uebersetzten Festtext herein. Aber es ist die eine
+   * Stelle, an der es beim naechsten Mal schiefgeht - wer hier die Meldung eines
+   * Mailservers oder einen Dateinamen einsetzt, schreibt fremden Text in ein Fenster.
+   * Dass der Grund daneben seit jeher maskiert wird, machte die Auslassung eher
+   * gefaehrlicher: sie sah aus wie Absicht.
+   */
   const dunkel = gespeicherteAnsicht() === 'dunkel';
   const fenster = new BrowserWindow({
     ...gemeinsam,
@@ -188,7 +198,7 @@ export function zeigeStartfehler(grund: string, hinweis: string): BrowserWindow 
       `${symbol(44)}
        <div>
          <h1>${maskiere(t('Start gescheitert'))}</h1>
-         <p style="margin-top:10px">${hinweis}</p>
+         <p style="margin-top:10px">${maskiere(hinweis)}</p>
        </div>
        <code>${grund.replace(/[<>&]/g, (z) => `&#${z.charCodeAt(0)};`)}</code>
        <div class="knoepfe"><button onclick="window.close()">${maskiere(t('Schließen'))}</button></div>`,

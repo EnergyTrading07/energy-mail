@@ -1095,6 +1095,8 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Der Datenordner ist nicht beschreibbar.': 'De gegevensmap is niet beschrijfbaar.',
   'Konto nicht gefunden': 'Account niet gevonden',
+  'Feld „{feld}“ fehlt.': 'Het veld “{feld}” ontbreekt.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” moet een geheel getal tussen {von} en {bis} zijn.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'De postbus is op dit moment niet bereikbaar. Controleer de netwerkverbinding; zodra die er weer is, kunt u opnieuw laden.',
   'Interner Fehler': 'Interne fout',
   'Feld "email" ist erforderlich': 'Het veld “email” is verplicht',

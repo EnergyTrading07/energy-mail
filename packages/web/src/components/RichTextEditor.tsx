@@ -5,7 +5,7 @@ import {
   werkzeuge,
   befehlFuerTaste,
   normalisiereAdresse,
-  raeumeEingefuegtesAuf,
+  raeumeEingefuegtesHtmlAuf,
 } from '../formatierung.js';
 import { t } from '../sprache.js';
 
@@ -225,10 +225,16 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung }: Props
             return;
           }
 
-          const behaelter = document.createElement('div');
-          behaelter.innerHTML = fremd;
-          raeumeEingefuegtesAuf(behaelter, document);
-          document.execCommand('insertHTML', false, behaelter.innerHTML);
+          /*
+           * Das Aufräumen geschieht abseits des angezeigten Dokuments.
+           *
+           * Hier stand `document.createElement('div')` samt `innerHTML = fremd` - also im
+           * laufenden Dokument. Der Browser holt die Bilder daraus sofort, noch bevor eine
+           * Zeile aufgeräumt hat. Die Einzelheiten stehen bei
+           * `raeumeEingefuegtesHtmlAuf`; hier genügt: aufgeräumt wird dort, eingefügt
+           * wird nur das Ergebnis.
+           */
+          document.execCommand('insertHTML', false, raeumeEingefuegtesHtmlAuf(fremd, document));
           if (ref.current) onChange(ref.current.innerHTML);
         }}
       />

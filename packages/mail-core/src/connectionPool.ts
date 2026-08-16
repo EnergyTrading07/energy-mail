@@ -91,13 +91,19 @@ function verwerfen(accountId: string): void {
   }
 }
 
-async function beschaffen(config: AccountConfig): Promise<ImapFlow> {
+/**
+ * Die Verbindung UND ihr Eintrag.
+ *
+ * Beides zusammen, weil der Aufrufer den Eintrag braucht (er zählt seine Nutzung mit) und
+ * ihn nach dem `await` nicht mehr verlässlich selbst finden kann - siehe `withClient`.
+ */
+async function beschaffen(config: AccountConfig): Promise<{ client: ImapFlow; eintrag: Eintrag }> {
   const vorhanden = pool.get(config.id);
 
-  if (vorhanden?.aufbau) return vorhanden.aufbau;
+  if (vorhanden?.aufbau) return { client: await vorhanden.aufbau, eintrag: vorhanden };
   if (vorhanden && vorhanden.client.usable) {
     vorhanden.zuletztGenutzt = Date.now();
-    return vorhanden.client;
+    return { client: vorhanden.client, eintrag: vorhanden };
   }
   // Unbrauchbar gewordene Verbindung (Anbieter hat getrennt) aussortieren.
   if (vorhanden) verwerfen(config.id);
@@ -124,7 +130,7 @@ async function beschaffen(config: AccountConfig): Promise<ImapFlow> {
   pool.set(config.id, eintrag);
 
   try {
-    return await eintrag.aufbau;
+    return { client: await eintrag.aufbau, eintrag };
   } catch (err) {
     verwerfen(config.id);
     throw err;
@@ -150,20 +156,53 @@ export async function withClient<T>(
   fn: (client: ImapFlow) => Promise<T>,
 ): Promise<T> {
   for (let versuch = 0; versuch < 2; versuch++) {
-    const client = await beschaffen(config);
-    const eintrag = pool.get(config.id);
-    if (eintrag) eintrag.inBenutzung += 1;
+    /*
+     * Der Eintrag kommt aus `beschaffen` und wird nicht danach aus dem Pool geholt.
+     *
+     * Vorher stand hier `pool.get(config.id)` unmittelbar nach dem `await`. Zwischen
+     * beidem liegt eine Unterbrechung, und in ihr kann ein anderer Aufruf den Eintrag
+     * ausgetauscht haben - dann wurde `inBenutzung` an einem Eintrag hochgezählt, der zu
+     * einer anderen Verbindung gehört als die, mit der hier gearbeitet wird. Der
+     * Aufräumer sah daraufhin eine unbenutzte Verbindung, die in Wahrheit gerade
+     * gebraucht wurde, und schloss sie mitten im Abruf.
+     */
+    const { client, eintrag } = await beschaffen(config);
+    eintrag.inBenutzung += 1;
 
     try {
       const ergebnis = await fn(client);
-      if (eintrag) eintrag.zuletztGenutzt = Date.now();
+      eintrag.zuletztGenutzt = Date.now();
       return ergebnis;
     } catch (err) {
-      verwerfen(config.id);
-      if (versuch === 0 && istVerbindungsfehler(err)) continue;
+      /*
+       * Nur bei einem Verbindungsfehler wegwerfen - nicht bei jedem Fehler.
+       *
+       * Vorher wurde die Verbindung bei JEDEM Fehler geschlossen, auch bei einem, der
+       * mit ihr nichts zu tun hat: "Nachricht 42 nicht gefunden", weil sie an einem
+       * anderen Gerät gelöscht wurde, ist eine vollständig gesunde Antwort eines
+       * vollständig gesunden Servers.
+       *
+       * Zwei Folgen, und die zweite ist die schlimmere:
+       *
+       *  - Jeder solche Fehler kostete den nächsten Abruf einen vollständigen
+       *    Neuaufbau - TCP, TLS, LOGIN, gemessen 400-700 ms (siehe oben).
+       *  - Die Verbindung ist GETEILT. Läuft nebenher ein zweiter Abruf - die Oberfläche
+       *    holt Ordnerliste, Nachrichten und Einordnung gleichzeitig -, brach ihm der
+       *    Socket unter den Händen weg. Er lief dann in seinen eigenen Wiederholversuch
+       *    und tat alles ein zweites Mal. Ein einzelner Klick auf eine verschwundene
+       *    Nachricht setzte damit die halbe Oberfläche zurück.
+       *
+       * Eine wirklich kaputte Verbindung fällt trotzdem auf: dafür ist
+       * `istVerbindungsfehler` da, und zusätzlich räumen die `error`- und
+       * `close`-Behandler am Client den Pool von sich aus auf.
+       */
+      if (istVerbindungsfehler(err)) {
+        verwerfen(config.id);
+        if (versuch === 0) continue;
+      }
       throw err;
     } finally {
-      if (eintrag) eintrag.inBenutzung = Math.max(0, eintrag.inBenutzung - 1);
+      eintrag.inBenutzung = Math.max(0, eintrag.inBenutzung - 1);
     }
   }
   throw new Error('Verbindung konnte nicht hergestellt werden.');

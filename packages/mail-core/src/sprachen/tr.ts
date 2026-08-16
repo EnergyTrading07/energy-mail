@@ -1095,6 +1095,8 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Der Datenordner ist nicht beschreibbar.': 'Veri klasörüne yazılamıyor.',
   'Konto nicht gefunden': 'Hesap bulunamadı',
+  'Feld „{feld}“ fehlt.': '“{feld}” alanı eksik.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” değeri {von} ile {bis} arasında bir tam sayı olmalıdır.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'Posta kutusuna şu anda erişilemiyor. Ağ bağlantısını denetleyin; bağlantı geri geldiğinde yeniden yükleyebilirsiniz.',
   'Interner Fehler': 'İç hata',
   'Feld "email" ist erforderlich': '“email” alanı zorunludur',

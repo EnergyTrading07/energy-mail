@@ -1094,6 +1094,8 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Der Datenordner ist nicht beschreibbar.': 'The data folder is not writable.',
   'Konto nicht gefunden': 'Account not found',
+  'Feld „{feld}“ fehlt.': 'Field “{feld}” is missing.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” must be a whole number between {von} and {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'The mailbox cannot be reached right now. Check your network connection – once it is back, you can reload.',
   'Interner Fehler': 'Internal error',
   'Feld "email" ist erforderlich': 'Field "email" is required',
