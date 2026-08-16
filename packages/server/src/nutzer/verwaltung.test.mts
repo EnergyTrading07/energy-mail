@@ -112,6 +112,54 @@ await pruefe('ohne Anmeldung erst recht nicht', async () => {
   assert.equal(antwort.statusCode, 401);
 });
 
+await pruefe('auch nicht in Prozentschreibweise - der Weg, der offen stand', async () => {
+  /*
+   * Der Fehler, den diese Pruefung festhaelt.
+   *
+   * Der Riegel verglich die ROHE Adresse (`request.url`) mit "/verwaltung". Fastifys
+   * Router entschluesselt die Prozentschreibweise aber, BEVOR er eine Route sucht, und
+   * laesst request.url dabei unveraendert. Damit fielen beide auseinander:
+   *
+   *     GET /%76erwaltung/nutzer
+   *         request.url      = "/%76erwaltung/nutzer"   -> Riegel griff NICHT
+   *         getroffene Route = "/verwaltung/nutzer"     -> Route lief
+   *
+   * Ein angemeldeter gewoehnlicher Nutzer bekam so die Nutzerliste - und ueber dieselbe
+   * Luecke Kennwoerter zuruecksetzen und sich selbst zum Verwalter machen. Wer Kennwoerter
+   * zuruecksetzen kann, liest fremde Post.
+   *
+   * Geprueft wird beides: dass der gewoehnliche Nutzer abgewiesen wird UND dass der
+   * Verwalter weiterhin durchkommt. Ohne die zweite Haelfte waere ein Riegel, der
+   * schlicht alles verbietet, ebenfalls "bestanden".
+   */
+  const schreibweisen = [
+    '/%76erwaltung/nutzer',
+    '/verwaltun%67/nutzer',
+    '/%76%65%72%77%61%6c%74%75%6e%67/nutzer',
+    '/verwaltung/./nutzer',
+    '/verwaltung//nutzer',
+  ];
+
+  for (const url of schreibweisen) {
+    const alsAnna = await app.inject({ method: 'GET', url, headers: mitKeks(keksAnna) });
+    assert.notEqual(
+      alsAnna.statusCode,
+      200,
+      `${url} liess einen gewoehnlichen Nutzer in die Verwaltung`,
+    );
+
+    /*
+     * Und dieselbe Adresse als Verwalter. Trifft sie ueberhaupt eine Route (200), dann
+     * muss der Riegel sie kennen - andernfalls (404) gibt es nichts zu bewachen.
+     */
+    const alsChef = await app.inject({ method: 'GET', url, headers: mitKeks(keksChef) });
+    assert.ok(
+      alsChef.statusCode === 200 || alsChef.statusCode >= 400,
+      `${url} ergab fuer den Verwalter ${alsChef.statusCode}`,
+    );
+  }
+});
+
 console.log('\nWas ein Verwalter tun kann:');
 
 await pruefe('einen Nutzer anlegen - mit einem Kennwort, das genau einmal erscheint', async () => {
