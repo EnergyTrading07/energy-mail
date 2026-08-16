@@ -20,6 +20,7 @@ import {
   type SearchHit,
   type SearchResult,
 } from './types.js';
+import { t } from './sprache.js';
 
 
 interface StructureNode {
@@ -200,7 +201,7 @@ function summarizeMessage(msg: FetchMessageObject): MessageSummary {
   const kopf = leseKopfzeilen(msg.headers);
   return {
     uid: msg.uid,
-    subject: msg.envelope?.subject ?? '(kein Betreff)',
+    subject: msg.envelope?.subject ?? t('(kein Betreff)'),
     from: toAddresses(msg.envelope?.from),
     to: toAddresses(msg.envelope?.to),
     cc: toAddresses(msg.envelope?.cc),
@@ -229,6 +230,23 @@ function summarizeMessage(msg: FetchMessageObject): MessageSummary {
       /^auto-/i.test(kopf['auto-submitted'] ?? '')
         ? true
         : undefined,
+    /*
+     * Der Rückweg des Umschlags - für die Abwesenheitsnotiz.
+     *
+     * Die Unterscheidung zwischen "keine Zeile" und "leere Zeile" ist der ganze Punkt:
+     * `Return-Path: <>` kennzeichnet einen Zustellbericht, und wer darauf antwortet, hat
+     * eine Endlosschleife gebaut. Deshalb ergibt `<>` hier eine leere Zeichenkette und
+     * nicht `undefined`.
+     */
+    rueckweg: kopf['return-path'] !== undefined
+      ? kopf['return-path'].replace(/^</, '').replace(/>$/, '').trim()
+      : undefined,
+    // "X-Auto-Response-Suppress: All" oder "OOF" - die Bitte, nicht maschinell zu antworten.
+    keineAutoAntwort: /all|autoreply|oof/i.test(kopf['x-auto-response-suppress'] ?? '')
+      ? true
+      : undefined,
+    // An wen eine Lesebestaetigung gehen soll. Roh - die Auswertung steht anderswo.
+    bestaetigungAn: kopf['disposition-notification-to'] || undefined,
   };
 }
 
@@ -244,19 +262,19 @@ export function describeImapError(err: unknown): string {
     message?: string;
   };
   if (e.authenticationFailed) {
-    return e.responseText ?? 'Anmeldung abgelehnt – E-Mail oder Passwort falsch.';
+    return e.responseText ?? t('Anmeldung abgelehnt – E-Mail oder Passwort falsch.');
   }
   if (e.responseText) return e.responseText;
   switch (e.code) {
     case 'ENOTFOUND':
-      return 'Server nicht gefunden – stimmt die Adresse?';
+      return t('Server nicht gefunden – stimmt die Adresse?');
     case 'ECONNREFUSED':
-      return 'Verbindung abgelehnt – falscher Port?';
+      return t('Verbindung abgelehnt – falscher Port?');
     case 'ETIMEDOUT':
     case 'ECONNRESET':
-      return 'Zeitüberschreitung – Server nicht erreichbar.';
+      return t('Zeitüberschreitung – Server nicht erreichbar.');
     default:
-      return e.message ?? 'Unbekannter Verbindungsfehler';
+      return e.message ?? t('Unbekannter Verbindungsfehler');
   }
 }
 
@@ -496,7 +514,22 @@ async function fetchSummaries(
       // Nur diese wenigen Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg,
       // Verteilerkennung und Gespraechsfaden - Grundlage fuer Abmeldung, Regeln und
       // die Suche nach Liegengebliebenem.
-      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id', 'references', 'precedence', 'auto-submitted'],
+      headers: [
+        'list-unsubscribe',
+        'list-unsubscribe-post',
+        'list-id',
+        'references',
+        'precedence',
+        'auto-submitted',
+        // Fuer die Abwesenheitsnotiz: der Umschlag-Rueckweg und die ausdrueckliche
+        // Bitte, nicht maschinell zu antworten. Beide entscheiden darueber, ob eine
+        // Antwort hinausgehen darf - siehe abwesenheit.ts.
+        'return-path',
+        'x-auto-response-suppress',
+        // Und fuer die Lesebestaetigung: an wen der Absender sie haben will.
+        // Steht sie nicht da, wird auch keine gewuenscht - siehe lesebestaetigung.ts.
+        'disposition-notification-to',
+      ],
     },
     { uid: true },
   )) {
@@ -655,7 +688,22 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       // Nur diese wenigen Zeilen, nicht der ganze Kopf: sie tragen Abmeldeweg,
       // Verteilerkennung und Gespraechsfaden - Grundlage fuer Abmeldung, Regeln und
       // die Suche nach Liegengebliebenem.
-      headers: ['list-unsubscribe', 'list-unsubscribe-post', 'list-id', 'references', 'precedence', 'auto-submitted'],
+      headers: [
+        'list-unsubscribe',
+        'list-unsubscribe-post',
+        'list-id',
+        'references',
+        'precedence',
+        'auto-submitted',
+        // Fuer die Abwesenheitsnotiz: der Umschlag-Rueckweg und die ausdrueckliche
+        // Bitte, nicht maschinell zu antworten. Beide entscheiden darueber, ob eine
+        // Antwort hinausgehen darf - siehe abwesenheit.ts.
+        'return-path',
+        'x-auto-response-suppress',
+        // Und fuer die Lesebestaetigung: an wen der Absender sie haben will.
+        // Steht sie nicht da, wird auch keine gewuenscht - siehe lesebestaetigung.ts.
+        'disposition-notification-to',
+      ],
     },
         { uid: true },
       )) {
@@ -719,9 +767,10 @@ export async function getMessage(config: AccountConfig, folder: string, uid: num
       if (text === undefined && html === undefined) {
         if (groesse > RUECKFALL_HOECHSTGROESSE) {
           throw new Error(
-            `Diese Nachricht ist ${Math.round(groesse / 1024 / 1024)} MB groß und hat keine ` +
-              'einzeln abrufbaren Teile. Sie lässt sich über "Quelltext" ansehen oder als ' +
-              'Datei sichern.',
+            t(
+              'Diese Nachricht ist {groesse} MB groß und hat keine einzeln abrufbaren Teile. Sie lässt sich über „Quelltext“ ansehen oder als Datei sichern.',
+              { groesse: Math.round(groesse / 1024 / 1024) },
+            ),
           );
         }
         const { content } = await client.download(String(uid), undefined, { uid: true });
@@ -1115,14 +1164,18 @@ export async function offeneVorgaenge(
     };
 
     // Zwei Ordner über Monate - bei einem großen Postfach dauert das Sekunden.
-    optionen.melde?.(0, 3, 'Posteingang wird durchgesehen');
+    optionen.melde?.(0, 3, t('Posteingang wird durchgesehen'));
     const posteingang = await holen('INBOX');
 
     // Ohne Gesendet-Ordner fehlt die halbe Wahrheit - dann bleibt nur, was ich schulde.
-    optionen.melde?.(1, 3, gesendetOrdner ? 'Gesendet wird durchgesehen' : 'Gesendet fehlt');
+    optionen.melde?.(
+      1,
+      3,
+      gesendetOrdner ? t('Gesendet wird durchgesehen') : t('Gesendet fehlt'),
+    );
     const gesendet = gesendetOrdner ? await holen(gesendetOrdner) : [];
 
-    optionen.melde?.(2, 3, 'Gespräche werden zusammengeführt');
+    optionen.melde?.(2, 3, t('Gespräche werden zusammengeführt'));
 
     return findeOffeneVorgaenge(
       { posteingang, gesendet, gesendetOrdner: gesendetOrdner ?? '', posteingangOrdner: 'INBOX' },
@@ -1294,9 +1347,9 @@ export async function verschiebeMitKennung(
 function pruefeGezieltesLoeschen(client: ImapFlow): void {
   if (client.capabilities?.has('UIDPLUS')) return;
   throw new Error(
-    'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch ' +
-      'Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. ' +
-      'Verschieben Sie die Nachricht stattdessen in den Papierkorb.',
+    t(
+      'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.',
+    ),
   );
 }
 
@@ -1384,8 +1437,9 @@ export function baueSuchbedingung(
       // tragen. Ein Filter, der still nichts findet, ist schlechter als keiner - deshalb
       // lieber ein klarer Abbruch, und die Oberfläche bietet ihn gar nicht erst an.
       const err = new Error(
-        'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein ' +
-          'Kriterium, und nur Gmail bietet eine eigene Suche dafür.',
+        t(
+          'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.',
+        ),
       ) as Error & { code?: string };
       err.code = ATTACHMENT_SEARCH_UNSUPPORTED;
       throw err;

@@ -11,7 +11,7 @@ import {
   type Regel,
 } from '@energy-mail/mail-core';
 import { getNutzerDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { protokolliere } from './protokollDatei.js';
 
 /**
@@ -41,7 +41,7 @@ type Ablage = Record<string, Regel[]>;
  * "ist beschaedigt" und legt Letzteres zur Seite, statt es ueberschreiben zu lassen.
  */
 function lesen(): Ablage {
-  const befund = liesJson<Ablage>(getPfad(), {});
+  const befund = liesGeschuetzt<Ablage>(getPfad(), {});
   if (befund.beschaedigt) {
     protokolliere(
       'fehler',
@@ -54,7 +54,7 @@ function lesen(): Ablage {
 }
 
 function schreiben(ablage: Ablage): void {
-  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
+  schreibeGeschuetzt(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function regelnFuer(accountId: string): Regel[] {

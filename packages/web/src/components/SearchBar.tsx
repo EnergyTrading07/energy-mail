@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Etikett } from '@energy-mail/mail-core';
 import { Lupe } from './Symbole.js';
+import { t } from '../sprache.js';
 
 /**
  * Sucheingabe mit ausklappbaren Einschränkungen.
@@ -151,9 +152,9 @@ export function SearchBar({
           aria-label="Wo gesucht wird"
           title="Wo gesucht wird"
         >
-          <option value="ordner">Dieser Ordner</option>
-          <option value="konto">Alle Ordner</option>
-          {mehrereKonten && <option value="alle">Alle Konten</option>}
+          <option value="ordner">{t('Dieser Ordner')}</option>
+          <option value="konto">{t('Alle Ordner')}</option>
+          {mehrereKonten && <option value="alle">{t('Alle Konten')}</option>}
         </select>
 
         <button
@@ -174,9 +175,7 @@ export function SearchBar({
               setOffen(false);
               onClear();
             }}
-          >
-            Suche aufheben
-          </button>
+          >{t('Suche aufheben')}</button>
         )}
       </div>
 
@@ -192,7 +191,7 @@ export function SearchBar({
             />
           </label>
           <label>
-            <span>Betreff</span>
+            <span>{t('Betreff')}</span>
             <input
               type="text"
               placeholder="enthält…"
@@ -231,7 +230,9 @@ export function SearchBar({
               title={
                 anhangSuchbar
                   ? undefined
-                  : 'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium.'
+                  : t(
+                      'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium.',
+                    )
               }
             >
               <input
@@ -244,7 +245,7 @@ export function SearchBar({
             </label>
           </div>
           <label className="such-etikett">
-            <span>Etikett</span>
+            <span>{t('Etikett')}</span>
             <select value={eingabe.etikett} onChange={(e) => setze('etikett', e.target.value)}>
               <option value="">alle</option>
               {etiketten.map((etikett) => (
@@ -255,9 +256,7 @@ export function SearchBar({
             </select>
           </label>
           <div className="such-knoepfe">
-            <button type="submit" className="btn" disabled={!hatEinschraenkung(eingabe)}>
-              Suchen
-            </button>
+            <button type="submit" className="btn" disabled={!hatEinschraenkung(eingabe)}>{t('Suchen')}</button>
             {onSpeichern && (
               <button
                 type="button"
@@ -265,9 +264,7 @@ export function SearchBar({
                 disabled={!hatEinschraenkung(eingabe)}
                 onClick={() => onSpeichern(eingabe)}
                 title="Diese Suche in der Seitenleiste ablegen"
-              >
-                Suche merken
-              </button>
+              >{t('Suche merken')}</button>
             )}
           </div>
         </div>

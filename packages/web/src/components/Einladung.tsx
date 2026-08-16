@@ -3,6 +3,8 @@ import type { Einladung as EinladungDaten, Teilnahme, Termin } from '@energy-mai
 import { beschreibeWiederholung } from '@energy-mail/mail-core/ics';
 import { meldeErfolg, meldeFehler } from '../meldungen.js';
 import * as api from '../api.js';
+import { datum, uhrzeit } from '../sprache.js';
+import { t } from '../sprache.js';
 
 /**
  * Die Karte für eine Besprechungseinladung.
@@ -45,7 +47,7 @@ function zeitraum(termin: Termin): string {
   if (!termin.beginn) return 'Zeitpunkt unbekannt';
 
   if (termin.ganztaegig) {
-    const tag = termin.beginn.toLocaleDateString('de-DE', {
+    const tag = datum(termin.beginn, {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
@@ -57,33 +59,38 @@ function zeitraum(termin: Termin): string {
     const tage =
       termin.ende &&
       Math.round((termin.ende.getTime() - termin.beginn.getTime()) / 86400000);
-    return tage && tage > 1 ? `${tag}, ${tage} Tage (ganztägig)` : `${tag} (ganztägig)`;
+    return tage && tage > 1
+      ? t('{tag}, {tage} Tage (ganztägig)', { tag, tage })
+      : t('{tag} (ganztägig)', { tag });
   }
 
-  const tag = termin.beginn.toLocaleDateString('de-DE', {
+  const tag = datum(termin.beginn, {
     weekday: 'long',
     day: '2-digit',
     month: 'long',
     year: 'numeric',
   });
-  const von = termin.beginn.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  if (!termin.ende) return `${tag}, ${von} Uhr`;
+  const von = uhrzeit(termin.beginn, { hour: '2-digit', minute: '2-digit' });
+  if (!termin.ende) return t('{tag}, {von} Uhr', { tag, von });
 
   const gleicherTag = termin.beginn.toDateString() === termin.ende.toDateString();
-  const bis = termin.ende.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  if (gleicherTag) return `${tag}, ${von} – ${bis} Uhr`;
+  const bis = uhrzeit(termin.ende, { hour: '2-digit', minute: '2-digit' });
+  if (gleicherTag) return t('{tag}, {von} – {bis} Uhr', { tag, von, bis });
 
-  const bisTag = termin.ende.toLocaleDateString('de-DE', { day: '2-digit', month: 'long' });
-  return `${tag}, ${von} Uhr bis ${bisTag}, ${bis} Uhr`;
+  const bisTag = datum(termin.ende, { day: '2-digit', month: 'long' });
+  return t('{tag}, {von} Uhr bis {bisTag}, {bis} Uhr', { tag, von, bisTag, bis });
 }
 
-const STAND: Record<Teilnahme, string> = {
-  zugesagt: 'zugesagt',
-  abgesagt: 'abgesagt',
-  vorbehalten: 'mit Vorbehalt',
-  offen: 'noch offen',
-  unbekannt: '',
-};
+/** Erst beim Zeichnen gebaut - auf Modulebene stünde die Sprache noch nicht fest. */
+function stand(): Record<Teilnahme, string> {
+  return {
+    zugesagt: t('zugesagt'),
+    abgesagt: t('abgesagt'),
+    vorbehalten: t('mit Vorbehalt'),
+    offen: t('noch offen'),
+    unbekannt: '',
+  };
+}
 
 export function Einladung({ einladung, accountId, ordner, uid, eigeneAdressen }: Props) {
   const [busy, setBusy] = useState<api.EinladungsAntwort | null>(null);
@@ -106,12 +113,14 @@ export function Einladung({ einladung, accountId, ordner, uid, eigeneAdressen }:
     try {
       const ergebnis = await api.beantworteEinladung(accountId, ordner, uid, antwort);
       setBeantwortet(antwort);
-      const wort = { zusagen: 'Zugesagt', absagen: 'Abgesagt', vorbehalten: 'Mit Vorbehalt' }[
-        antwort
-      ];
-      meldeErfolg(`${wort}`, `Die Antwort ging an ${ergebnis.an}.`);
+      const wort = {
+        zusagen: t('Zugesagt'),
+        absagen: t('Abgesagt'),
+        vorbehalten: t('Mit Vorbehalt'),
+      }[antwort];
+      meldeErfolg(wort, t('Die Antwort ging an {adresse}.', { adresse: ergebnis.an }));
     } catch (err) {
-      meldeFehler('Antwort nicht verschickt', (err as Error).message);
+      meldeFehler(t('Antwort nicht verschickt'), (err as Error).message);
     } finally {
       setBusy(null);
     }
@@ -121,13 +130,13 @@ export function Einladung({ einladung, accountId, ordner, uid, eigeneAdressen }:
     <div className={`einladung${abgesagt ? ' abgesagt' : ''}`}>
       <div className="einladung-kopf">
         <span className="einladung-art">
-          {abgesagt ? 'Absage' : istAntwort ? 'Antwort auf eine Einladung' : 'Einladung'}
+          {abgesagt ? t('Absage') : istAntwort ? t('Antwort auf eine Einladung') : t('Einladung')}
         </span>
-        <h3>{termin.titel || '(ohne Titel)'}</h3>
+        <h3>{termin.titel || t('(ohne Titel)')}</h3>
       </div>
 
       <dl className="einladung-daten">
-        <dt>Wann</dt>
+        <dt>{t('Wann')}</dt>
         <dd>
           {zeitraum(termin)}
           {termin.wiederholung && (
@@ -154,13 +163,17 @@ export function Einladung({ einladung, accountId, ordner, uid, eigeneAdressen }:
 
         {termin.teilnehmer.length > 0 && (
           <>
-            <dt>Wer</dt>
+            <dt>{t('Wer')}</dt>
             <dd className="einladung-teilnehmer">
-              {termin.teilnehmer.map((t) => (
-                <span key={t.adresse} className={`teilnehmer ${t.teilnahme}`}>
-                  {t.name || t.adresse}
-                  {STAND[t.teilnahme] && <span className="teilnehmer-stand">{STAND[t.teilnahme]}</span>}
-                  {t.optional && <span className="teilnehmer-stand">optional</span>}
+              {/* Der Laufparameter heißt `wer` und nicht `t` - sonst verdeckt er die
+                  Übersetzungsfunktion, und die Zeile darunter riefe den Teilnehmer auf. */}
+              {termin.teilnehmer.map((wer) => (
+                <span key={wer.adresse} className={`teilnehmer ${wer.teilnahme}`}>
+                  {wer.name || wer.adresse}
+                  {stand()[wer.teilnahme] && (
+                    <span className="teilnehmer-stand">{stand()[wer.teilnahme]}</span>
+                  )}
+                  {wer.optional && <span className="teilnehmer-stand">{t('optional')}</span>}
                 </span>
               ))}
             </dd>
@@ -171,13 +184,9 @@ export function Einladung({ einladung, accountId, ordner, uid, eigeneAdressen }:
       {termin.beschreibung && <p className="einladung-text">{termin.beschreibung}</p>}
 
       {abgesagt ? (
-        <p className="hint einladung-hinweis">
-          Der Organisator hat diesen Termin abgesagt.
-        </p>
+        <p className="hint einladung-hinweis">{t('Der Organisator hat diesen Termin abgesagt.')}</p>
       ) : istAntwort ? (
-        <p className="hint einladung-hinweis">
-          Das ist die Antwort einer eingeladenen Person – hier ist nichts zu tun.
-        </p>
+        <p className="hint einladung-hinweis">{t('Das ist die Antwort einer eingeladenen Person – hier ist nichts zu tun.')}</p>
       ) : (
         <>
           <div className="einladung-knoepfe">
@@ -191,21 +200,27 @@ export function Einladung({ einladung, accountId, ordner, uid, eigeneAdressen }:
                 onClick={() => void antworten(wahl)}
               >
                 {busy === wahl
-                  ? 'Sende…'
-                  : { zusagen: 'Zusagen', vorbehalten: 'Vielleicht', absagen: 'Absagen' }[wahl]}
+                  ? t('Sende…')
+                  : {
+                      zusagen: t('Zusagen'),
+                      vorbehalten: t('Vielleicht'),
+                      absagen: t('Absagen'),
+                    }[wahl]}
               </button>
             ))}
           </div>
           {!beantwortet && ichSelbst && ichSelbst.teilnahme !== 'offen' && (
             <p className="hint einladung-hinweis">
-              Sie haben bereits {STAND[ichSelbst.teilnahme]} – eine erneute Antwort ersetzt die
-              vorige.
+              {t('Sie haben bereits {stand} – eine erneute Antwort ersetzt die vorige.', {
+                stand: stand()[ichSelbst.teilnahme],
+              })}
             </p>
           )}
           {!termin.organisator && (
             <p className="hint einladung-hinweis">
-              Die Einladung nennt keinen Organisator – es gibt niemanden, an den eine Antwort
-              ginge.
+              {t(
+                'Die Einladung nennt keinen Organisator – es gibt niemanden, an den eine Antwort ginge.',
+              )}
             </p>
           )}
         </>

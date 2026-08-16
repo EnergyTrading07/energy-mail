@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Liefert den 32-Byte-Schlüssel, mit dem Zugangsdaten verschlüsselt werden. Woher der
@@ -34,9 +35,9 @@ export function isEncryptionAvailable(): boolean {
 function requireKey(): Buffer {
   if (!provider) {
     throw new Error(
-      'Keine Verschlüsselung eingerichtet - Zugangsdaten würden im Klartext liegen. ' +
-        'In der Desktop-App passiert das automatisch; beim Standalone-Server muss ' +
-        'ENERGY_MAIL_MASTER_KEY gesetzt sein.',
+      t(
+        'Keine Verschlüsselung eingerichtet - Zugangsdaten würden im Klartext liegen. In der Desktop-App passiert das automatisch; beim Standalone-Server muss ENERGY_MAIL_MASTER_KEY gesetzt sein.',
+      ),
     );
   }
   if (!cachedKey) {
@@ -90,8 +91,9 @@ export function entschluesselMitMaster(payload: string): string {
   } catch {
     // Der häufigste Grund ist ein anderer Schlüssel, nicht ein defekter Datensatz.
     throw new Error(
-      'Zugangsdaten konnten nicht entschlüsselt werden. Wurden sie unter einem anderen ' +
-        'Windows-Benutzer angelegt oder fehlt die Schlüsseldatei (data/key.enc)?',
+      t(
+        'Zugangsdaten konnten nicht entschlüsselt werden. Wurden sie unter einem anderen Windows-Benutzer angelegt oder fehlt die Schlüsseldatei (data/key.enc)?',
+      ),
     );
   }
 }

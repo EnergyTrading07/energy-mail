@@ -23,6 +23,22 @@ export interface Sitzung {
   nutzerId: string;
   angelegt: number;
   zuletztGenutzt: number;
+  /**
+   * Seit wann die Sitzung gesperrt ist - gesetzt heißt: gesperrt.
+   *
+   * Eine gesperrte Sitzung bleibt bestehen und behält ihren Nutzer; sie lässt nur nichts
+   * mehr durch, bis das Kennwort wieder eingegeben wurde.
+   *
+   * Warum nicht einfach beenden und neu anmelden lassen: Weil dann ein halb geschriebener
+   * Brief verloren geht. Die Oberfläche hält den Entwurf im Speicher, und ein Nutzer, der
+   * zwanzig Minuten telefoniert hat, soll dafür nicht bestraft werden. Er gibt sein
+   * Kennwort ein und schreibt weiter.
+   *
+   * Warum überhaupt am Server und nicht als Vorhang in der Oberfläche: Weil ein Vorhang
+   * keiner ist. Der Keks gilt weiter, und ein zweiter Tab - oder ein Abruf von Hand -
+   * bekommt die Post ungehindert. Gesperrt ist nur, was der Server nicht mehr beantwortet.
+   */
+  gesperrtSeit?: number;
 }
 
 type Ablage = { sitzungen: Sitzung[] };
@@ -37,6 +53,60 @@ const HOECHSTDAUER_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Damit ein voller Datenträger oder ein Fehler die Anmeldung nicht endlos wachsen lässt. */
 const MAX_SITZUNGEN = 10_000;
+
+/**
+ * Nach so langer Untätigkeit wird gesperrt - nicht abgemeldet.
+ *
+ * Der Unterschied zur RUHE_FRIST darüber ist der zwischen "weg" und "zu": Nach vierzehn
+ * Tagen ist die Sitzung erledigt und muss neu angemeldet werden. Nach der Sperrfrist ist
+ * sie nur verschlossen; das Kennwort öffnet sie wieder, und was in der Oberfläche offen
+ * stand, steht danach noch.
+ *
+ * Voreingestellt eine Stunde. Ein Mailprogramm steht den ganzen Tag offen, aber es wird
+ * auch den ganzen Tag angefasst - eine Stunde wirklicher Untätigkeit ist die Mittagspause
+ * und nicht die Denkpause. Wer es schärfer braucht, setzt ENERGY_MAIL_SPERRE_MINUTEN;
+ * eine 0 schaltet die Sperre ab.
+ */
+/**
+ * Dieselbe Frist in Minuten - für die Oberfläche.
+ *
+ * Sie muss den Wert kennen, denn sie sperrt den Bildschirm SELBST, sobald niemand mehr
+ * tippt. Der Server merkt Untätigkeit erst bei der nächsten Anfrage, und die kommt bei
+ * einem Fenster, vor dem gerade niemand sitzt, per Definition nicht. Ohne die Oberfläche
+ * bliebe die Post sichtbar stehen, bis jemand vorbeikommt und klickt.
+ *
+ * Eine Quelle für beide: sonst sperrt die eine nach zehn und die andere nach sechzig
+ * Minuten, und niemand weiß, welche gilt.
+ */
+export function sperrfristMinuten(): number {
+  return Math.round(sperrfristMs() / 60000);
+}
+
+function sperrfristMs(): number {
+  const roh = process.env.ENERGY_MAIL_SPERRE_MINUTEN;
+  if (roh === undefined) return 60 * 60 * 1000;
+  const minuten = Number(roh);
+  if (!Number.isFinite(minuten) || minuten < 0) return 60 * 60 * 1000;
+  return minuten * 60 * 1000;
+}
+
+/**
+ * Wie oft die letzte Nutzung überhaupt fortgeschrieben wird.
+ *
+ * Das ist keine Feinheit, sondern der Unterschied zwischen einer Sperre, die funktioniert,
+ * und einer, die zufällig zuschlägt. Fortgeschrieben wurde bisher höchstens stündlich, um
+ * nicht bei jeder Anfrage auf die Platte zu schreiben. Bei einer Sperrfrist von einer
+ * Stunde hieße das: Wer um 9:00 und um 9:59 arbeitet, hat einen Zeitstempel von 9:00 -
+ * und wird um 10:00 gesperrt, obwohl er gerade eben getippt hat.
+ *
+ * Deshalb ein Viertel der Sperrfrist, höchstens eine Stunde. Bei fünfzehn Minuten Sperre
+ * sind das knapp vier Minuten - vier Schreibvorgänge je Stunde statt einem, und dafür eine
+ * Sperre, die den Namen verdient.
+ */
+function auffrischAbstandMs(): number {
+  const frist = sperrfristMs();
+  return frist > 0 ? Math.min(60 * 60 * 1000, Math.max(30 * 1000, frist / 4)) : 60 * 60 * 1000;
+}
 
 let geladen: Sitzung[] | null = null;
 
@@ -109,22 +179,106 @@ export function eroeffneSitzung(nutzerId: string): string {
  * paar Minuten genau nicht ankommt.
  */
 export function nutzerZurSitzung(kennung: string | undefined): string | null {
-  if (!kennung) return null;
+  return sitzungsstand(kennung).nutzerId;
+}
+
+/** Was von einer Sitzung zu wissen ist: wem sie gehört und ob sie zu ist. */
+export interface Sitzungsstand {
+  nutzerId: string | null;
+  gesperrt: boolean;
+}
+
+/**
+ * Wie `nutzerZurSitzung`, aber mit der Auskunft über die Sperre.
+ *
+ * Der Nutzer kommt auch bei gesperrter Sitzung zurück, und das ist Absicht: Die
+ * Oberfläche soll "Gesperrt - Kennwort für anna@beispiel.de" zeigen können und nicht ein
+ * leeres Anmeldefenster, das so tut, als sei nie jemand da gewesen. Wer den Stand hier
+ * abfragt, muss `gesperrt` selbst beachten - der Haken in haken.ts tut das.
+ */
+export function sitzungsstand(kennung: string | undefined): Sitzungsstand {
+  const leer = { nutzerId: null, gesperrt: false };
+  if (!kennung) return leer;
   const gesucht = hashe(kennung);
   const jetzt = Date.now();
 
   const sitzung = lesen().find((s) => s.kennungHash === gesucht);
-  if (!sitzung) return null;
+  if (!sitzung) return leer;
   if (abgelaufen(sitzung, jetzt)) {
     beendeSitzung(kennung);
-    return null;
+    return leer;
   }
 
-  if (jetzt - sitzung.zuletztGenutzt > 60 * 60 * 1000) {
+  if (sitzung.gesperrtSeit) return { nutzerId: sitzung.nutzerId, gesperrt: true };
+
+  /*
+   * Zu lange nichts getan: zumachen statt beenden.
+   *
+   * Geprüft wird beim Zugriff und nicht von einem Zeitgeber. Ein Zeitgeber liefe in einem
+   * Prozess, der zwischendurch neu startet, und die Sperre hinge dann daran, ob er gerade
+   * lief - genau der Fehler, den die Anmeldebremse hatte.
+   */
+  const frist = sperrfristMs();
+  if (frist > 0 && jetzt - sitzung.zuletztGenutzt > frist) {
+    sitzung.gesperrtSeit = jetzt;
+    schreiben();
+    protokolliere('info', 'sitzung', `${sitzung.nutzerId} wegen Untätigkeit gesperrt.`);
+    return { nutzerId: sitzung.nutzerId, gesperrt: true };
+  }
+
+  if (jetzt - sitzung.zuletztGenutzt > auffrischAbstandMs()) {
     sitzung.zuletztGenutzt = jetzt;
     schreiben();
   }
-  return sitzung.nutzerId;
+  return { nutzerId: sitzung.nutzerId, gesperrt: false };
+}
+
+/**
+ * Sperrt eine Sitzung sofort - auf Verlangen des Nutzers.
+ *
+ * Der Knopf dafür ist die eigentliche Sperre. Die Frist fängt den, der es vergisst; wer
+ * den Rechner bewusst verlässt, will nicht warten, bis eine Frist abläuft.
+ */
+export function sperreSitzung(kennung: string | undefined): boolean {
+  if (!kennung) return false;
+  const gesucht = hashe(kennung);
+  const sitzung = lesen().find((s) => s.kennungHash === gesucht);
+  if (!sitzung || sitzung.gesperrtSeit) return false;
+  sitzung.gesperrtSeit = Date.now();
+  schreiben();
+  return true;
+}
+
+/**
+ * Öffnet eine gesperrte Sitzung wieder.
+ *
+ * Wer prüfen darf, ob das Kennwort stimmt, ist NICHT dieses Modul - das entscheidet der
+ * Aufrufer (siehe anmelden.ts). Hier steht nur die Buchführung; sonst hinge die
+ * Kennwortprüfung an zwei Stellen im Programm, und die eine liefe der anderen davon.
+ */
+export function entsperreSitzung(kennung: string | undefined): boolean {
+  if (!kennung) return false;
+  const gesucht = hashe(kennung);
+  const sitzung = lesen().find((s) => s.kennungHash === gesucht);
+  if (!sitzung) return false;
+  delete sitzung.gesperrtSeit;
+  sitzung.zuletztGenutzt = Date.now();
+  schreiben();
+  return true;
+}
+
+/** Sperrt jede Sitzung eines Nutzers - für "überall sperren". */
+export function sperreAlleSitzungen(nutzerId: string): number {
+  const jetzt = Date.now();
+  let gesperrt = 0;
+  for (const s of lesen()) {
+    if (s.nutzerId === nutzerId && !s.gesperrtSeit) {
+      s.gesperrtSeit = jetzt;
+      gesperrt += 1;
+    }
+  }
+  if (gesperrt > 0) schreiben();
+  return gesperrt;
 }
 
 export function beendeSitzung(kennung: string | undefined): void {

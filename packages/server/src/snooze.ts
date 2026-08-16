@@ -3,9 +3,10 @@ import path from 'node:path';
 import { createFolder, listFolders, setMessagesSeen, type AccountConfig } from '@energy-mail/mail-core';
 import { verschiebeMitKennung } from '@energy-mail/mail-core';
 import { getNutzerDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { jeNutzer } from './nutzer/jeNutzer.js';
 import { istVerbindungsfehler } from './verbindungsfehler.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Wiedervorlage: eine Nachricht verschwindet aus dem Posteingang und kommt zur
@@ -73,7 +74,7 @@ export function setWiedervorlageUmgebung(
 
 function speichern(): void {
   try {
-    schreibeAtomar(getPfad(), JSON.stringify([...offenVon().values()], null, 2));
+    schreibeGeschuetzt(getPfad(), JSON.stringify([...offenVon().values()], null, 2));
   } catch (err) {
     log(`Wiedervorlagen konnten nicht gesichert werden: ${(err as Error).message}`);
   }
@@ -99,8 +100,10 @@ async function holeZurueck(id: string): Promise<void> {
   try {
     if (eintrag.uidImOrdner === undefined) {
       throw new Error(
-        'Der Server hat beim Zurückstellen keine Kennung mitgeteilt - die Nachricht ' +
-          `liegt weiterhin im Ordner "${WIEDERVORLAGE_ORDNER}".`,
+        t(
+          'Der Server hat beim Zurückstellen keine Kennung mitgeteilt - die Nachricht liegt weiterhin im Ordner „{ordner}“.',
+          { ordner: WIEDERVORLAGE_ORDNER },
+        ),
       );
     }
     const { neueUids } = await verschiebeMitKennung(
@@ -180,7 +183,7 @@ function planen(eintrag: Zurueckgestellt): void {
 }
 
 export function ladeWiedervorlagen(): void {
-  const befund = liesJson<unknown>(getPfad(), []);
+  const befund = liesGeschuetzt<unknown>(getPfad(), []);
   if (befund.beschaedigt) {
     log(
       `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +

@@ -23,7 +23,7 @@
     "test": "node --import tsx --test \"packages/*/src/**/*.test.mts\"",
     "test:abdeckung": "node --import tsx --test --experimental-test-coverage \"packages/*/src/**/*.test.mts\"",
     "//pruefe": "Was die CI macht, in einem Aufruf - damit sich lokal derselbe Stand pruefen laesst, ohne drei Befehle zu merken.",
-    "pruefe": "npm run typecheck && npm run build && npm test",
+    "pruefe": "npm run typecheck && npm run build && npm test && npm run sprachpruefung",
     "build": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run build -w packages/web && npm run build -w packages/desktop",
     "typecheck": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run typecheck --workspaces --if-present",
     "dist": "npm run build && electron-builder",
@@ -37,7 +37,12 @@
     "publish": "npm run veroeffentlichen",
     "dev:server": "npm run dev --workspace packages/server",
     "dev:web": "npm run dev --workspace packages/web",
-    "dev:desktop": "npm run dev --workspace packages/desktop"
+    "dev:desktop": "npm run dev --workspace packages/desktop",
+    "//paket:firma": "Baut das MSI fuer die Verteilung im Unternehmen - maschinenweit, still installierbar, ohne Selbstaktualisierung. Bewusst ein eigener Aufruf: 'dist' soll schnell bleiben, und was ein Firmenkunde bekommt, entscheidet ein Mensch. Einzelheiten in BETRIEB.md.",
+    "paket:firma": "npm run build && electron-builder --win msi --x64 --arm64",
+    "//sprachstand": "Zaehlt, wie viel der Oberflaeche schon uebersetzbar ist und was noch deutsch im Quelltext steht. Eine Uebersetzung ist nie fertig, sondern immer zu soundsoviel Prozent - ohne Zahl bleibt der Stand eine Behauptung.",
+    "sprachpruefung": "node scripts/sprachpruefung.mjs",
+    "sprachstand": "node scripts/sprachstand.mjs"
   },
   "dependencies": {
     "@energy-mail/server": "*",

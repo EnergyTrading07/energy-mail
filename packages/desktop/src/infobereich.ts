@@ -1,6 +1,7 @@
 import { Menu, Tray, nativeImage } from 'electron';
 import { protokolliere } from '@energy-mail/server/protokoll';
 import { programmSymbolPfad } from './programmSymbol.js';
+import { t, tp } from '@energy-mail/mail-core/sprache';
 
 /**
  * Das Symbol im Infobereich (unten rechts neben der Uhr).
@@ -49,18 +50,18 @@ let haken: InfobereichHaken | null = null;
 function baueMenue(): Menu {
   const stand =
     ungelesen === 0
-      ? 'Keine ungelesenen Nachrichten'
-      : `${ungelesen} ungelesene ${ungelesen === 1 ? 'Nachricht' : 'Nachrichten'}`;
+      ? t('Keine ungelesenen Nachrichten')
+      : tp(ungelesen, '{anzahl} ungelesene Nachricht', '{anzahl} ungelesene Nachrichten');
 
   return Menu.buildFromTemplate([
-    { label: 'Energy Mail öffnen', click: () => haken?.zeigeFenster() },
+    { label: t('Energy Mail öffnen'), click: () => haken?.zeigeFenster() },
     // Kein Klickziel, nur Auskunft - deshalb ausgegraut.
     { label: stand, enabled: false },
     { type: 'separator' },
-    { label: 'Neue Nachricht', click: () => haken?.neueNachricht() },
-    { label: 'Jetzt abrufen', click: () => haken?.jetztAbrufen() },
+    { label: t('Neue Nachricht'), click: () => haken?.neueNachricht() },
+    { label: t('Jetzt abrufen'), click: () => haken?.jetztAbrufen() },
     { type: 'separator' },
-    { label: 'Beenden', click: () => haken?.beenden() },
+    { label: t('Beenden'), click: () => haken?.beenden() },
   ]);
 }
 

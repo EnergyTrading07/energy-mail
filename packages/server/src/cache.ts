@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getNutzerDir } from './paths.js';
-import { schreibeAtomar } from './atomar.js';
+import { istVerschluesselt, schreibeGeschuetzt } from './geschuetzteAblage.js';
+import { decryptSecret } from './secretCrypto.js';
 import { jeNutzer } from './nutzer/jeNutzer.js';
 import { aktuellerNutzer, alsNutzer } from './nutzer/kontext.js';
 
@@ -70,12 +71,15 @@ function laden(): NutzerCache {
   c.geladen = true;
   try {
     const roh = fs.readFileSync(dateiPfad(), 'utf-8');
-    for (const [schluessel, eintrag] of Object.entries(JSON.parse(roh) as Record<string, Eintrag>)) {
+    // Klartext aus einer Installation von vor der Umstellung wird weiter gelesen; beim
+    // nächsten Schreiben ist die Datei verschlüsselt. Siehe geschuetzteAblage.ts.
+    const klar = istVerschluesselt(roh) ? decryptSecret(roh.trim()) : roh;
+    for (const [schluessel, eintrag] of Object.entries(JSON.parse(klar) as Record<string, Eintrag>)) {
       c.speicher.set(schluessel, eintrag);
     }
   } catch {
-    // Fehlende oder beschädigte Datei ist unkritisch: der Zwischenspeicher füllt sich
-    // beim ersten Abruf von selbst wieder.
+    // Fehlende, beschädigte oder mit einem anderen Schlüssel angelegte Datei ist
+    // unkritisch: der Zwischenspeicher füllt sich beim ersten Abruf von selbst wieder.
   }
   return c;
 }
@@ -114,7 +118,7 @@ export function schreibeSofort(): void {
     c.schreibTimer = undefined;
   }
   try {
-    schreibeAtomar(dateiPfad(), JSON.stringify(Object.fromEntries(c.speicher)));
+    schreibeGeschuetzt(dateiPfad(), JSON.stringify(Object.fromEntries(c.speicher)));
   } catch {
     // Der Zwischenspeicher ist Beiwerk; scheitert das Schreiben, arbeitet alles weiter.
   }

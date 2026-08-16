@@ -1,3 +1,4 @@
+import { gebietsschema, t } from './sprache.js';
 /**
  * Etiketten - farbige Merkmale, die an einer Nachricht hängen.
  *
@@ -175,7 +176,7 @@ export function etikettenAusFlags(
           farbe: '#6b7280',
         },
     )
-    .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
+    .sort((a, b) => a.name.localeCompare(b.name, gebietsschema(), { sensitivity: 'base' }));
 }
 
 /**
@@ -188,8 +189,8 @@ export function pruefeEtikettName(
   ausser?: string,
 ): string | null {
   const sauber = name.trim();
-  if (!sauber) return 'Das Etikett braucht einen Namen.';
-  if (sauber.length > 40) return 'Der Name ist zu lang - höchstens 40 Zeichen.';
+  if (!sauber) return t('Das Etikett braucht einen Namen.');
+  if (sauber.length > 40) return t('Der Name ist zu lang - höchstens 40 Zeichen.');
 
   const doppelt = vorhandene.some(
     (e) =>
@@ -234,7 +235,7 @@ export function beschreibeSuche(
     kriterien.subject && `Betreff ${kriterien.subject}`,
     etikettName && `Etikett ${etikettName}`,
     kriterien.unreadOnly && 'nur ungelesen',
-    kriterien.withAttachment && 'mit Anhang',
+    kriterien.withAttachment && t('mit Anhang'),
     kriterien.category && `Kategorie ${kriterien.category}`,
     kriterien.since && `ab ${kriterien.since}`,
     kriterien.before && `bis ${kriterien.before}`,

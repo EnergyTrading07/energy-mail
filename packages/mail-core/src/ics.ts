@@ -1,3 +1,4 @@
+import { t } from './sprache.js';
 /**
  * Einladungen und Termine (iCalendar, RFC 5545).
  *
@@ -562,25 +563,29 @@ export function beschreibeWiederholung(rrule: string): string {
   const abstand = Number(teile.get('INTERVAL') ?? '1') || 1;
   const tage = (teile.get('BYDAY') ?? '')
     .split(',')
-    .map((t) => WOCHENTAGE[t.trim().slice(-2).toUpperCase()])
+    // Der Laufparameter hiess "t" und verdeckte damit den Uebersetzer, der seit dieser
+    // Fassung hier gebraucht wird. Der Uebersetzer faengt das zwar (er wird als Funktion
+    // gerufen und der Parameter ist eine Zeichenkette), aber nur, weil er zufaellig im
+    // selben Block steht.
+    .map((tag) => WOCHENTAGE[tag.trim().slice(-2).toUpperCase()])
     .filter(Boolean);
 
   const grund = (() => {
     switch ((teile.get('FREQ') ?? '').toUpperCase()) {
       case 'DAILY':
-        return abstand === 1 ? 'täglich' : `alle ${abstand} Tage`;
+        return abstand === 1 ? t('täglich') : t('alle {abstand} Tage', { abstand });
       case 'WEEKLY':
         if (tage.length > 0) {
           const wann = tage.join(', ');
           return abstand === 1 ? `jeden ${wann}` : `alle ${abstand} Wochen ${wann}`;
         }
-        return abstand === 1 ? 'wöchentlich' : `alle ${abstand} Wochen`;
+        return abstand === 1 ? t('wöchentlich') : t('alle {abstand} Wochen', { abstand });
       case 'MONTHLY':
         return abstand === 1 ? 'monatlich' : `alle ${abstand} Monate`;
       case 'YEARLY':
-        return abstand === 1 ? 'jährlich' : `alle ${abstand} Jahre`;
+        return abstand === 1 ? t('jährlich') : t('alle {abstand} Jahre', { abstand });
       default:
-        return 'wiederholt sich regelmäßig';
+        return t('wiederholt sich regelmäßig');
     }
   })();
 
@@ -588,8 +593,14 @@ export function beschreibeWiederholung(rrule: string): string {
   if (anzahl) return `${grund}, ${anzahl} mal`;
 
   const bis = teile.get('UNTIL');
-  const t = bis ? /^(\d{4})(\d{2})(\d{2})/.exec(bis) : null;
-  if (t) return `${grund} bis ${t[3]}.${t[2]}.${t[1]}`;
+  /*
+   * Nicht "t" - so hiess diese Variable, und sie steht im selben Bereich wie die
+   * Uebersetzungen weiter oben. Der Uebersetzer heisst ebenfalls t; das Ergebnis war ein
+   * "used before its declaration", also ein Fehler an einer Stelle, die mit dem Datum
+   * nichts zu tun hat.
+   */
+  const treffer = bis ? /^(\d{4})(\d{2})(\d{2})/.exec(bis) : null;
+  if (treffer) return `${grund} bis ${treffer[3]}.${treffer[2]}.${treffer[1]}`;
 
   return grund;
 }

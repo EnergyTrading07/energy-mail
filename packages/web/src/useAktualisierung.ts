@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { t } from './sprache.js';
 
 /**
  * Verbindung zum Aktualisierungsablauf der Desktop-Hülle.
@@ -37,13 +38,13 @@ export function useAktualisierung() {
   const knopf = (() => {
     switch (stand.phase) {
       case 'suche':
-        return { text: 'Suche…', meldet: false };
+        return { text: t('Suche…'), meldet: false };
       case 'gefunden':
-        return { text: 'Lädt…', meldet: false };
+        return { text: t('Lädt…'), meldet: false };
       case 'laedt':
         return { text: `${Math.round(stand.prozent)} %`, meldet: false };
       case 'bereit':
-        return { text: 'Neustart bereit', meldet: true };
+        return { text: t('Neustart bereit'), meldet: true };
       default:
         return null;
     }

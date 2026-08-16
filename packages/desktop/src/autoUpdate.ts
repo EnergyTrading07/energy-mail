@@ -2,6 +2,8 @@ import { app } from 'electron';
 import electronUpdater from 'electron-updater';
 import { protokolliere } from '@energy-mail/server/protokoll';
 import { pruefeAktualisierung, schluesselHinterlegt } from './updateSignatur.js';
+import { richtlinien } from './richtlinien.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 // electron-updater ist ein CommonJS-Paket; aus einem ES-Modul heraus kommt es als
 // Standardexport an und muss erst aufgeteilt werden.
@@ -110,12 +112,27 @@ function alsText(roh: string | { note: string | null }[] | null | undefined): st
 
 /** Von Hand angestoßen (Knopf in der Titelleiste). */
 export function sucheAktualisierung(): void {
+  /*
+   * Die Organisation hat entschieden - und sagt das auch.
+   *
+   * Den Knopf stillschweigend wirkungslos zu machen wäre schlimmer als eine Absage: der
+   * Nutzer klickte, bekäme nichts und wüsste nicht warum. Siehe richtlinien.ts.
+   */
+  if (richtlinien().aktualisierungAbschalten) {
+    setze({
+      phase: 'fehler',
+      grund: t('Die Aktualisierung wird von Ihrer Organisation vorgegeben. {wohin}', {
+        wohin: richtlinien().ansprechpartner ?? t('Wenden Sie sich an Ihre IT-Abteilung.'),
+      }),
+    });
+    return;
+  }
   if (!app.isPackaged) {
     setze({
       phase: 'fehler',
-      grund:
-        'Aus dem Quellbaum gestartet gibt es nichts zu aktualisieren – ' +
-        'die Selbstaktualisierung gilt nur für die installierte Fassung.',
+      grund: t(
+        'Aus dem Quellbaum gestartet gibt es nichts zu aktualisieren – die Selbstaktualisierung gilt nur für die installierte Fassung.',
+      ),
     });
     return;
   }
@@ -134,6 +151,20 @@ export function starteAktualisierungspruefung(
   aufStand: (stand: Aktualisierungsstand) => void,
 ): void {
   melde = aufStand;
+
+  /*
+   * Vor allem anderen: hat die Organisation es untersagt?
+   *
+   * Muss hier stehen und nicht erst bei der Suche - autoDownload und
+   * autoInstallOnAppQuit weiter unten machen aus einer bloßen Prüfung sonst ein
+   * Herunterladen und ein Einspielen beim nächsten Beenden. Genau das soll in einer
+   * verwalteten Aufstellung nicht passieren: dort bestimmt die IT, welche Fassung wann
+   * auf welchen Rechner kommt.
+   */
+  if (richtlinien().aktualisierungAbschalten) {
+    log.info('Aktualisierung: von der Organisation abgeschaltet (richtlinien.json).');
+    return;
+  }
 
   // Aus dem Quellbaum heraus gibt es keine app-update.yml; die Prüfung würde mit einem
   // Fehler abbrechen, der nichts bedeutet.
@@ -195,7 +226,9 @@ export function starteAktualisierungspruefung(
     }
 
     if (!geladeneFassung) {
-      return 'Zu dieser Datei ist keine Fassung bekannt - die Freigabe lässt sich nicht zuordnen.';
+      return t(
+        'Zu dieser Datei ist keine Fassung bekannt - die Freigabe lässt sich nicht zuordnen.',
+      );
     }
 
     const befund = await pruefeAktualisierung(datei, geladeneFassung, BESITZER, ABLAGE);

@@ -8,6 +8,7 @@ import {
   Uhr,
   Warnzeichen,
 } from './components/Symbole.js';
+import { gebietsschema, t } from './sprache.js';
 
 /**
  * Rückfragen, Eingaben und Meldungen in der Gestaltung des Programms.
@@ -169,30 +170,40 @@ function naechsteWoche(): Date {
 /** Vorschläge für "später senden" - dort geht es um Stunden, nicht um Tage. */
 export function sendeVorschlaege() {
   return [
-    { titel: 'In einer Stunde', zeit: inStunden(1) },
-    { titel: 'Heute Abend', zeit: heuteAbend() },
-    { titel: 'Morgen früh', zeit: morgenFrueh() },
-    { titel: 'Montag früh', zeit: naechsteWoche() },
+    { titel: t('In einer Stunde'), zeit: inStunden(1) },
+    { titel: t('Heute Abend'), zeit: heuteAbend() },
+    { titel: t('Morgen früh'), zeit: morgenFrueh() },
+    { titel: t('Montag früh'), zeit: naechsteWoche() },
   ];
 }
 
 /** Vorschläge für die Wiedervorlage - dort ist "nächste Woche" ein üblicher Fall. */
 export function wiedervorlageVorschlaege() {
   return [
-    { titel: 'In drei Stunden', zeit: inStunden(3) },
-    { titel: 'Heute Abend', zeit: heuteAbend() },
-    { titel: 'Morgen früh', zeit: morgenFrueh() },
-    { titel: 'Nächste Woche', zeit: naechsteWoche() },
+    { titel: t('In drei Stunden'), zeit: inStunden(3) },
+    { titel: t('Heute Abend'), zeit: heuteAbend() },
+    { titel: t('Morgen früh'), zeit: morgenFrueh() },
+    { titel: t('Nächste Woche'), zeit: naechsteWoche() },
   ];
 }
 
-const WOCHENTAG = new Intl.DateTimeFormat('de-DE', {
-  weekday: 'short',
-  day: '2-digit',
-  month: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+/*
+ * Hier stand 'de-DE' fest verdrahtet.
+ *
+ * Solange es nur Deutsch gab, war das richtig; mit der zweiten Sprache wird daraus ein
+ * Fehler, den man nicht sucht - unter einem englischen "Tomorrow morning" stünde dann
+ * "Do., 16.08., 08:00" statt "Thu, 08/16, 8:00 AM". Auch das Format gehört zur Sprache,
+ * nicht nur das Wort.
+ */
+function wochentag(): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(gebietsschema(), {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 /** Für das Feld <input type="datetime-local">, das eine örtliche Zeit ohne Zone erwartet. */
 function alsFeldwert(d: Date): string {
@@ -347,12 +358,12 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
                   onClick={() => fertig(v.zeit)}
                 >
                   <b>{v.titel}</b>
-                  <span>{WOCHENTAG.format(v.zeit)}</span>
+                  <span>{wochentag().format(v.zeit)}</span>
                 </button>
               ))}
             </div>
             <div className="zeitwahl-eigen">
-              <span>Oder ein bestimmter Zeitpunkt</span>
+              <span>{t('Oder ein bestimmter Zeitpunkt')}</span>
               <div style={{ display: 'flex', gap: 'var(--a-3)' }}>
                 <input
                   type="datetime-local"
@@ -371,17 +382,17 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
                   onClick={() => {
                     const gewaehlt = new Date(eigenerZeitpunkt);
                     if (Number.isNaN(gewaehlt.getTime())) {
-                      setFehler('Das ist kein Zeitpunkt, den ich lesen kann.');
+                      setFehler(t('Das ist kein Zeitpunkt, den ich lesen kann.'));
                       return;
                     }
                     if (gewaehlt.getTime() <= Date.now()) {
-                      setFehler('Dieser Zeitpunkt liegt in der Vergangenheit.');
+                      setFehler(t('Dieser Zeitpunkt liegt in der Vergangenheit.'));
                       return;
                     }
                     fertig(gewaehlt);
                   }}
                 >
-                  Übernehmen
+                  {t('Übernehmen')}
                 </button>
               </div>
               {fehler && (
@@ -396,7 +407,7 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
         <div className="dialog-fuss">
           {anfrage.art !== 'meldung' && (
             <button type="button" className="btn secondary" onClick={abbruch}>
-              {anfrage.art === 'bestaetigen' ? anfrage.abbrechen ?? 'Abbrechen' : 'Abbrechen'}
+              {anfrage.art === 'bestaetigen' ? (anfrage.abbrechen ?? t('Abbrechen')) : t('Abbrechen')}
             </button>
           )}
           {anfrage.art === 'bestaetigen' && anfrage.verwerfen && (
@@ -407,10 +418,10 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
           {anfrage.art !== 'zeitpunkt' && (
             <button type="button" className="btn" autoFocus={anfrage.art !== 'eingabe'} onClick={bestaetigen}>
               {anfrage.art === 'bestaetigen'
-                ? anfrage.ok ?? 'Ja'
+                ? (anfrage.ok ?? t('Ja'))
                 : anfrage.art === 'eingabe'
-                  ? anfrage.ok ?? 'Übernehmen'
-                  : anfrage.ok ?? 'Verstanden'}
+                  ? (anfrage.ok ?? t('Übernehmen'))
+                  : (anfrage.ok ?? t('Verstanden'))}
             </button>
           )}
         </div>

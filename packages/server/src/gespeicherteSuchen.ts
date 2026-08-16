@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { SearchCriteria } from '@energy-mail/mail-core';
 import { getNutzerDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { protokolliere } from './protokollDatei.js';
 
 /**
@@ -33,7 +33,7 @@ export interface GespeicherteSuche {
 type Ablage = { suchen: GespeicherteSuche[] };
 
 function lesen(): Ablage {
-  const befund = liesJson<Ablage | null>(getPfad(), null);
+  const befund = liesGeschuetzt<Ablage | null>(getPfad(), null);
   if (befund.beschaedigt) {
     protokolliere(
       'fehler',
@@ -47,7 +47,7 @@ function lesen(): Ablage {
 }
 
 function schreiben(ablage: Ablage): void {
-  schreibeAtomar(getPfad(), JSON.stringify(ablage, null, 2));
+  schreibeGeschuetzt(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 export function alleSuchen(): GespeicherteSuche[] {

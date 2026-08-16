@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { beschreibeZertifikate, nutzeSystemZertifikate } from '@energy-mail/mail-core';
 import { buildServer } from './app.js';
 import { getWurzelDir, setDataDir } from './paths.js';
 import {
@@ -258,6 +259,15 @@ if (viteErlauben) {
       'Für den Betrieb NODE_ENV=production setzen.',
   );
 }
+
+/*
+ * Den Zertifikatsspeicher des Betriebssystems dazunehmen - vor der ersten Verbindung.
+ *
+ * Auch der Serverbetrieb steht oft in einem Netz, dessen Vorbau TLS aufbricht und mit
+ * einer eigenen Wurzel neu unterschreibt. Ohne diese Zeile bräche dort jede IMAP- und
+ * SMTP-Verbindung ab. Einzelheiten in mail-core/zertifikate.ts.
+ */
+console.log(`[energy-mail] ${beschreibeZertifikate(nutzeSystemZertifikate())}`);
 
 const app = await buildServer({ port, proxyVertrauen: proxyVertrauen(), viteErlauben });
 

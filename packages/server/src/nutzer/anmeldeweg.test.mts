@@ -196,8 +196,40 @@ await pruefe('/ich nennt den angemeldeten Nutzer', async () => {
     url: '/ich',
     cookies: { [KEKS_NAME]: keks },
   });
+  /*
+   * Feld fuer Feld verglichen und nicht nur stichprobenartig.
+   *
+   * Das ist der Sinn dieser Zeile: Sie faengt jedes Feld, das jemand spaeter hinzufuegt,
+   * und zwingt zu der Frage, ob es hier hinausgehen darf. /ich antwortet ohne Anmeldung
+   * und ist damit die freizuegigste Auskunft des Servers.
+   */
   assert.deepEqual(JSON.parse(antwort.body), {
     angemeldet: true,
+    // Ob die Sitzung gerade zu ist - die Oberflaeche fragt beim Start danach.
+    gesperrt: false,
+    // Nach wie vielen Minuten Untaetigkeit gesperrt wird; die Oberflaeche sperrt selbst,
+    // weil der Server Untaetigkeit erst bei der naechsten Anfrage sieht.
+    sperreNachMinuten: 60,
+    /*
+     * Ob dieser Mensch verwalten darf - hier: ja, und das ist kein Zufall.
+     *
+     * Anna ist der einzige richtige Nutzer dieser Aufstellung, also hat der Start ihr die
+     * Verwalterrolle gegeben (siehe stelleVerwalterSicher). Genau so soll es bei einer
+     * bestehenden Aufstellung laufen, in deren nutzer.json noch keine Rolle steht: Sonst
+     * haette nach der Aktualisierung niemand Rechte.
+     *
+     * Die Oberflaeche entscheidet daran nur, ob sie den Weg zur Nutzerverwaltung ANZEIGT.
+     * Der Riegel sitzt am Server - verwaltung.test.mts prueft ihn.
+     */
+    verwalter: true,
+    /*
+     * Ob ein zweiter Faktor eingerichtet ist - und wie viele Wiederherstellungscodes noch
+     * daliegen. Beides ist kein Geheimnis: Es sagt, DASS es einen Faktor gibt, nicht
+     * welchen. Das Konto braucht es, um "Ein" oder "Aus" anzuzeigen, und die Zahl, um zu
+     * warnen, bevor der letzte Code aufgebraucht ist.
+     */
+    zweiFaktor: false,
+    codesUebrig: 0,
     nutzer: { id: 'anna', email: 'anna@beispiel.de' },
     // Hier haengt die Sitzung an einem Keks - also gibt es etwas abzumelden.
     abmeldbar: true,

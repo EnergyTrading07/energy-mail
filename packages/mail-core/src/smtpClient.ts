@@ -1,9 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
+import * as socks from 'socks';
+import { beschreibeProxy, proxyFuer } from './proxy.js';
 import { resolveAccessToken } from './oauth/tokenAccess.js';
 import { baueSigniertenTeil } from './pgpErkennung.js';
+import { baueSigniertePost, baueVerschluesseltePost } from './smime/nachricht.js';
 import type { AccountConfig, OutgoingMessage } from './types.js';
+import { t } from './sprache.js';
 
 async function buildSmtpAuth(config: AccountConfig) {
   if (config.auth.type === 'password') {
@@ -18,10 +22,23 @@ async function buildSmtpAuth(config: AccountConfig) {
 }
 
 async function createTransport(config: AccountConfig) {
-  return nodemailer.createTransport({
+  /*
+   * Derselbe Weg nach draußen wie beim Abrufen - siehe proxy.ts.
+   *
+   * Getrennt ermittelt und nicht vom IMAP-Befund übernommen: Abruf- und Sendeserver sind
+   * verschiedene Rechner, und sowohl die Ausnahmeliste als auch ein PAC-Skript können für
+   * sie Verschiedenes vorsehen.
+   */
+  const proxy = await proxyFuer(config.smtpHost, config.proxy);
+  if (proxy.beanstandet) {
+    console.warn(`[energy-mail] ${beschreibeProxy(proxy)}`);
+  }
+
+  const transport = nodemailer.createTransport({
     host: config.smtpHost,
     port: config.smtpPort,
     secure: config.smtpSecure,
+    ...(proxy.adresse ? { proxy: proxy.adresse } : {}),
     /*
      * Verschlüsselung erzwingen, wenn nicht ohnehin von der ersten Sekunde an
      * verschlüsselt wird.
@@ -42,6 +59,23 @@ async function createTransport(config: AccountConfig) {
     tls: { minVersion: 'TLSv1.2', servername: config.smtpHost },
     auth: await buildSmtpAuth(config),
   });
+
+  /*
+   * SOCKS muss nodemailer ausdrücklich gereicht werden.
+   *
+   * HTTP CONNECT bringt es selbst mit; für SOCKS erwartet es das Modul von außen, damit
+   * niemand es mitschleppen muss, der es nicht braucht ("proxy_socks_module", siehe
+   * nodemailer/lib/mailer/index.js). imapflow bindet dasselbe Paket ohnehin ein - hier
+   * steht es als ausdrückliche Abhängigkeit, damit es nicht bloß zufällig im Baum liegt.
+   *
+   * Nur bei einer SOCKS-Adresse: das Modul zu laden, wo es nicht gebraucht wird, kostet
+   * bei jedem Senden Zeit für nichts.
+   */
+  if (proxy.adresse?.startsWith('socks')) {
+    transport.set('proxy_socks_module', socks);
+  }
+
+  return transport;
 }
 
 /** Prüft Erreichbarkeit und Zugangsdaten des SMTP-Servers, ohne eine Mail zu senden. */
@@ -157,7 +191,7 @@ function baueGeschuetzteNachricht(
       ...kopfzeilen,
       `Content-Type: multipart/encrypted; protocol="application/pgp-encrypted"; boundary="${grenze}"`,
       '',
-      'Diese Nachricht ist mit OpenPGP verschlüsselt.',
+      t('Diese Nachricht ist mit OpenPGP verschlüsselt.'),
       `--${grenze}`,
       'Content-Type: application/pgp-encrypted',
       'Content-Description: PGP/MIME version identification',
@@ -188,7 +222,7 @@ function baueGeschuetzteNachricht(
       ...kopfzeilen,
       `Content-Type: multipart/signed; micalg=pgp-sha256; protocol="application/pgp-signature"; boundary="${grenze}"`,
       '',
-      'Diese Nachricht ist mit OpenPGP unterschrieben.',
+      t('Diese Nachricht ist mit OpenPGP unterschrieben.'),
       `--${grenze}`,
       geschuetzt,
       `--${grenze}`,
@@ -201,6 +235,37 @@ function baueGeschuetzteNachricht(
       '',
     ];
     return Buffer.from(teile.join('\r\n'), 'utf8');
+  }
+
+  /*
+   * S/MIME. Aufgebaut nach RFC 8551 statt RFC 3156 - dieselbe Idee, andere Marken: Die
+   * Unterschrift heißt hier "application/pkcs7-signature" und ist Base64 statt Text, und
+   * die verschlüsselte Form ist kein "multipart/encrypted", sondern ein einziger Teil.
+   *
+   * Zusammengesetzt wird auch das nicht hier, sondern in smime/nachricht.ts. Grund: Bei
+   * einer Nachricht, die unterschrieben UND verschlüsselt ist, steckt genau dieselbe
+   * Einheit noch einmal im Umschlag. Zwei Stellen, die sie unabhängig voneinander bauen,
+   * liefen auseinander - und der Fehler fiele erst dem Empfänger auf.
+   */
+  if (message.smimeGeheimtext) {
+    const paket = baueVerschluesseltePost(Buffer.from(message.smimeGeheimtext, 'base64'));
+    return Buffer.from(
+      [...kopfzeilen, ...paket.kopfzeilen, '', paket.koerper].join('\r\n'),
+      'utf8',
+    );
+  }
+
+  if (message.smimeSignatur) {
+    const geschuetzt = message.smimeSignierterTeil ?? baueSigniertenTeil(message.text ?? '');
+    const paket = baueSigniertePost(
+      geschuetzt,
+      Buffer.from(message.smimeSignatur, 'base64'),
+      grenze,
+    );
+    return Buffer.from(
+      [...kopfzeilen, ...paket.kopfzeilen, '', t('Diese Nachricht ist mit S/MIME unterschrieben.'), paket.koerper].join('\r\n'),
+      'utf8',
+    );
   }
 
   return null;
@@ -218,7 +283,12 @@ export async function buildRawMessage(
   const absender = message.absender?.email ?? config.email;
   const name = message.absender?.displayName ?? config.displayName;
 
-  if (message.pgpSignatur || message.pgpGeheimtext) {
+  if (
+    message.pgpSignatur ||
+    message.pgpGeheimtext ||
+    message.smimeSignatur ||
+    message.smimeGeheimtext
+  ) {
     const empfaenger = sichereAdressen(message.to);
     const kopie = sichereAdressen(message.cc ?? []);
     /*
@@ -244,6 +314,17 @@ export async function buildRawMessage(
         ? [`References: ${message.references.map(sichereKopfzeile).join(' ')}`]
         : []),
       'MIME-Version: 1.0',
+      /*
+       * Die zusätzlichen Kopfzeilen auch hier - sonst fehlte ausgerechnet bei
+       * unterschriebener Post der Vermerk "im Auftrag von".
+       *
+       * Sie stehen AUSSEN und brechen die Unterschrift nicht: Nach RFC 3156 wird der
+       * MIME-Teil unterschrieben, nicht der Umschlag darum. Was hier dazukommt, ist
+       * dieselbe Sorte Zeile wie From, To und Subject, die ebenfalls außerhalb liegen.
+       */
+      ...Object.entries(message.kopfzeilen ?? {}).map(
+        ([name, wert]) => `${sichereKopfzeile(name)}: ${sichereKopfzeile(wert)}`,
+      ),
     ];
     const gebaut = baueGeschuetzteNachricht(kopfzeilen, message);
     if (gebaut) return gebaut;
@@ -279,6 +360,15 @@ export async function buildRawMessage(
           },
         ]
       : undefined,
+    /*
+     * Weitere Kopfzeilen, wörtlich.
+     *
+     * Gebraucht von der Abwesenheitsnotiz (`Auto-Submitted: auto-replied`) und von der
+     * Stellvertretung (`Sender:`). Der handgebaute PGP-Zweig weiter oben nimmt dieselben
+     * Zeilen auf - sonst fehlte der Vermerk "im Auftrag von" ausgerechnet bei
+     * unterschriebener Post.
+     */
+    headers: message.kopfzeilen,
   });
   return composer.compile().build();
 }

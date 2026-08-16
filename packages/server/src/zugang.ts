@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Wer mit dem lokalen Server sprechen darf.
@@ -196,7 +197,7 @@ export function registriereZugangspruefung(app: FastifyInstance, port: number): 
   app.addHook('onRequest', (request: FastifyRequest, reply: FastifyReply, fertig: () => void) => {
     const origin = request.headers.origin;
     if (!herkunftErlaubt(typeof origin === 'string' ? origin : undefined, port)) {
-      reply.code(403).send({ error: 'Anfrage aus fremder Herkunft' });
+      reply.code(403).send({ error: t('Anfrage aus fremder Herkunft') });
       return;
     }
 
@@ -214,7 +215,7 @@ export function registriereZugangspruefung(app: FastifyInstance, port: number): 
 
     const mitgeschickt = geheimnisAusAnfrage(request);
     if (!mitgeschickt || !gleich(mitgeschickt, erwartet)) {
-      reply.code(401).send({ error: 'Kein Zugang' });
+      reply.code(401).send({ error: t('Kein Zugang') });
       return;
     }
 

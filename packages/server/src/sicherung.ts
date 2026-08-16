@@ -1,4 +1,5 @@
 import type { AccountConfig } from '@energy-mail/mail-core';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Was beim Umzug auf einen neuen Rechner mitkommt - und was nicht.
@@ -53,12 +54,10 @@ export interface Sicherung {
   hinweis: string;
 }
 
-export const HINWEIS =
-  'Diese Datei enthält keine Kennwörter und keine Zugangsmarken - sie sind an das ' +
-  'Windows-Benutzerkonto des Rechners gebunden, auf dem sie angelegt wurden. Nach dem ' +
-  'Einlesen müssen die Konten einmal neu angemeldet werden. Enthalten sind dagegen ' +
-  'alle Mailadressen aus dem Adressbuch; die Datei gehört deshalb an einen Ort, den ' +
-  'nur Sie erreichen.';
+export const hinweis = () =>
+  t(
+    'Diese Datei enthält keine Kennwörter und keine Zugangsmarken - sie sind an das Windows-Benutzerkonto des Rechners gebunden, auf dem sie angelegt wurden. Nach dem Einlesen müssen die Konten einmal neu angemeldet werden. Enthalten sind dagegen alle Mailadressen aus dem Adressbuch; die Datei gehört deshalb an einen Ort, den nur Sie erreichen.',
+  );
 
 /**
  * Nimmt einem Konto alles, was geheim ist.
@@ -101,12 +100,12 @@ export function pruefeSicherung(
   roh: unknown,
 ): { ok: true; daten: Sicherung; uebergangen: Record<string, number> } | { ok: false; grund: string } {
   if (!roh || typeof roh !== 'object') {
-    return { ok: false, grund: 'Die Datei enthält keine lesbaren Daten.' };
+    return { ok: false, grund: t('Die Datei enthält keine lesbaren Daten.') };
   }
   const d = roh as Partial<Sicherung>;
 
   if (typeof d.fassung !== 'number') {
-    return { ok: false, grund: 'Das ist keine Sicherung von Energy Mail.' };
+    return { ok: false, grund: t('Das ist keine Sicherung von Energy Mail.') };
   }
   if (d.fassung > SICHERUNG_FASSUNG) {
     return {
@@ -178,7 +177,7 @@ export function pruefeSicherung(
         d.suchen,
         (e) => objekt(e) && text(e.name) && objekt(e.kriterien),
       ),
-      hinweis: d.hinweis ?? HINWEIS,
+      hinweis: d.hinweis ?? hinweis(),
     },
   };
 }

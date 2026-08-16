@@ -12,6 +12,7 @@ import {
   type Signaturbefund,
 } from '@energy-mail/mail-core';
 import { alleOeffentlichen, geheimeFuer } from './schluesselbund.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Wendet OpenPGP auf eine geladene Nachricht an: Unterschrift prüfen, Geheimtext öffnen.
@@ -90,7 +91,7 @@ export async function pruefePgp(
         geoeffnet: true,
         signatur: {
           vertrauen: 'ungueltig',
-          grund: 'Der unterschriebene Teil ließ sich nicht aus der Nachricht herauslösen.',
+          grund: t('Der unterschriebene Teil ließ sich nicht aus der Nachricht herauslösen.'),
         },
       };
     }
@@ -101,7 +102,10 @@ export async function pruefePgp(
       return {
         verschluesselt: false,
         geoeffnet: true,
-        signatur: { vertrauen: 'ungueltig', grund: 'Die Unterschrift fehlt in der Nachricht.' },
+        signatur: {
+          vertrauen: 'ungueltig',
+          grund: t('Die Unterschrift fehlt in der Nachricht.'),
+        },
       };
     }
 
@@ -115,7 +119,7 @@ export async function pruefePgp(
   if (mime.art === 'mime-verschluesselt') {
     const geheimtext = await holeTeilAlsText(account, folder, nachricht.uid, mime.geheimTeil);
     if (!geheimtext) {
-      return { verschluesselt: true, geoeffnet: false, grund: 'Der Geheimtext fehlt.' };
+      return { verschluesselt: true, geoeffnet: false, grund: t('Der Geheimtext fehlt.') };
     }
     return oeffne(account, geheimtext, absender, kennwort);
   }
@@ -173,7 +177,7 @@ async function oeffne(
     return {
       verschluesselt: true,
       geoeffnet: false,
-      grund: 'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.',
+      grund: t('Für dieses Konto ist kein geheimer Schlüssel hinterlegt.'),
     };
   }
 
@@ -218,7 +222,7 @@ async function entschluessleOderPruefeInline(
         klartext,
         signatur: {
           vertrauen: 'schluessel-fehlt',
-          grund: 'Es liegt kein einziger öffentlicher Schlüssel vor.',
+          grund: t('Es liegt kein einziger öffentlicher Schlüssel vor.'),
         },
       };
     }
@@ -231,7 +235,10 @@ async function entschluessleOderPruefeInline(
     const erste = ergebnis.signatures[0];
 
     if (!erste) {
-      return { klartext, signatur: { vertrauen: 'ungueltig', grund: 'Keine Unterschrift gefunden.' } };
+      return {
+        klartext,
+        signatur: { vertrauen: 'ungueltig', grund: t('Keine Unterschrift gefunden.') },
+      };
     }
 
     let stimmt = false;
@@ -250,7 +257,7 @@ async function entschluessleOderPruefeInline(
         signatur: {
           vertrauen: 'schluessel-fehlt',
           fingerabdruck: kennung,
-          grund: 'Der Schlüssel des Unterzeichners liegt nicht vor.',
+          grund: t('Der Schlüssel des Unterzeichners liegt nicht vor.'),
         },
       };
     }

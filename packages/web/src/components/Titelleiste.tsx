@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Kreispfeil, Marke, Mond, Sonne } from './Symbole.js';
 import type { Ansicht, Themawahl } from '../design/thema.js';
+import { t } from '../sprache.js';
 
 /**
  * Die eigene Titelleiste.
@@ -90,7 +91,7 @@ export function Titelleiste({
         <button
           className={`leisten-btn${aktualisierung?.meldet ? ' meldet' : ''}`}
           onClick={onAktualisierung}
-          title={aktualisierung?.text ?? 'Nach Aktualisierungen suchen'}
+          title={aktualisierung?.text ?? t('Nach Aktualisierungen suchen')}
         >
           <Kreispfeil groesse={14} />
           {aktualisierung && <span>{aktualisierung.text}</span>}

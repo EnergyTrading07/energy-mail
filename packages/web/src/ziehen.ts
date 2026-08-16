@@ -1,4 +1,5 @@
 import type { FolderInfo } from '@energy-mail/mail-core';
+import { t } from './sprache.js';
 
 /**
  * Nachrichten mit der Maus in einen Ordner ziehen.
@@ -86,14 +87,14 @@ export function darfAblegen(
   if (fracht.accountId !== kontoDesOrdners) {
     return {
       erlaubt: false,
-      grund: 'Zwischen zwei Konten lässt sich nicht verschieben.',
+      grund: t('Zwischen zwei Konten lässt sich nicht verschieben.'),
     };
   }
   if (!ziel.selectable) {
-    return { erlaubt: false, grund: 'Dieser Ordner kann keine Nachrichten aufnehmen.' };
+    return { erlaubt: false, grund: t('Dieser Ordner kann keine Nachrichten aufnehmen.') };
   }
   if (ziel.path === fracht.ordner) {
-    return { erlaubt: false, grund: 'Die Nachricht liegt schon hier.' };
+    return { erlaubt: false, grund: t('Die Nachricht liegt schon hier.') };
   }
   return { erlaubt: true };
 }

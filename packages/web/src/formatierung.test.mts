@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import {
-  WERKZEUGE,
+  werkzeuge,
   befehlFuerTaste,
   istUnbedenklicheAdresse,
   normalisiereAdresse,
@@ -40,7 +40,7 @@ function entwurf(html: string): string {
 console.log('\nDie Leiste:');
 
 pruefe('jeder Knopf hat Befehl, Titel und Aufschrift', () => {
-  for (const gruppe of WERKZEUGE) {
+  for (const gruppe of werkzeuge()) {
     for (const w of gruppe) {
       assert.ok(w.befehl, 'ohne Befehl');
       assert.ok(w.titel, `${w.befehl}: ohne Titel`);
@@ -50,14 +50,14 @@ pruefe('jeder Knopf hat Befehl, Titel und Aufschrift', () => {
 });
 
 pruefe('kein Befehl steht zweimal in derselben Gruppe', () => {
-  for (const gruppe of WERKZEUGE) {
+  for (const gruppe of werkzeuge()) {
     const schluessel = gruppe.map((w) => `${w.befehl}:${w.wert ?? ''}`);
     assert.equal(new Set(schluessel).size, schluessel.length);
   }
 });
 
 pruefe('jeder Titel nennt sein Tastenkuerzel, wenn es eines gibt', () => {
-  const mitKuerzel = WERKZEUGE.flat().filter((w) => /Strg\+/.test(w.titel));
+  const mitKuerzel = werkzeuge().flat().filter((w) => /Strg\+/.test(w.titel));
   assert.ok(mitKuerzel.length >= 4, `nur ${mitKuerzel.length}`);
 });
 

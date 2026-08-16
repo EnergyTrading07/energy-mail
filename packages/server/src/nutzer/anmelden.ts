@@ -1,7 +1,34 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { kuerzeIpAdresse } from '@energy-mail/mail-core/protokoll';
 import { protokolliere } from '../protokollDatei.js';
-import { beendeAlleSitzungen, beendeSitzung, eroeffneSitzung, nutzerZurSitzung } from './sitzung.js';
-import { findeNutzer, oeffentlich, pruefeAnmeldung, setzeKennwort } from './nutzerStore.js';
+import {
+  beendeAlleSitzungen,
+  beendeSitzung,
+  entsperreSitzung,
+  eroeffneSitzung,
+  nutzerZurSitzung,
+  sitzungsstand,
+  sperreSitzung,
+  sperrfristMinuten,
+} from './sitzung.js';
+import {
+  findeNutzer,
+  hatZweiFaktor,
+  istVerwalter,
+  oeffentlich,
+  pruefeAnmeldung,
+  setzeKennwort,
+} from './nutzerStore.js';
+import { istGesperrt, merkeErfolg, merkeFehlversuch } from './anmeldebremse.js';
+import {
+  beginneZweiteStufe,
+  halbeAnmeldung,
+  markeEinloesen,
+  markeFehlversuch,
+  offeneCodes,
+  pruefeZweitenFaktor,
+} from './zweiFaktor.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Anmelden, abmelden, und die Frage "wer bin ich".
@@ -13,51 +40,36 @@ import { findeNutzer, oeffentlich, pruefeAnmeldung, setzeKennwort } from './nutz
 export const KEKS_NAME = 'energy_mail_sitzung';
 
 /** Pfade, die ohne angemeldeten Nutzer durchmüssen. */
-export const OFFENE_PFADE = new Set(['/anmelden', '/abmelden', '/ich']);
+/**
+ * Pfade, die ohne angemeldeten Nutzer durchmüssen.
+ *
+ * `/sperre/oeffnen` gehört dazu, und zwar notwendig: Es ist der einzige Weg aus einer
+ * gesperrten Sitzung heraus. Hinge er hinter dem Haken, prüfte der Haken die Sperre, wiese
+ * ab - und niemand käme je wieder herein.
+ */
+export const OFFENE_PFADE = new Set([
+  '/anmelden',
+  /*
+   * Die zweite Stufe der Anmeldung ist notwendigerweise offen: Wer hier ankommt, hat sein
+   * Kennwort gezeigt, aber noch keine Sitzung - er weist sich mit der Marke aus, die der
+   * erste Schritt zurückgegeben hat, und nicht mit einem Keks.
+   */
+  '/anmelden/code',
+  '/abmelden',
+  '/ich',
+  '/sperre',
+  '/sperre/oeffnen',
+]);
 
 /**
- * Eine einfache Bremse gegen Durchprobieren.
+ * Ob die Verbindung verschlüsselt ist - dann darf der Keks als "secure" hinaus.
  *
- * Ohne sie ließe sich ein Kennwort mit genügend Versuchen erraten - bei einem Dienst, der
- * aus dem Netz erreichbar ist, keine theoretische Sorge. scrypt macht jeden Versuch teuer,
- * aber teuer für den Server ist es auch: hundert gleichzeitige Versuche wären zugleich ein
- * wirksamer Angriff auf die Verfügbarkeit.
- *
- * Bewusst schlicht gehalten und im Speicher: bei einem Neustart ist sie weg, und das ist
- * für den Bekanntenkreis vertretbar. Vor dem öffentlichen Betrieb gehört an diese Stelle
- * etwas, das über Prozessgrenzen hinweg zählt.
+ * Exportiert, weil die Sicherheitskopfzeilen in app.ts dieselbe Frage stellen: HSTS darf
+ * nur mitgehen, wo die Anfrage tatsächlich über TLS hereinkam. Zwei Umsetzungen derselben
+ * Prüfung liefen früher oder später auseinander, und die eine wäre dann eine Zusage, die
+ * nicht gilt.
  */
-const versuche = new Map<string, { anzahl: number; bis: number }>();
-const MAX_VERSUCHE = 10;
-const SPERRE_MS = 15 * 60 * 1000;
-
-function schluesselFuer(request: FastifyRequest, email: string): string {
-  return `${request.ip}|${email.trim().toLowerCase()}`;
-}
-
-function istGesperrt(schluessel: string): boolean {
-  const eintrag = versuche.get(schluessel);
-  if (!eintrag) return false;
-  if (Date.now() > eintrag.bis) {
-    versuche.delete(schluessel);
-    return false;
-  }
-  return eintrag.anzahl >= MAX_VERSUCHE;
-}
-
-function merkeFehlversuch(schluessel: string): void {
-  const eintrag = versuche.get(schluessel);
-  const jetzt = Date.now();
-  if (!eintrag || jetzt > eintrag.bis) {
-    versuche.set(schluessel, { anzahl: 1, bis: jetzt + SPERRE_MS });
-    return;
-  }
-  eintrag.anzahl += 1;
-  eintrag.bis = jetzt + SPERRE_MS;
-}
-
-/** Ob die Verbindung verschlüsselt ist - dann darf der Keks als "secure" hinaus. */
-function ueberTls(request: FastifyRequest): boolean {
+export function ueberTls(request: FastifyRequest): boolean {
   if (request.protocol === 'https') return true;
   // Hinter einem Reverse Proxy steht die Auskunft in der Kopfzeile.
   const weiter = request.headers['x-forwarded-proto'];
@@ -97,20 +109,38 @@ export function registriereAnmeldung(
     const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
 
     if (!email || !kennwort) {
-      return reply.code(400).send({ error: 'Adresse und Kennwort werden gebraucht.' });
+      return reply.code(400).send({ error: t('Adresse und Kennwort werden gebraucht.') });
     }
 
-    const schluessel = schluesselFuer(request, email);
-    if (istGesperrt(schluessel)) {
-      protokolliere('warnung', 'anmeldung', `Zu viele Versuche für ${email} von ${request.ip}.`);
+    const gesperrt = istGesperrt(request.ip, email);
+    if (gesperrt) {
+      /*
+       * Gekürzt, nicht vollständig.
+       *
+       * Wozu die Zeile da ist - zu erkennen, dass hier jemand durchprobiert -, leistet
+       * das Netz genauso wie der einzelne Anschluss. Was darüber hinausgeht, ist die
+       * Anschlusskennung eines Menschen in einer Datei, die "Fehlerbericht erzeugen" zum
+       * Verschicken anbietet. Der Betreiber eines Servers für den Bekanntenkreis schickte
+       * damit die Adressen seiner Bekannten mit.
+       */
+      protokolliere(
+        'warnung',
+        'anmeldung',
+        gesperrt === 'netz'
+          ? `Zu viele Versuche aus ${kuerzeIpAdresse(request.ip)} gegen mehrere Adressen.`
+          : `Zu viele Versuche für ${email} aus ${kuerzeIpAdresse(request.ip)}.`,
+      );
       return reply.code(429).send({
-        error: 'Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.',
+        error:
+          gesperrt === 'netz'
+            ? t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.')
+            : t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
       });
     }
 
     const nutzer = pruefeAnmeldung(email, kennwort);
     if (!nutzer) {
-      merkeFehlversuch(schluessel);
+      merkeFehlversuch(request.ip, email);
       /*
        * Eine Meldung für beide Fälle.
        *
@@ -118,14 +148,109 @@ export function registriereAnmeldung(
        * hier ein Konto hat. Bei einem Mailprogramm ist das eine Auskunft, die niemanden
        * etwas angeht.
        */
-      return reply.code(401).send({ error: 'Adresse oder Kennwort stimmen nicht.' });
+      return reply.code(401).send({ error: t('Adresse oder Kennwort stimmen nicht.') });
     }
 
-    versuche.delete(schluessel);
+    /**
+     * Das Kennwort stimmt - und jetzt kommt die Frage, ob das schon reicht.
+     *
+     * Ist ein zweiter Faktor eingerichtet, wird hier KEINE Sitzung eröffnet. Zurück geht
+     * eine Marke, die fünf Minuten gilt und genau einen Weg öffnet: /anmelden/code. Erst
+     * dort entsteht der Keks.
+     *
+     * Auch die Anmeldebremse bleibt bis dahin stehen. Sie erst hier zurückzusetzen wäre
+     * bequem und falsch: Wer das Kennwort hat, könnte sonst beliebig viele Codes
+     * durchprobieren, indem er zwischendurch immer wieder das Kennwort schickt.
+     */
+    if (hatZweiFaktor(nutzer.id)) {
+      protokolliere('info', 'anmeldung', `${nutzer.id}: Kennwort stimmt, zweiter Faktor fehlt noch.`);
+      return { zweiFaktor: true as const, marke: beginneZweiteStufe(nutzer.id, email) };
+    }
+
+    merkeErfolg(request.ip, email);
     setzeKeks(reply, request, eroeffneSitzung(nutzer.id));
     protokolliere('info', 'anmeldung', `${nutzer.id} angemeldet.`);
     return { nutzer: oeffentlich(nutzer) };
   });
+
+  /**
+   * Die zweite Stufe: das Einmalkennwort.
+   *
+   * Ausgewiesen wird sich mit der Marke aus dem ersten Schritt - nicht mit der Adresse.
+   * Das ist der Unterschied, auf den es ankommt: Wer hier eine Adresse mitschicken dürfte,
+   * hätte einen Weg, fremde Konten anzutasten, ohne deren Kennwort zu kennen.
+   *
+   * Dass die Anmeldebremse mitzählt, ist bei sechs Ziffern keine Feinheit, sondern die
+   * halbe Sicherheit des Verfahrens. Zehn Versuche je Viertelstunde gegen eine Million
+   * Möglichkeiten - ohne sie wäre ein Code in einer Stunde durchprobiert.
+   */
+  app.post<{ Body: { marke?: string; code?: string } }>(
+    '/anmelden/code',
+    async (request, reply) => {
+      const marke = typeof request.body?.marke === 'string' ? request.body.marke : '';
+      const offen = halbeAnmeldung(marke);
+      if (!offen) {
+        return reply.code(401).send({
+          error: t('Die Anmeldung ist abgelaufen. Bitte melden Sie sich noch einmal an.'),
+          neuAnmelden: true,
+        });
+      }
+
+      const gebremst = istGesperrt(request.ip, offen.email);
+      if (gebremst) {
+        protokolliere(
+          'warnung',
+          'anmeldung',
+          `Zu viele Codeversuche für ${offen.nutzerId} aus ${kuerzeIpAdresse(request.ip)}.`,
+        );
+        return reply.code(429).send({
+          error: t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
+        });
+      }
+
+      const code = typeof request.body?.code === 'string' ? request.body.code : '';
+      const befund = pruefeZweitenFaktor(offen.nutzerId, code);
+
+      if (!befund.ok) {
+        merkeFehlversuch(request.ip, offen.email);
+        markeFehlversuch(marke);
+        return reply.code(401).send({
+          error:
+            befund.grund === 'wiederholt'
+              ? /*
+                 * Eine eigene Meldung, und zwar eine, die den Menschen nicht in die Irre
+                 * führt: Sein Code war richtig. Er war nur schon einmal dran. "Der Code
+                 * stimmt nicht" ließe ihn an seiner App zweifeln.
+                 */
+                t('Dieser Code wurde schon benutzt. Warten Sie auf den nächsten.')
+              : t('Der Code stimmt nicht.'),
+        });
+      }
+
+      merkeErfolg(request.ip, offen.email);
+      markeEinloesen(marke);
+      const nutzer = findeNutzer(offen.nutzerId);
+      if (!nutzer) return reply.code(401).send({ error: t('Nicht angemeldet.') });
+      setzeKeks(reply, request, eroeffneSitzung(nutzer.id));
+      protokolliere(
+        'info',
+        'anmeldung',
+        befund.art === 'code'
+          ? `${nutzer.id} angemeldet - mit zweitem Faktor.`
+          : `${nutzer.id} angemeldet - mit einem Wiederherstellungscode.`,
+      );
+
+      return {
+        nutzer: oeffentlich(nutzer),
+        /*
+         * Bei einem Wiederherstellungscode geht die Restzahl mit hinaus. Wer den letzten
+         * verbraucht hat, soll das im selben Augenblick erfahren und nicht erst dann,
+         * wenn er ihn braucht.
+         */
+        wiederherstellung: befund.art === 'wiederherstellung' ? befund.uebrig : undefined,
+      };
+    },
+  );
 
   app.post('/abmelden', async (request, reply) => {
     beendeSitzung(request.cookies[KEKS_NAME]);
@@ -150,6 +275,38 @@ export function registriereAnmeldung(
     const nutzer = findeNutzer(nutzerId);
     return {
       angemeldet: true as const,
+      /*
+       * Ob die Sitzung gerade zu ist.
+       *
+       * Die Oberfläche fragt beim Start danach - sonst zeigte sie nach einem Neuladen im
+       * gesperrten Zustand kurz das Postfach, bevor der erste Abruf mit 423 zurückkommt.
+       */
+      gesperrt: sitzungsstand(request.cookies[KEKS_NAME]).gesperrt,
+      /**
+       * Nach wie vielen Minuten Untätigkeit gesperrt wird - 0 heißt: gar nicht.
+       *
+       * Die Oberfläche braucht den Wert, weil sie selbst sperrt, sobald niemand mehr
+       * tippt. Der Server sieht Untätigkeit erst bei der nächsten Anfrage, und die kommt
+       * vor einem verlassenen Bildschirm nicht.
+       */
+      sperreNachMinuten: sperrfristMinuten(),
+      /**
+       * Ob dieser Mensch verwalten darf.
+       *
+       * Die Oberfläche entscheidet daran nur, ob sie den Weg dorthin ANZEIGT. Der Riegel
+       * sitzt am Server (siehe verwaltung.ts) - eine Oberfläche, die einen Knopf versteckt,
+       * hat nichts verboten.
+       */
+      verwalter: istVerwalter(nutzerId),
+      /** Ob ein zweiter Faktor eingerichtet ist - das Konto zeigt danach Ein oder Aus. */
+      zweiFaktor: hatZweiFaktor(nutzerId),
+      /**
+       * Wie viele Wiederherstellungscodes noch übrig sind.
+       *
+       * Steht hier, damit das Konto warnen kann, bevor es zu spät ist. Wer merkt, dass
+       * keiner mehr da ist, merkt es sonst an dem Tag, an dem sein Telefon kaputt ist.
+       */
+      codesUebrig: hatZweiFaktor(nutzerId) ? offeneCodes(nutzerId) : 0,
       nutzer: { id: nutzerId, email: nutzer?.email ?? '' },
       /*
        * Ob die Sitzung an einem Keks hängt - nur dann ist Abmelden sinnvoll. In der
@@ -158,6 +315,73 @@ export function registriereAnmeldung(
        */
       abmeldbar: Boolean(request.cookies[KEKS_NAME]),
     };
+  });
+
+  /**
+   * Sperren - sofort, auf Verlangen.
+   *
+   * Die Frist in sitzung.ts fängt den, der es vergisst. Dieser Weg ist für den, der den
+   * Rechner bewusst verlässt und nicht warten will, bis eine Frist abläuft.
+   */
+  app.post('/sperre', async (request) => {
+    const kennung = request.cookies[KEKS_NAME];
+    const stand = sitzungsstand(kennung);
+    if (!stand.nutzerId) return { gesperrt: false };
+    sperreSitzung(kennung);
+    protokolliere('info', 'sitzung', `${stand.nutzerId} hat gesperrt.`);
+    return { gesperrt: true };
+  });
+
+  /**
+   * Wieder aufmachen - mit dem Kennwort desselben Nutzers.
+   *
+   * Geprüft wird gegen den Nutzer DER SITZUNG und nicht gegen eine mitgeschickte Adresse.
+   * Sonst wäre dieser Weg eine zweite Anmeldung ohne Bremse: Wer eine gesperrte Sitzung
+   * vor sich hat, könnte hier fremde Adressen durchprobieren.
+   *
+   * Die Anmeldebremse zählt trotzdem mit - eine Sperre, die sich unbegrenzt durchprobieren
+   * lässt, ist keine.
+   *
+   * Der zweite Faktor wird hier ABSICHTLICH NICHT verlangt, auch wenn er eingerichtet ist.
+   * Er beantwortet die Frage "ist das wirklich dieses Konto"; die hat diese Sitzung beim
+   * Anmelden bereits beantwortet. Die Sperre beantwortet eine andere: "sitzt noch derselbe
+   * Mensch davor". Dafür genügt das Kennwort. Wer bei jedem Entsperren das Telefon
+   * hervorholen müsste, stellte die Sperre nach dem dritten Mal ab - und dann schützt sie
+   * gar nichts mehr.
+   */
+  app.post<{ Body: { kennwort?: string } }>('/sperre/oeffnen', async (request, reply) => {
+    const kennung = request.cookies[KEKS_NAME];
+    const stand = sitzungsstand(kennung);
+    if (!stand.nutzerId) return reply.code(401).send({ error: t('Nicht angemeldet.') });
+
+    const nutzer = findeNutzer(stand.nutzerId);
+    if (!nutzer) return reply.code(401).send({ error: t('Nicht angemeldet.') });
+
+    const gesperrt = istGesperrt(request.ip, nutzer.email);
+    if (gesperrt) {
+      protokolliere(
+        'warnung',
+        'sitzung',
+        `Zu viele Versuche beim Entsperren aus ${kuerzeIpAdresse(request.ip)}.`,
+      );
+      return reply.code(429).send({
+        error:
+          gesperrt === 'netz'
+            ? t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.')
+            : t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
+      });
+    }
+
+    const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
+    if (!pruefeAnmeldung(nutzer.email, kennwort)) {
+      merkeFehlversuch(request.ip, nutzer.email);
+      return reply.code(401).send({ error: t('Das Kennwort stimmt nicht.') });
+    }
+
+    merkeErfolg(request.ip, nutzer.email);
+    entsperreSitzung(kennung);
+    protokolliere('info', 'sitzung', `${stand.nutzerId} hat entsperrt.`);
+    return { gesperrt: false };
   });
 
   /**
@@ -171,7 +395,7 @@ export function registriereAnmeldung(
     '/ich/kennwort',
     async (request, reply) => {
       const nutzerId = nutzerZurSitzung(request.cookies[KEKS_NAME]);
-      if (!nutzerId) return reply.code(401).send({ error: 'Nicht angemeldet.' });
+      if (!nutzerId) return reply.code(401).send({ error: t('Nicht angemeldet.') });
 
       const alt = typeof request.body?.alt === 'string' ? request.body.alt : '';
       const neu = typeof request.body?.neu === 'string' ? request.body.neu : '';
@@ -179,7 +403,7 @@ export function registriereAnmeldung(
       const { findeNutzer } = await import('./nutzerStore.js');
       const nutzer = findeNutzer(nutzerId);
       if (!nutzer || !pruefeAnmeldung(nutzer.email, alt)) {
-        return reply.code(401).send({ error: 'Das bisherige Kennwort stimmt nicht.' });
+        return reply.code(401).send({ error: t('Das bisherige Kennwort stimmt nicht.') });
       }
 
       try {

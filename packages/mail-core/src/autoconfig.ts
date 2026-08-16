@@ -20,7 +20,7 @@ import type { ProviderPreset } from './providerPresets.js';
  */
 
 /** Woher die Angaben stammen - die Oberfläche sagt es dem Nutzer. */
-export type Fundort = 'eingebaut' | 'anbieterdatenbank' | 'domain' | 'dns';
+export type Fundort = 'eingebaut' | 'anbieterdatenbank' | 'domain' | 'dns' | 'autodiscover' | 'mx';
 
 export interface GefundeneEinstellungen extends Omit<ProviderPreset, 'providerId'> {
   fundort: Fundort;
@@ -162,7 +162,18 @@ async function liesBegrenzt(antwort: Response): Promise<string | null> {
  * "302 -> http://169.254.169.254/..." antwortete, und die ganze Prüfung des ersten Ziels
  * war umsonst. Jeder Sprung wird deshalb einzeln geprüft.
  */
-async function holeMitFrist(adresse: string): Promise<string | null> {
+async function holeMitFrist(
+  adresse: string,
+  /**
+   * Für Autodiscover, das eine Anfrage MIT Inhalt verlangt.
+   *
+   * Als Zusatz und nicht als eigene Funktion: die Prüfung des Ziels, die Begrenzung der
+   * Antwort und die eigene Weiterleitungsführung sind der Wert dieser Funktion, und die
+   * gelten für einen POST genauso. Eine zweite Fassung daneben würde beim ersten Umbau
+   * einer der beiden vergessen.
+   */
+  sendung?: { koerper: string; typ: string },
+): Promise<string | null> {
   const abbruch = new AbortController();
   const uhr = setTimeout(() => abbruch.abort(), FRIST_MS);
   try {
@@ -179,7 +190,9 @@ async function holeMitFrist(adresse: string): Promise<string | null> {
       const antwort = await fetch(ziel, {
         signal: abbruch.signal,
         redirect: 'manual',
-        headers: { accept: 'text/xml, application/xml, */*' },
+        ...(sendung
+          ? { method: 'POST', body: sendung.koerper, headers: { 'content-type': sendung.typ, accept: 'text/xml, application/xml, */*' } }
+          : { headers: { accept: 'text/xml, application/xml, */*' } }),
       });
 
       if (antwort.status >= 300 && antwort.status < 400) {
@@ -321,6 +334,224 @@ async function ausDns(domain: string): Promise<GefundeneEinstellungen | null> {
   };
 }
 
+// --- Der Weg, den Firmen tatsächlich gehen ------------------------------------------
+
+/**
+ * Wo die Post einer Domain liegt - erkannt an ihren DNS-Einträgen.
+ *
+ * Das ist die Lücke, an der die Einrichtung in jedem Unternehmen scheiterte. Die vier
+ * Quellen oben decken Privatanbieter ab: die Anbieterdatenbank kennt gmx und web.de, und
+ * eine `autoconfig`-Datei legt kaum eine Firma auf ihre Domain. Bei
+ * "mitarbeiter@kunde-firma.de" fand also niemand etwas, und übrig blieb das Formular für
+ * Hostname und Port - bei einem Rollout auf hundert Arbeitsplätze keine Option.
+ *
+ * Dabei steht die Antwort offen im DNS. Nachgesehen an echten Domains:
+ *
+ *     microsoft.com   MX microsoft-com.mail.protection.outlook.com
+ *     sap.com         MX sap-com.mail.protection.outlook.com
+ *     siemens.com     MX siemens-com.h-v1.mx.microsoft
+ *     shopify.com     MX aspmx.l.google.com
+ *     gmx.de          MX mx00.emig.gmx.net          → sagt nichts, und das ist richtig so
+ *
+ * Wer seine Post bei Microsoft 365 oder Google Workspace liegen hat, sagt es damit selbst.
+ * Und dann sind die Serveradressen nicht zu erraten, sondern festgelegt und überall
+ * dieselben - dieselben, die für outlook.com und gmail.com ohnehin schon eingebaut sind.
+ *
+ * ## Warum nicht der eigentliche Autodiscover-Abruf allein
+ *
+ * Weil er bei Microsoft 365 ohne Anmeldung nichts herausgibt: die Abfrage endet mit 401,
+ * und die Zugangsdaten liegen zu diesem Zeitpunkt noch gar nicht vor. Der Abruf steht
+ * trotzdem daneben (siehe ausAutodiscover) - er hilft bei eigenen Exchange-Servern im
+ * Haus. Nur trägt er den Regelfall nicht, und der Regelfall ist heute die Wolke.
+ *
+ * ## Was das NICHT ist
+ *
+ * Ein Raten. Zeigt der MX-Eintrag woandershin - auf einen deutschen Mittelständler, auf
+ * das eigene Rechenzentrum -, wird nichts zurückgegeben. Lieber das Formular als eine
+ * falsche Adresse, die erst beim Anmelden auffällt.
+ */
+
+/** Endungen, an denen ein Postfach bei Microsoft 365 zu erkennen ist. */
+const MICROSOFT_MX = [
+  '.mail.protection.outlook.com',
+  // Die neuere Schreibweise, an siemens.com nachgesehen. Wer nur die obere kennt, hält
+  // ein Microsoft-Postfach für ein unbekanntes.
+  '.mx.microsoft',
+  '.olc.protection.outlook.com',
+];
+
+/** Dasselbe für Google Workspace. */
+const GOOGLE_MX = ['aspmx.l.google.com', '.googlemail.com', '.google.com'];
+
+/** Die Adressen der beiden - festgelegt und für alle Kunden dieselben. */
+const WOLKE: Record<'microsoft' | 'google', GefundeneEinstellungen> = {
+  microsoft: {
+    fundort: 'mx',
+    anbieter: 'Microsoft 365',
+    imapHost: 'outlook.office365.com',
+    imapPort: 993,
+    imapSecure: true,
+    smtpHost: 'smtp.office365.com',
+    smtpPort: 587,
+    smtpSecure: false,
+    oauthProvider: 'microsoft',
+    benutzername: 'adresse',
+  },
+  google: {
+    fundort: 'mx',
+    anbieter: 'Google Workspace',
+    imapHost: 'imap.gmail.com',
+    imapPort: 993,
+    imapSecure: true,
+    smtpHost: 'smtp.gmail.com',
+    smtpPort: 465,
+    smtpSecure: true,
+    oauthProvider: 'google',
+    benutzername: 'adresse',
+  },
+};
+
+/** Ob ein Rechnername auf eine der Endungen passt - genau oder als Unterdomain. */
+function passtAuf(host: string, endungen: string[]): boolean {
+  const name = host.toLowerCase().replace(/\.$/, '');
+  return endungen.some((e) =>
+    e.startsWith('.') ? name.endsWith(e) : name === e || name.endsWith(`.${e}`),
+  );
+}
+
+/**
+ * Erkennt Microsoft 365 und Google Workspace an MX-Eintrag und Autodiscover-Verweis.
+ *
+ * Zwei Zeugen, weil einer fehlen kann: manche Unternehmen schicken eingehende Post über
+ * einen vorgeschalteten Filter (Proofpoint, Mimecast), dann steht im MX-Eintrag der
+ * Filter und nicht Microsoft. Der Verweis `autodiscover.<domain>` auf
+ * `autodiscover.outlook.com` bleibt in diesem Fall bestehen - er betrifft nicht den
+ * Postweg, sondern die Anmeldung.
+ */
+export async function erkenneAusDns(domain: string): Promise<GefundeneEinstellungen | null> {
+  const [mx, cname] = await Promise.all([
+    dns.resolveMx(domain).catch(() => []),
+    dns.resolveCname(`autodiscover.${domain}`).catch(() => []),
+  ]);
+  return anbieterAusEintraegen(
+    mx.map((e) => e.exchange),
+    cname,
+  );
+}
+
+/**
+ * Der urteilende Teil, getrennt von der Abfrage.
+ *
+ * Damit lässt sich das Erkennen prüfen, ohne das Netz zu fragen - und geprüft gehört es:
+ * die Endung ".mx.microsoft" fehlte in der ersten Fassung, und damit galt Siemens als
+ * unbekannter Anbieter. Solche Lücken sieht man einer Liste nicht an, sondern nur an
+ * echten Beispielen.
+ */
+export function anbieterAusEintraegen(
+  mxHosts: string[],
+  autodiscoverVerweise: string[] = [],
+): GefundeneEinstellungen | null {
+  if (mxHosts.some((h) => passtAuf(h, MICROSOFT_MX))) return WOLKE.microsoft;
+  if (mxHosts.some((h) => passtAuf(h, GOOGLE_MX))) return WOLKE.google;
+  if (autodiscoverVerweise.some((c) => passtAuf(c, ['autodiscover.outlook.com']))) {
+    return WOLKE.microsoft;
+  }
+  return null;
+}
+
+/**
+ * Der Autodiscover-Abruf, wie Outlook ihn macht.
+ *
+ * Für eigene Exchange-Server im Haus - die veröffentlichen ihre Angaben hierüber und
+ * sonst nirgends. Bei Microsoft 365 endet er ohne Anmeldung mit 401; das ist kein Fehler,
+ * sondern der Grund, warum die DNS-Erkennung oben daneben steht.
+ *
+ * Beide üblichen Orte gleichzeitig: nacheinander liefen bei einer Domain ohne beides zwei
+ * Fristen hintereinander ab.
+ */
+export async function ausAutodiscover(
+  domain: string,
+  email: string,
+): Promise<GefundeneEinstellungen | null> {
+  /*
+   * Die Anfrage ist vorgeschrieben und enthält die Mailadresse.
+   *
+   * Sie geht damit an den Server der eigenen Domain - dieselbe Auskunft, die beim
+   * Zustellen jeder Mail ohnehin anfällt. Maskiert, weil sie in ein XML-Dokument
+   * eingesetzt wird und ein "&" im Adressteil es sonst zerbräche.
+   */
+  const anfrage =
+    '<?xml version="1.0" encoding="utf-8"?>' +
+    '<Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/outlook/requestschema/2006">' +
+    `<Request><EMailAddress>${email.replace(/[<>&"']/g, '')}</EMailAddress>` +
+    '<AcceptableResponseSchema>http://schemas.microsoft.com/exchange/autodiscover/outlook/responseschema/2006a</AcceptableResponseSchema>' +
+    '</Request></Autodiscover>';
+
+  const [a, b] = await Promise.all([
+    holeMitFrist(`https://autodiscover.${domain}/autodiscover/autodiscover.xml`, {
+      koerper: anfrage,
+      typ: 'text/xml; charset=utf-8',
+    }),
+    holeMitFrist(`https://${domain}/autodiscover/autodiscover.xml`, {
+      koerper: anfrage,
+      typ: 'text/xml; charset=utf-8',
+    }),
+  ]);
+
+  for (const xml of [a, b]) {
+    const gefunden = xml ? leseAutodiscover(xml) : null;
+    if (gefunden) return gefunden;
+  }
+  return null;
+}
+
+/**
+ * Wertet die Antwort aus - die Protokollblöcke mit IMAP und SMTP.
+ *
+ * Ohne vollen XML-Parser, wie schon bei leseAutoconfig: die Antwort ist flach, und ein
+ * Parser wäre eine Abhängigkeit für zwei reguläre Ausdrücke.
+ */
+export function leseAutodiscover(xml: string): GefundeneEinstellungen | null {
+  const bloecke = [...xml.matchAll(/<Protocol[\s\S]*?<\/Protocol>/gi)].map((m) => m[0]);
+  const vonTyp = (typ: string) =>
+    bloecke.find((b) => new RegExp(`<Type>\\s*${typ}\\s*</Type>`, 'i').test(b));
+
+  const imap = vonTyp('IMAP');
+  const smtp = vonTyp('SMTP');
+  if (!imap || !smtp) return null;
+
+  const imapHost = feld(imap, 'Server');
+  const smtpHost = feld(smtp, 'Server');
+  const imapPort = Number(feld(imap, 'Port'));
+  const smtpPort = Number(feld(smtp, 'Port'));
+  if (!imapHost || !smtpHost || !imapPort || !smtpPort) return null;
+
+  /*
+   * "SSL" heißt hier: von der ersten Sekunde an verschlüsselt - so wie in leseAutoconfig
+   * der socketType. Exchange schreibt "on"/"off"; fehlt die Angabe, entscheidet der Port.
+   */
+  const istSSL = (block: string, port: number) => {
+    const wert = feld(block, 'SSL')?.toLowerCase();
+    if (wert === 'on') return true;
+    if (wert === 'off') return false;
+    return port === 993 || port === 465;
+  };
+
+  return {
+    fundort: 'autodiscover',
+    anbieter: feld(xml, 'DisplayName'),
+    imapHost,
+    imapPort,
+    imapSecure: istSSL(imap, imapPort),
+    smtpHost,
+    smtpPort,
+    smtpSecure: istSSL(smtp, smtpPort),
+    // Exchange nennt den anzumeldenden Namen ausdrücklich; steht dort die Adresse, ist es
+    // die Adresse, sonst der Teil davor.
+    benutzername: feld(imap, 'LoginName')?.includes('@') === false ? 'ortsteil' : 'adresse',
+  };
+}
+
 /**
  * Sucht die Serveradressen zu einer Mailadresse. Gibt null zurück, wenn keine Quelle
  * etwas weiß - dann bleibt die Eingabe von Hand.
@@ -350,7 +581,26 @@ export async function findeEinstellungen(
    */
   if (!istBrauchbarerHostname(domain)) return null;
 
-  return (
-    (await ausAnbieterdatenbank(domain)) ?? (await vonDerDomain(domain)) ?? (await ausDns(domain))
-  );
+  const ausgesprochen = (await ausAnbieterdatenbank(domain)) ?? (await vonDerDomain(domain));
+  if (ausgesprochen) return ausgesprochen;
+
+  /*
+   * Die drei letzten Wege gleichzeitig - und zwar aus einem handfesten Grund.
+   *
+   * Nacheinander liefen hier drei Fristen von je drei Sekunden hintereinander, und bei
+   * einer Domain, über die keine Auskunft zu bekommen ist, sähe der Nutzer zehn Sekunden
+   * lang "Serveradressen werden gesucht…". Nebeneinander kostet der ganze Block eine
+   * Frist. Die beiden DNS-Abfragen sind ohnehin in Millisekunden durch; teuer ist nur der
+   * Autodiscover-Abruf.
+   *
+   * Die Reihenfolge steckt danach im ?? und nicht im Ablauf: Was der Betreiber
+   * ausdrücklich veröffentlicht hat (Autodiscover, dann die SRV-Einträge), gilt vor dem,
+   * was aus den MX-Einträgen erschlossen ist.
+   */
+  const [autodiscover, srv, mx] = await Promise.all([
+    ausAutodiscover(domain, email),
+    ausDns(domain),
+    erkenneAusDns(domain),
+  ]);
+  return autodiscover ?? srv ?? mx ?? null;
 }

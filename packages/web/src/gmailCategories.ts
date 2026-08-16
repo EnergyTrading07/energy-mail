@@ -1,4 +1,5 @@
 import type { CategoryInfo, GmailCategory } from '@energy-mail/mail-core';
+import { t } from './sprache.js';
 
 /**
  * Anzeige von Gmails Einordnung des Posteingangs.
@@ -13,30 +14,34 @@ import type { CategoryInfo, GmailCategory } from '@energy-mail/mail-core';
  * Browser nicht laufen. Der Typ GmailCategory sorgt dafür, dass beide Listen
  * zusammenpassen: fehlt ein Eintrag oder ist einer zu viel, schlägt die Typprüfung fehl.
  */
-const NAMEN: Record<GmailCategory, string> = {
-  social: 'Soziale Netzwerke',
-  promotions: 'Werbung',
-  updates: 'Benachrichtigungen',
-  forums: 'Foren',
-};
+function namen(): Record<GmailCategory, string> {
+  return {
+    social: t('Soziale Netzwerke'),
+    promotions: t('Werbung'),
+    updates: t('Benachrichtigungen'),
+    forums: t('Foren'),
+  };
+}
 
 /** Was die Einordnung bedeutet - als Erklärung beim Überfahren mit der Maus. */
-const ERKLAERUNGEN: Record<GmailCategory, string> = {
-  social: 'Nachrichten von sozialen Netzwerken und Portalen',
-  promotions: 'Angebote, Newsletter und Werbung',
-  updates: 'Bestätigungen, Rechnungen und automatische Hinweise',
-  forums: 'Nachrichten aus Mailinglisten und Diskussionsgruppen',
-};
+function erklaerungen(): Record<GmailCategory, string> {
+  return {
+    social: t('Nachrichten von sozialen Netzwerken und Portalen'),
+    promotions: t('Angebote, Newsletter und Werbung'),
+    updates: t('Bestätigungen, Rechnungen und automatische Hinweise'),
+    forums: t('Nachrichten aus Mailinglisten und Diskussionsgruppen'),
+  };
+}
 
 /** Reihenfolge wie in Gmails eigenen Reitern. */
 const REIHENFOLGE: GmailCategory[] = ['social', 'promotions', 'updates', 'forums'];
 
 export function categoryLabel(category: GmailCategory): string {
-  return NAMEN[category];
+  return namen()[category];
 }
 
 export function categoryDescription(category: GmailCategory): string {
-  return ERKLAERUNGEN[category];
+  return erklaerungen()[category];
 }
 
 /**

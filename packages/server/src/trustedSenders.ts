@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getNutzerDir } from './paths.js';
+import { istVerschluesselt, schreibeGeschuetzt } from './geschuetzteAblage.js';
+import { decryptSecret } from './secretCrypto.js';
 
 /**
  * Absender, deren entfernte Inhalte ohne Rückfrage geladen werden dürfen.
@@ -20,7 +22,10 @@ type Ablage = Record<string, string[]>;
 
 function lesen(): Ablage {
   try {
-    return JSON.parse(fs.readFileSync(getPfad(), 'utf-8')) as Ablage;
+    const datei = fs.readFileSync(getPfad(), 'utf-8');
+    // Klartext aus der Zeit vor der Umstellung wird weiter gelesen - siehe
+    // geschuetzteAblage.ts. Die Datei führt auf, mit wem jemand regelmäßig zu tun hat.
+    return JSON.parse(istVerschluesselt(datei) ? decryptSecret(datei.trim()) : datei) as Ablage;
   } catch {
     // Fehlende oder beschädigte Datei heißt: niemandem vertraut. Das ist die sichere
     // Seite - im Zweifel wird gefragt statt geladen.
@@ -30,10 +35,7 @@ function lesen(): Ablage {
 
 function schreiben(ablage: Ablage): void {
   fs.mkdirSync(getNutzerDir(), { recursive: true });
-  const ziel = getPfad();
-  const zwischen = `${ziel}.neu`;
-  fs.writeFileSync(zwischen, JSON.stringify(ablage, null, 2), 'utf-8');
-  fs.renameSync(zwischen, ziel);
+  schreibeGeschuetzt(getPfad(), JSON.stringify(ablage, null, 2));
 }
 
 const normalisiere = (adresse: string) => adresse.trim().toLowerCase();

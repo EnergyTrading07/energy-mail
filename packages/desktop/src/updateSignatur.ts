@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Die eigene Unterschrift unter einer Aktualisierung.
@@ -215,19 +216,24 @@ export async function pruefeAktualisierung(
   }
 
   if (freigabe.version !== version) {
-    return `Die Freigabe gilt für Fassung ${freigabe.version}, geladen wurde ${version}.`;
+    return t('Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.', {
+      freigegeben: freigabe.version,
+      geladen: version,
+    });
   }
 
   const gerechnet = await sha512VonDatei(datei);
   if (gerechnet.toLowerCase() !== freigabe.sha512.toLowerCase()) {
     return (
-      'Die heruntergeladene Datei stimmt nicht mit der freigegebenen überein ' +
-      `(erwartet ${freigabe.sha512.slice(0, 16)}…, gerechnet ${gerechnet.slice(0, 16)}…).`
+      t(
+        'Die heruntergeladene Datei stimmt nicht mit der freigegebenen überein (erwartet {erwartet}…, gerechnet {gerechnet}…).',
+        { erwartet: freigabe.sha512.slice(0, 16), gerechnet: gerechnet.slice(0, 16) },
+      )
     );
   }
 
   if (!unterschriftStimmt(freigabe.version, freigabe.sha512, freigabe.signatur)) {
-    return 'Die Unterschrift unter dieser Fassung stammt nicht vom Herausgeber.';
+    return t('Die Unterschrift unter dieser Fassung stammt nicht vom Herausgeber.');
   }
 
   return null;

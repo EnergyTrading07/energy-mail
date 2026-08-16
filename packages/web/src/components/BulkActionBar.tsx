@@ -1,5 +1,6 @@
 import type { FolderInfo } from '@energy-mail/mail-core';
 import { moveTargets } from '../folderTargets.js';
+import { t } from '../sprache.js';
 
 interface Props {
   count: number;
@@ -37,18 +38,12 @@ export function BulkActionBar({
         {count} {count === 1 ? 'Nachricht' : 'Nachrichten'} ausgewählt
       </span>
       {archiveLabel && (
-        <button className="btn secondary" disabled={busy} onClick={onArchive} title={archiveLabel}>
-          Archivieren
-        </button>
+        <button className="btn secondary" disabled={busy} onClick={onArchive} title={archiveLabel}>{t('Archivieren')}</button>
       )}
-      <button className="btn secondary" disabled={busy} onClick={() => onSetSeen(true)}>
-        Gelesen
-      </button>
-      <button className="btn secondary" disabled={busy} onClick={() => onSetSeen(false)}>
-        Ungelesen
-      </button>
+      <button className="btn secondary" disabled={busy} onClick={() => onSetSeen(true)}>{t('Gelesen')}</button>
+      <button className="btn secondary" disabled={busy} onClick={() => onSetSeen(false)}>{t('Ungelesen')}</button>
       <button className="btn danger" disabled={busy} onClick={onDelete}>
-        {isInTrash ? 'Endgültig löschen' : 'Löschen'}
+        {isInTrash ? t('Endgültig löschen') : t('Löschen')}
       </button>
       <select
         className="move-select"
@@ -58,17 +53,17 @@ export function BulkActionBar({
           if (e.target.value) onMove(e.target.value);
         }}
       >
-        <option value="">Verschieben nach…</option>
+        <option value="">{t('Verschieben nach…')}</option>
         {moveTargets(folders, currentFolder).map((folder) => (
           <option key={folder.path} value={folder.path}>
             {folder.name}
           </option>
         ))}
       </select>
-      <button className="icon-btn" title="Auswahl aufheben" disabled={busy} onClick={onClear}>
+      <button className="icon-btn" title={t('Auswahl aufheben')} disabled={busy} onClick={onClear}>
         ×
       </button>
-      {busy && <span className="bulk-busy">Wird ausgeführt…</span>}
+      {busy && <span className="bulk-busy">{t('Wird ausgeführt…')}</span>}
     </div>
   );
 }

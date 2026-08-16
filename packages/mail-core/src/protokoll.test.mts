@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { UNKENNTLICH, baueZeile, enthaeltGeheimnisse, saeubere } from './protokoll.js';
+import {
+  UNKENNTLICH,
+  baueZeile,
+  enthaeltGeheimnisse,
+  kuerzeIpAdresse,
+  saeubere,
+} from './protokoll.js';
 
 let ok = 0;
 let gesamt = 0;
@@ -94,6 +100,19 @@ pruefe('und der Bericht meldet es, statt ihn durchzuwinken', () => {
   assert.deepEqual(enthaeltGeheimnisse(saeubere(roh)), []);
 });
 
+pruefe('die Anmeldung in einer Proxyadresse', () => {
+  /*
+   * So wird ein Proxy angegeben - und in einem Unternehmen ist das Proxy-Kennwort oft
+   * dasselbe wie das Windows-Kennwort. Vor dieser Regel ging es durch: es steht kein
+   * "password=" davor, sondern ein Doppelpunkt mitten in einer Adresse.
+   */
+  raus('Verbindung ueber http://anna:Hunter2@proxy.firma.de:3128 gescheitert', 'Hunter2', 'proxy.firma.de:3128');
+  raus('socks5://dienst:s3hr-g3h31m@10.0.0.9:1080', 's3hr-g3h31m', '10.0.0.9:1080');
+  // Ohne Anmeldung bleibt die Adresse unangetastet - sie ist keine Auskunft ueber jemanden.
+  const heil = 'Verbindung ueber http://proxy.firma.de:3128';
+  assert.equal(saeubere(heil), heil);
+});
+
 pruefe('ein privater Schluessel, ueber viele Zeilen', () => {
   const text = [
     'Beim Entschluesseln gescheitert.',
@@ -121,6 +140,32 @@ pruefe('mehrere Adressen in einer Zeile', () => {
   assert.ok(!rein.includes('bob'), rein);
 });
 
+pruefe('wonach jemand in seinem eigenen Postfach sucht', () => {
+  /*
+   * Fastify protokolliert von jeder Anfrage die Adresse samt Abfrageteil - und die Suche
+   * des Nutzers steht dort als "?q=". Ein Suchbegriff sagt oft mehr aus als die
+   * Nachricht, die er findet.
+   */
+  raus('GET /search?q=Kuendigung%20Krankenkasse', 'Kuendigung', '/search?q=');
+  raus('GET /accounts/abc/search?q=Befund&folder=INBOX', 'Befund', 'folder=INBOX');
+  raus('GET /contacts?q=schmidt', 'schmidt', '/contacts?q=');
+  raus('GET /adressbuch?q=Rechtsanwalt&alle=1', 'Rechtsanwalt', 'alle=1');
+});
+
+pruefe('eine Mailadresse auch in der Schreibweise einer Adresszeile', () => {
+  /*
+   * Prozentkodiert, wie sie im PFAD steht: bei jedem Löschen eines Kontakts und bei
+   * jedem Entziehen des Vertrauens. Die gewöhnliche Regel kennt nur das wörtliche "@"
+   * und ging daran vorbei - die Zusicherung "Mailadressen wurden herausgenommen" stimmte
+   * damit nicht.
+   */
+  const rein = saeubere('DELETE /adressbuch/max.mustermann%40beispiel.de');
+  assert.ok(!rein.includes('max.mustermann'), rein);
+  assert.ok(rein.includes('%40beispiel.de'), rein);
+  raus('GET /autoconfig?email=anna%40gmx.de', 'anna', '/autoconfig');
+  raus('DELETE /accounts/7d/vertraute-absender/chef%40firma.de', 'chef', 'vertraute-absender');
+});
+
 console.log('\nWas stehen bleiben muss:');
 
 pruefe('gewoehnliche Meldungen bleiben unangetastet', () => {
@@ -137,6 +182,36 @@ pruefe('eine Konto-Kennung ist kein Geheimnis', () => {
 pruefe('ein Betreff wird nicht zerstueckelt', () => {
   const text = 'Verschieben nach "Papierkorb" fehlgeschlagen (Serverantwort: NO)';
   assert.equal(saeubere(text), text);
+});
+
+pruefe('ein Pfad ohne Abfrageteil bleibt vollstaendig', () => {
+  // Die Suchbegriffsregel darf nur auf "?feld=" und "&feld=" ansprechen, sonst frisst
+  // sie gewoehnlichen Text mit.
+  const text = 'GET /accounts/7dfef4ba/INBOX/messages?pageSize=25&nach=1200';
+  assert.equal(saeubere(text), text);
+  assert.equal(saeubere('Kontext=Ordnerabgleich, Anzahl=17'), 'Kontext=Ordnerabgleich, Anzahl=17');
+});
+
+console.log('\nDie Anschlusskennung:');
+
+pruefe('IPv4 verliert das letzte Achtel', () => {
+  assert.equal(kuerzeIpAdresse('203.0.113.42'), '203.0.113.x');
+  // Damit bleibt unterscheidbar, ob zehn Fehlversuche aus einem Netz kommen oder aus zehn.
+  assert.notEqual(kuerzeIpAdresse('203.0.113.42'), kuerzeIpAdresse('198.51.100.42'));
+});
+
+pruefe('IPv6 behaelt vier Bloecke', () => {
+  assert.equal(kuerzeIpAdresse('2001:db8:85a3:8d3:1319:8a2e:370:7348'), '2001:db8:85a3:8d3::x');
+});
+
+pruefe('IPv4 in IPv6-Schreibweise zaehlt als IPv4', () => {
+  // So liefert ein doppelt lauschender Server die Adresse - ungekuerzt stuende sie sonst
+  // vollstaendig in der Datei.
+  assert.equal(kuerzeIpAdresse('::ffff:203.0.113.42'), '203.0.113.x');
+});
+
+pruefe('was keine Adresse ist, wird nicht durchgereicht', () => {
+  assert.equal(kuerzeIpAdresse('unbekannt'), UNKENNTLICH);
 });
 
 console.log('\nDie Nachkontrolle:');

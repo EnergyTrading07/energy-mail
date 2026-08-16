@@ -114,3 +114,19 @@ export function ziehePerBestandUm(nachNutzer: string): Umzugsbericht {
 
   return bericht;
 }
+
+/**
+ * Löscht den Datenordner eines Nutzers.
+ *
+ * Hier und nicht zweimal: Das Befehlszeilenwerkzeug tat es mit einem eigenen `rmSync`, die
+ * Verwaltung im Browser hätte ein zweites gebraucht. Zwei Fassungen desselben Löschvorgangs
+ * laufen früher oder später auseinander - und bei einem Löschvorgang heisst das, dass die
+ * eine etwas stehen lässt, was die andere mitnimmt.
+ *
+ * Bewusst getrennt vom Entfernen des Eintrags: Mit dem Eintrag geht der Schlüssel, und
+ * damit ist alles in diesem Ordner ohnehin nur noch Bytes. Die Dateien wegzuwerfen ist der
+ * unumkehrbare Teil, und den soll ausdrücklich verlangen, wer ihn will.
+ */
+export function entferneNutzerdaten(id: string): void {
+  fs.rmSync(getNutzerDirFuer(id), { recursive: true, force: true });
+}

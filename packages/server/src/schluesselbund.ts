@@ -7,6 +7,7 @@ import {
 } from '@energy-mail/mail-core';
 import { decryptSecret, encryptSecret, isEncryptionAvailable } from './secretCrypto.js';
 import { getNutzerDir } from './paths.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Der Schlüsselbund: fremde öffentliche Schlüssel und die eigenen geheimen.
@@ -105,7 +106,9 @@ export async function fuegeSchluesselHinzu(
   for (const { angaben, armored: text } of gelesen) {
     if (angaben.geheim && !isEncryptionAvailable()) {
       throw new SchluesselFehler(
-        'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.',
+        t(
+          'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.',
+        ),
       );
     }
 

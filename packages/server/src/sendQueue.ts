@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { getNutzerDir } from './paths.js';
-import { liesJson, schreibeAtomar } from './atomar.js';
+import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { jeNutzer } from './nutzer/jeNutzer.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Warteschlange für ausgehende Nachrichten.
@@ -80,7 +81,7 @@ export function setSendeVerfahren(
 
 function speichern(): void {
   try {
-    schreibeAtomar(getPfad(), JSON.stringify([...geplantVon().values()], null, 2));
+    schreibeGeschuetzt(getPfad(), JSON.stringify([...geplantVon().values()], null, 2));
   } catch (err) {
     log(`Geplante Sendungen konnten nicht gesichert werden: ${(err as Error).message}`);
   }
@@ -179,7 +180,7 @@ function planen(sendung: GeplanteSendung): void {
 
 /** Lädt Ausstehendes beim Start und schickt ab, was bereits fällig ist. */
 export function ladeGeplanteSendungen(): void {
-  const befund = liesJson<unknown>(getPfad(), []);
+  const befund = liesGeschuetzt<unknown>(getPfad(), []);
   if (befund.beschaedigt) {
     log(
       `${befund.beschaedigt.pfad} war unlesbar (${befund.beschaedigt.grund}).` +
@@ -238,7 +239,7 @@ export function planeSendung(
     accountId,
     faellig,
     koerper,
-    betreff: String(koerper.subject ?? '(kein Betreff)'),
+    betreff: String(koerper.subject ?? t('(kein Betreff)')),
     empfaenger: Array.isArray(koerper.to) ? (koerper.to as string[]) : [],
   };
   geplantVon().set(sendung.id, sendung);

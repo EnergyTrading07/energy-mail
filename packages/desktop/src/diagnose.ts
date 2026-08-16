@@ -3,8 +3,25 @@ import os from 'node:os';
 import path from 'node:path';
 import { BrowserWindow, app, dialog, shell } from 'electron';
 import { enthaeltGeheimnisse } from '@energy-mail/mail-core/protokoll';
+import {
+  beschreibeProxy,
+  beschreibeZertifikate,
+  letzterZertifikatsbefund,
+  waehleProxy,
+} from '@energy-mail/mail-core';
+import {
+  type SicherungsFehler,
+  type VerschlosseneSicherung,
+  istVerschlossen,
+  oeffneSicherung,
+  verschliesseSicherung,
+} from '@energy-mail/mail-core/sicherungsschutz';
+import { frageNeuesKennwort, frageVorhandenesKennwort } from './kennwortFenster.js';
+import { beschreibeRichtlinien } from './richtlinien.js';
+import { quellenFuer } from './proxyQuellen.js';
 import { lesProtokoll, protokolliere } from '@energy-mail/server/protokoll';
 import { ZUGANG_KOPFZEILE, holeZugangsgeheimnis } from '@energy-mail/server/zugang';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Auch die Hülle muss sich beim eigenen Server ausweisen.
@@ -84,12 +101,21 @@ export function richteAbsturzbehandlungEin(): void {
     dialog.showMessageBox({
       type: 'error',
       title: 'Energy Mail',
-      message: 'Das Fenster ist abgestürzt.',
+      message: t('Das Fenster ist abgestürzt.'),
+      /*
+       * Der Satz als EIN Text, nicht als zwei zusammengesetzte Hälften.
+       *
+       * Aneinandergehängte Halbsätze sind die häufigste Art, eine Übersetzung unmöglich
+       * zu machen: Im Englischen steht die Wortstellung anders, und wer nur die zweite
+       * Hälfte übersetzen darf, kann den Satz nicht bauen.
+       */
       detail:
-        `Grund: ${angabe.reason}\n\n` +
-        'Der Vorgang wurde im Protokoll festgehalten. Über Hilfe → ' +
-        '„Fehlerbericht erzeugen" lässt sich daraus eine Datei anlegen.',
-      buttons: ['Schließen'],
+        t('Grund: {grund}', { grund: angabe.reason }) +
+        '\n\n' +
+        t(
+          'Der Vorgang wurde im Protokoll festgehalten. Über Hilfe → „Fehlerbericht erzeugen" lässt sich daraus eine Datei anlegen.',
+        ),
+      buttons: [t('Schließen')],
     });
   });
 
@@ -102,12 +128,11 @@ export function richteAbsturzbehandlungEin(): void {
 function zeigeAbsturz(fehler: Error): void {
   try {
     dialog.showErrorBox(
-      'Energy Mail wurde beendet',
-      `${fehler.message}\n\n` +
-        'Der Vorgang steht im Protokoll unter:\n' +
-        `${path.join(app.getPath('userData'), 'protokoll')}\n\n` +
-        'Beim nächsten Start lässt sich daraus über Hilfe → „Fehlerbericht erzeugen" ' +
-        'eine Datei zum Mitschicken anlegen.',
+      t('Energy Mail wurde beendet'),
+      t(
+        '{grund}\n\nDer Vorgang steht im Protokoll unter:\n{pfad}\n\nBeim nächsten Start lässt sich daraus über Hilfe → „Fehlerbericht erzeugen“ eine Datei zum Mitschicken anlegen.',
+        { grund: fehler.message, pfad: path.join(app.getPath('userData'), 'protokoll') },
+      ),
     );
   } catch {
     // Ist Electron schon zu weit heruntergefahren, geht kein Fenster mehr - dann bleibt
@@ -115,8 +140,31 @@ function zeigeAbsturz(fehler: Error): void {
   }
 }
 
-/** Angaben über die Umgebung, die bei fast jedem Fehler die erste Frage sind. */
-function umgebung(): string {
+/**
+ * Angaben über die Umgebung, die bei fast jedem Fehler die erste Frage sind.
+ *
+ * Seit es Firmenaufstellungen gibt, gehören Proxy, Zertifikate und Richtlinien dazu: bei
+ * einem Bericht aus einem verwalteten Netz ist "geht nicht raus" die häufigste Meldung,
+ * und ohne diese drei Zeilen beginnt jede Rückfrage mit denselben drei Fragen.
+ */
+async function umgebung(): Promise<string> {
+  /*
+   * Der INHALT des Berichts bleibt deutsch - und das ist eine Entscheidung, keine
+   * vergessene Stelle.
+   *
+   * Die Grenze verläuft am Fensterrand: Was in einem Fenster steht, liest der Nutzer und
+   * gehört in seine Sprache. Was in die Berichtsdatei geschrieben wird, liest derjenige,
+   * der das Programm baut - und der liest Deutsch. Ein Bericht, dessen eine Hälfte
+   * türkisch ist, weil der Absender seine Oberfläche umgestellt hat, macht die
+   * Fehlersuche schwerer und nicht leichter. Dieselbe Regel gilt für das Protokoll.
+   */
+  let proxy = 'Proxy: nicht ermittelbar';
+  try {
+    proxy = beschreibeProxy(waehleProxy('imap.beispiel.de', await quellenFuer('imap.beispiel.de')));
+  } catch {
+    // Steht schon da.
+  }
+
   return [
     `Energy Mail   ${app.getVersion()}`,
     `Electron      ${process.versions.electron}`,
@@ -126,6 +174,17 @@ function umgebung(): string {
     `Sprache       ${app.getLocale()}`,
     `Speicher      ${Math.round(os.totalmem() / 1024 / 1024 / 1024)} GB`,
     `Erzeugt am    ${new Date().toISOString()}`,
+    '',
+    /*
+     * Die drei Angaben, nach denen bei einem Bericht aus einem Firmennetz ohnehin als
+     * Erstes gefragt würde. "Geht nicht raus" ist dort die häufigste Meldung, und ohne
+     * sie beginnt jede Rückfrage mit denselben drei Fragen.
+     *
+     * Der Proxy ohne Anmeldung - dafür sorgt beschreibeProxy().
+     */
+    proxy,
+    beschreibeZertifikate(letzterZertifikatsbefund()),
+    beschreibeRichtlinien(),
   ].join('\n');
 }
 
@@ -141,7 +200,7 @@ export async function erzeugeFehlerbericht(): Promise<void> {
     '# Fehlerbericht Energy Mail',
     '',
     '## Umgebung',
-    umgebung(),
+    await umgebung(),
     '',
     '## Protokoll',
     '',
@@ -159,7 +218,9 @@ export async function erzeugeFehlerbericht(): Promise<void> {
   const beanstandet = enthaeltGeheimnisse(inhalt);
   const fertig =
     beanstandet.length > 0
-      ? `> ACHTUNG: Es könnte noch etwas Vertrauliches darin stehen (${beanstandet.join(', ')}).\n` +
+      ? // Steht in der Datei und nicht in einem Fenster - siehe umgebung(): der Bericht
+        // bleibt deutsch.
+        `> ACHTUNG: Es könnte noch etwas Vertrauliches darin stehen (${beanstandet.join(', ')}).\n` +
         '> Bitte vor dem Verschicken überfliegen.\n\n' +
         inhalt
       : inhalt;
@@ -171,23 +232,26 @@ export async function erzeugeFehlerbericht(): Promise<void> {
     fs.writeFileSync(ziel, fertig, 'utf8');
   } catch (err) {
     dialog.showErrorBox(
-      'Fehlerbericht nicht angelegt',
-      `Die Datei ließ sich nicht schreiben:\n${(err as Error).message}`,
+      t('Fehlerbericht nicht angelegt'),
+      t('Die Datei ließ sich nicht schreiben:\n{grund}', { grund: (err as Error).message }),
     );
     return;
   }
 
   const { response } = await dialog.showMessageBox({
     type: 'info',
-    title: 'Fehlerbericht angelegt',
-    message: 'Der Bericht liegt auf dem Schreibtisch.',
+    title: t('Fehlerbericht angelegt'),
+    message: t('Der Bericht liegt auf dem Schreibtisch.'),
     detail:
       `${path.basename(ziel)}\n\n` +
-      'Kennwörter, Zugangsmarken und Mailadressen wurden herausgenommen. ' +
+      t('Kennwörter, Zugangsmarken und Mailadressen wurden herausgenommen.') +
+      ' ' +
       (beanstandet.length > 0
-        ? 'Eine Nachkontrolle hat trotzdem etwas beanstandet – bitte vor dem Verschicken überfliegen.'
-        : 'Die Nachkontrolle hat nichts gefunden.'),
-    buttons: ['Ordner öffnen', 'Bericht öffnen', 'Schließen'],
+        ? t(
+            'Eine Nachkontrolle hat trotzdem etwas beanstandet – bitte vor dem Verschicken überfliegen.',
+          )
+        : t('Die Nachkontrolle hat nichts gefunden.')),
+    buttons: [t('Ordner öffnen'), t('Bericht öffnen'), t('Schließen')],
     defaultId: 0,
     cancelId: 2,
   });
@@ -245,15 +309,28 @@ export function horcheAufFensterfehler(fenster: BrowserWindow): void {
  * entscheidet sicherung.ts auf der Serverseite.
  */
 export async function sichereEinstellungen(basis: string): Promise<void> {
-  let inhalt: string;
+  let offen: unknown;
   try {
     const antwort = await fetch(`${basis}/sicherung`, { headers: zugangskopfzeile() });
-    if (!antwort.ok) throw new Error(`Der Server antwortete mit ${antwort.status}.`);
-    inhalt = JSON.stringify(await antwort.json(), null, 2);
+    if (!antwort.ok) {
+      throw new Error(t('Der Server antwortete mit {status}.', { status: antwort.status }));
+    }
+    offen = await antwort.json();
   } catch (err) {
     dialog.showErrorBox('Sicherung nicht möglich', (err as Error).message);
     return;
   }
+
+  /*
+   * Erst das Kennwort, dann der Speicherort - und nicht umgekehrt.
+   *
+   * Wer abbricht, hat dann noch keinen Dateinamen ausgesucht. Andersherum hätte er den
+   * Ort gewählt, das Fenster beantwortet und stünde am Ende trotzdem ohne Datei da.
+   */
+  const kennwort = await frageNeuesKennwort(BrowserWindow.getFocusedWindow());
+  if (kennwort === null) return;
+
+  const inhalt = JSON.stringify(verschliesseSicherung(offen, kennwort), null, 2);
 
   const marke = new Date().toISOString().slice(0, 10);
   const { canceled, filePath } = await dialog.showSaveDialog({
@@ -273,27 +350,110 @@ export async function sichereEinstellungen(basis: string): Promise<void> {
   protokolliere('info', 'sicherung', `Einstellungen gesichert nach ${path.basename(filePath)}`);
   const { response } = await dialog.showMessageBox({
     type: 'info',
-    title: 'Einstellungen gesichert',
-    message: 'Die Datei ist geschrieben.',
+    title: t('Einstellungen gesichert'),
+    message: t('Die Datei ist geschrieben.'),
     detail:
       `${path.basename(filePath)}\n\n` +
-      'Sie enthält Konten, Etiketten, Regeln, das Adressbuch und die gemerkten Suchen – ' +
-      'aber keine Kennwörter. Die sind an dieses Windows-Benutzerkonto gebunden und ' +
-      'müssen auf einem anderen Rechner einmal neu eingegeben werden.\n\n' +
-      'In der Datei stehen alle Mailadressen aus dem Adressbuch. Sie gehört deshalb an ' +
-      'einen Ort, den nur Sie erreichen.',
-    buttons: ['Ordner öffnen', 'Schließen'],
+      t(
+        'Sie enthält Konten, Etiketten, Regeln, das Adressbuch und die gemerkten Suchen – aber keine Kennwörter. Die sind an dieses Windows-Benutzerkonto gebunden und müssen auf einem anderen Rechner einmal neu eingegeben werden.',
+      ) +
+      '\n\n' +
+      t(
+        'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.',
+      ),
+    buttons: [t('Ordner öffnen'), t('Schließen')],
     defaultId: 1,
     cancelId: 1,
   });
   if (response === 0) shell.showItemInFolder(filePath);
 }
 
+/** "4,3 MB" statt "4508160" - eine Zahl, zu der man eine Meinung haben kann. */
+function alsGroesse(bytes: number): string {
+  if (bytes < 1024) return `${bytes} Byte`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+}
+
+/**
+ * Zeigt, was zwischengespeichert liegt, und wirft es auf Wunsch weg.
+ *
+ * Der eine Punkt in diesem Menü, der nichts sichert und nichts anlegt, sondern etwas
+ * entfernt. Er gehört hierher, weil die Antwort auf "was weiß dieses Programm über mich"
+ * bislang nur in DATENSCHUTZ.md stand und nirgends in der Anwendung: Betreffzeilen,
+ * Absender und der Wortlaut der zuletzt gelesenen Nachrichten liegen unverschlüsselt im
+ * Benutzerordner, und der einzige Weg, sie loszuwerden, war die Datei von Hand zu suchen.
+ *
+ * Erst die Zahlen, dann die Frage. Wer nur nachsehen wollte, geht mit "Behalten" hinaus,
+ * ohne etwas angerichtet zu haben - deshalb steht diese Schaltfläche vorn.
+ */
+export async function leereZwischenspeicher(basis: string): Promise<void> {
+  let stand: { bytes: number; nachrichten: number; inhalte: number };
+  try {
+    const antwort = await fetch(`${basis}/ablage`, { headers: zugangskopfzeile() });
+    if (!antwort.ok) {
+      throw new Error(t('Der Server antwortete mit {status}.', { status: antwort.status }));
+    }
+    stand = (await antwort.json()) as typeof stand;
+  } catch (err) {
+    dialog.showErrorBox('Zwischenspeicher nicht lesbar', (err as Error).message);
+    return;
+  }
+
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    title: t('Zwischenspeicher'),
+    message: t('Soll der zwischengespeicherte Nachrichtenbestand weg?'),
+    detail:
+      t(
+        'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).',
+        { kopfdaten: stand.nachrichten, inhalte: stand.inhalte, groesse: alsGroesse(stand.bytes) },
+      ) +
+      '\n\n' +
+      t(
+        'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.',
+      ) +
+      '\n\n' +
+      t(
+        'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.',
+      ) +
+      '\n\n' +
+      t('Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.'),
+    buttons: [t('Behalten'), t('Bestand leeren')],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (response !== 1) return;
+
+  try {
+    const antwort = await fetch(`${basis}/ablage`, {
+      method: 'DELETE',
+      headers: zugangskopfzeile(),
+    });
+    if (!antwort.ok) {
+      throw new Error(t('Der Server antwortete mit {status}.', { status: antwort.status }));
+    }
+    const weg = (await antwort.json()) as { nachrichten: number; inhalte: number };
+    await dialog.showMessageBox({
+      type: 'info',
+      title: t('Zwischenspeicher geleert'),
+      message: t('Der Bestand ist weg.'),
+      detail: t(
+        '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.',
+        { kopfdaten: weg.nachrichten, inhalte: weg.inhalte },
+      ),
+      buttons: [t('Schließen')],
+    });
+  } catch (err) {
+    dialog.showErrorBox(t('Zwischenspeicher nicht geleert'), (err as Error).message);
+  }
+}
+
 /** Liest eine Sicherung ein - was schon da ist, bleibt unangetastet. */
 export async function leseEinstellungen(basis: string): Promise<void> {
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Sicherung einlesen',
-    filters: [{ name: 'Energy-Mail-Sicherung', extensions: ['json'] }],
+    title: t('Sicherung einlesen'),
+    filters: [{ name: t('Energy-Mail-Sicherung'), extensions: ['json'] }],
     properties: ['openFile'],
   });
   if (canceled || filePaths.length === 0) return;
@@ -302,8 +462,40 @@ export async function leseEinstellungen(basis: string): Promise<void> {
   try {
     roh = JSON.parse(fs.readFileSync(filePaths[0]!, 'utf8'));
   } catch (err) {
-    dialog.showErrorBox('Datei nicht lesbar', (err as Error).message);
+    dialog.showErrorBox(t('Datei nicht lesbar'), (err as Error).message);
     return;
+  }
+
+  /*
+   * Verschlossen oder nicht - beides muss gehen.
+   *
+   * Eine Sicherung von vor dieser Änderung liegt als lesbares JSON vor und enthält
+   * dieselbe Arbeit wie eine neue. Sie abzuweisen wäre eine Strafe für den frühen Nutzer.
+   *
+   * Solange bis das Kennwort stimmt, und nicht nur einmal: Ein Vertippen bei einem
+   * Kennwort, das man selbst vergeben hat, ist der Regelfall und nicht der Ausnahmefall.
+   * Ein einziger Versuch bedeutete, den ganzen Weg noch einmal zu gehen - Menüpunkt,
+   * Dateiauswahl, Rückfrage.
+   */
+  if (istVerschlossen(roh)) {
+    let hinweis: string | undefined;
+    for (;;) {
+      const kennwort = await frageVorhandenesKennwort(BrowserWindow.getFocusedWindow(), hinweis);
+      if (kennwort === null) return;
+      try {
+        roh = oeffneSicherung(roh as VerschlosseneSicherung, kennwort);
+        break;
+      } catch (err) {
+        const fehler = err as SicherungsFehler;
+        if (fehler.art === 'kennwort') {
+          // Noch einmal fragen, mit dem Grund über dem Feld.
+          hinweis = fehler.message;
+          continue;
+        }
+        dialog.showErrorBox(t('Datei nicht lesbar'), fehler.message);
+        return;
+      }
+    }
   }
 
   /*
@@ -314,13 +506,12 @@ export async function leseEinstellungen(basis: string): Promise<void> {
    */
   const { response: weiter } = await dialog.showMessageBox({
     type: 'question',
-    title: 'Sicherung einlesen',
-    message: 'Soll die Sicherung eingelesen werden?',
-    detail:
-      'Was auf diesem Rechner schon eingerichtet ist, bleibt unverändert – es kommt nur ' +
-      'hinzu, was hier noch fehlt. Konten aus der Sicherung müssen danach einmal ' +
-      'angemeldet werden, weil Kennwörter nicht mitgesichert werden.',
-    buttons: ['Einlesen', 'Abbrechen'],
+    title: t('Sicherung einlesen'),
+    message: t('Soll die Sicherung eingelesen werden?'),
+    detail: t(
+      'Was auf diesem Rechner schon eingerichtet ist, bleibt unverändert – es kommt nur hinzu, was hier noch fehlt. Konten aus der Sicherung müssen danach einmal angemeldet werden, weil Kennwörter nicht mitgesichert werden.',
+    ),
+    buttons: [t('Einlesen'), t('Abbrechen')],
     defaultId: 0,
     cancelId: 1,
   });
@@ -337,35 +528,41 @@ export async function leseEinstellungen(basis: string): Promise<void> {
       | Record<string, { uebernommen: number; schonDa?: number }>;
 
     if (!antwort.ok) {
-      dialog.showErrorBox('Sicherung nicht eingelesen', (ergebnis as { error: string }).error);
+      dialog.showErrorBox(
+        t('Sicherung nicht eingelesen'),
+        (ergebnis as { error: string }).error,
+      );
       return;
     }
 
     const b = ergebnis as Record<string, { uebernommen: number; schonDa?: number }>;
     const zeile = (name: string, feld: string) =>
-      `${name}: ${b[feld]?.uebernommen ?? 0} übernommen` +
-      (b[feld]?.schonDa ? `, ${b[feld]!.schonDa} waren schon da` : '');
+      t('{name}: {anzahl} übernommen', { name, anzahl: b[feld]?.uebernommen ?? 0 }) +
+      (b[feld]?.schonDa
+        ? t(', {anzahl} waren schon da', { anzahl: b[feld]!.schonDa! })
+        : '');
 
     protokolliere('info', 'sicherung', `Sicherung eingelesen: ${JSON.stringify(b)}`);
     await dialog.showMessageBox({
       type: 'info',
-      title: 'Sicherung eingelesen',
-      message: 'Fertig.',
+      title: t('Sicherung eingelesen'),
+      message: t('Fertig.'),
       detail:
         [
-          zeile('Konten', 'konten'),
-          zeile('Etiketten', 'etiketten'),
-          zeile('Adressbuch', 'kontakte'),
-          zeile('Gemerkte Suchen', 'suchen'),
-          zeile('Regeln', 'regeln'),
+          zeile(t('Konten'), 'konten'),
+          zeile(t('Etiketten'), 'etiketten'),
+          zeile(t('Adressbuch'), 'kontakte'),
+          zeile(t('Gemerkte Suchen'), 'suchen'),
+          zeile(t('Regeln'), 'regeln'),
         ].join('\n') +
         ((b.konten?.uebernommen ?? 0) > 0
-          ? '\n\nDie neuen Konten sind noch nicht angemeldet – in der Seitenleiste steht ' +
-            'bei ihnen ein Knopf dafür.'
+          ? t(
+              '\n\nDie neuen Konten sind noch nicht angemeldet – in der Seitenleiste steht bei ihnen ein Knopf dafür.',
+            )
           : ''),
-      buttons: ['Schließen'],
+      buttons: [t('Schließen')],
     });
   } catch (err) {
-    dialog.showErrorBox('Sicherung nicht eingelesen', (err as Error).message);
+    dialog.showErrorBox(t('Sicherung nicht eingelesen'), (err as Error).message);
   }
 }

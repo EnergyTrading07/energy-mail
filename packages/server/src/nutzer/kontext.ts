@@ -37,6 +37,24 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 export interface Nutzerkontext {
   /** Kennung des Nutzers. Wird als Ordnername verwendet - siehe pruefeNutzerId. */
   id: string;
+  /**
+   * Wer die Anfrage stellt, wenn das ein anderer ist als der Eigentümer der Daten.
+   *
+   * ## Warum es zwei Angaben braucht
+   *
+   * Seit es Freigaben gibt, fallen "wessen Daten" und "wer daran arbeitet" auseinander.
+   * Öffnet Bernd das freigegebene Postfach von Anna, muss jeder Speicherzugriff in Annas
+   * Ordner gehen - dort liegen die Zugangsdaten, der Zwischenspeicher, die Regeln. `id`
+   * ist deshalb Anna, und alles, was heute `aktuellerNutzer()` fragt, funktioniert
+   * unverändert weiter.
+   *
+   * Zugleich darf nicht verlorengehen, dass es Bernd ist, der dort gerade löscht. Sonst
+   * stünde im Protokoll Annas Name unter fremden Handlungen, und der Riegel der
+   * Verwaltung prüfte die Rolle des Falschen.
+   *
+   * Fehlt das Feld, arbeitet jemand an seinen eigenen Daten - der Normalfall.
+   */
+  handelnd?: string;
 }
 
 const speicher = new AsyncLocalStorage<Nutzerkontext>();
@@ -78,6 +96,38 @@ export function pruefeNutzerId(id: unknown): string {
  */
 export function alsNutzer<T>(id: string, fn: () => T): T {
   return speicher.run({ id: pruefeNutzerId(id) }, fn);
+}
+
+/**
+ * Führt etwas in den Daten eines anderen aus - für eine Freigabe.
+ *
+ * `besitzer` bestimmt, wo gelesen und geschrieben wird; `handelnd` bleibt daneben stehen,
+ * damit Protokoll und Rechteprüfung den Richtigen nennen. Bewusst ein eigener Name statt
+ * eines zweiten Parameters an alsNutzer(): Wer in fremden Daten arbeitet, soll das im
+ * Quelltext sehen und nicht an einem beiläufigen Argument vorbeilesen.
+ */
+export function alsVertretung<T>(besitzer: string, handelnd: string, fn: () => T): T {
+  return speicher.run({ id: pruefeNutzerId(besitzer), handelnd: pruefeNutzerId(handelnd) }, fn);
+}
+
+/**
+ * Wer die Anfrage stellt.
+ *
+ * Im Normalfall derselbe wie `aktuellerNutzer()`. Bei einer Freigabe der Vertreter und
+ * nicht der Eigentümer - das ist der Unterschied, auf den es bei Protokoll und
+ * Rechteprüfung ankommt.
+ */
+export function handelnderNutzer(): string {
+  const kontext = speicher.getStore();
+  if (!kontext) return aktuellerNutzer();
+  return kontext.handelnd ?? kontext.id;
+}
+
+/** Ob gerade jemand in fremden Daten arbeitet - und wenn ja, wer. */
+export function vertretungFuer(): { besitzer: string; handelnd: string } | null {
+  const kontext = speicher.getStore();
+  if (!kontext?.handelnd || kontext.handelnd === kontext.id) return null;
+  return { besitzer: kontext.id, handelnd: kontext.handelnd };
 }
 
 /**
@@ -133,3 +183,16 @@ export function hatNutzerkontext(): boolean {
 export function betreteNutzerFuerProzess(id: string): void {
   speicher.enterWith({ id: pruefeNutzerId(id) });
 }
+
+/**
+ * Der Nutzer, unter dem der Einplatzbetrieb laeuft.
+ *
+ * Steht hier und nicht in app.ts, obwohl er dort entstanden ist: Auch das
+ * Befehlszeilenwerkzeug muss ihn kennen - es darf ihm naemlich keine Verwalterrolle geben
+ * (sein Kennwort sind zufaellige Bytes, die nie jemand sieht). Um dafuer app.ts
+ * einzubinden, muesste ein Werkzeug den ganzen Server laden.
+ *
+ * app.ts gibt ihn weiterhin heraus, damit die bestehenden Einbindungen bleiben, wo sie
+ * sind.
+ */
+export const EINPLATZ_NUTZER = 'lokal';

@@ -11,6 +11,7 @@ import {
 } from '@energy-mail/mail-core';
 import { getOAuthClient } from './oauthStore.js';
 import { aktuellerNutzer } from './nutzer/kontext.js';
+import { t } from '@energy-mail/mail-core/sprache';
 
 /**
  * Führt die Anmeldung über einen kurzlebigen lokalen Rückkanal.
@@ -244,7 +245,10 @@ export async function startOAuthFlow(
     accountId,
     nutzerId: aktuellerNutzer(),
     timeout: setTimeout(() => {
-      beenden(flow, { status: 'error', error: 'Zeitüberschreitung – Anmeldung nicht abgeschlossen.' });
+      beenden(flow, {
+        status: 'error',
+        error: t('Zeitüberschreitung – Anmeldung nicht abgeschlossen.'),
+      });
     }, FLOW_TIMEOUT_MS),
   };
 
@@ -265,7 +269,9 @@ export async function startOAuthFlow(
       res.end(
         antwortSeite(
           'Anmeldung abgelehnt',
-          'Die Rückmeldung passt nicht zur Anfrage. Bitte in Energy Mail noch einmal von vorn beginnen.',
+          t(
+            'Die Rückmeldung passt nicht zur Anfrage. Bitte in Energy Mail noch einmal von vorn beginnen.',
+          ),
           'fehler',
         ),
       );
@@ -279,19 +285,21 @@ export async function startOAuthFlow(
           'Anmeldung abgebrochen',
           // Gekürzt und entschärft: die Angabe kommt aus der Adresse, nicht von uns.
           // Anbieter melden hier Kürzel wie "access_denied", keine Aufsätze.
-          fehler ? fehler.slice(0, 200) : 'Es kam kein Autorisierungscode zurück.',
+          fehler ? fehler.slice(0, 200) : t('Es kam kein Autorisierungscode zurück.'),
           'fehler',
         ),
       );
-      beenden(flow, { status: 'error', error: fehler ?? 'Kein Autorisierungscode erhalten.' });
+      beenden(flow, { status: 'error', error: fehler ?? t('Kein Autorisierungscode erhalten.') });
       return;
     }
 
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(
       antwortSeite(
-        'Anmeldung erfolgreich',
-        'Du kannst dieses Fenster schließen und zu Energy Mail zurückkehren – das Konto wird dort gerade eingerichtet.',
+        t('Anmeldung erfolgreich'),
+        t(
+          'Du kannst dieses Fenster schließen und zu Energy Mail zurückkehren – das Konto wird dort gerade eingerichtet.',
+        ),
       ),
     );
 

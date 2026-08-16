@@ -1,6 +1,25 @@
 import { BrowserWindow, app, shell } from 'electron';
 import { gespeicherteAnsicht } from './ansicht.js';
 import { BLITZ, FARBEN, MARKE } from './fensterFarben.js';
+import { richtlinien } from './richtlinien.js';
+import { t } from '@energy-mail/mail-core/sprache';
+
+/**
+ * Macht aus fremdem Text etwas, das in dieser Seite nur Text ist.
+ *
+ * Die Seiten hier werden als Zeichenketten zusammengesetzt und über eine data:-Adresse
+ * geladen. Was von außen hineinkommt - der Ansprechpartner aus der Richtliniendatei -,
+ * muss deshalb maskiert werden. Ein Administrator ist zwar nicht der Angreifer, gegen den
+ * man sich hier wehrt; aber ein Kaufmännisches Und im Firmennamen soll das Fenster auch
+ * nicht zerlegen.
+ */
+function maskiere(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * Die drei kleinen Fenster: Startbild, Startfehler, Über.
@@ -159,7 +178,7 @@ export function zeigeStartfehler(grund: string, hinweis: string): BrowserWindow 
     width: 460,
     height: 330,
     backgroundColor: FARBEN[dunkel ? 'dunkel' : 'hell'].grund,
-    title: 'Energy Mail konnte nicht starten',
+    title: t('Energy Mail konnte nicht starten'),
     center: true,
   });
   fenster.setMenu(null);
@@ -168,11 +187,11 @@ export function zeigeStartfehler(grund: string, hinweis: string): BrowserWindow 
       dunkel,
       `${symbol(44)}
        <div>
-         <h1>Start gescheitert</h1>
+         <h1>${maskiere(t('Start gescheitert'))}</h1>
          <p style="margin-top:10px">${hinweis}</p>
        </div>
        <code>${grund.replace(/[<>&]/g, (z) => `&#${z.charCodeAt(0)};`)}</code>
-       <div class="knoepfe"><button onclick="window.close()">Schließen</button></div>`,
+       <div class="knoepfe"><button onclick="window.close()">${maskiere(t('Schließen'))}</button></div>`,
       '400px',
     ),
   );
@@ -188,7 +207,7 @@ export function zeigeUeber(): BrowserWindow {
     width: 380,
     height: 330,
     backgroundColor: FARBEN[dunkel ? 'dunkel' : 'hell'].grund,
-    title: 'Über Energy Mail',
+    title: t('Über Energy Mail'),
     center: true,
   });
   fenster.setMenu(null);
@@ -205,13 +224,28 @@ export function zeigeUeber(): BrowserWindow {
       `${symbol(60)}
        <div>
          ${WORTZEICHEN}
-         <p style="margin-top:8px">Fassung ${app.getVersion()}</p>
+         <p style="margin-top:8px">${maskiere(t('Fassung {fassung}', { fassung: app.getVersion() }))}</p>
        </div>
-       <p class="fein">E-Mail-Programm für beliebige IMAP/SMTP-Anbieter.<br>
-         Zugangsdaten bleiben verschlüsselt auf diesem Rechner.</p>
+       <p class="fein">${maskiere(t('E-Mail-Programm für beliebige IMAP/SMTP-Anbieter.'))}<br>
+         ${maskiere(t('Zugangsdaten bleiben verschlüsselt auf diesem Rechner.'))}</p>
+       ${
+         /*
+          * Wer im Haus zuständig ist, steht vor der Projektseite.
+          *
+          * In einer verwalteten Aufstellung ist das die wichtigere Auskunft: ein
+          * Mitarbeiter mit einem Problem soll seine eigene IT erreichen und nicht bei
+          * Fremden auf GitHub ein Ticket aufmachen. Ohne hinterlegte Richtlinie bleibt es
+          * wie bisher. Der Text ist auf 300 Zeichen begrenzt und wird maskiert - er kommt
+          * aus einer Datei, die ein Administrator schreibt, und in dieses Fenster gehört
+          * kein Markup von dort.
+          */
+         richtlinien().ansprechpartner
+           ? `<p class="fein"><strong>${maskiere(richtlinien().ansprechpartner!)}</strong></p>`
+           : ''
+       }
        <div class="knoepfe">
-         <a class="btn" href="https://github.com/EnergyTrading07/energy-mail" target="_blank">Projektseite</a>
-         <button class="still" onclick="window.close()">Schließen</button>
+         <a class="btn" href="https://github.com/EnergyTrading07/energy-mail" target="_blank">${maskiere(t('Projektseite'))}</a>
+         <button class="still" onclick="window.close()">${maskiere(t('Schließen'))}</button>
        </div>
        <!--
          Die Lizenz gehört hierher: das ist die Stelle, an der jemand nachsieht, ob und
@@ -220,7 +254,7 @@ export function zeigeUeber(): BrowserWindow {
          Reibung.
        -->
        <p class="fein">
-         <a href="https://github.com/EnergyTrading07/energy-mail/blob/main/LICENSE" target="_blank">MIT-Lizenz</a>
+         <a href="https://github.com/EnergyTrading07/energy-mail/blob/main/LICENSE" target="_blank">${maskiere(t('MIT-Lizenz'))}</a>
          · © ${new Date().getFullYear()} Hendrik Zeuch
        </p>
        <p class="fein">Electron ${process.versions.electron} · Chromium ${process.versions.chrome}</p>`,

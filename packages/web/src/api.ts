@@ -10,11 +10,20 @@ import type {
   Regel,
   RegelBedingung,
 } from '@energy-mail/mail-core';
+import { t } from './sprache.js';
 
 // Leerer Default: UI und API laufen normalerweise auf derselben Origin (der Server
 // liefert das gebaute Frontend mit aus). Nur im Vite-Dev-Modus wird VITE_API_URL
 // gesetzt, um auf den separat laufenden Server zu zeigen.
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+/*
+ * Der Fragezeichenpunkt ist kein Zierrat.
+ *
+ * `import.meta.env` setzt Vite beim Bauen ein; unter reinem Node - also in jeder Pruefung,
+ * die dieses Modul einbindet - gibt es das Objekt nicht, und `import.meta.env.VITE_API_URL`
+ * wirft beim blossen Einbinden. Damit war api.ts fuer Pruefungen unerreichbar, und alles,
+ * was es benutzt (also fast jedes Fenster), gleich mit.
+ */
+const API_BASE = import.meta.env?.VITE_API_URL ?? '';
 
 export interface Account {
   id: string;
@@ -30,6 +39,58 @@ export interface Account {
   needsReauth?: boolean;
   /** Weitere Adressen, unter denen von diesem Konto gesendet werden darf. */
   identitaeten?: Identitaet[];
+  /**
+   * Der eingetragene Weg nach draussen - OHNE Anmeldung.
+   *
+   * Der Server kuerzt sie heraus, bevor er antwortet: ein Proxy-Kennwort ist in Firmen
+   * oft dasselbe wie das Windows-Kennwort, und diese Antwort landet im Browserspeicher
+   * und in den Entwicklerwerkzeugen. Nur zum Anzeigen zu gebrauchen, nicht zum
+   * Zurueckschicken.
+   */
+  proxy?: string;
+  /**
+   * Gesetzt, wenn dieses Postfach jemand anderem gehört und für mich freigegeben ist.
+   *
+   * Fehlt es, ist es mein eigenes. Die Oberfläche entscheidet daran, was sie anzeigt und
+   * was sie kennzeichnet - verboten wird nichts hier: Der Riegel sitzt am Server
+   * (nutzer/freigabeHaken.ts), und wer die Adresse von Hand aufruft, bekommt 403.
+   */
+  freigabe?: {
+    id: string;
+    /** Kennung des Eigentümers. */
+    von: string;
+    rechte: 'lesen' | 'voll';
+  };
+}
+
+/** Eine Freigabe, wie sie der Server führt. */
+export interface Freigabe {
+  id: string;
+  besitzer: string;
+  kontoId: string;
+  email: string;
+  an: string;
+  rechte: 'lesen' | 'voll';
+  angelegt: string;
+}
+
+export function holeFreigaben(): Promise<{ eigene: Freigabe[]; erhalten: Freigabe[] }> {
+  return request('/freigaben');
+}
+
+export function freigeben(
+  kontoId: string,
+  an: string,
+  rechte: 'lesen' | 'voll',
+): Promise<Freigabe> {
+  return request('/freigaben', {
+    method: 'POST',
+    body: JSON.stringify({ kontoId, an, rechte }),
+  });
+}
+
+export function freigabeBeenden(id: string): Promise<{ ok: boolean }> {
+  return request(`/freigaben/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 /** Eine weitere Absenderadresse. Leerer Name oder Signatur heißt "wie das Konto". */
@@ -43,10 +104,79 @@ export interface Identitaet {
 export interface Contact {
   address: string;
   name?: string;
-  count: number;
-  lastSeen: string;
+  count?: number;
+  lastSeen?: string;
   /** Im Adressbuch eingetragen - nicht nur nebenbei aus der Post aufgelesen. */
   gepflegt?: boolean;
+  /**
+   * Der Vorschlag stammt aus dem Firmenverzeichnis und nicht aus dem eigenen Adressbuch.
+   *
+   * Die Oberflaeche kennzeichnet ihn - wer eine Adresse vorgeschlagen bekommt, soll wissen,
+   * woher sie kommt. Aus dem eigenen Adressbuch heisst "damit hatte ich schon zu tun"; aus
+   * dem Verzeichnis heisst "so heisst diese Person laut Firmenverzeichnis".
+   */
+  ausVerzeichnis?: boolean;
+  organisation?: string;
+  abteilung?: string;
+  telefon?: string;
+  mobil?: string;
+}
+
+// --- Das Firmenverzeichnis (LDAP) ---
+
+export interface Verzeichnis {
+  aktiv: boolean;
+  host: string;
+  port: number;
+  verschluesselung: 'ldaps' | 'starttls' | 'einfach';
+  zertifikatPruefen: boolean;
+  basis: string;
+  bindDn: string;
+  filter: string;
+  sucheIn: string[];
+  felder: {
+    email: string;
+    name: string;
+    vorname?: string;
+    nachname?: string;
+    telefon?: string;
+    mobil?: string;
+    organisation?: string;
+    abteilung?: string;
+  };
+}
+
+/** Das Kennwort geht nie heraus - nur, ob eines hinterlegt ist. */
+export type VerzeichnisAnzeige = Verzeichnis & { kennwortHinterlegt: boolean };
+
+export function holeVerzeichnis(): Promise<VerzeichnisAnzeige> {
+  return request('/verwaltung/verzeichnis');
+}
+
+/**
+ * Speichert die Einrichtung.
+ *
+ * `kennwort` weggelassen heisst "unveraendert", `null` heisst "loeschen". Der Unterschied
+ * ist noetig, weil das Kennwort nie zur Anzeige herauskommt - ohne ihn waere jedes
+ * Speichern einer geaenderten Portnummer zugleich ein Loeschen des Kennworts.
+ */
+export function speichereVerzeichnis(
+  wert: Partial<Verzeichnis> & { kennwort?: string | null },
+): Promise<VerzeichnisAnzeige> {
+  return request('/verwaltung/verzeichnis', { method: 'PUT', body: JSON.stringify(wert) });
+}
+
+export function pruefeVerzeichnis(
+  wert: Partial<Verzeichnis> & { kennwort?: string },
+): Promise<{ ok: boolean; treffer?: number; fehler?: string }> {
+  return request('/verwaltung/verzeichnis/pruefen', {
+    method: 'POST',
+    body: JSON.stringify(wert),
+  });
+}
+
+export function sucheImVerzeichnis(q: string): Promise<{ treffer: Contact[] }> {
+  return request(`/verzeichnis/suche?q=${encodeURIComponent(q)}`);
 }
 
 /** Eine Telefonnummer mit ihrer Art ("Privat", "Arbeit", "Mobil" ...). */
@@ -72,9 +202,15 @@ export interface Kontakt extends Contact {
  * "Failed to fetch". Diese Zeichenkette stand bislang als einzige Auskunft in der
  * Meldung: englisch, technisch, und ohne einen Hinweis darauf, woran es liegt.
  */
-const KEINE_VERBINDUNG =
-  'Keine Verbindung zum Postfach. Prüfen Sie die Netzwerkverbindung – die Anwendung ' +
-  'versucht es beim nächsten Abruf erneut.';
+/*
+ * Als Funktion und nicht als Konstante: der Text würde sonst beim Einbinden gebaut, also
+ * bevor die Sprache feststeht - und ausgerechnet die Meldung, die man bei einer Störung
+ * zu sehen bekommt, stünde dann als einzige deutsch da.
+ */
+const keineVerbindung = () =>
+  t(
+    'Keine Verbindung zum Postfach. Prüfen Sie die Netzwerkverbindung – die Anwendung versucht es beim nächsten Abruf erneut.',
+  );
 
 /**
  * Kopfzeile, mit der sich die Oberfläche beim lokalen Server ausweist.
@@ -143,11 +279,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
     fristFuer(path),
   );
+  /*
+   * 423 heisst: die Sitzung ist zu.
+   *
+   * Hier abgefangen und nicht an achtzig Aufrufstellen. Jede von ihnen zeigte den Fehler
+   * sonst als gewoehnliche rote Meldung - "Gesperrt" ueber einer leeren Nachrichtenliste,
+   * und der Nutzer weiss nicht, was er tun soll.
+   *
+   * Gemeldet wird an alle Horcher, geworfen wird trotzdem: Der Aufrufer soll seinen
+   * Vorgang abbrechen und nicht mit einem leeren Ergebnis weiterrechnen.
+   */
+  if (res.status === 423) {
+    for (const hoere of [...sperrHoerer]) hoere();
+    throw new Error(t('Gesperrt'));
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}) as { error?: string });
     throw new Error(body.error ?? `Anfrage fehlgeschlagen (${res.status})`);
   }
   return res.json() as Promise<T>;
+}
+
+/**
+ * Wer erfahren will, dass die Sitzung zugefallen ist.
+ *
+ * Ein Ereignis und kein Rueckgabewert: Die Sperre kann bei JEDEM Abruf auftreten, auch
+ * bei einem, den der Nutzer gar nicht ausgeloest hat (Hintergrundabgleich). Sie durch
+ * achtzig Rueckgabetypen zu reichen hiesse, achtzig Stellen daran zu erinnern.
+ */
+const sperrHoerer = new Set<() => void>();
+
+export function beiSperre(fn: () => void): () => void {
+  sperrHoerer.add(fn);
+  return () => sperrHoerer.delete(fn);
 }
 
 /** Wie fetch, nur mit einem Satz, den man lesen kann, wenn nichts durchkommt. */
@@ -181,14 +345,15 @@ async function fetchOderMelden(
       signal: abbruch.signal,
     });
   } catch {
-    if (fremd?.aborted) throw new Error('Abgebrochen');
+    if (fremd?.aborted) throw new Error(t('Abgebrochen'));
     if (abbruch.signal.aborted) {
       throw new Error(
-        'Das Postfach hat nicht rechtzeitig geantwortet. Versuchen Sie es erneut – ' +
-          'bei großen Ordnern kann der erste Abruf länger dauern.',
+        t(
+          'Das Postfach hat nicht rechtzeitig geantwortet. Versuchen Sie es erneut – bei großen Ordnern kann der erste Abruf länger dauern.',
+        ),
       );
     }
-    throw new Error(KEINE_VERBINDUNG);
+    throw new Error(keineVerbindung());
   } finally {
     clearTimeout(uhr);
     fremd?.removeEventListener('abort', weiterreichen);
@@ -212,14 +377,203 @@ export interface IchAuskunft {
   nutzer?: { id: string; email: string };
   /** Nur wenn die Sitzung an einem Keks hängt, ist Abmelden sinnvoll. */
   abmeldbar?: boolean;
+  /** Ob die Sitzung gerade zu ist - beim Start gefragt, damit nichts aufblitzt. */
+  gesperrt?: boolean;
+  /** Nach wie vielen Minuten Untätigkeit gesperrt wird; 0 heißt: gar nicht. */
+  sperreNachMinuten?: number;
+  /**
+   * Ob dieser Mensch verwalten darf.
+   *
+   * Entscheidet nur, ob die Oberfläche den Weg dorthin ANZEIGT. Der Riegel sitzt am
+   * Server - eine Oberfläche, die einen Knopf versteckt, hat nichts verboten.
+   */
+  verwalter?: boolean;
+  /** Ob ein zweiter Faktor eingerichtet ist. */
+  zweiFaktor?: boolean;
+  /** Wie viele Wiederherstellungscodes noch übrig sind - zum Warnen, bevor keiner mehr da ist. */
+  codesUebrig?: number;
+}
+
+/**
+ * Ein Nutzer, wie ihn die Verwaltung sieht.
+ *
+ * Ohne Prüfsumme und ohne Schlüssel - der Server gibt sie nicht heraus (siehe
+ * nutzerStore.oeffentlich).
+ */
+export interface VerwalteterNutzer {
+  id: string;
+  email: string;
+  angelegt: string;
+  gesperrt: boolean;
+  verwalter: boolean;
+  /** Ob dieser Nutzer einen zweiten Faktor eingerichtet hat. */
+  zweiFaktor: boolean;
+}
+
+export function verwaltungNutzer(): Promise<{ nutzer: VerwalteterNutzer[]; ich: string }> {
+  return request('/verwaltung/nutzer');
+}
+
+/** Legt einen Nutzer an. Das Kennwort kommt einmal zurück und steht danach nirgends mehr. */
+export function verwaltungAnlegen(
+  email: string,
+  verwalter = false,
+): Promise<{ nutzer: VerwalteterNutzer; kennwort: string }> {
+  return request('/verwaltung/nutzer', {
+    method: 'POST',
+    body: JSON.stringify({ email, verwalter }),
+  });
+}
+
+export function verwaltungAendern(
+  id: string,
+  was: {
+    gesperrt?: boolean;
+    verwalter?: boolean;
+    kennwortZuruecksetzen?: boolean;
+    zweiFaktorEntfernen?: boolean;
+  },
+): Promise<{ nutzer: VerwalteterNutzer; kennwort?: string }> {
+  return request(`/verwaltung/nutzer/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(was),
+  });
+}
+
+export function verwaltungEntfernen(
+  id: string,
+  mitDaten: boolean,
+): Promise<{ entfernt: boolean; mitDaten: boolean }> {
+  return request(
+    `/verwaltung/nutzer/${encodeURIComponent(id)}?mitDaten=${mitDaten ? 'true' : 'false'}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function verwaltungSitzungenSperren(id: string): Promise<{ gesperrt: number }> {
+  return request(`/verwaltung/nutzer/${encodeURIComponent(id)}/sperren`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+/** Sperrt die eigene Sitzung sofort. */
+export function sperren(): Promise<{ gesperrt: boolean }> {
+  return request('/sperre', { method: 'POST', body: JSON.stringify({}) });
+}
+
+/** Macht sie mit dem Kennwort wieder auf. */
+export function sperreOeffnen(kennwort: string): Promise<{ gesperrt: boolean }> {
+  return request('/sperre/oeffnen', { method: 'POST', body: JSON.stringify({ kennwort }) });
 }
 
 export function frageIch(): Promise<IchAuskunft> {
   return request('/ich');
 }
 
-export function anmelden(email: string, kennwort: string): Promise<{ nutzer: { id: string } }> {
+/**
+ * Was auf ein richtiges Kennwort hin zurückkommt.
+ *
+ * Zwei Fälle, und die Oberfläche muss beide unterscheiden: Entweder ist die Anmeldung
+ * fertig (`nutzer` steht da, der Keks ist gesetzt), oder es fehlt noch der zweite Faktor -
+ * dann kommt eine Marke, die fünf Minuten gilt und ausschließlich `anmeldenMitCode` öffnet.
+ */
+export interface Anmeldebefund {
+  nutzer?: { id: string };
+  zweiFaktor?: boolean;
+  marke?: string;
+}
+
+export function anmelden(email: string, kennwort: string): Promise<Anmeldebefund> {
   return request('/anmelden', { method: 'POST', body: JSON.stringify({ email, kennwort }) });
+}
+
+/** Die zweite Stufe: das Einmalkennwort oder ein Wiederherstellungscode. */
+export function anmeldenMitCode(
+  marke: string,
+  code: string,
+): Promise<{ nutzer: { id: string }; wiederherstellung?: number }> {
+  return request('/anmelden/code', { method: 'POST', body: JSON.stringify({ marke, code }) });
+}
+
+// --- Der zweite Faktor am eigenen Konto ---
+
+/** Ein QR-Bild, wie es der Server liefert: Kantenlänge und Zeilen aus "0"/"1". */
+export interface QrBild {
+  groesse: number;
+  zeilen: string[];
+}
+
+/**
+ * Schritt eins: ein Geheimnis erzeugen lassen.
+ *
+ * Gespeichert ist danach noch nichts - wer hier abbricht, hat nichts verändert.
+ */
+export function zweiFaktorBeginnen(): Promise<{ geheimnis: string; weg: string; qr: QrBild }> {
+  return request('/ich/zweifaktor/beginnen', { method: 'POST', body: JSON.stringify({}) });
+}
+
+/** Schritt zwei: Kennwort und ein Code aus der App. Die Wiederherstellungscodes kommen einmal. */
+export function zweiFaktorBestaetigen(kennwort: string, code: string): Promise<{ codes: string[] }> {
+  return request('/ich/zweifaktor/bestaetigen', {
+    method: 'POST',
+    body: JSON.stringify({ kennwort, code }),
+  });
+}
+
+export function zweiFaktorAus(kennwort: string): Promise<{ zweiFaktor: boolean }> {
+  return request('/ich/zweifaktor/aus', { method: 'POST', body: JSON.stringify({ kennwort }) });
+}
+
+/** Ein frischer Satz Wiederherstellungscodes - die alten gelten danach nicht mehr. */
+export function zweiFaktorCodes(kennwort: string): Promise<{ codes: string[] }> {
+  return request('/ich/zweifaktor/codes', { method: 'POST', body: JSON.stringify({ kennwort }) });
+}
+
+// --- Abwesenheitsnotiz ---
+
+export interface Abwesenheit {
+  aktiv: boolean;
+  /** Ab wann (ISO-Datum, "2026-08-01"). Leer heißt: sofort. */
+  von?: string;
+  /** Bis einschließlich diesem Tag. Leer heißt: bis auf Widerruf. */
+  bis?: string;
+  /** Eigener Betreff. Leer heißt: „Re:" und der ursprüngliche Betreff. */
+  betreff?: string;
+  text: string;
+  /** Nur an Menschen antworten, die im Adressbuch stehen. */
+  nurBekannte?: boolean;
+  /** Nach wie vielen Tagen derselbe Absender wieder eine bekommt. */
+  wiederholungTage?: number;
+}
+
+export function holeAbwesenheit(accountId: string): Promise<Abwesenheit> {
+  return request(`/accounts/${encodeURIComponent(accountId)}/abwesenheit`);
+}
+
+export function speichereAbwesenheit(
+  accountId: string,
+  wert: Abwesenheit,
+): Promise<Abwesenheit> {
+  return request(`/accounts/${encodeURIComponent(accountId)}/abwesenheit`, {
+    method: 'PUT',
+    body: JSON.stringify(wert),
+  });
+}
+
+/**
+ * Welche Konten gerade wirklich antworten.
+ *
+ * Für den Hinweis in der Seitenleiste - und der ist der Punkt: Eine Abwesenheitsnotiz,
+ * die man nicht sieht, bleibt drei Monate nach dem Urlaub an.
+ */
+export function aktiveAbwesenheiten(): Promise<{ aktiv: string[] }> {
+  return request('/abwesenheit');
+}
+
+/** Das eigene Anmeldekennwort wechseln. Meldet überall ab - auch hier. */
+export function kennwortAendern(alt: string, neu: string): Promise<{ ok: boolean }> {
+  return request('/ich/kennwort', { method: 'POST', body: JSON.stringify({ alt, neu }) });
 }
 
 export function abmelden(): Promise<{ ok: boolean }> {
@@ -255,7 +609,12 @@ export function deleteAccount(accountId: string): Promise<{ ok: boolean }> {
 
 export function updateAccount(
   accountId: string,
-  settings: { displayName?: string; signature?: string; identitaeten?: Identitaet[] },
+  settings: {
+    displayName?: string;
+    signature?: string;
+    identitaeten?: Identitaet[];
+    proxy?: string;
+  },
 ): Promise<Account> {
   return request(`/accounts/${accountId}`, { method: 'PATCH', body: JSON.stringify(settings) });
 }
@@ -420,6 +779,290 @@ export function pruefeNachrichtPgp(
   );
 }
 
+// --- S/MIME ---
+
+export interface Zertifikatsangaben {
+  fingerabdruck: string;
+  name: string;
+  adressen: string[];
+  aussteller: string;
+  seriennummer: string;
+  giltAb: string;
+  giltBis: string;
+  ausgabestelle: boolean;
+  fuerMail: boolean;
+  darfUnterschreiben: boolean;
+  darfVerschluesseln: boolean;
+  schluesselart: string;
+}
+
+export interface ZertifikatEintrag {
+  fingerabdruck: string;
+  angaben: Zertifikatsangaben;
+  eigen: boolean;
+  mitKennwort?: boolean;
+  fuerKonto?: string;
+  quelle?: 'nachricht' | 'datei';
+  hinzugefuegtAm: string;
+}
+
+export type SmimeVertrauen =
+  | 'gueltig'
+  | 'gueltig-fremde-adresse'
+  | 'gueltig-wurzel-unbekannt'
+  | 'zertifikat-abgelaufen'
+  | 'zweck-passt-nicht'
+  | 'ungueltig'
+  | 'nicht-pruefbar';
+
+export interface SmimeBefund {
+  verschluesselt: boolean;
+  geoeffnet: boolean;
+  klartext?: string;
+  html?: string;
+  signatur?: {
+    vertrauen: SmimeVertrauen;
+    fingerabdruck?: string;
+    name?: string;
+    zertifikatAdressen?: string[];
+    aussteller?: string;
+    kette?: string[];
+    giltBis?: string;
+    zeitpunkt?: string;
+    grund?: string;
+  };
+  zertifikatGelernt?: boolean;
+  grund?: string;
+  /** Gesetzt, wenn an der Nachricht gar nichts mit S/MIME geschuetzt ist. */
+  ohneSmime?: boolean;
+}
+
+export function ladeZertifikate(): Promise<ZertifikatEintrag[]> {
+  return request('/smime');
+}
+
+export function ladeSchluesseldateiHoch(
+  dateiBase64: string,
+  kennwort: string,
+  optionen: { neuesKennwort?: string; fuerKonto?: string } = {},
+): Promise<ZertifikatEintrag[]> {
+  return request('/smime/schluesseldatei', {
+    method: 'POST',
+    body: JSON.stringify({ dateiBase64, kennwort, ...optionen }),
+  });
+}
+
+export function fuegeZertifikatHinzu(dateiBase64: string): Promise<ZertifikatEintrag> {
+  return request('/smime/zertifikat', { method: 'POST', body: JSON.stringify({ dateiBase64 }) });
+}
+
+export function entferneZertifikat(fingerabdruck: string): Promise<{ ok: boolean }> {
+  return request(`/smime/${fingerabdruck}`, { method: 'DELETE' });
+}
+
+export const zertifikatAusfuhrAdresse = (fingerabdruck: string) =>
+  mitZugang(`${API_BASE}/smime/${fingerabdruck}/ausfuhr`);
+
+export interface SmimeLage {
+  kannSignieren: boolean;
+  brauchtKennwort: boolean;
+  kannVerschluesseln: boolean;
+  ohneZertifikat: string[];
+}
+
+export function ladeSmimeLage(accountId: string, an: string[] = []): Promise<SmimeLage> {
+  return request(`/accounts/${accountId}/smime-lage?an=${encodeURIComponent(an.join(','))}`);
+}
+
+export function pruefeSmimeKennwort(
+  accountId: string,
+  kennwort: string,
+): Promise<{ stimmt: boolean }> {
+  return request(`/accounts/${accountId}/smime-kennwort`, {
+    method: 'POST',
+    body: JSON.stringify({ kennwort }),
+  });
+}
+
+export function pruefeNachrichtSmime(
+  accountId: string,
+  folder: string,
+  uid: number,
+  kennwort?: string,
+): Promise<SmimeBefund> {
+  return request(
+    `/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}/smime`,
+    { method: 'POST', body: JSON.stringify({ kennwort }) },
+  );
+}
+
+// --- Datenschutz: Bestandsaufnahme und Unterlagen ---
+
+export interface DatenschutzAngaben {
+  betrieb?: string;
+  anschrift?: string;
+  vertreten?: string;
+  datenschutzbeauftragter?: string;
+  betreiber: 'selbst' | 'dienstleister';
+  dienstleister?: string;
+  fernwartung: boolean;
+  fernwarter?: string;
+  betriebsrat: boolean;
+  beschaeftigte: boolean;
+  privat: boolean;
+}
+
+export interface DatenschutzErhoben {
+  nutzer: number;
+  verwalter: number;
+  mitZweiFaktor: number;
+  freigaben: number;
+  postfachanbieter: string[];
+  konten: number;
+  ueberOAuth: number;
+  verzeichnis: boolean;
+  archiv: boolean;
+  archivKonten: number;
+  verschluesselungBereit: boolean;
+  sperrfristMinuten: number;
+}
+
+export interface DatenschutzBefund {
+  verantwortlicher: string;
+  auftragsverarbeiter: { wer: string; weil: string }[];
+  keineAuftragsverarbeitung: { wer: string; weil: string }[];
+  unterlagen: string[];
+  hinweise: string[];
+}
+
+export interface Datenschutzlage {
+  angaben: DatenschutzAngaben;
+  erhoben: DatenschutzErhoben;
+  befund: DatenschutzBefund;
+}
+
+export function ladeDatenschutz(): Promise<Datenschutzlage> {
+  return request('/verwaltung/datenschutz');
+}
+
+export function speichereDatenschutz(
+  wert: Partial<DatenschutzAngaben>,
+): Promise<Datenschutzlage> {
+  return request('/verwaltung/datenschutz', { method: 'PUT', body: JSON.stringify(wert) });
+}
+
+export function erzeugeDatenschutzUnterlagen(): Promise<{
+  ordner: string;
+  dateien: string[];
+  befund: DatenschutzBefund;
+}> {
+  return request('/verwaltung/datenschutz/unterlagen', { method: 'POST' });
+}
+
+// --- Das GoBD-Archiv ---
+
+export type Aufbewahrungsart = 'geschaeftsbrief' | 'buchungsbeleg' | 'ohne-pflicht';
+
+export interface ArchivEinstellungen {
+  konten: string[];
+  vorgabe: Aufbewahrungsart;
+  betrieb?: string;
+  verantwortlich?: string;
+}
+
+export interface ArchivStand {
+  einstellungen: ArchivEinstellungen;
+  anzahl: number;
+  kettenlaenge: number;
+  siegel: string;
+  aeltesteAm?: string;
+  juengsteAm?: string;
+  bytes: number;
+  freigegeben: number;
+}
+
+export interface ArchivFund {
+  nr: number;
+  erfasstAm: string;
+  entstandenAm: string;
+  richtung: 'empfangen' | 'gesendet';
+  kontoId: string;
+  absender: string;
+  empfaenger: string[];
+  betreff: string;
+  groesse: number;
+  art: Aufbewahrungsart;
+  aufbewahrenBis: string;
+  freigegeben: boolean;
+  vermerke: { erfasstAm: string; wer: string; text: string }[];
+}
+
+export interface Bestandsbefund {
+  kette:
+    | { heil: true; anzahl: number; siegel: string }
+    | { heil: false; beiNr: number; grund: string; heilBis: number };
+  geprueft: number;
+  fehlend: number[];
+  verfaelscht: number[];
+}
+
+export function ladeArchivStand(): Promise<ArchivStand> {
+  return request('/archiv/stand');
+}
+
+export function speichereArchivEinstellungen(
+  wert: ArchivEinstellungen,
+): Promise<ArchivEinstellungen> {
+  return request('/archiv/einstellungen', { method: 'PUT', body: JSON.stringify(wert) });
+}
+
+export function sucheImArchiv(bedingung: {
+  text?: string;
+  von?: string;
+  bis?: string;
+  richtung?: 'empfangen' | 'gesendet';
+  art?: Aufbewahrungsart;
+  konto?: string;
+}): Promise<{ treffer: ArchivFund[]; gesamt: number }> {
+  const teile = Object.entries(bedingung)
+    .filter(([, w]) => w)
+    .map(([k, w]) => `${k}=${encodeURIComponent(String(w))}`);
+  return request(`/archiv/suche${teile.length ? `?${teile.join('&')}` : ''}`);
+}
+
+export const archivOriginalAdresse = (nr: number) =>
+  mitZugang(`${API_BASE}/archiv/${nr}/original`);
+
+export const verfahrensdokumentationAdresse = () =>
+  mitZugang(`${API_BASE}/archiv/verfahrensdokumentation`);
+
+export function vermerkeImArchiv(nr: number, text: string): Promise<unknown> {
+  return request(`/archiv/${nr}/vermerk`, { method: 'POST', body: JSON.stringify({ text }) });
+}
+
+export function trageArchivUm(nr: number, art: Aufbewahrungsart): Promise<unknown> {
+  return request(`/archiv/${nr}/art`, { method: 'POST', body: JSON.stringify({ art }) });
+}
+
+export function pruefeArchivBestand(): Promise<Bestandsbefund> {
+  return request('/archiv/pruefen', { method: 'POST' });
+}
+
+export function erzeugeArchivAusfuhr(bedingung: { von?: string; bis?: string } = {}): Promise<{
+  ordner: string;
+  anzahl: number;
+  bytes: number;
+  siegel: string;
+  bestandHeil: boolean;
+  hinweis?: string;
+}> {
+  return request('/archiv/ausfuhr', { method: 'POST', body: JSON.stringify(bedingung) });
+}
+
+export function raeumeArchivAuf(wirklich: boolean): Promise<{ anzahl: number; bytes: number }> {
+  return request('/archiv/aufraeumen', { method: 'POST', body: JSON.stringify({ wirklich }) });
+}
+
 // --- Einladungen ---
 
 export type EinladungsAntwort = 'zusagen' | 'absagen' | 'vorbehalten';
@@ -519,7 +1162,22 @@ export function loescheSuche(id: string): Promise<{ ok: boolean }> {
 
 export type OAuthProvider = 'google' | 'microsoft';
 
-export type OAuthClients = Record<OAuthProvider, { configured: boolean; clientId?: string }>;
+export type OAuthClients = Record<
+  OAuthProvider,
+  {
+    configured: boolean;
+    clientId?: string;
+    /** Nur Microsoft: der Mandant, ueber den die Anmeldung laeuft. */
+    mandant?: string;
+    /**
+     * Von der Organisation vorgegeben - dann ist hier nichts einzustellen.
+     *
+     * Der Server weist ein Speichern in diesem Fall mit 409 ab; die Oberflaeche zeigt das
+     * Formular erst gar nicht an.
+     */
+    vorgegeben?: boolean;
+  }
+>;
 
 export function fetchOAuthClients(): Promise<OAuthClients> {
   return request('/oauth/clients');
@@ -527,7 +1185,7 @@ export function fetchOAuthClients(): Promise<OAuthClients> {
 
 export function saveOAuthClient(
   provider: OAuthProvider,
-  credentials: { clientId: string; clientSecret?: string },
+  credentials: { clientId: string; clientSecret?: string; mandant?: string },
 ): Promise<OAuthClients> {
   return request(`/oauth/clients/${provider}`, { method: 'PUT', body: JSON.stringify(credentials) });
 }
@@ -638,7 +1296,51 @@ export function fetchMessages(
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages?${params}`);
 }
 
-export function fetchMessage(accountId: string, folder: string, uid: number): Promise<FullMessage> {
+/**
+ * Was der Server zur Lesebestaetigung einer Nachricht sagt.
+ *
+ * Fehlt es, ist nichts zu tun - entweder wurde keine angefordert, oder sie faellt aus
+ * einem der Gruende weg, die in server/lesebestaetigung.ts stehen.
+ */
+export interface Bestaetigungslage {
+  /** Wohin sie ginge. */
+  an: string;
+  /** Ob gefragt werden muss - sonst hat der Nutzer sie vorab erlaubt. */
+  fragen: boolean;
+  /** Die Bestaetigungsadresse weicht vom Absender ab. Dann wird immer gefragt. */
+  abweichend: boolean;
+}
+
+export type NachrichtMitLage = FullMessage & { lesebestaetigung?: Bestaetigungslage };
+
+export function holeLesebestaetigung(accountId: string): Promise<{ umgang: 'nie' | 'fragen' | 'immer' }> {
+  return request(`/accounts/${encodeURIComponent(accountId)}/lesebestaetigung`);
+}
+
+export function setzeLesebestaetigung(
+  accountId: string,
+  umgang: 'nie' | 'fragen' | 'immer',
+): Promise<{ umgang: string }> {
+  return request(`/accounts/${encodeURIComponent(accountId)}/lesebestaetigung`, {
+    method: 'PUT',
+    body: JSON.stringify({ umgang }),
+  });
+}
+
+/** Eine Lesebestaetigung verschicken - oder ausdruecklich keine. Beides wird gemerkt. */
+export function sendeLesebestaetigung(
+  accountId: string,
+  folder: string,
+  uid: number,
+  senden: boolean,
+): Promise<{ gesendet: boolean }> {
+  return request(
+    `/accounts/${encodeURIComponent(accountId)}/folders/${encodeURIComponent(folder)}/messages/${uid}/lesebestaetigung`,
+    { method: 'POST', body: JSON.stringify({ senden }) },
+  );
+}
+
+export function fetchMessage(accountId: string, folder: string, uid: number): Promise<NachrichtMitLage> {
   return request(`/accounts/${accountId}/folders/${encodeURIComponent(folder)}/messages/${uid}`);
 }
 
@@ -756,7 +1458,7 @@ export function fetchOffeneVorgaenge(
 }
 
 export interface GefundeneEinstellungen {
-  fundort: 'eingebaut' | 'anbieterdatenbank' | 'domain' | 'dns';
+  fundort: 'eingebaut' | 'anbieterdatenbank' | 'domain' | 'dns' | 'autodiscover' | 'mx';
   anbieter?: string;
   imapHost: string;
   imapPort: number;
@@ -765,6 +1467,15 @@ export interface GefundeneEinstellungen {
   smtpPort: number;
   smtpSecure: boolean;
   benutzername?: 'adresse' | 'ortsteil';
+  /**
+   * Gesetzt, wenn dieser Anbieter kein Kennwort mehr annimmt.
+   *
+   * Microsoft hat die Kennwortanmeldung fuer Exchange Online abgeschaltet, Google laesst
+   * sie nur noch mit einem eigens erzeugten App-Kennwort zu. Ohne diese Angabe tippt
+   * jemand sein Windows-Kennwort in das Formular, bekommt "Anmeldung fehlgeschlagen" und
+   * sucht den Fehler bei sich.
+   */
+  oauthProvider?: 'google' | 'microsoft';
 }
 
 /** Sucht die Serveradressen zu einer Mailadresse, ohne ein Konto anzulegen. */
@@ -1062,12 +1773,23 @@ export interface ForwardSource {
   filenames: string[];
 }
 
-export type Draft = Omit<OutgoingMessage, 'attachments'> & {
+export type Draft = Omit<OutgoingMessage, 'attachments' | 'kopfzeilen'> & {
+  /**
+   * Ob der Absender eine Lesebestaetigung haben moechte.
+   *
+   * Ein Schalter und keine Adresse: Wohin sie ginge, bestimmt der Server. Eine
+   * mitgeschickte Adresse waere genau der Missbrauch, gegen den die Empfangsseite
+   * abgesichert ist - siehe server/lesebestaetigung.ts.
+   */
+  lesebestaetigung?: boolean;
   attachments?: DraftAttachment[];
   /** Ob die Nachricht mit OpenPGP geschuetzt hinausgehen soll. */
   pgp?: 'signieren' | 'verschluesseln';
   /** Kennwort des geheimen Schluessels. Wird nur mitgeschickt, nie gespeichert. */
   pgpKennwort?: string;
+  /** Dasselbe mit S/MIME. Beides zugleich weist der Server ab. */
+  smime?: 'signieren' | 'verschluesseln';
+  smimeKennwort?: string;
   attachOriginal?: ForwardSource;
   /** Beim Senden: der zugehörige Entwurf wird danach entfernt. */
   draftFolder?: string;

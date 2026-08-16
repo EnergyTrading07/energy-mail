@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useFortschritt } from '../useFortschritt.js';
+import { t } from '../sprache.js';
 
 /**
  * Zeigt, wie weit die Sicherung eines Ordners ist.
@@ -53,8 +54,8 @@ export function SicherungsMeldung({ accountId, ordner, onFertig }: Props) {
         <strong>{fertig ? `„${ordner}" gesichert` : `„${ordner}" wird gesichert`}</strong>
         <span>
           {fertig
-            ? 'Die Datei liegt in deinem Download-Ordner.'
-            : (stand?.text ?? 'Nachrichten werden geholt…')}
+            ? t('Die Datei liegt in deinem Download-Ordner.')
+            : (stand?.text ?? t('Nachrichten werden geholt…'))}
         </span>
       </div>
       {!fertig && (
@@ -63,7 +64,7 @@ export function SicherungsMeldung({ accountId, ordner, onFertig }: Props) {
         </div>
       )}
       <button className="link-btn" onClick={onFertig}>
-        {fertig ? 'Schließen' : 'Ausblenden'}
+        {fertig ? t('Schließen') : t('Ausblenden')}
       </button>
     </div>
   );

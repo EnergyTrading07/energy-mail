@@ -56,6 +56,19 @@ export interface AccountConfig {
   smtpSecure: boolean;
   auth: AccountAuth;
   /**
+   * Der Weg nach draußen für dieses Konto, falls es keinen direkten gibt.
+   *
+   * Eine Adresse wie `http://proxy.firma.de:3128` oder `socks5://…`, wahlweise mit
+   * Anmeldung. Leer heißt nicht "direkt", sondern "was allgemein gilt" - siehe die
+   * Reihenfolge in proxy.ts. Eine Vorgabe aus der Richtliniendatei schlägt diesen Wert;
+   * sonst könnte ein Nutzer die Ausgangskontrolle seines Unternehmens umgehen, indem er
+   * hier etwas anderes einträgt.
+   *
+   * Enthält im Zweifel ein Kennwort und wird deshalb wie ein Geheimnis behandelt: bei der
+   * Sicherung ausgelassen, im Protokoll unkenntlich gemacht.
+   */
+  proxy?: string;
+  /**
    * Gesetzt, sobald der Anbieter die hinterlegte Anmeldung nicht mehr anerkennt (bei
    * Google nach sieben Tagen, solange das Cloud-Projekt im Testbetrieb steht).
    *
@@ -141,6 +154,39 @@ export interface MessageSummary {
   einKlickAbmeldung?: boolean;
   /** Kennung des Verteilers ("List-Id") - taugt als Bedingung für Regeln. */
   listId?: string;
+  /**
+   * Der Rückweg der Nachricht ("Return-Path") - die Adresse des Umschlags.
+   *
+   * Nicht dasselbe wie `from`: Der Kopf sagt, wer unterschrieben hat, der Umschlag, wohin
+   * eine Rückmeldung geht. Bei einem Verteiler stehen dort verschiedene Adressen, und für
+   * eine maschinelle Antwort gilt der Umschlag - so steht es in RFC 3834.
+   *
+   * **Eine leere Zeichenkette ist die wichtigste Ausprägung.** `Return-Path: <>` heißt
+   * "hierauf wird nicht geantwortet" und kennzeichnet Zustellberichte. Wer darauf
+   * antwortet, baut sich eine Endlosschleife: Der Bericht kommt zurück, die Antwort geht
+   * hinaus, und so fort. Deshalb wird hier zwischen `undefined` (keine Zeile vorhanden)
+   * und `''` (ausdrücklich leer) unterschieden.
+   */
+  rueckweg?: string;
+  /**
+   * Der Absender bittet ausdrücklich darum, keine maschinelle Antwort zu bekommen
+   * ("X-Auto-Response-Suppress", von Microsoft eingeführt und weithin beachtet).
+   *
+   * Getrennt von `maschinell`, weil es etwas anderes sagt: Diese Zeile kann auch an einer
+   * Nachricht stehen, die ein Mensch geschrieben hat.
+   */
+  keineAutoAntwort?: boolean;
+  /**
+   * Die Adresse, an die der Absender eine Lesebestätigung haben will
+   * ("Disposition-Notification-To", RFC 8098).
+   *
+   * Roh übernommen, samt Namensteil - wer sie auswertet, muss die Adresse selbst
+   * herauslösen und vor allem mit dem Absender vergleichen. Dass die beiden auseinander
+   * fallen können, ist kein Sonderfall, sondern der bekannte Missbrauch: Eine Nachricht
+   * an einen Verteiler, deren Bestätigungen an ein fremdes Postfach gehen, macht aus
+   * vierhundert Lesern vierhundert Absender. Siehe lesebestaetigung.ts.
+   */
+  bestaetigungAn?: string;
 }
 
 /**
@@ -225,6 +271,29 @@ export interface OutgoingMessage {
    * "multipart/encrypted" gebaut, und "text" wie "html" bleiben leer.
    */
   pgpGeheimtext?: string;
+  /**
+   * Dasselbe noch einmal für S/MIME - und bewusst als eigene Felder.
+   *
+   * Sie mit den PGP-Feldern zusammenzulegen wäre verlockend und falsch: Die beiden
+   * Verfahren bauen die Nachricht unterschiedlich (RFC 3156 gegen RFC 8551), und ein
+   * gemeinsames Feld hieße, an jeder Stelle mitzuführen, welches der beiden gerade
+   * gemeint ist. Ein vergessenes Mitführen wäre eine Nachricht, die niemand lesen kann.
+   *
+   * "smimeSignatur" ist die fertige Signatur in Base64, "smimeGeheimtext" das ganze
+   * verschlossene Paket, ebenfalls in Base64.
+   */
+  smimeSignatur?: string;
+  smimeSignierterTeil?: string;
+  smimeGeheimtext?: string;
+  /**
+   * Weitere Kopfzeilen, wörtlich übernommen.
+   *
+   * Gebraucht für die Abwesenheitsnotiz, und dort nicht als Beiwerk: `Auto-Submitted:
+   * auto-replied` ist nach RFC 3834 die Zeile, an der die Gegenseite erkennt, dass hier
+   * eine Maschine geantwortet hat - und ohne die zwei Abwesenheitsnotizen einander bis
+   * zum Postfachüberlauf beantworten.
+   */
+  kopfzeilen?: Record<string, string>;
 }
 
 /**

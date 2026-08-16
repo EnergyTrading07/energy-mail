@@ -15,6 +15,538 @@ Dreierlei: eine neue Gestalt für Programm und Browserfassung, das Ergebnis eine
 vollständigen Durchsicht auf Produktionsreife – und der Umbau vom Einzelplatzprogramm zu
 einem Dienst, der von überall über den Browser erreichbar ist.
 
+### Datenschutz: die Unterlagen, und wer sie überhaupt braucht
+
+Der Punkt hieß auf der Liste „AVV-Vorlage". Eine Vorlage ist auch dabei — aber sie ist
+das Unwichtigste daran.
+
+**Der Grund:** Ein Stapel Vorlagen ist die bequemste Art, jemanden im Stich zu lassen. Er
+hat danach mehr Papier als vorher und weiß immer noch nicht, was er unterschreiben muss,
+was er beim Anbieter holen muss und was er getrost weglassen kann. Viele Anbieter legen
+einen AVV bei, weil er professionell aussieht; der Kunde unterschreibt, heftet ab — und
+besorgt die Verträge nicht, die er wirklich braucht.
+
+**Deshalb steht die Entscheidung vor der Vorlage.** Unter *Verwaltung → Datenschutz* steht,
+wer hier Verantwortlicher ist, wer im Auftrag verarbeitet — und, das ist die nützlichste
+Liste des Fensters, **wer ausdrücklich keiner ist**. Reine Softwareüberlassung ist keine
+Auftragsverarbeitung: Wer ein Programm kauft und auf dem eigenen Rechner betreibt, lässt
+niemanden für sich verarbeiten. Ein AVV mit dem Hersteller wäre ein Vertrag über nichts.
+Erst wenn jemand von außen zu Wartungszwecken an die Daten herankommen **kann** — ob er
+hineinsieht, spielt keine Rolle —, ändert sich das.
+
+An erster Stelle steht der **Postfachanbieter**, und für ihn liegt bewusst kein Entwurf
+bei: Microsoft und Google unterschreiben keine fremden Verträge. Ihr Vertrag ist fertig
+und liegt in deren Verwaltungsoberfläche, wo ihn erstaunlich oft niemand angenommen hat.
+Was dort zu tun ist, steht im Deckblatt.
+
+**Erzeugt wird, was sich erzeugen lässt:** das Verzeichnis von Verarbeitungstätigkeiten
+(Art. 30), die Aufstellung der technischen und organisatorischen Maßnahmen (Art. 32) und
+— nur dort, wo einer gebraucht wird — ein Vertragsentwurf nach Art. 28 mit allen acht
+Punkten aus Absatz 3.
+
+Die Maßnahmenliste ist dabei **abgelesen und nicht abgeschrieben**. Jeder kennt die
+Vorlagen mit „Der Zugang ist durch geeignete Maßnahmen geschützt"; hier steht „3 von 12
+Nutzern haben einen zweiten Faktor eingerichtet". Das liest sich unbequemer, und genau
+deshalb ist es etwas wert. Es ist zugleich die Auszahlung der letzten elf Punkte: Was dort
+gebaut wurde — Anmeldebremse, Sitzungssperre, Rollen, Nutzertrennung, verschlüsselte
+Ablage, Freigaben, Archiv —, steht hier mit den wirklichen Zahlen.
+
+**Zwei Punkte, die fast jeder Betrieb übersieht,** stehen ausdrücklich im Befund: Ein
+Archiv, das jede Nachricht aufzeichnet, ist nach § 87 Abs. 1 Nr. 6 BetrVG
+mitbestimmungspflichtig — die *Eignung* zur Verhaltenskontrolle genügt, die Absicht ist
+gleichgültig. Und private Nutzung des Geschäftspostfachs macht die Sache erheblich
+schwieriger; eine ungeregelte Duldung ist der schlechteste Zustand.
+
+**Kein Rechtsrat**, und das steht in jedem erzeugten Papier. Die Regelfälle sind abgedeckt;
+wer dafür einstehen muss, sollte darübersehen.
+
+### Das Archiv nach GoBD
+
+Geschäftspost ist aufzubewahren — sechs Jahre für Geschäftsbriefe, acht für
+Buchungsbelege. Eine Mail ist ein Geschäftsbrief wie jeder andere, und ein Postfach ist
+kein Archiv: Man darf darin löschen und verschieben, und das soll man auch.
+
+**Der Satz, den andere Anbieter weglassen, steht hier im Fenster:** Kein Programm macht
+jemanden „GoBD-konform". Die GoBD sagen es in Randziffer 179 selbst — Zertifikate Dritter
+entfalten gegenüber der Finanzverwaltung keine Bindungswirkung. Ordnungsmäßig ist ein
+Verfahren, nicht ein Programm. Was hier gebaut ist, ist der technische Teil davon.
+
+**Wie es arbeitet.** Je Konto eingeschaltet — ohne diesen Haken geschieht gar nichts. Danach
+wird jede ein- und ausgehende Nachricht **im Original** abgelegt: alle Kopfzeilen, alle
+Anhänge, keine PDF-Fassung. Eingehend, bevor der Nutzer sie zu Gesicht bekommt; ausgehend
+mit genau den Bytes, die hinausgingen.
+
+**Die Fristen rechnen ab dem Schluss des Kalenderjahres** (§ 147 Abs. 4 AO), nicht ab dem
+Datum. Eine Rechnung vom 3. Februar und eine vom 28. Dezember desselben Jahres laufen am
+selben Tag ab — das ist die Stelle, an der sich fast jeder vertut, und sie steht deshalb
+als eigenes, für sich geprüftes Modul da. Umtragen verlängert die Frist, **verkürzen kann
+sie niemand**: Sonst ließe sich eine unbequeme Nachricht dadurch loswerden, dass man sie
+kurz vor der Prüfung zur Privatpost erklärt.
+
+**Unveränderbarkeit, ehrlich benannt.** Jeder Eintrag trägt den Abdruck des vorigen; wer
+einen in der Mitte ändert, müsste alle folgenden neu rechnen, und das **Siegel** am Ende
+ändert sich dabei zwangsläufig. Was das nicht leistet, steht überall daneben, wo es
+auftaucht: Wer Verwalterrechte hat, kann jede Datei überschreiben. Die Kette macht eine
+Änderung **erkennbar, nicht unmöglich** — und dafür muss das Siegel außerhalb des Rechners
+notiert werden. Eine Nachricht, die nicht mehr zu ihrem Abdruck passt, wird gar nicht erst
+angezeigt.
+
+**Für die Betriebsprüfung** entsteht auf Knopfdruck eine Datenträgerüberlassung (Z3): die
+Originale als `.eml`, eine Übersichtstabelle, die Beschreibungsdatei nach dem
+Beschreibungsstandard, das Siegel — und die **Verfahrensdokumentation**, die das Programm
+aus den tatsächlichen Einstellungen selbst schreibt. Ihr organisatorischer Teil steht als
+Liste von sieben Fragen darin, unbeantwortet: Eine Dokumentation mit ehrlichen Lücken ist
+mehr wert als eine, die vollständig aussieht und erfunden ist.
+
+**Geprüft wird vor allem, was schiefgehen soll.** Die Fristen gegen von Hand gerechnete
+Daten; die Kette, indem sie absichtlich verfälscht wird — geändert, neu gesiegelt,
+entnommen; die Beschreibungsdatei mit einem echten XML-Leser, Spalte für Spalte gegen die
+Tabelle gehalten. Ein Befund kam dabei heraus: Ein Vermerk über das Archiv selbst zählte
+in der Suche als Nachricht mit und verfälschte jede Zählung und jeden Zeitraum.
+
+**Offen benannt:** Erfasst wird nur, was durch dieses Programm läuft — wer nebenher die
+Weboberfläche des Anbieters benutzt, hat dort eine Lücke. Und das Archiv liegt auf
+demselben Laufwerk wie alles andere; es ist keine Sicherung.
+
+### S/MIME — unterschreiben und verschlüsseln mit Zertifikaten
+
+Das Verfahren, mit dem Unternehmen ihre Post schützen. Es liegt neben OpenPGP und ersetzt
+es nicht. Der Unterschied zwischen beiden ist der, an dem in der Praxis alles hängt: Ein
+PGP-Schlüssel behauptet selbst, zu wem er gehört, und wer das glauben will, vergleicht
+Fingerabdrücke. Bei einem Zertifikat hat eine Ausgabestelle die Behauptung unterschrieben,
+und die Unterschrift lässt sich bis zu einer Wurzel zurückverfolgen, der der Rechner
+ohnehin traut. **Niemand muss Fingerabdrücke vergleichen** — deshalb läuft S/MIME in
+Unternehmen und PGP nicht.
+
+**Was ein Nutzer tut:** seine `.p12`-Datei einlesen, wie er sie von der Ausgabestelle
+bekommen hat. Mehr nicht. Beide Bauarten werden gelesen — die heutige mit AES-256 und die
+alte mit SHA-1 und 3DES, die Windows und ältere Ausgabestellen bis heute liefern. Die
+Zertifikate der anderen kommen von selbst: **jede unterschriebene Nachricht bringt das
+Zertifikat ihres Absenders mit**, und wer einmal unterschrieben geschrieben hat, kann ab da
+verschlüsselte Post bekommen. Übernommen wird nur, was sich restlos geprüft hat —
+Unterschrift, Kette und Adresse.
+
+**Alles selbst gebaut**, aus demselben Grund wie beim LDAP-Client und beim QR-Bild: CMS
+(RFC 5652), die Zertifikatsprüfung (RFC 5280), die Schlüsseldatei (RFC 7292) samt der
+eigenwilligen Schlüsselableitung aus deren Anhang B.2. Gerechnet wird ausschließlich mit
+dem, was Node mitbringt.
+
+**Geprüft wird gegen OpenSSL, nicht gegen uns selbst.** Alle Prüfdaten — Zertifikate,
+unterschriebene und verschlüsselte Nachrichten, Schlüsseldateien — hat OpenSSL erzeugt; das
+Skript dazu liegt daneben. Und umgekehrt: `openssl cms -verify` nimmt unsere Unterschrift
+an, `openssl cms -decrypt` öffnet unseren Umschlag. **Genau diese Gegenprobe hat einen
+echten Fehler gefunden**: AES-GCM stand im gewöhnlichen Umschlag statt im dafür
+vorgesehenen (RFC 5083). Selbst gelesen ging es auf, OpenSSL wies es ab — und mit ihm jedes
+andere Programm.
+
+**Was das Band über einer Nachricht sagt**, folgt einer Regel: Nur der eine Fall, in dem
+wirklich alles stimmt, bekommt Grün. Der wichtigste der übrigen ist „Unterschrift ohne
+bekannte Herkunft" — die Rechnung geht auf, aber für das Zertifikat steht niemand gerade.
+Ein solches Zertifikat stellt sich jeder in einer halben Minute selbst aus, auf jede
+beliebige Adresse.
+
+**Zwei Stellen, an denen bewusst streng geworden wird.** Steht eine Mailadresse sowohl im
+Namen des Inhabers als auch im alternativen Namen, gilt allein der alternative — so steht
+es in RFC 8551, und wer beide zusammenwirft, lässt sich mit einem völlig regulär
+ausgestellten Zertifikat eine Unterschrift als die des Chefs ausweisen. Und **SHA-1 gilt
+nicht als Nachweis**: Eine damit unterschriebene Nachricht wird als „nicht prüfbar"
+ausgewiesen, nicht als gültig.
+
+**Offen benannt:** Rücknahmelisten werden nicht abgefragt, Anhänge nicht mitgeschützt, und
+verschlüsselt wird nur an RSA-Zertifikate.
+
+### Das Firmenverzeichnis (LDAP / Active Directory)
+
+Ein Verwalter richtet es einmal ein; danach findet jeder Nutzer beim Tippen eines
+Empfängers auch die Kollegen aus dem Verzeichnis. Zwei Vorlagen (Active Directory,
+OpenLDAP) belegen Filter und Feldnamen vor — kein Verzeichnis gleicht dem anderen, und ein
+Formular mit drei Feldern und der Annahme, es sei schon ein AD, ließe die Hälfte der
+Betreiber im Regen.
+
+**Der LDAP-Client ist selbst gebaut**, und zwar aus demselben Grund wie das QR-Bild: Es
+kommt nichts herein und geht nichts hinaus außer Bytes, die Regel steht in X.690 und
+RFC 4511, und die gängige Bibliothek brächte ein Vielfaches dessen mit, was hier gebraucht
+wird — Server, Schema, Änderungsoperationen. Gebraucht werden zwei Vorgänge, **Anmelden und
+Suchen, beide lesend**. Was das Programm nicht kann, kann auch niemand missbrauchen, der
+sich Zugriff darauf verschafft.
+
+**Geprüft wird auf drei Beinen.** Die Bytes der Suchanfrage werden mit einem eigenen,
+unabhängig geschriebenen Leser zerlegt und Feld für Feld gegen RFC 4511 §4.5.1 gehalten:
+acht Felder, in genau dieser Reihenfolge — ein Verzeichnisdienst liest sie der Reihe nach,
+und wer eines vertauscht, bekommt keine Fehlermeldung, sondern falsche Ergebnisse. Dazu
+läuft in der Prüfung ein **kleiner LDAP-Server auf einem echten TCP-Socket**, der
+absichtlich in Stücken antwortet: Genau daran fällt ein Client um, der annimmt, eine
+Antwort komme in einem Rutsch an. Und drittens der Filter.
+
+**Was der Nutzer eintippt, wird maskiert** (RFC 4515), bevor es in den Filter geht — ohne
+das baute `*)(objectClass=*` einen anderen Filter als gemeint, und dahinter stehen die
+Personaldaten eines Unternehmens.
+
+Drei Wege hinein: **LDAPS**, **StartTLS** (erst umschalten, dann anmelden — andersherum
+wäre das Kennwort schon durch die Leitung) und unverschlüsselt, das der Betreiber
+ausdrücklich wählen muss.
+
+**Ein DN ohne Kennwort wird gar nicht erst versucht.** Das ist die berüchtigte
+„unauthenticated bind": Manche Verzeichnisse antworten darauf mit Erfolg, ohne irgendetwas
+geprüft zu haben — und der Dienst hielte sich danach für angemeldet.
+
+Das Kennwort des Dienstkontos liegt mit dem Masterschlüssel verschlüsselt und geht **nie**
+zur Anzeige heraus, auch nicht an einen Verwalter; in der Oberfläche steht nur, ob eines
+hinterlegt ist. Und daneben der Satz, der später teuer wird, wenn man ihn überliest: Dort
+gehört ein Konto hin, das nur lesen darf.
+
+### Lesebestätigungen
+
+Anfordern über ein Häkchen im Verfassen-Fenster; wie mit angeforderten umgegangen wird,
+steht je Konto in den Einstellungen — **nie**, **jedes Mal fragen** (Vorgabe) oder
+**immer**.
+
+**Das Verweigern ist wieder der interessante Teil.** Eine Lesebestätigung ist eine Auskunft
+über einen Menschen an einen anderen, und sie geht automatisch hinaus. Drei Arten, wie das
+schiefgeht: Sie bestätigt einem Werbeversender, dass die Adresse gelesen wird — mehr wert
+als ein Klick auf ein Zählpixel, denn hier antwortet ein Programm mit einer echten Mail von
+einer echten Adresse. Sie verrät Arbeitszeiten. Und sie lässt sich als Waffe benutzen.
+
+**Der letzte Fall hat die einzige Stelle bekommen, an der die Einstellung des Nutzers
+überstimmt wird.** Zeigt `Disposition-Notification-To` auf eine andere Adresse als den
+Absender, wird immer gefragt — auch bei „immer". Eine Nachricht an einen Verteiler, deren
+Bestätigungen an ein fremdes Postfach gehen, macht aus vierhundert Lesern vierhundert
+Absender, und keiner ahnt etwas davon. Verglichen wird dabei mit dem **Rückweg des
+Umschlags**, nicht nur mit dem Kopf: Der Kopf lässt sich frei beschriften.
+
+**Verschickt wird, wenn die Nachricht wirklich vor jemandem steht**, nicht wenn der Server
+sie abgerufen hat — der Abruf geschieht auch für eine Vorschau oder eine Suche. Deshalb
+löst die Oberfläche das aus, und der Server prüft trotzdem noch einmal alles nach: Sie
+entscheidet, WANN gefragt wird; ob überhaupt gesendet werden darf, entscheidet der Server.
+
+**Ein „Nein" hält so lange wie ein „Ja".** Ein Nein, das nicht hält, ist eine Frage, die so
+lange wiederkehrt, bis jemand aus Versehen zustimmt.
+
+Gebaut wird ein richtiges `multipart/report` nach RFC 8098 — eine gewöhnliche Mail stünde
+beim Absender als unerklärter Zweizeiler im Posteingang, und der Haken in seinem Programm
+bliebe aus. Sie trägt `Auto-Submitted: auto-replied`, fordert selbst keine an, und ihr Text
+sagt ausdrücklich, dass „angezeigt" nicht „gelesen" heißt.
+
+**Dabei ein eigenes Loch gefunden und geschlossen:** Das `kopfzeilen`-Feld, das mit der
+Abwesenheitsnotiz hinzukam, wurde vom Sendeweg unbesehen aus dem Anfragekörper übernommen —
+eine Oberfläche hätte damit beliebige Kopfzeilen einschleusen können: ein gefälschtes
+`Sender:`, ein `Disposition-Notification-To` auf ein fremdes Postfach. Kopfzeilen setzt
+jetzt ausschließlich der Server.
+
+### Geteilte Postfächer und Stellvertretung
+
+Anna gibt eines ihrer Postfächer für Bernd frei — **nur lesen** oder **voller Zugriff** —,
+und Bernd findet es in seiner eigenen Seitenleiste, gekennzeichnet. Zwei Fälle, ein
+Verfahren: das Sammelpostfach `info@`, das drei Leute lesen, und die Vertretung während
+einer Krankheit.
+
+**Der Entwurf in einem Satz: Der Datenkontext wechselt, die Person nicht.** Ruft Bernd
+einen Weg unter Annas Konto auf, läuft die ganze Anfrage in Annas Datenkontext — dort
+liegen die Zugangsdaten, der Zwischenspeicher, die Regeln dieses Postfachs. Ein zweiter Weg
+daneben hieße, all das ein zweites Mal zu bauen, und die zweite Fassung wäre die, in der
+die Trennung eines Tages nicht mehr stimmt. Was dabei nicht wechselt, ist die Person:
+Protokoll und Rechteprüfung sehen weiterhin Bernd.
+
+**Gewechselt wird nur, wenn die Kennung des freigegebenen Kontos im Pfad steht.** Alles
+andere — Kontenliste, Adressbuch, Etiketten, Einstellungen, die eigenen Freigaben — bleibt
+in Bernds Kontext. Ein Weg, der eine Kontokennung woanders führte, fiele auf die sichere
+Seite: Bernd hat dieses Konto nicht, und der Server antwortet mit 404. Deshalb tut der
+Haken so wenig; jede Zeile mehr wäre eine, in der der Wechsel eines Tages greift, wo er
+nicht hingehört.
+
+**Die unangenehmste Falle des Entwurfs** hat einen eigenen Prüfpunkt bekommen: Der Riegel
+der Nutzerverwaltung fragt, wer da ist — und während einer Freigabe hat das zwei Antworten.
+Fragte er den Eigentümer der gerade geöffneten Daten, käme ein gewöhnlicher Nutzer über ein
+freigegebenes **Verwalterpostfach** in die Verwaltung.
+
+**Was ein Vertreter nie darf**, auch mit vollem Zugriff: das Konto entfernen, seine
+Einstellungen oder Zugangsdaten ändern, es weiterverschenken. Wer ein Postfach zum
+Bearbeiten bekommt, bekommt nicht das Recht, es abzuschaffen.
+
+**Gesendetes trägt einen Vermerk.** `From` bleibt die Adresse des Postfachs, daneben steht
+`Sender:` mit der Adresse dessen, der wirklich getippt hat — Outlook und Thunderbird zeigen
+„Bernd im Auftrag von Anna". Ohne diese Zeile verschickte ein Vertreter Post im Namen eines
+Menschen, der nichts davon weiß.
+
+Neunzehn Prüfungen, und die meisten davon prüfen, was **nicht** geht: dass Bernd Annas
+zweites Postfach nicht sieht, ihre Etiketten nicht, mit Leserecht auf acht verschiedenen
+Wegen nicht schreibend durchkommt und ihr Postfach nicht weiterverschenken kann.
+
+Offen benannt in BETRIEB.md: Ein Vertreter bekommt **keine Sofortmeldung** über neue Post —
+die Überwachung läuft im Konto des Eigentümers.
+
+### Abwesenheitsnotiz
+
+Unter **Abwesenheit** in der Seitenleiste, je Konto getrennt — wer geschäftlich und privat
+dasselbe Programm benutzt, will im Urlaub der Firma antworten und dem Fußballverein nicht.
+
+**Das Verschicken war der leichte Teil.** Der schwere ist zu wissen, wann man den Mund
+hält, und deshalb besteht dieses Modul fast nur aus Verboten. Eine Abwesenheitsnotiz, die
+zu viel antwortet, ist kein Schönheitsfehler: Sie antwortet einem Zustellbericht, der
+kommt zurück, sie antwortet wieder — und über Nacht laufen zwei Postfächer über. Sie
+antwortet einem Verteiler, und vierhundert Fremde erfahren von der Urlaubsplanung. Sie
+antwortet einer anderen Abwesenheitsnotiz, und die beiden schreiben sich das Wochenende
+über.
+
+Nie geantwortet wird deshalb auf Zustellberichte (`Return-Path: <>`), maschinelle Post
+(`Auto-Submitted`, `Precedence: bulk`), Verteiler (`List-Id`, `List-Unsubscribe`),
+Absender wie `noreply@` oder `mailer-daemon@`, auf Post, in deren An oder Kopie keine
+eigene Adresse steht — Blindkopie oder Weiterleitung —, und auf nichts außerhalb des
+Posteingangs. Maßgeblich ist RFC 3834; die Notiz trägt selbst `Auto-Submitted:
+auto-replied`, damit die Gegenseite dasselbe tun kann.
+
+**Diese Regeln sind nicht abschaltbar**, und das ist Absicht. Ein Kästchen dafür wäre eine
+Einladung, das Falsche anzukreuzen.
+
+**Geantwortet wird von der Adresse, an die geschrieben wurde**, und an den Rückweg des
+Umschlags statt an den Kopf. Wer an „info@" schreibt, soll nicht erfahren, dass dahinter
+„anna@" sitzt.
+
+**Wem geantwortet wurde, steht auf Platte und nicht im Speicher.** Der Unterschied zwischen
+einer Bremse, die greift, und einer, die es bis zum nächsten Neustart tut — und ein
+Neustart kommt bei jedem Einspielen einer Fassung.
+
+Der Knopf in der Seitenleiste ist hervorgehoben, solange wirklich geantwortet wird. Eine
+Abwesenheitsnotiz, die man nicht sieht, bleibt drei Monate nach dem Urlaub an.
+
+Offen benannt in BETRIEB.md: **Sie antwortet nur, solange der Dienst läuft.** Sie hängt an
+der Postfachüberwachung, nicht am Server des Anbieters.
+
+### Zwei-Faktor-Anmeldung
+
+Ein Kennwort war bis hierher die einzige Schranke vor sämtlicher Post eines Menschen. Jetzt
+kann sich jeder unter **Mein Konto** einen zweiten Faktor einrichten: ein Einmalcode aus
+einer Authenticator-App, nach RFC 6238 — dasselbe Verfahren, das Google Authenticator,
+Aegis, 1Password und Bitwarden beherrschen.
+
+**Ohne fremden Dienst.** Kein SMS-Versender (das schwächste der gängigen Verfahren — eine
+umgemeldete Rufnummer hebelt es aus), kein Code per Mail (der schützt ein Mailprogramm
+nicht: wer das Postfach hat, hat den Code), kein Konto bei irgendwem. Es ist Rechnerei: ein
+gemeinsames Geheimnis, die Uhrzeit, ein HMAC.
+
+**Die Anmeldung läuft in zwei Schritten, und der erste eröffnet keine Sitzung.** Auf das
+richtige Kennwort hin kommt eine Marke zurück: fünf Minuten gültig, fünf Versuche, und sie
+öffnet ausschließlich die Codeabfrage. Der naheliegende Bauweg wäre gewesen, die Sitzung zu
+eröffnen und sie als „noch nicht fertig“ zu markieren — das wäre eine Sitzung, die überall
+dort gilt, wo jemand die Markierung abzufragen vergisst. Was keine Sitzung ist, kommt an
+keiner Route vorbei.
+
+**Ein Code lässt sich nicht zweimal einlösen.** Der zuletzt benutzte Zeitschritt wird
+mitgeschrieben; ohne diese Buchführung wäre TOTP ein Kennwort mit dreißig Sekunden
+Haltbarkeit, das jeder Mitleser noch einmal benutzen kann.
+
+**Zehn Wiederherstellungscodes, einmal angezeigt.** Fünfzig Bit je Code, aus einem Alphabet
+ohne 0/O und 1/I/l — sie werden von Papier abgetippt. Sie gehen durch dasselbe Eingabefeld
+wie der Zahlencode; sechs Ziffern gegen zehn Buchstaben sind nicht zu verwechseln, und ein
+zweites Feld „oder hier ein Wiederherstellungscode“ wäre eine Frage an einen Menschen, der
+gerade nicht hereinkommt.
+
+**Das QR-Bild ist selbst gerechnet**, ohne zusätzliche Abhängigkeit. Ein QR-Code ist reine
+Mathematik — Bits, ein Reed-Solomon-Code über GF(256) und ein Muster aus Quadraten —, und
+dem stünde als Kosten gegenüber, dass eine fremde Bibliothek in einer Anwendung landet, die
+sich selbst aktualisiert und dabei ihre eigene Unterschrift prüft. Geprüft wird gegen die
+Norm: die Zahl der Datenmodule gegen die Codewort-Tabelle, die BCH-Codes über ihren
+Mindestabstand, das Reed-Solomon-Erzeugerpolynom gegen die abgedruckte Zahlenreihe, und
+zuletzt eine Rücklese des fertigen Bildes durch einen zweiten, unabhängig geschriebenen
+Leser. Dabei fiel auf, dass mein Erzeugerpolynom in umgekehrter Reihenfolge herauskam — das
+Bild hätte lesbare Nutzdaten getragen und wäre trotzdem von jedem Leser als beschädigt
+verworfen worden.
+
+**Beim Entsperren wird der Code nicht verlangt.** Er beantwortet „ist das wirklich dieses
+Konto“; die Sperre beantwortet „sitzt noch derselbe Mensch davor“. Wer bei jedem Entsperren
+das Telefon hervorholen müsste, stellte die Sperre nach dem dritten Mal ab.
+
+**Zwei Wege zurück bei einem verlorenen Telefon**: ein Verwalter räumt den Faktor ab, oder
+`nutzerWerkzeug.js zweifaktor-aus` auf dem Server. Den zweiten braucht es wirklich — wenn
+der einzige Verwalter sein Telefon verliert, kommt niemand mehr in die Verwaltung.
+
+**Was er leistet und was nicht, steht in BETRIEB.md.** Er schützt gegen ein
+abhandengekommenes Kennwort. Nicht gegen jemanden, der bereits am angemeldeten Rechner
+sitzt, und nicht gegen den Betreiber des Servers.
+
+Nebenbei hat der **Kennwortwechsel endlich eine Oberfläche**. Den Weg dafür gab es im
+Server seit Langem, nur konnte ihn niemand erreichen, ohne einen Abruf von Hand zu bauen.
+
+### Rollen: es gibt jetzt einen Verwalter
+
+Nutzer wurden von der Befehlszeile verwaltet, und der Kommentar dort nannte den Grund: „Ein
+Verwaltungsweg im Server bräuchte einen Verwalterbegriff, eine zweite Rechteebene und deren
+Prüfungen. Beides ist verfrüht.“ Verfrüht war es, solange der Dienst im Bekanntenkreis lief.
+Wer ihn einem Betrieb hinstellt, kann nicht verlangen, dass für jedes neue Postfach jemand
+eine SSH-Sitzung öffnet.
+
+**Zwei Rollen und keine Rechtematrix.** Es gibt genau zwei Sorten Mensch an diesem Dienst:
+den, der sein Postfach liest, und den, der die Nutzer verwaltet. Eine Matrix aus einzeln
+vergebbaren Rechten wäre die Antwort auf eine Frage, die niemand gestellt hat — und jede
+Zeile darin ein weiterer Weg, sie falsch einzustellen.
+
+**Die Rechteprüfung steht an genau einer Stelle**, am Präfix `/verwaltung`. Nicht in jeder
+Route ein `if (istVerwalter(…))`: Bei sieben Routen wäre die achte die, bei der es jemand
+vergisst — und eine vergessene Rechteprüfung sieht im Quelltext genauso aus wie eine Route,
+die keine braucht.
+
+**Zwei Fallen, die beim Bauen sichtbar wurden.**
+
+*Der Pseudo-Nutzer hätte die Verwaltung bekommen.* Auch im Serverbetrieb legt der Start
+einen Eintrag `lokal` an — über ihn weist sich das Desktop-Fenster aus. Er ist zugleich der
+**zuerst** angelegte, und die Regel „der Erste wird Verwalter“ hätte damit ausgerechnet dem
+Konto die Rechte gegeben, dessen Kennwort vierundzwanzig zufällige Bytes sind, die nie
+jemand zu sehen bekommt. Der Mensch, der den Dienst betreibt, hätte ohne Rechte dagestanden.
+
+*Der letzte Verwalter ließ sich abräumen* — über drei verschiedene Wege: absetzen, sperren,
+entfernen. Jeder davon hätte einen Dienst hinterlassen, in dem niemand mehr Nutzer anlegen
+oder Rollen vergeben kann; zu retten nur noch über die Befehlszeile auf dem Server. Alle
+drei sind jetzt gebremst, im Speicher und nicht in der Route: Sonst wäre die Bremse über
+den nächsten Weg zu umgehen.
+
+**Was ein Verwalter wirklich kann, steht in BETRIEB.md, und es ist unbequem.** Er setzt
+Kennwörter zurück — und kann sich damit als dieser Mensch anmelden und dessen Post lesen.
+Das ist keine Lücke, sondern die Bauart: Die Postfachkennwörter liegen mit dem
+Masterschlüssel des Servers verschlüsselt, und den hat, wer den Server betreibt. Ein
+Verwalter, der behauptete, nicht an die Post zu können, sagte die Unwahrheit. Ein
+Zurücksetzen steht deshalb als **Warnung** im Protokoll, mit Namen.
+
+Dreizehn Prüfungen, darunter die beiden, auf die es ankommt: dass ein gewöhnlicher Nutzer
+auf **jedem** Verb abgewiesen wird — nicht nur beim Lesen, denn die Wirkung genügt dem
+Angreifer —, und dass der letzte Verwalter stehen bleibt.
+
+Ein Nebenbefund: Das Löschen eines Nutzerordners stand als eigenes `rmSync` im
+Befehlszeilenwerkzeug. Die Verwaltung hätte ein zweites gebraucht, und zwei Fassungen
+desselben Löschvorgangs laufen auseinander — bei einem Löschvorgang heißt das, dass die eine
+etwas stehen lässt, was die andere mitnimmt. Jetzt gibt es eine.
+
+**Und die Oberfläche dazu.** Ein Verwalter findet in der Seitenleiste „Nutzer“: dieselbe
+Liste wie auf der Befehlszeile, dazu Anlegen, Kennwort zurücksetzen, Sperren, Rolle vergeben
+und Entfernen. Das erzeugte Kennwort steht in einem eigenen Kasten mit einem Knopf zum
+Kopieren — es erscheint genau einmal, und eine beiläufige Zeile wäre dafür der falsche Ort.
+An der eigenen Zeile fehlen Sperren, Rolle und Entfernen: Der Server weist das ohnehin ab,
+aber ein Knopf, der immer eine Fehlermeldung bringt, ist eine Falle.
+
+Dafür gibt es jetzt eine **Prüfung, die eine Oberfläche wirklich zeichnet** — die erste im
+Projekt. Ein Fenster übersetzt fehlerfrei und erscheint trotzdem nicht; genau das ist zweimal
+passiert, beim Kennwortfenster der Hülle und hier. Gefälscht wird dabei `fetch` und nicht die
+api-Funktionen: So läuft api.ts mit, und die Adressen der Wege sind mitgeprüft. Ein Fenster,
+das die richtigen Daten an den falschen Weg schickt, fiele sonst niemandem auf.
+
+Damit das ging, musste `api.ts` einen Fragezeichenpunkt bekommen: `import.meta.env` setzt
+Vite beim Bauen ein, unter reinem Node gibt es das Objekt nicht, und der Zugriff darauf warf
+schon beim Einbinden. Das Modul war für Prüfungen unerreichbar — und mit ihm alles, was es
+benutzt, also fast jedes Fenster.
+
+### Der Bildschirm sperrt sich
+
+Eine Sitzung starb bisher erst nach **vierzehn Tagen** Untätigkeit. Auf einem Bürorechner
+heißt das: Wer aufsteht, lässt sein Postfach offen stehen, und wer sich davorsetzt, liest
+mit. Jetzt fällt sie nach einer Stunde zu — einstellbar über
+`ENERGY_MAIL_SPERRE_MINUTEN`, eine 0 schaltet es ab — und daneben gibt es einen Knopf für
+den, der den Platz bewusst verlässt.
+
+**Gesperrt heißt am Server gesperrt.** Jede Anfrage einer zugefallenen Sitzung wird mit
+**423** beantwortet. Eine Fläche über der Oberfläche allein wäre wirkungslos: Der Keks gilt
+weiter, ein zweiter Tab bekäme die Post ungehindert, und ein Abruf von Hand erst recht. Die
+Prüfung geht deshalb genau dieser Frage nach — sie sperrt und ruft danach `/accounts`,
+`/etiketten` und `/sicherung` mit demselben Keks noch einmal auf.
+
+**423 und nicht 401, und daran hängt mehr als eine Zahl.** 401 hieße „melde dich an“, und
+die Weiche in der Oberfläche räumte die ganze Anwendung ab — mitsamt dem halb geschriebenen
+Brief. 423 heißt „du bist es noch, gib dein Kennwort ein“: Die Anwendung bleibt eingehängt,
+der Sperrschirm liegt *darüber*, und danach steht der Entwurf noch da. Wer zwanzig Minuten
+telefoniert hat, soll dafür nicht bestraft werden.
+
+Gesperrt wird an **zwei** Stellen, und beide werden gebraucht. Der Server sieht Untätigkeit
+erst bei der nächsten Anfrage — vor einem Bildschirm, vor dem niemand sitzt, kommt aber
+keine; ohne die Oberfläche bliebe die Post sichtbar stehen, bis jemand vorbeikommt. Die
+Oberfläche wiederum misst **echte Betätigung** (Taste, Zeiger, Rad, Berührung) und nicht
+Netzverkehr: Der läuft auch dann weiter, wenn niemand da ist.
+
+Eine Sperre allein auf die Adresse gibt es auch hier nicht, und das Entsperren zählt bei der
+Anmeldebremse mit — eine Sperre, die sich unbegrenzt durchprobieren lässt, ist keine.
+
+Beim Nachziehen fiel nebenbei auf, dass die Auffrischung der letzten Nutzung höchstens
+stündlich schrieb. Bei einer Sperrfrist von einer Stunde hieße das: Wer um 9:00 und um 9:59
+arbeitet, hat einen Zeitstempel von 9:00 und wird um 10:00 gesperrt, obwohl er gerade eben
+getippt hat. Aufgefrischt wird jetzt nach einem Viertel der Frist.
+
+**Im Desktop-Betrieb gibt es bewusst keine Sperre**: Dort weist sich das Fenster über das
+Zugangsgeheimnis des Prozesses aus — keine Sitzung, kein Kennwort, also auch nichts, was
+eine Sperre wieder aufmachen könnte. Dafür ist die Sperre des Betriebssystems da.
+
+### Die Einstellungssicherung ist verschlüsselt
+
+Sie enthält keine Kennwörter — das stand immer schon so im Kommentar, und es stimmt. Nur
+stand daneben auch der zweite Satz: darin liegen **sämtliche Mailadressen, mit denen je
+Post gewechselt wurde**, dazu das ganze Adressbuch mit Namen, Telefonnummern, Firmen und
+Geburtstagen. Als lesbares JSON, voreingestellt im Dokumentenordner — also in dem Ordner,
+den die meisten Rechner in die Wolke spiegeln. Für ein Programm mit einer DATENSCHUTZ.md
+ist das kein Schönheitsfehler.
+
+Beim Sichern fragt das Programm jetzt nach einem Kennwort (mindestens acht Zeichen, einmal
+zu wiederholen) und verschlüsselt die Datei mit AES-256-GCM; der Schlüssel kommt über
+scrypt mit N = 2¹⁷ aus dem Kennwort — rund eine Sekunde, die ein Durchprobieren der Datei
+um den Faktor Hunderttausend teurer macht.
+
+**Warum ein Kennwort und nicht der Schlüssel des Rechners**, der ohne Nachfrage auskäme:
+Der hängt an safeStorage/DPAPI und damit am Benutzerkonto *dieses* Rechners. Eine so
+verschlüsselte Sicherung ließe sich auf dem neuen Rechner nicht öffnen — also genau dort
+nicht, wofür sie gemacht ist. Der Preis steht offen im Fenster: ohne das Kennwort gibt es
+keinen Weg zurück.
+
+Der lesbare Teil bleibt lesbar — Programmname, Fassung, Zeitpunkt. Sonst hielte man eine
+Datei in der Hand, der man nicht ansieht, was sie ist, und „Sicherung einlesen“ könnte
+nicht zwischen *falsches Kennwort* und *falsche Datei* unterscheiden. Er ist mitgezeichnet
+(AAD): lesen ja, unbemerkt ändern nein. **Ältere, unverschlüsselte Sicherungen werden
+weiter angenommen** — sie enthalten dieselbe Arbeit.
+
+Electron bringt kein Eingabefeld mit: `dialog` kann melden und fragen, aber nichts
+entgegennehmen. Das Kennwortfenster ist deshalb eine eigene kleine Seite mit **eigenem
+Vorschaltskript** — bewusst nicht dem der Oberfläche, denn über das geht unter anderem das
+Zugangsgeheimnis des Prozesses hinaus. Ein Fenster, das eine Zeile Text entgegennimmt, hat
+darauf nichts zu suchen. Und es sitzt in der Hülle statt in der Oberfläche, weil das
+Einlesen ein **Notweg** ist: Genau deshalb steht es im Menü und funktioniert auch dann
+noch, wenn die Oberfläche nicht mehr lädt.
+
+Dreizehn Prüfungen für das Dateiformat, darunter die, auf die es ankommt: dass in der
+Datei keine Adresse, kein Name und keine Telefonnummer mehr zu finden ist. Dazu ein
+Durchlauf an der laufenden Hülle für das Fenster selbst — ein neues Fenster mit einem neuen
+Vorschaltskript übersetzt fehlerfrei und erscheint trotzdem nicht.
+
+### Die Anmeldebremse vergisst nicht mehr
+
+Sie zählte in einer `Map` im Arbeitsspeicher, mit einem ehrlichen Kommentar daneben: „bei
+einem Neustart ist sie weg […] vor dem öffentlichen Betrieb gehört an diese Stelle etwas,
+das über Prozessgrenzen hinweg zählt“. Der öffentliche Betrieb ist da.
+
+Das Loch war dabei nicht der Angreifer, der neu startet — das kann er nicht. Es war jedes
+Einspielen einer Fassung, jedes `docker compose up -d`, jeder Absturz. Wer davon eine
+Handvoll am Tag hat, hatte eine Bremse, die praktisch nie griff, und niemand konnte es
+sehen: Im gelungenen Fall tut sie ohnehin nichts.
+
+Jetzt liegt sie in `anmeldebremse.json` und zählt auf **zwei Ebenen**. Anschluss und
+Adresse zusammen: zehn Fehlversuche, eine Viertelstunde. Der Anschluss allein: fünfzig,
+eine Stunde — das fängt, was die genaue Frage durchlässt, nämlich ein einziges Kennwort
+gegen fünfzig verschiedene Adressen. Je Adresse ist das ein Versuch und käme nie an die
+Zehn.
+
+**Eine Sperre allein auf die Adresse gibt es weiterhin nicht, und das ist eine Entscheidung
+und kein Vergessen.** Sie wäre von jedem gegen jeden auslösbar: Adresse kennen, zehnmal
+etwas Falsches schicken, und der Betroffene kommt eine Viertelstunde lang von keinem
+Anschluss mehr an seine Post. Das ist keine Bremse mehr, sondern eine Waffe, und sie läge
+für jeden bereit.
+
+In der Datei stehen **keine Adressen und keine Anschlusskennungen**, nur salzige
+Prüfsummen. Die Bremse muss vergleichen, nie zurücklesen — und dann soll auch nichts
+dastehen, was sich zurücklesen ließe. Dieselbe Überlegung steht schon zweimal im Programm:
+Das Protokoll kürzt Anschlusskennungen, die Sitzungsdatei speichert nur die Prüfsumme der
+Kennung. Wer weniger hinschreibt, muss weniger schützen.
+
+Fünfzehn Minuten bleiben dabei fünfzehn Minuten, auch beim zwanzigsten Mal. Gerechnet:
+vierzig Versuche in der Stunde, rund 350.000 im Jahr — gegen ein Kennwort hinter scrypt ist
+das nichts. Eine wachsende Sperrzeit träfe also nicht den Angreifer, für den es ohnehin
+aussichtslos ist, sondern den Menschen, der sein Kennwort gerade nicht zusammenbekommt.
+
+Fünfzehn Prüfungen decken das ab, darunter die beiden, auf die es ankommt: dass eine Sperre
+den Neustart übersteht, und dass in der Datei weder Adresse noch Anschlusskennung stehen.
+
 ### Neue Gestalt: Papier & Strom
 
 Die Oberfläche sah aus wie jedes andere Mailprogramm: drei graublaue Spalten, durch
@@ -122,6 +654,345 @@ erreichbar ist, musste der Server lernen, wessen Post er gerade in der Hand hat.
   Skript und umgingen den Zählpixelschutz vollständig.
 - Electron-Sicherungen („Fuses“) gesetzt: die Anwendung lässt sich nicht mehr als
   beliebiger Node-Interpreter missbrauchen.
+
+### Energy Mail läuft jetzt im Firmennetz
+
+Drei Dinge unterscheiden ein verwaltetes Netz von einem Privatanschluss, und an allen
+dreien ist das Programm bisher gescheitert – nicht mit einer Fehlermeldung, sondern
+schlicht ohne Verbindung.
+
+- **Der Zertifikatsspeicher von Windows wird mitbenutzt.** Node vertraut nur seiner
+  eigenen Liste. Führt ein Netz den Verkehr über eine TLS-Prüfung (Zscaler, Fortinet,
+  Sophos), sind die Zertifikate unterwegs neu ausgestellt und mit einer firmeneigenen
+  Wurzel unterschrieben, die per Gruppenrichtlinie im Windows-Speicher liegt. Outlook und
+  Thunderbird kennen sie; Energy Mail kannte sie nicht und brach **jede** IMAP- und
+  SMTP-Verbindung ab, ohne dass jemand etwas hätte einstellen können. Gemessen auf einem
+  gewöhnlichen Rechner: 120 mitgelieferte Wurzeln, 106 zusätzliche aus dem System.
+- **Ein Proxy wird gefunden und benutzt.** Ist der Weg nach draußen nur über einen Proxy
+  offen, findet Energy Mail ihn von selbst – es fragt Windows, und ein PAC-Skript wird
+  dabei ausgewertet. Auf einem eingerichteten Firmenrechner ist damit nichts zu tun. Wo
+  das nicht genügt, gilt: Richtlinie, dann Konto, dann Umgebung, dann System. Die
+  Richtlinie schlägt das Konto, sonst genügte ein Eintrag im Kontodialog, um die
+  Ausgangskontrolle zu umgehen. HTTP CONNECT und SOCKS, Ausnahmen in der Schreibweise von
+  `NO_PROXY`, Anmeldung mit Basic. NTLM und Kerberos gehen nicht – das steht so auch in
+  BETRIEB.md, statt es offenzulassen.
+- **Der Proxy gilt auch für die HTTPS-Aufrufe**, also für den Markentausch bei Google und
+  Microsoft und für die Serversuche. Ohne diesen Teil liefe die Post, aber kein
+  OAuth-Konto könnte sich anmelden – und das sind bei Firmenkunden die meisten.
+- **Vorgaben der Organisation** in `%PROGRAMDATA%\Energy Mail\richtlinien.json` – an einem
+  Ort, an den ein gewöhnliches Benutzerkonto nicht schreiben darf. Darin: Proxy,
+  Ausnahmen, die OAuth-Anwendung, das Abschalten der Selbstaktualisierung und ein
+  Ansprechpartner, der im „Über“-Fenster vor der Projektseite steht.
+- **Die Oberfläche lässt sich übersetzen — vollständig.** Jede Beschriftung stand fest
+  verdrahtet auf Deutsch im Quelltext; für jeden Kunden mit einer nicht deutschsprachigen
+  Abteilung ein Ausschlusskriterium. Der Aufwand steckt dabei nicht im Übersetzen, sondern
+  darin, die Texte überhaupt herauslösbar zu machen.
+
+  Das ist jetzt getan: **794 Texte** gehen durch den Übersetzer — Menü, Meldungen über
+  neue Post, Infobereich, Seitenleiste, Nachrichtenliste, Leseansicht, sämtliche Dialoge,
+  die Fehlermeldungen des Servers und die Verbindungsfehler des Kerns. `npm run
+  sprachstand` sagt jederzeit, wie weit.
+
+  Deutsch stehen bleiben genau 37 Stellen, und zwar mit Absicht. **Die Grenze verläuft am
+  Fensterrand:** Was in einem Fenster steht, liest der Nutzer und gehört in seine Sprache.
+  Was ins Protokoll, in den Fehlerbericht oder in die Wanderungstabelle der Ablage
+  geschrieben wird, liest derjenige, der das Programm baut — und der liest Deutsch. Ein
+  Bericht, dessen eine Hälfte türkisch ist, weil der Absender seine Oberfläche umgestellt
+  hat, macht die Fehlersuche schwerer und nicht leichter.
+
+  **Alle neun Kataloge sind vollständig** — Englisch, Französisch, Spanisch, Italienisch,
+  Niederländisch, Portugiesisch, Türkisch, Polnisch und Russisch, je 771 von 771. Zehn
+  Sprachen, kein offener Posten. Was künftig an Text dazukommt, erscheint zunächst auf
+  Englisch und erst dann auf Deutsch — kaputt ist nichts, und `npm run sprachstand` nennt
+  die Zahl.
+
+  **Polnisch und Russisch haben drei Mehrzahlformen.** 1 → *nowa wiadomość*,
+  2–4 → *nowe wiadomości*, 5 und mehr → *nowych wiadomości* — und das nach der Endziffer,
+  weshalb 22 wieder zur mittleren Form gehört und 25 wieder zur letzten. Im Russischen
+  greift die Regel noch weiter: Dort wechselt mit der Form auch das Zeitwort — *2 письма
+  перемещены*, aber *5 писем перемещено*. Mit zwei Formen wäre in vier von fünf Fällen das
+  falsche Wort erschienen; die Prüfung verlangt bei jedem Mehrzahlschlüssel deshalb alle
+  drei.
+
+  Die zweite Eigenheit trifft die Sätze ohne `tp()`: „alle 2 Wochen“ heißt *co 2 tygodnie*,
+  „alle 5 Wochen“ aber *co 5 tygodni*, und dafür gibt es nur einen Eintrag. Solche Sätze
+  sind so gefügt, dass jede Zahl denselben Fall verlangt — im Russischen über die
+  Ordnungszahl, deren Endung sich nie ändert (*каждый {abstand}-й день*). Und eine dritte
+  gilt nur dort: **kein Zeitwort in der Vergangenheit über den Nutzer**, denn es trägt im
+  Russischen das Geschlecht (*ответил* / *ответила*), das kein Programm kennt.
+
+  **Vier Fehler kamen dabei ans Licht, und alle vier waren stumm.**
+
+  *„Abmelden“ war zweierlei.* Dasselbe Wort stand über dem Knopf, der einen Newsletter
+  loswird, und über dem, der den Nutzer aus Energy Mail abmeldet — im Deutschen beides
+  richtig. Da der deutsche Text der Schlüssel ist, war es aber ein Eintrag für zwei
+  Stellen, und alle sieben Kataloge hatten ihn als „vom Programm abmelden“ übersetzt: Der
+  Newsletter-Knopf hieß auf Englisch „Sign out“, auf Spanisch „Cerrar sesión“, auf
+  Türkisch „Oturumu kapat“. Aufgefallen erst am Polnischen, wo *wypisz się* und
+  *wyloguj się* sich nicht einmal ähneln — keine Prüfung kann so etwas sehen, denn beide
+  Übersetzungen sind für sich genommen richtig. Der Verteiler hat jetzt seinen eigenen
+  Schlüssel („Abbestellen“), und die Regel steht in BETRIEB.md: Wo ein deutsches Wort zwei
+  Dinge bedeutet, braucht es zwei Schlüssel.
+
+  *Der Server hatte gar keinen Katalog.* Die Sprache je Anfrage war gebaut, `t()` stand an
+  sechsundachtzig Stellen — und `lerneKatalog` rief dort niemand. Jede Meldung fiel auf
+  Deutsch zurück, auch für einen Browser, der ausdrücklich Englisch verlangte. Die
+  vorhandene Prüfung bestand durchgehend, weil sie ihre Kataloge selbst hinterlegte: Sie
+  prüfte das Rohr, nicht ob Wasser hindurchläuft. Jetzt geht eine Prüfung den ganzen Weg
+  — echter Server, echte Kataloge, echte Kopfzeile.
+
+  *Die Eingangskontrolle antwortete deutsch.* Fastify ruft die onRequest-Haken in der
+  Reihenfolge ihrer Anmeldung, und der Sprachhaken stand zweihundert Zeilen hinter der
+  Zugangsprüfung. Die lief damit außerhalb des Sprachkontexts, und ihre beiden Meldungen
+  kamen deutsch heraus, obwohl sie längst übersetzt waren. Der Kommentar daneben
+  behauptete dabei genau das Richtige — „vor allem anderen“ —, nur stand der Aufruf
+  nicht dort, wo er es sagte. Aufgefallen an der laufenden Anwendung und nicht in einer
+  Prüfung: Diese Meldung entsteht nur bei einer ABGEWIESENEN Anfrage, und jede Prüfung
+  fragt ordnungsgemäß an. Jetzt täuscht eine ausdrücklich eine fremde Herkunft vor.
+
+  *Im Französischen gehört die Null zur Einzahl.* `tp()` entschied über `anzahl === 1`,
+  und für Deutsch, Englisch, Niederländisch, Italienisch, Spanisch, Portugiesisch und
+  Türkisch ist das richtig. Für Französisch nicht: „0 message“, nicht „0 messages“.
+  Aufgefallen beim Vorbereiten des Katalogs, nicht im Betrieb — und dort wäre es nie
+  aufgefallen, denn die Prüfung verlangt eine Formentabelle erst ab drei Formen.
+  Entschieden wird jetzt auch ohne Tabelle über `Intl.PluralRules`.
+
+  *Alle zehn Kataloge wären in jedem Abruf gelandet.* `import { EN } from …` ist eine feste
+  Einbindung; bei einer Sprache gleichgültig, bei zehn lägen neun Zehntel ungenutzt im
+  Bündel. Jetzt wird je Sprache nachgeladen: Ein deutscher Nutzer holt 320 KB und sonst
+  nichts, ein französischer zusätzlich 64 KB. Der Server dagegen lädt alle — dort ist
+  „die eine Sprache“ die falsche Frage.
+
+  **Zwei Werkzeuge halten die Kataloge ehrlich.** `npm run sprachpruefung` läuft als Teil
+  von `npm run pruefe` und meldet Waisen, verlorene Platzhalter, fehlende Mehrzahlformen
+  und leere Einträge. Es fand sofort eine Waise im englischen Katalog und eine übersehene
+  Meldung im Server, die noch nicht durch `t()` ging. Und geschrieben werden die Kataloge
+  aus JSON statt von Hand: Bei siebentausend Einträgen über neun Sprachen ist ein
+  französisches „l'adresse“ in einer einfach zitierten Zeichenkette keine Frage der
+  Sorgfalt mehr, sondern eine Frage der Zeit — und ein durchgerutschter Apostroph macht
+  eine ganze Sprache unbrauchbar.
+
+  Dieses Eintragewerkzeug hatte selbst eine stille Falle, und sie ist beim russischen
+  Katalog zugeschnappt: Den Bestand liest es aus dem **gebauten** Katalog, geschrieben wird
+  der Quelltext. Wer zwei Stapel hintereinander einträgt und dazwischen nicht baut, setzt
+  beim zweiten auf einem veralteten Bestand auf — 130 fertige Einträge waren spurlos weg,
+  gemeldet nur als beiläufiges „130 offen“ in einer Zeile, die man für normal hält. Jetzt
+  vergleicht das Werkzeug die Zeitstempel und bricht ab, statt zu überschreiben.
+
+  **Eine Falle steckte in den Tabellen auf Modulebene.** Die Vorgabe-Etiketten, die
+  OpenPGP-Befunde, die Namen der Sonderordner, Gmails Einordnungen, die Formatierleiste,
+  die Anleitungen zur OAuth-Einrichtung — alles stand als `const` am Dateianfang. Eine
+  solche Tabelle wird beim **Einbinden** gebaut, also bevor die Sprache überhaupt
+  feststeht; sie wäre für immer deutsch geblieben, während alles ringsum übersetzt ist.
+  Aus jeder wurde eine Funktion. Derselbe Fehler steckte in `dialoge.tsx`, wo
+  `new Intl.DateTimeFormat('de-DE', …)` fest verdrahtet war: unter einem englischen
+  „Tomorrow morning“ hätte „Do., 16.08., 08:00“ gestanden. Der Fehler meldet sich nicht —
+  keine Ausnahme, kein Platzhalter, nur ein deutsches Wort mitten im Englischen. Deshalb
+  hält jetzt eine Prüfung die Stelle offen (`spracheZurLaufzeit.test.mts`): Sie stellt
+  die Sprache um und sieht nach, ob die Tabellen mitgehen — und ob ein fehlender Eintrag
+  wirklich auf den deutschen Text zurückfällt statt leer zu bleiben.
+
+  **Und eine im Messwerkzeug selbst.** Nach der Umstellung bricht der Formatierer lange
+  Texte um, aus `t('Satz')` wird ein dreizeiliger Aufruf — und den erkannte der Zähler
+  nicht mehr. Er meldete 56 Texte als „noch deutsch", die alle bereits übersetzt waren.
+  Die Zahl hätte sich von da an nicht mehr bewegt, egal wie viel Arbeit noch
+  hineingegangen wäre. Ein Messwerkzeug, das den Fortschritt nicht mehr abbildet, ist
+  schlimmer als keines.
+
+  **Zehn Sprachen sind angemeldet** (de, en, fr, es, it, nl, pl, pt, tr, ru). Für alle
+  gelten bereits die richtige Mehrzahlregel, das Datumsformat und die Sortierung.
+
+  **Sechsmal hieß eine örtliche Variable `t`** und verdeckte damit den Übersetzer — in
+  ComposeModal, AdressbuchModal, Aktualisierung, zweimal in `ics.ts` und einmal als
+  Laufparameter über die Teilnehmer einer Einladung. Fünf davon waren stumm: In jenen
+  Blöcken wurde kein Text übersetzt, und wer dort einmal einen einfügt, bekäme
+  „t is not a function" und suchte an der falschen Stelle. Der sechste fiel auf, weil der
+  Typprüfer ihn fing. Alle sind umbenannt, mit einem Satz daneben, warum.
+
+  Wobei die erste Zahl, die dieses Werkzeug nannte, selbst falsch war: Sein Muster für
+  Zeichenketten lief über Zeilenenden hinweg und verschmolz ganze Codeblöcke zu einem
+  vermeintlichen Text. Gemeldet wurden dadurch zu wenige. Behoben — und die Lehre steht
+  im Quelltext: Eine Messung, die zu gut aussieht, ist so wertlos wie eine, die zu
+  schlecht aussieht.
+
+  **Der deutsche Text ist der Schlüssel**, nicht ein erfundener Bezeichner: `t('Neue
+  Nachricht')` statt `t('nachricht.neu')`. Damit kann nichts kaputtgehen — fehlt eine
+  Übersetzung, steht der deutsche Text da, also genau das, was heute schon dort steht. Bei
+  symbolischen Schlüsseln stünde stattdessen „nachricht.neu" in der Oberfläche.
+
+  Die Sprache bestimmt die Richtlinie, sonst die Wahl des Nutzers (Extras → Sprache),
+  sonst Windows. Gibt die Organisation eine vor, steht der Menüpunkt ausgegraut da statt zu
+  fehlen: Wer die Einstellung sucht und nichts findet, hält es für ein fehlendes Merkmal
+  statt für eine Entscheidung seines Hauses.
+- **Ein MSI für die Verteilung auf die Arbeitsplätze.** Gebaut wurde bisher nur ein
+  NSIS-Setup, das ins Profil eines Nutzers installiert. Intune, SCCM und die
+  Softwareverteilung per Gruppenrichtlinie verteilen aber maschinenweit, und die
+  Gruppenrichtlinie kennt ausschließlich MSI – ohne dieses Paket müsste jemand an jeden
+  einzelnen Arbeitsplatz. Das neue Paket installiert nach „Programme", lässt sich still
+  einspielen (`msiexec /qn`) und aktualisiert sich bewusst **nicht** selbst: In einer
+  verwalteten Aufstellung entscheidet die IT, welche Fassung wann kommt. Nebenbei liegt die
+  Anwendung damit an der sichereren Stelle – unter „Programme" kann ein Prozess im
+  Nutzerkontext nicht schreiben, und der Austausch von `app.asar`, vor dem die
+  Electron-Fuses schützen, wäre schon am Dateisystem gescheitert.
+
+  Der Upgrade-Code ist ausdrücklich festgeschrieben statt aus der appId abgeleitet. Ohne
+  das ginge es gut, bis jemand die appId anfasst – und dann still schief: Windows hielte
+  die neue Fassung für ein anderes Programm und installierte sie daneben.
+
+  Das MSI steht **nicht** im gewöhnlichen Bau und nicht in der Veröffentlichung; es
+  entsteht auf Zuruf über `npm run paket:firma`. Die CI baut unverändert nur das
+  NSIS-Setup, die Selbstaktualisierung für Privatnutzer bleibt also unberührt.
+- **Die Serversuche findet jetzt auch Firmendomains.** Bei `name@ihre-firma.de` fanden die
+  bisherigen vier Quellen nichts – die Anbieterdatenbank kennt gmx und web.de, und eine
+  `autoconfig`-Datei legt kaum eine Firma auf ihre Domain. Übrig blieb das Formular für
+  Hostname und Port. Jetzt kommen zwei Wege dazu: der Autodiscover-Abruf für einen eigenen
+  Exchange im Haus, und die Erkennung an den MX-Einträgen für Microsoft 365 und Google
+  Workspace. An echten Domains nachgemessen – microsoft.com, sap.com, siemens.com und
+  shopify.com werden mit den richtigen Servern erkannt, gmx.de und posteo.de bleiben
+  unverändert bei ihren bisherigen Quellen.
+
+  Dass Autodiscover den Regelfall **nicht** trägt, gehört dazu: Bei Microsoft 365
+  antwortet der Abruf ohne Anmeldung mit 401, und die Zugangsdaten liegen zu diesem
+  Zeitpunkt noch gar nicht vor. Deshalb steht die MX-Erkennung daneben. Wo der MX-Eintrag
+  woandershin zeigt, wird nichts zurückgegeben – lieber das Formular als eine falsche
+  Adresse, die erst beim Anmelden auffällt.
+
+  Nebenbei wurde die Suche schneller, wo sie nichts findet: Die letzten drei Quellen laufen
+  jetzt nebeneinander statt hintereinander. Eine Domain ohne jede Auskunft ist nach 0,3
+  Sekunden erledigt statt nach zehn.
+- **Bei Microsoft 365 und Google sagt die Oberfläche, dass ein Kennwort nichts nützt.**
+  Microsoft hat die Kennwortanmeldung für Exchange Online abgeschaltet. Ohne den Hinweis
+  tippt jemand sein Windows-Kennwort in das Formular, liest „Anmeldung fehlgeschlagen" und
+  sucht den Fehler bei sich.
+- **Die Anmeldung bei Microsoft 365 und Google Workspace richtet die IT ein, nicht der
+  Mitarbeiter.** Bisher schickte die Einrichtung jeden ins Azure-Portal, um dort selbst
+  eine Anwendung zu registrieren – für einen Privatnutzer der ehrliche Weg, in einem
+  Unternehmen unmöglich: Dort registriert die IT, und die Zustimmung erteilt ein
+  Administrator einmal für alle. Steht die Anwendung in der Richtlinie, entfällt die
+  Einrichtung für den Nutzer vollständig; er klickt auf „Anmelden“. Der Dialog zeigt dann
+  statt der Anleitung, was gilt, und der Server weist ein Speichern ab – sonst liefe die
+  Anmeldung an der Anwendung der Organisation vorbei.
+- **Der Microsoft-Mandant lässt sich angeben.** Ohne ihn läuft die Anmeldung über
+  `/common`; dort greift die Administratorzustimmung nicht zuverlässig, und jeder
+  Mitarbeiter bekommt die Zustimmungsseite doch wieder vorgesetzt. Außerdem kann sich sonst
+  jemand versehentlich mit seinem privaten Microsoft-Konto anmelden und wundert sich über
+  ein leeres Postfach. Der Wert kommt aus einer Datei und wird deshalb kodiert eingesetzt –
+  ein Schrägstrich darin zeigte sonst auf eine ganz andere Stelle beim Anbieter.
+- **HSTS** geht im Serverbetrieb hinaus, sobald die Anfrage tatsächlich über TLS kam.
+- Im Fehlerbericht stehen jetzt Proxy, Zertifikate und Richtlinien. Bei einer Meldung aus
+  einem Firmennetz sind das die ersten drei Rückfragen; ohne sie beginnt jede
+  Fehlersuche mit einem Briefwechsel.
+- Ein Proxy-Kennwort steht in der Adresse (`http://name:kennwort@proxy:3128`). Es wird
+  verschlüsselt abgelegt, in der Oberfläche nie angezeigt und im Protokoll unkenntlich
+  gemacht – die bisherigen Regeln griffen dort nicht, weil kein „password=“ davorsteht.
+
+Zwei Fehler hat erst der Versuch am laufenden Programm hinter einem echten Proxy zutage
+gebracht, und beide waren lautlos: Die **Postfach-Überwachung** baut ihre Verbindungen
+bewusst selbst auf und wäre am Proxy vorbeigelaufen – ausgerechnet die Verbindung, die den
+ganzen Tag steht. Und eine Richtliniendatei, die Windows PowerShell mit
+`Out-File -Encoding utf8` schreibt, beginnt mit drei unsichtbaren Bytes, an denen
+`JSON.parse` scheitert: die Datei wurde gefunden, verworfen, und im Protokoll stand eine
+Zeile, die aussah, als sei alles in Ordnung. Beides behoben; die Datei meldet jetzt
+außerdem, wenn sie nicht lesbar ist.
+
+### Die Post liegt jetzt verschlüsselt auf der Platte
+
+Bis hierher galt eine Trennung, die DATENSCHUTZ.md offen benannte und die trotzdem an der
+falschen Stelle lag: Verschlüsselt waren die *Zugangsdaten* – nicht das, wofür man sie
+braucht. Wer den Benutzerordner kopierte oder die Platte ausbaute, las den Wortlaut jeder
+geöffneten Nachricht, das ganze Adressbuch und jede wartende Sendung, ohne ein Kennwort zu
+kennen.
+
+Verschlüsselt sind jetzt: der **Text, das HTML und die Anhangsangaben** aller
+zwischengespeicherten Nachrichten, das **Adressbuch** (Daten Dritter, und es füllt sich
+beim bloßen Lesen von selbst), die **wartenden Sendungen** samt Anhängen, der
+**Zwischenspeicher** der Ordnerlisten, die **zurückgestellten Nachrichten**, die
+**Regeln**, die **gemerkten Suchen**, die **Etiketten** und die **vertrauten Absender**.
+Dasselbe Verfahren wie bei den Kennwörtern: AES-256-GCM, Schlüssel über Windows'
+safeStorage an das Benutzerkonto gebunden, je Nutzer verschieden.
+
+Was **nicht** verschlüsselt ist und warum: Betreff, Absender, Empfänger und Datum in
+`ablage.db`. An ihnen hängen Nachrichtenliste, Sortierung und Suche – verschlüsselt man
+sie, lässt sich das Postfach ohne Verbindung gar nicht mehr anzeigen. Der Tausch wird
+benannt statt verschwiegen.
+
+**Was es gekostet hat:** die lokale Suche im Nachrichtentext. Der Volltextindex speicherte
+den Text im Klartext mit – eine unverschlüsselte zweite Fassung jeder gelesenen Nachricht,
+gleich neben der verschlüsselten. Man kann den Index haben oder die Verschlüsselung. Die
+lokale Suche deckt jetzt Betreff, Absender und Empfänger ab; im Nachrichtentext sucht der
+Anbieter, und der Hinweis unter dem Suchergebnis sagt das.
+
+Beim ersten Start wird eine bestehende Ablage einmalig umgestellt: Texte verschlüsseln,
+Suchindex ohne sie neu aufbauen, Datei neu schreiben. Gemessen an einem gewachsenen
+Postfach: 751 Millisekunden, Bestand vollständig erhalten. Die JSON-Speicher werden beim
+ersten Lesen ersetzt – nicht erst beim nächsten Schreiben. Auch das zeigte erst der Start
+am echten Ordner: Adressbuch und Zwischenspeicher waren sofort verschlüsselt, weil sie
+ohnehin dauernd geschrieben werden, `regeln.json` und `etiketten.json` standen weiter
+offen da. Die werden nur angefasst, wenn jemand eine Regel ändert – also womöglich nie.
+
+Eine Feinheit, die erst der Probelauf an einem echten Postfach zeigte: Den Suchindex zu
+*leeren* genügt nicht. FTS5 führt ihn in Segmentblöcken, und ein `delete` setzt dort nur
+Grabsteine – der gesamte Wortschatz der alten Nachrichten blieb lesbar. Der Index wird
+deshalb weggeworfen und neu gebaut. Die Prüfung, die das absichert, sieht in die
+Segmentblöcke selbst; die naheliegende Prüfung („steht das Wort noch in der Datei“) lief
+grün durch, weil Testdaten zu klein sind, um das Problem zu haben.
+
+### Meldungen ohne Absender und Betreff
+
+Eine Benachrichtigung erscheint über allem, was gerade auf dem Bildschirm ist – im
+Vortrag, in der Bildschirmübertragung, auf dem Sperrbildschirm, wo Windows sie im
+Info-Center aufhebt. „Praxis Dr. Behrens: Ihr Befund liegt vor“ ist eine Auskunft, die man
+nicht zurücknehmen kann.
+
+Unter Extras lässt sich die Vorschau abschalten; dann nennt die Meldung nur noch das Konto
+und „Neue Nachricht“, und statt dreier Meldungen kommt eine für den ganzen Eingang.
+Vorgabe bleibt eingeschaltet – eine Meldung ohne Absender lässt die Frage offen, für die
+es sie gibt.
+
+### Datenschutz: die Durchsicht
+
+Eine Runde durch das ganze Programm mit einer einzigen Frage: Wo entsteht, liegt oder geht
+etwas hinaus, das über einen Menschen Auskunft gibt – und ist das dort nötig? Sieben
+Stellen, an denen die Antwort nein lautete.
+
+- **Suchbegriffe standen im Protokoll.** Jede Anfrage wird mit ihrer Adresse
+  festgehalten, und die Suche läuft über `/search?q=…`. Damit lag in der Datei, die
+  „Fehlerbericht erzeugen“ ausdrücklich zum Verschicken anbietet, eine Liste dessen, wonach
+  jemand in seiner eigenen Post gesucht hat. Ein Suchbegriff sagt oft mehr über einen
+  Menschen aus als die Nachricht, die er findet.
+- **Mailadressen entgingen der Reinigung, wenn sie in einer Web-Adresse standen.** Die
+  Regel kannte nur das wörtliche `@` und ging an `max%40beispiel.de` vorbei – also an jedem
+  Löschen eines Kontakts und jedem Entziehen des Vertrauens. Die Zusicherung im
+  Fehlerbericht („Mailadressen wurden herausgenommen“) stimmte damit nicht.
+- **IP-Adressen werden gekürzt festgehalten** (`203.0.113.x`). Genug, um Durchprobieren
+  bei der Anmeldung zu erkennen; zu wenig, um einen Anschluss zu benennen. Betrifft den
+  Serverbetrieb: dort schickte der Betreiber mit einem Fehlerbericht bislang die Adressen
+  seiner Nutzer mit.
+- **Gelöscht heißt jetzt überschrieben.** SQLite hakte eine gelöschte Zeile nur als „Platz
+  ist wieder frei“ ab. Der Nutzer löschte eine Nachricht, sie verschwand aus der Liste –
+  und ihr vollständiger Wortlaut stand weiter in `ablage.db`, lesbar mit jedem Texteditor.
+  Beim Entfernen eines Kontos wird die Datei zusätzlich neu geschrieben.
+- **Freigegebene Bilder können keine Kennung mehr hinterlassen.** Klickte man „Einmal
+  laden“, ging Chromium mit der Werbeanlage um wie mit jeder Webseite: es nahm ihren Keks
+  an und schickte ihn beim nächsten Mal zurück. Der Zählpixel in Rundmail A erkannte damit
+  den in Rundmail B wieder – genau die Wiedererkennung, gegen die das Zurückhalten gedacht
+  ist, nur einen Schritt später. Kekse, Verweise und Client Hints gehen bei fremden Zielen
+  nicht mehr mit, und die Programmkennung nennt nicht länger „Energy Mail“ samt Fassung.
+- **Ein Schalter für die Rechtschreibprüfung.** Sie ist die von Chromium, und die
+  Wörterbücher holt Chromium von einem Server von Google. Geschriebener Text geht dabei
+  nicht hinaus, aber ein Abruf ist es – und er stand in keiner Aufzählung dessen, was das
+  Programm tut, weil er eine Ebene tiefer passiert. Jetzt steht er in DATENSCHUTZ.md und
+  lässt sich unter Extras abstellen.
+- **Extras → „Zwischengespeicherte Nachrichten…“.** Erst die Zahlen – wie viele Kopfdaten,
+  wie viele Texte, wie viele Megabyte –, dann die Frage. Bis hierher gab es keinen Weg,
+  den Bestand loszuwerden, außer `ablage.db` von Hand im Benutzerordner zu suchen.
+- **Das Abmelden räumt die Textbausteine weg.** Der Browserspeicher hängt an der Adresse,
+  nicht am Nutzer: im Serverbetrieb fand der Nächste am selben Rechner die Formulierungen
+  des Vorigen vor. Die Trennung der Nutzer reichte bis in jede Datei auf dem Server und
+  endete ausgerechnet dort, wo keine liegt.
+- Ohne Anlass, aber weil die Vorgabe die falsche ist: Standort, Kamera, Mikrofon und
+  Bildschirmaufnahme werden im Fenster jetzt ausdrücklich abgelehnt. Electron gewährt sie
+  sonst von sich aus, und dieses Fenster zeigt fremdes HTML aus E-Mails an.
 
 ### Sicherheit: die Durchsicht nach der Nutzertrennung
 

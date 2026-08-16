@@ -10,6 +10,8 @@
  * müssen: eine Zeile, die "3" sagt statt "3 ungelesen", fällt in keinem Bild auf.
  */
 
+import { t } from './sprache.js';
+
 /** Die Angaben einer Listenzeile, soweit sie vorgelesen werden. */
 export interface Zeilenangaben {
   absender: string;
@@ -32,11 +34,13 @@ export interface Zeilenangaben {
  */
 export function zeilenBeschriftung(z: Zeilenangaben): string {
   const teile: string[] = [];
-  if (!z.gelesen) teile.push('Ungelesen');
-  teile.push(z.absender || 'Unbekannter Absender');
-  teile.push(z.betreff?.trim() || 'Ohne Betreff');
-  if (z.imGespraech && z.imGespraech > 1) teile.push(`Gespräch mit ${z.imGespraech} Nachrichten`);
-  if (z.mitAnhang) teile.push('mit Anhang');
+  if (!z.gelesen) teile.push(t('Ungelesen'));
+  teile.push(z.absender || t('Unbekannter Absender'));
+  teile.push(z.betreff?.trim() || t('Ohne Betreff'));
+  if (z.imGespraech && z.imGespraech > 1) {
+    teile.push(t('Gespräch mit {anzahl} Nachrichten', { anzahl: z.imGespraech }));
+  }
+  if (z.mitAnhang) teile.push(t('mit Anhang'));
   if (z.herkunft) teile.push(z.herkunft);
   if (z.datum) teile.push(z.datum);
   return teile.join(', ');
@@ -51,7 +55,7 @@ export function zeilenBeschriftung(z: Zeilenangaben): string {
  */
 export function ordnerBeschriftung(name: string, ungelesen?: number): string {
   if (!ungelesen) return name;
-  return `${name}, ${ungelesen} ungelesen`;
+  return t('{name}, {anzahl} ungelesen', { name, anzahl: ungelesen });
 }
 
 /**
@@ -61,7 +65,7 @@ export function ordnerBeschriftung(name: string, ungelesen?: number): string {
  * Auskunft. Es muss dabeistehen, was man da ankreuzt.
  */
 export function kaestchenBeschriftung(betreff: string): string {
-  return `${betreff?.trim() || 'Nachricht ohne Betreff'} auswählen`;
+  return t('{betreff} auswählen', { betreff: betreff?.trim() || t('Nachricht ohne Betreff') });
 }
 
 // --- Fokus in einem Fenster halten ------------------------------------------------

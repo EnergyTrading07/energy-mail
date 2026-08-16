@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { beschreibeSuche } from '@energy-mail/mail-core/etiketten';
 import type {
   CategoryInfo,
@@ -33,6 +33,11 @@ import {
   type Sortierung,
 } from './sortierung.js';
 import { SchluesselModal } from './components/SchluesselModal.js';
+import { ZertifikatModal } from './components/ZertifikatModal.js';
+import { ArchivModal } from './components/ArchivModal.js';
+import { VerwaltungModal } from './components/VerwaltungModal.js';
+import { KontoModal } from './components/KontoModal.js';
+import { AbwesenheitModal } from './components/AbwesenheitModal.js';
 import { RulesModal } from './components/RulesModal.js';
 import { QuelltextModal } from './components/QuelltextModal.js';
 import { absenderFuerAntwort, alleAbsender } from './identitaeten.js';
@@ -47,6 +52,7 @@ import {
   hasMultipleRecipients,
   withSignature,
 } from './composeHelpers.js';
+import { raeumeOertlicheDatenAuf } from './textbausteine.js';
 import { zeichneAbzeichen } from './design/abzeichen.js';
 import { useThema } from './design/thema.js';
 import { bestaetige, frage, waehleZeitpunkt, wiedervorlageVorschlaege } from './dialoge.js';
@@ -57,6 +63,7 @@ import { meldeErfolg, meldeFehler, meldeMitRueckweg, meldeWarnung } from './meld
 import { providerTheme } from './providerTheme.js';
 import { escapeHtml, textToHtml } from './htmlText.js';
 import { raeumeEntwurfAuf } from './formatierung.js';
+import { t, tp } from './sprache.js';
 import { useAktualisierung } from './useAktualisierung.js';
 import { useBefehle, type Befehl } from './useBefehle.js';
 import { useMailEvents } from './useMailEvents.js';
@@ -96,9 +103,11 @@ interface AppProps {
   ich?: api.IchAuskunft;
   /** Nach dem Abmelden: die Weiche sieht neu nach und zeigt das Anmeldefenster. */
   onAbgemeldet?: () => void;
+  /** Sperrt den Bildschirm - der Schirm selbst liegt in der Weiche, über dieser Anwendung. */
+  onSperren?: () => void;
 }
 
-export default function App({ ich, onAbgemeldet }: AppProps = {}) {
+export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
@@ -143,7 +152,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   const [loadingMessage, setLoadingMessage] = useState(false);
 
   const [composeInitial, setComposeInitial] = useState<Partial<api.Draft> | null>(null);
-  const [composeTitle, setComposeTitle] = useState('Neue Nachricht');
+  const [composeTitle, setComposeTitle] = useState(t('Neue Nachricht'));
   const [draftLocation, setDraftLocation] = useState<DraftLocation | undefined>(undefined);
   const [settingsFor, setSettingsFor] = useState<api.Account | null>(null);
   /** Konto, dessen Regeln gerade verwaltet werden. */
@@ -178,6 +187,26 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   const [suchen, setSuchen] = useState<api.GespeicherteSuche[]>([]);
   /** Ob der Schluesselbund offen ist. */
   const [schluesselOffen, setSchluesselOffen] = useState(false);
+  const [zertifikateOffen, setZertifikateOffen] = useState(false);
+  const [archivOffen, setArchivOffen] = useState(false);
+  const [verwaltungOffen, setVerwaltungOffen] = useState(false);
+  const [kontoOffen, setKontoOffen] = useState(false);
+  const [abwesenheitOffen, setAbwesenheitOffen] = useState(false);
+  /**
+   * Konten, deren Abwesenheitsnotiz gerade wirklich antwortet.
+   *
+   * Beim Start geholt und nach jeder Änderung nachgezogen. Ein Zeitgeber wäre hier
+   * verkehrt: Der Zustand ändert sich nur, wenn dieser Mensch ihn ändert - oder wenn ein
+   * Zeitraum abläuft, und das merkt der nächste Start.
+   */
+  const [abwesenheitAktiv, setAbwesenheitAktiv] = useState<string[]>([]);
+  const ladeAbwesenheit = useCallback(() => {
+    api
+      .aktiveAbwesenheiten()
+      .then((a) => setAbwesenheitAktiv(a.aktiv))
+      .catch(() => undefined);
+  }, []);
+  useEffect(ladeAbwesenheit, [ladeAbwesenheit]);
   /**
    * Sortierung und Anzeigedichte. Beide ueberdauern den Neustart - eine Einstellung,
    * die man bei jedem Start neu treffen muss, ist keine.
@@ -246,6 +275,24 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   // Getrennt davon, weil sich die Ungelesen-Zähler der Ordner auch ändern, wenn die
   // Nachrichtenliste selbst gleich bleibt (z.B. beim Als-gelesen-Markieren).
   const [folderReload, setFolderReload] = useState(0);
+
+  /*
+   * Nach dem Entsperren alles neu holen.
+   *
+   * Waehrend der Sperre kam jeder Abruf mit 423 zurueck - Ordnerliste und Nachrichten sind
+   * also auf dem Stand von vorher, und in der Zwischenzeit ist womoeglich Post gekommen.
+   * Ueber ein Fensterereignis und nicht ueber eine Eigenschaft: Der Schirm liegt in der
+   * Weiche ueber dieser Anwendung, und ein Zaehler dafuer waere eine Leitung durch zwei
+   * Ebenen fuer einen einzigen Augenblick.
+   */
+  useEffect(() => {
+    const wieder = () => {
+      setFolderReload((n) => n + 1);
+      setReloadCounter((n) => n + 1);
+    };
+    window.addEventListener('energy-mail:entsperrt', wieder);
+    return () => window.removeEventListener('energy-mail:entsperrt', wieder);
+  }, []);
   // Konten, die neue Mail haben, während sie gerade nicht angezeigt werden.
   const [accountsWithNewMail, setAccountsWithNewMail] = useState<Set<string>>(new Set());
 
@@ -846,8 +893,10 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
       setEtikettenDauerhaft(ergebnis.dauerhaft);
       if (!ergebnis.dauerhaft) {
         meldeWarnung(
-          'Dieser Ordner behält keine Etiketten',
-          'Der Server hat den Befehl angenommen, vergisst das Etikett aber beim Schließen des Ordners wieder.',
+          t('Dieser Ordner behält keine Etiketten'),
+          t(
+            'Der Server hat den Befehl angenommen, vergisst das Etikett aber beim Schließen des Ordners wieder.',
+          ),
         );
       }
     } catch (err) {
@@ -855,7 +904,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
       // vorher getragen haben.
       setMessages((prev) => prev.map((m) => (m.uid === uid ? { ...m, flags: vorher } : m)));
       setSelectedMessage((prev) => (prev && prev.uid === uid ? { ...prev, flags: vorher } : prev));
-      meldeFehler('Etikett nicht gesetzt', (err as Error).message);
+      meldeFehler(t('Etikett nicht gesetzt'), (err as Error).message);
     }
   };
 
@@ -883,10 +932,10 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
    */
   const merkeSuche = async (eingabe: SucheEingabe) => {
     const name = await frage({
-      titel: 'Diese Suche merken',
+      titel: t('Diese Suche merken'),
       text: beschreibeSuche({ ...eingabe, etikett: eingabe.etikett || undefined }, etiketten),
       vorgabe: eingabe.text || eingabe.from || eingabe.subject || '',
-      ok: 'Merken',
+      ok: t('Merken'),
     });
     if (!name) return;
 
@@ -907,9 +956,12 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
         },
       });
       setSuchen((prev) => [...prev, gemerkt]);
-      meldeErfolg(`„${gemerkt.name}“ gemerkt`, 'Steht jetzt unten in der Seitenleiste.');
+      meldeErfolg(
+        t('„{name}“ gemerkt', { name: gemerkt.name }),
+        t('Steht jetzt unten in der Seitenleiste.'),
+      );
     } catch (err) {
-      meldeFehler('Suche nicht gemerkt', (err as Error).message);
+      meldeFehler(t('Suche nicht gemerkt'), (err as Error).message);
     }
   };
 
@@ -937,9 +989,9 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
 
   const vergissSuche = async (gemerkt: api.GespeicherteSuche) => {
     const ja = await bestaetige({
-      titel: `Suche „${gemerkt.name}“ vergessen?`,
-      text: 'Nur die gemerkte Suche verschwindet – an Ihren Nachrichten ändert sich nichts.',
-      ok: 'Vergessen',
+      titel: t('Suche „{name}“ vergessen?', { name: gemerkt.name }),
+      text: t('Nur die gemerkte Suche verschwindet – an Ihren Nachrichten ändert sich nichts.'),
+      ok: t('Vergessen'),
     });
     if (!ja) return;
     await api.loescheSuche(gemerkt.id);
@@ -964,14 +1016,17 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
       await api.moveMessages(fracht.accountId, fracht.ordner, fracht.uids, ziel.path);
       setFolderReload((n) => n + 1);
       meldeErfolg(
-        fracht.uids.length === 1
-          ? `Nach „${ziel.name}“ verschoben`
-          : `${fracht.uids.length} Nachrichten nach „${ziel.name}“ verschoben`,
+        tp(
+          fracht.uids.length,
+          'Nach „{ordner}“ verschoben',
+          '{anzahl} Nachrichten nach „{ordner}“ verschoben',
+          { anzahl: fracht.uids.length, ordner: ziel.name },
+        ),
       );
     } catch (err) {
       // Zurueckholen, was gar nicht weg ist.
       setReloadCounter((n) => n + 1);
-      meldeFehler('Verschieben nicht möglich', (err as Error).message);
+      meldeFehler(t('Verschieben nicht möglich'), (err as Error).message);
     }
   };
 
@@ -1006,7 +1061,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
       if (status.status === 'done') return status.account;
       if (status.status === 'error') throw new Error(status.error);
     }
-    throw new Error('Zeitüberschreitung – die Anmeldung wurde nicht abgeschlossen.');
+    throw new Error(t('Zeitüberschreitung – die Anmeldung wurde nicht abgeschlossen.'));
   };
 
   const handleOAuthLogin = async (provider: api.OAuthProvider) => {
@@ -1097,16 +1152,31 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
 
     if (permanent) {
       const reason = trashFolder
-        ? uids.length === 1
-          ? 'Diese Nachricht liegt bereits im Papierkorb.'
-          : 'Diese Nachrichten liegen bereits im Papierkorb.'
-        : 'Für dieses Konto gibt es keinen Papierkorb-Ordner.';
-      const what = uids.length === 1 ? 'Nachricht' : `${uids.length} Nachrichten`;
+        ? tp(
+            uids.length,
+            'Diese Nachricht liegt bereits im Papierkorb.',
+            'Diese Nachrichten liegen bereits im Papierkorb.',
+          )
+        : t('Für dieses Konto gibt es keinen Papierkorb-Ordner.');
       const ja = await bestaetige({
-        titel: `${what} endgültig löschen?`,
-        text: `${reason}\n\nDas lässt sich nicht rückgängig machen.`,
+        /*
+         * Der ganze Satz durch tp() und nicht "Zahl + Wort" zusammengesetzt.
+         *
+         * Vorher stand hier `${what} endgültig löschen?` mit `what` als "Nachricht" oder
+         * "3 Nachrichten". Das geht nur so lange gut, wie die Wortstellung deutsch ist -
+         * im Türkischen steht das Verb hinten, im Polnischen richtet sich das Zahlwort
+         * nach der Zahl. Ein Satzteil, der anderswo eingesetzt wird, lässt sich nicht
+         * übersetzen; ein ganzer Satz schon.
+         */
+        titel: tp(
+          uids.length,
+          'Nachricht endgültig löschen?',
+          '{anzahl} Nachrichten endgültig löschen?',
+          { anzahl: uids.length },
+        ),
+        text: `${reason}\n\n${t('Das lässt sich nicht rückgängig machen.')}`,
         stil: 'gefahr',
-        ok: 'Endgültig löschen',
+        ok: t('Endgültig löschen'),
       });
       if (!ja) return;
     }
@@ -1133,7 +1203,12 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
        * vorher bestätigt - da hilft ein Weg zurück nicht mehr.
        */
       if (!permanent) {
-        const was = uids.length === 1 ? 'Nachricht' : `${uids.length} Nachrichten`;
+        const was = tp(
+          uids.length,
+          'Nachricht in den Papierkorb',
+          '{anzahl} Nachrichten in den Papierkorb',
+          { anzahl: uids.length },
+        );
         /*
          * Zurückgeholt wird mit den Nummern im Papierkorb, nicht mit denen von vorher.
          * Beim Verschieben vergibt der Server neue; mit den alten griffe man dort nach
@@ -1141,8 +1216,8 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
          * keinen Rückweg - dann bleibt es bei der schlichten Meldung.
          */
         if (imPapierkorb.length === uids.length) {
-          meldeMitRueckweg(`${was} in den Papierkorb`, undefined, {
-            text: 'Rückgängig',
+          meldeMitRueckweg(was, undefined, {
+            text: t('Rückgängig'),
             tu: () => {
               void api
                 .moveMessages(vonKonto, trashFolder!.path, imPapierkorb, vonOrdner)
@@ -1150,11 +1225,13 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
                   setFolderReload((n) => n + 1);
                   setReloadCounter((n) => n + 1);
                 })
-                .catch((err) => meldeFehler('Zurückholen misslungen', (err as Error).message));
+                .catch((err) =>
+                  meldeFehler(t('Zurückholen misslungen'), (err as Error).message),
+                );
             },
           });
         } else {
-          meldeErfolg(`${was} in den Papierkorb`);
+          meldeErfolg(was);
         }
       }
     } catch (err) {
@@ -1187,7 +1264,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
     // Bei aktiver Einordnung deren Name: dieselbe Beschriftung wie die hervorgehobene
     // Zeile in der Seitenleiste.
     if (selectedCategory) return categoryLabel(selectedCategory);
-    if (!selectedFolder) return 'Nachrichten';
+    if (!selectedFolder) return t('Nachrichten');
     const ansicht = buildFolderView(folders);
     const treffer = [...ansicht.sonder, ...ansicht.weitere].find(
       (e) => e.folder.path === selectedFolder,
@@ -1205,35 +1282,37 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
       await tun();
       setFolderReload((n) => n + 1);
     } catch (err) {
-      setError(`${was} fehlgeschlagen: ${(err as Error).message}`);
+      // `was` kommt schon übersetzt herein; die Fügung bleibt hier, damit eine Sprache
+      // mit anderer Wortstellung sie im Katalog umstellen kann.
+      setError(t('{was} fehlgeschlagen: {grund}', { was, grund: (err as Error).message }));
     }
   };
 
   const ordnerAktionen = {
     anlegen: (accountId: string, pfad: string) =>
-      void ordnerAktion('Ordner anlegen', () => api.createFolder(accountId, pfad)),
+      void ordnerAktion(t('Ordner anlegen'), () => api.createFolder(accountId, pfad)),
 
     umbenennen: (accountId: string, folder: FolderInfo, neuerPfad: string) =>
-      void ordnerAktion('Umbenennen', async () => {
+      void ordnerAktion(t('Umbenennen'), async () => {
         await api.renameFolder(accountId, folder.path, neuerPfad);
         // Der angezeigte Ordner heißt jetzt anders - sonst zeigte die Liste ins Leere.
         if (selectedFolder === folder.path) waehleOrdner(neuerPfad);
       }),
 
     loeschen: (accountId: string, folder: FolderInfo) =>
-      void ordnerAktion('Löschen', async () => {
+      void ordnerAktion(t('Löschen'), async () => {
         await api.deleteFolder(accountId, folder.path);
         if (selectedFolder === folder.path) setSelectedFolder(null);
       }),
 
     leeren: (accountId: string, folder: FolderInfo) =>
-      void ordnerAktion('Leeren', async () => {
+      void ordnerAktion(t('Leeren'), async () => {
         await api.emptyFolder(accountId, folder.path);
         if (selectedFolder === folder.path) setReloadCounter((n) => n + 1);
       }),
 
     alleGelesen: (accountId: string, folder: FolderInfo) =>
-      void ordnerAktion('Als gelesen markieren', async () => {
+      void ordnerAktion(t('Als gelesen markieren'), async () => {
         await api.markFolderRead(accountId, folder.path);
         if (selectedFolder === folder.path) setReloadCounter((n) => n + 1);
       }),
@@ -1247,12 +1326,11 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
      */
     sichern: (accountId: string, folder: FolderInfo) => {
       void bestaetige({
-        titel: `"${folder.name}" sichern?`,
-        text:
-          'Alle Nachrichten des Ordners werden vom Anbieter geholt und als mbox-Datei ' +
-          'gespeichert - das Format, das Thunderbird, Apple Mail und die üblichen ' +
-          'Umstellungswerkzeuge lesen. Bei großen Ordnern dauert das einige Minuten.',
-        ok: 'Sichern',
+        titel: t('„{ordner}“ sichern?', { ordner: folder.name }),
+        text: t(
+          'Alle Nachrichten des Ordners werden vom Anbieter geholt und als mbox-Datei gespeichert - das Format, das Thunderbird, Apple Mail und die üblichen Umstellungswerkzeuge lesen. Bei großen Ordnern dauert das einige Minuten.',
+        ),
+        ok: t('Sichern'),
       }).then((ja) => {
         if (!ja) return;
         setSicherungLaeuft({ accountId, ordner: folder.name });
@@ -1310,8 +1388,10 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
     if (!selectedAccountId || !selectedFolder) return;
 
     const ziel = await waehleZeitpunkt({
-      titel: 'Wann soll die Nachricht wieder auftauchen?',
-      text: 'Sie verschwindet bis dahin aus dem Posteingang und liegt zum gewählten Zeitpunkt wieder oben.',
+      titel: t('Wann soll die Nachricht wieder auftauchen?'),
+      text: t(
+        'Sie verschwindet bis dahin aus dem Posteingang und liegt zum gewählten Zeitpunkt wieder oben.',
+      ),
       vorschlaege: wiedervorlageVorschlaege(),
     });
     if (!ziel) return;
@@ -1470,7 +1550,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
       folder,
       uid: message.uid,
       partIds: withPartId.map((a) => a.partId!),
-      filenames: withPartId.map((a) => a.filename ?? 'Anhang'),
+      filenames: withPartId.map((a) => a.filename ?? t('Anhang')),
     };
   };
 
@@ -1481,7 +1561,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   };
 
   const handleCompose = () => {
-    oeffneVerfassen('Neue Nachricht', { html: withSignature('', selectedAccount?.signature) });
+    oeffneVerfassen(t('Neue Nachricht'), { html: withSignature('', selectedAccount?.signature) });
   };
 
   /**
@@ -1520,7 +1600,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
             .join('')
         : '';
 
-      oeffneVerfassen('Neue Nachricht', {
+      oeffneVerfassen(t('Neue Nachricht'), {
         to: angaben.an ?? [],
         cc: angaben.kopie ?? [],
         bcc: angaben.blindkopie ?? [],
@@ -1558,7 +1638,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
     const von = selectedAccount
       ? absenderFuerAntwort(selectedAccount, { to: message.to, cc: message.cc })
       : null;
-    oeffneVerfassen(toAll ? 'Allen antworten' : 'Antworten', {
+    oeffneVerfassen(toAll ? t('Allen antworten') : t('Antworten'), {
       ...entwurf,
       absender: von?.id ? { email: von.email, displayName: von.displayName } : undefined,
       html: withSignature(entwurf.html ?? '', von?.signature ?? selectedAccount?.signature),
@@ -1568,7 +1648,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   const handleForward = (message: FullMessage) => {
     if (!selectedFolder) return;
     const entwurf = buildForward(message, document);
-    oeffneVerfassen('Weiterleiten', {
+    oeffneVerfassen(t('Weiterleiten'), {
       ...entwurf,
       html: withSignature(entwurf.html ?? '', selectedAccount?.signature),
       // Der Server holt die Anhänge selbst per IMAP - sie müssen nicht durch den Browser.
@@ -1680,7 +1760,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   const handleEditDraft = (message: FullMessage) => {
     if (!selectedFolder) return;
     oeffneVerfassen(
-      'Entwurf bearbeiten',
+      t('Entwurf bearbeiten'),
       {
         to: message.to.map((a) => a.address),
         cc: message.cc.map((a) => a.address),
@@ -1703,7 +1783,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   const BEDENKZEIT_SEKUNDEN = 8;
 
   const handleSend = async (draft: api.Draft, sendenAm?: string) => {
-    if (!selectedAccountId) throw new Error('Kein Konto ausgewählt');
+    if (!selectedAccountId) throw new Error(t('Kein Konto ausgewählt'));
 
     const result = await api.sendMessage(
       selectedAccountId,
@@ -1728,9 +1808,11 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
     // aus, nämlich rot.
     if (!result.savedToSent) {
       meldeWarnung(
-        'Versendet, aber nicht abgelegt',
-        `Die Nachricht ist beim Empfänger unterwegs. Nur die Kopie im Gesendet-Ordner ` +
-          `konnte nicht geschrieben werden: ${result.saveError ?? 'unbekannter Grund'}`,
+        t('Versendet, aber nicht abgelegt'),
+        t(
+          'Die Nachricht ist beim Empfänger unterwegs. Nur die Kopie im Gesendet-Ordner konnte nicht geschrieben werden: {grund}',
+          { grund: result.saveError ?? t('unbekannter Grund') },
+        ),
       );
     } else {
       setFolderReload((n) => n + 1);
@@ -1741,7 +1823,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
   };
 
   const handleSaveDraft = async (draft: api.Draft): Promise<DraftLocation> => {
-    if (!selectedAccountId) throw new Error('Kein Konto ausgewählt');
+    if (!selectedAccountId) throw new Error(t('Kein Konto ausgewählt'));
     const result = await api.saveDraft(selectedAccountId, draft, draft.draftUid);
     const ort = { folder: result.folder, uid: result.uid };
     setDraftLocation(ort);
@@ -1845,7 +1927,7 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
               .cancelSend(selectedAccountId!, laufend.id)
               .then(({ koerper }) => {
                 // Zurück ins Verfassen-Fenster, mit allem was drinstand.
-                oeffneVerfassen('Nachricht weiterbearbeiten', koerper);
+                oeffneVerfassen(t('Nachricht weiterbearbeiten'), koerper);
               })
               .catch((err) => setError((err as Error).message));
           }}
@@ -1858,10 +1940,10 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
         aufs Neue.
       */}
       <a className="sprungmarke" href="#nachrichtenliste">
-        Zur Nachrichtenliste
+        {t('Zur Nachrichtenliste')}
       </a>
       <a className="sprungmarke" href="#nachricht">
-        Zur geöffneten Nachricht
+        {t('Zur geöffneten Nachricht')}
       </a>
       <div className="app">
         <Sidebar
@@ -1874,7 +1956,27 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
               // Auch wenn der Server nicht antwortet: der Keks ist danach hinfällig, und
               // die Weiche stellt gleich fest, dass niemand mehr angemeldet ist.
             }
+            /*
+             * Und weg mit dem, was im Browser bleibt.
+             *
+             * Der Browserspeicher hängt an der Adresse, nicht am Nutzer: ohne das fände
+             * der Nächste am selben Rechner die Textbausteine des Vorigen vor. Nach dem
+             * Serveraufruf und außerhalb des Auffangs - es soll auch dann laufen, wenn
+             * der Server nicht mehr antwortet.
+             */
+            raeumeOertlicheDatenAuf();
             onAbgemeldet?.();
+          }}
+          onSperren={() => {
+            /*
+             * Erst den Schirm, dann den Server.
+             *
+             * Andersherum bliebe die Post noch sichtbar, solange die Anfrage unterwegs
+             * ist - bei einer schlechten Verbindung sind das Sekunden, und genau in
+             * denen steht der Nutzer schon nicht mehr davor.
+             */
+            onSperren?.();
+            void api.sperren().catch(() => undefined);
           }}
           accounts={accounts}
           selectedAccountId={selectedAccountId}
@@ -1893,6 +1995,19 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onOpenAdressbuch={() => setAdressbuch({})}
           onOpenSchluessel={() => setSchluesselOffen(true)}
+          onOpenZertifikate={() => setZertifikateOffen(true)}
+          onOpenArchiv={() => setArchivOffen(true)}
+          onOpenAbwesenheit={() => setAbwesenheitOffen(true)}
+          onFreigabeWeglegen={(id) => {
+            void api
+              .freigabeBeenden(id)
+              .then(() => setReloadCounter((n) => n + 1))
+              .catch(() => undefined);
+          }}
+          abwesenheitAktiv={abwesenheitAktiv}
+          darfVerwalten={Boolean(ich?.verwalter)}
+          onOpenVerwaltung={() => setVerwaltungOffen(true)}
+          onOpenKonto={() => setKontoOffen(true)}
           onAblegen={(fracht, ziel) => void verschiebeGezogene(fracht, ziel)}
           gesamtAnsicht={gesamtAnsicht}
           onGesamtAnsicht={waehleGesamt}
@@ -2099,13 +2214,13 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
               setFolderReload((n) => n + 1);
             }}
             onWeiterbearbeiten={(entwurf) =>
-              oeffneVerfassen('Nachricht weiterbearbeiten', entwurf)
+              oeffneVerfassen(t('Nachricht weiterbearbeiten'), entwurf)
             }
             onOeffnen={(ordner, uid) =>
               setZuOeffnen({ accountId: wartendFor.id, folder: ordner, uid })
             }
             onNachfassen={(an, betreff) =>
-              oeffneVerfassen('Nachfassen', {
+              oeffneVerfassen(t('Nachfassen'), {
                 to: an.map((a) => a.address),
                 subject: buildFollowUpSubject(betreff),
                 html: withSignature('', wartendFor.signature),
@@ -2147,9 +2262,38 @@ export default function App({ ich, onAbgemeldet }: AppProps = {}) {
         {showOAuthSetup && (
           <OAuthSetupModal onClose={() => setShowOAuthSetup(false)} onChanged={setOauthClients} />
         )}
+        {abwesenheitOffen && (
+          <AbwesenheitModal
+            konten={accounts}
+            startKonto={selectedAccount?.id}
+            onClose={() => setAbwesenheitOffen(false)}
+            onGeaendert={ladeAbwesenheit}
+          />
+        )}
+        {verwaltungOffen && <VerwaltungModal onClose={() => setVerwaltungOffen(false)} />}
+        {kontoOffen && (
+          <KontoModal
+            onClose={() => setKontoOffen(false)}
+            /*
+             * Ein Kennwortwechsel beendet jede Sitzung - auch diese. Deshalb derselbe
+             * Weg wie beim Abmelden: den örtlichen Speicher räumen und die Weiche neu
+             * fragen lassen, statt in einer Oberfläche zu bleiben, die ab jetzt bei
+             * jedem Abruf 401 bekommt.
+             */
+            onAbgemeldet={() => {
+              setKontoOffen(false);
+              raeumeOertlicheDatenAuf();
+              onAbgemeldet?.();
+            }}
+          />
+        )}
         {schluesselOffen && (
           <SchluesselModal accounts={accounts} onClose={() => setSchluesselOffen(false)} />
         )}
+        {zertifikateOffen && (
+          <ZertifikatModal accounts={accounts} onClose={() => setZertifikateOffen(false)} />
+        )}
+        {archivOffen && <ArchivModal accounts={accounts} onClose={() => setArchivOffen(false)} />}
         {adressbuch && (
           <AdressbuchModal
             vorgabe={adressbuch.vorgabe}

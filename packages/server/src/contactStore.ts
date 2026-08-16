@@ -7,6 +7,8 @@ import {
   type Visitenkarte,
 } from '@energy-mail/mail-core';
 import { getNutzerDir } from './paths.js';
+import { istVerschluesselt, schreibeGeschuetzt } from './geschuetzteAblage.js';
+import { decryptSecret } from './secretCrypto.js';
 
 const getStorePath = () => path.join(getNutzerDir(), 'contacts.json');
 
@@ -88,7 +90,18 @@ function load(): Ablage {
   const storePath = getStorePath();
   if (fs.existsSync(storePath)) {
     try {
-      const roh = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
+      const datei = fs.readFileSync(storePath, 'utf-8');
+      /*
+       * Verschlüsselt oder aus der Zeit davor.
+       *
+       * Das Adressbuch ist der Speicher, bei dem es am meisten zählt: es enthält Namen
+       * und Adressen von Menschen, die nie gefragt wurden, ob sie hier stehen wollen -
+       * und es füllt sich beim bloßen Lesen von selbst. Klartext aus einer Installation
+       * von vor der Umstellung wird weiter gelesen und beim nächsten Schreiben ersetzt.
+       */
+      const roh = JSON.parse(
+        istVerschluesselt(datei) ? decryptSecret(datei.trim()) : datei,
+      );
       // Ältere Fassungen legten nur eine Liste ab.
       const alt = Array.isArray(roh);
       const kontakte: Contact[] = alt ? roh : (roh.kontakte ?? []);
@@ -140,12 +153,13 @@ function schreibe(): void {
   });
 
   fs.mkdirSync(getNutzerDir(), { recursive: true });
-  // Erst daneben schreiben, dann umbenennen: bricht der Vorgang ab, bleibt der alte
-  // Stand heil statt halb geschrieben liegenzubleiben.
-  const ziel = getStorePath();
-  const zwischen = `${ziel}.neu`;
-  fs.writeFileSync(zwischen, inhalt, 'utf-8');
-  fs.renameSync(zwischen, ziel);
+  /*
+   * Erst daneben schreiben, dann umbenennen - und verschlüsselt.
+   *
+   * Hier stand dasselbe Verfahren von Hand ausgeschrieben, ohne fsync und ohne
+   * Sicherungskopie; schreibeGeschuetzt() bringt beides mit (siehe atomar.ts).
+   */
+  schreibeGeschuetzt(getStorePath(), inhalt);
 }
 
 /** Gebündelt schreiben: beim Durchblättern fallen sonst Dutzende Schreibvorgänge an. */

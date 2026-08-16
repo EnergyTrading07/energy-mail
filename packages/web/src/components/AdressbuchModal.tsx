@@ -4,6 +4,7 @@ import type { Kontakt, Telefonnummer } from '../api.js';
 import { bestaetige } from '../dialoge.js';
 import { meldeErfolg, meldeFehler, meldeHinweis } from '../meldungen.js';
 import { Fenster } from './Fenster.js';
+import { t } from '../sprache.js';
 
 /**
  * Das Adressbuch.
@@ -53,8 +54,10 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
   useEffect(() => {
     // Die Suche wartet kurz ab: bei jedem Tastendruck sofort zu laden ließe die Liste
     // flackern, ohne dass es schneller würde.
-    const t = setTimeout(() => void laden(suche, auchAufgelesene), 180);
-    return () => clearTimeout(t);
+    // Nicht "t": das ist der Uebersetzer aus sprache.js, und eine oertliche Variable
+    // gleichen Namens verdeckte ihn in diesem Block.
+    const uhr = setTimeout(() => void laden(suche, auchAufgelesene), 180);
+    return () => clearTimeout(uhr);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suche, auchAufgelesene]);
 
@@ -80,10 +83,12 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
 
   const loeschen = async (kontakt: Entwurf) => {
     const ja = await bestaetige({
-      titel: `„${kontakt.name || kontakt.address}“ löschen?`,
-      text: 'Der Eintrag verschwindet aus dem Adressbuch. Kommt die Adresse in Ihrer Post vor, wird sie beim nächsten Blättern wieder als Vorschlag aufgelesen – aber ohne Telefonnummer, Firma und Notiz.',
+      titel: t('„{name}“ löschen?', { name: kontakt.name || kontakt.address }),
+      text: t(
+        'Der Eintrag verschwindet aus dem Adressbuch. Kommt die Adresse in Ihrer Post vor, wird sie beim nächsten Blättern wieder als Vorschlag aufgelesen – aber ohne Telefonnummer, Firma und Notiz.',
+      ),
       stil: 'gefahr',
-      ok: 'Löschen',
+      ok: t('Löschen'),
     });
     if (!ja) return;
 
@@ -102,18 +107,19 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
     try {
       const ergebnis = await api.fuehreVisitenkartenEin(await datei.text());
       const teile = [
-        ergebnis.angelegt > 0 && `${ergebnis.angelegt} neu`,
-        ergebnis.aktualisiert > 0 && `${ergebnis.aktualisiert} ergänzt`,
-        ergebnis.uebergangen > 0 && `${ergebnis.uebergangen} ohne Mailadresse übergangen`,
+        ergebnis.angelegt > 0 && t('{anzahl} neu', { anzahl: ergebnis.angelegt }),
+        ergebnis.aktualisiert > 0 && t('{anzahl} ergänzt', { anzahl: ergebnis.aktualisiert }),
+        ergebnis.uebergangen > 0 &&
+          t('{anzahl} ohne Mailadresse übergangen', { anzahl: ergebnis.uebergangen }),
       ].filter(Boolean);
 
       if (ergebnis.angelegt + ergebnis.aktualisiert === 0) {
         meldeHinweis(
-          'Keine Kontakte übernommen',
-          `In „${datei.name}“ stand keine Visitenkarte mit einer Mailadresse.`,
+          t('Keine Kontakte übernommen'),
+          t('In „{datei}“ stand keine Visitenkarte mit einer Mailadresse.', { datei: datei.name }),
         );
       } else {
-        meldeErfolg('Adressbuch eingelesen', teile.join(' · '));
+        meldeErfolg(t('Adressbuch eingelesen'), teile.join(' · '));
       }
       await laden();
     } catch (err) {
@@ -143,22 +149,18 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
       <div className="adressbuch-leiste">
         <input
           type="search"
-          placeholder="Name, Adresse oder Firma"
+          placeholder={t('Name, Adresse oder Firma')}
           value={suche}
           onChange={(e) => setSuche(e.target.value)}
-          aria-label="Im Adressbuch suchen"
+          aria-label={t('Im Adressbuch suchen')}
         />
         <label className="adressbuch-schalter">
           <input
             type="checkbox"
             checked={auchAufgelesene}
             onChange={(e) => setAuchAufgelesene(e.target.checked)}
-          />
-          Aufgelesene zeigen
-        </label>
-        <button className="btn secondary" onClick={() => setEntwurf({ ...LEER })}>
-          Neuer Kontakt
-        </button>
+          />{t('Aufgelesene zeigen')}</label>
+        <button className="btn secondary" onClick={() => setEntwurf({ ...LEER })}>{t('Neuer Kontakt')}</button>
       </div>
 
       <div className="adressbuch-flaechen">
@@ -166,8 +168,10 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
           {liste.eintraege.length === 0 ? (
             <div className="empty-state">
               {suche
-                ? `Nichts gefunden zu „${suche}“.`
-                : 'Noch kein Kontakt eingetragen. Legen Sie einen an oder lesen Sie eine vCard-Datei ein.'}
+                ? t('Nichts gefunden zu „{suche}“.', { suche })
+                : t(
+                    'Noch kein Kontakt eingetragen. Legen Sie einen an oder lesen Sie eine vCard-Datei ein.',
+                  )}
             </div>
           ) : (
             liste.eintraege.map((kontakt) => (
@@ -210,12 +214,12 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
 
         <div className="adressbuch-form">
           {!entwurf ? (
-            <div className="empty-state">Links einen Kontakt wählen oder einen neuen anlegen.</div>
+            <div className="empty-state">{t('Links einen Kontakt wählen oder einen neuen anlegen.')}</div>
           ) : (
             <>
               <div className="form-row adressbuch-namen">
                 <span>
-                  <label htmlFor="ab-vorname">Vorname</label>
+                  <label htmlFor="ab-vorname">{t('Vorname')}</label>
                   <input
                     id="ab-vorname"
                     value={entwurf.vorname ?? ''}
@@ -223,7 +227,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
                   />
                 </span>
                 <span>
-                  <label htmlFor="ab-nachname">Nachname</label>
+                  <label htmlFor="ab-nachname">{t('Nachname')}</label>
                   <input
                     id="ab-nachname"
                     value={entwurf.nachname ?? ''}
@@ -233,20 +237,20 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
               </div>
 
               <div className="form-row">
-                <label htmlFor="ab-name">Angezeigter Name</label>
+                <label htmlFor="ab-name">{t('Angezeigter Name')}</label>
                 <input
                   id="ab-name"
                   value={entwurf.name ?? ''}
                   placeholder={
                     [entwurf.vorname, entwurf.nachname].filter(Boolean).join(' ') ||
-                    'wird aus Vor- und Nachname gebildet'
+                    t('wird aus Vor- und Nachname gebildet')
                   }
                   onChange={(e) => setzeFeld('name', e.target.value)}
                 />
               </div>
 
               <div className="form-row">
-                <label htmlFor="ab-adresse">Mailadresse</label>
+                <label htmlFor="ab-adresse">{t('Mailadresse')}</label>
                 <input
                   id="ab-adresse"
                   type="email"
@@ -257,7 +261,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
 
               {(entwurf.weitereAdressen ?? []).map((adresse, i) => (
                 <div className="form-row adressbuch-zeile" key={`adresse-${i}`}>
-                  <label htmlFor={`ab-weitere-${i}`}>Weitere Adresse</label>
+                  <label htmlFor={`ab-weitere-${i}`}>{t('Weitere Adresse')}</label>
                   <input
                     id={`ab-weitere-${i}`}
                     type="email"
@@ -279,15 +283,13 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
                         (entwurf.weitereAdressen ?? []).filter((_, j) => j !== i),
                       )
                     }
-                  >
-                    Entfernen
-                  </button>
+                  >{t('Entfernen')}</button>
                 </div>
               ))}
 
               {(entwurf.telefone ?? []).map((telefon, i) => (
                 <div className="form-row adressbuch-zeile" key={`telefon-${i}`}>
-                  <label htmlFor={`ab-telefon-${i}`}>Telefon</label>
+                  <label htmlFor={`ab-telefon-${i}`}>{t('Telefon')}</label>
                   <select
                     value={telefon.art ?? 'Privat'}
                     onChange={(e) => setzeTelefon(i, { art: e.target.value })}
@@ -339,7 +341,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
               </div>
 
               <div className="form-row">
-                <label htmlFor="ab-firma">Firma</label>
+                <label htmlFor="ab-firma">{t('Firma')}</label>
                 <input
                   id="ab-firma"
                   value={entwurf.organisation ?? ''}
@@ -348,7 +350,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
               </div>
 
               <div className="form-row">
-                <label htmlFor="ab-anschrift">Anschrift</label>
+                <label htmlFor="ab-anschrift">{t('Anschrift')}</label>
                 <textarea
                   id="ab-anschrift"
                   rows={2}
@@ -358,7 +360,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
               </div>
 
               <div className="form-row">
-                <label htmlFor="ab-geburtstag">Geburtstag</label>
+                <label htmlFor="ab-geburtstag">{t('Geburtstag')}</label>
                 <input
                   id="ab-geburtstag"
                   type="date"
@@ -368,7 +370,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
               </div>
 
               <div className="form-row">
-                <label htmlFor="ab-notiz">Notiz</label>
+                <label htmlFor="ab-notiz">{t('Notiz')}</label>
                 <textarea
                   id="ab-notiz"
                   rows={3}
@@ -379,21 +381,15 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
 
               <div className="adressbuch-knoepfe adressbuch-formknoepfe">
                 {entwurf.gepflegt && (
-                  <button className="link-btn gefaehrlich" onClick={() => void loeschen(entwurf)}>
-                    Löschen
-                  </button>
+                  <button className="link-btn gefaehrlich" onClick={() => void loeschen(entwurf)}>{t('Löschen')}</button>
                 )}
                 <span className="adressbuch-fueller" />
-                <button className="btn secondary" onClick={() => setEntwurf(null)}>
-                  Abbrechen
-                </button>
+                <button className="btn secondary" onClick={() => setEntwurf(null)}>{t('Abbrechen')}</button>
                 <button
                   className="btn"
                   onClick={() => void speichern()}
                   disabled={busy || !entwurf.address.includes('@')}
-                >
-                  Speichern
-                </button>
+                >{t('Speichern')}</button>
               </div>
             </>
           )}
@@ -415,7 +411,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
           className="btn secondary"
           onClick={() => dateiwahl.current?.click()}
           disabled={busy}
-          title="Eine vCard-Datei aus einem anderen Programm einlesen"
+          title={t('Eine vCard-Datei aus einem anderen Programm einlesen')}
         >
           vCard einlesen
         </button>
@@ -426,14 +422,10 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
             // der Kopfzeile des Servers.
             window.location.href = api.adressbuchAusfuhrAdresse();
           }}
-          title="Alle eingetragenen Kontakte als vCard-Datei sichern"
-        >
-          Als vCard sichern
-        </button>
+          title={t('Alle eingetragenen Kontakte als vCard-Datei sichern')}
+        >{t('Als vCard sichern')}</button>
         <span className="adressbuch-fueller" />
-        <button className="btn" onClick={onClose}>
-          Schließen
-        </button>
+        <button className="btn" onClick={onClose}>{t('Schließen')}</button>
       </div>
     </Fenster>
   );

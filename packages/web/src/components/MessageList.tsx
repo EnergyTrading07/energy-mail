@@ -4,7 +4,7 @@ import { gruppiere, type Konversation } from '../konversationen.js';
 import { kaestchenBeschriftung, zeilenBeschriftung } from '../barrierefrei.js';
 import type { Listeneintrag } from '../listenTypen.js';
 import {
-  DICHTEN,
+  dichten,
   beschreibeSortierung,
   umfasstAlles,
   type Dichte,
@@ -16,6 +16,7 @@ import { EtikettMarken } from './Etiketten.js';
 import { Monogramm } from './Monogramm.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
 import { Klammer, LeererKorb, Winkel } from './Symbole.js';
+import { datum, t, uhrzeit, zahl } from '../sprache.js';
 
 // Weitergereicht, damit Aufrufer den Typ nicht aus zwei Modulen holen müssen.
 export type { Listeneintrag };
@@ -93,11 +94,11 @@ function kurzesDatum(date: Date | null): string {
     d.getMonth() === jetzt.getMonth() &&
     d.getFullYear() === jetzt.getFullYear();
 
-  if (gleicherTag) return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  if (gleicherTag) return uhrzeit(d, { hour: '2-digit', minute: '2-digit' });
   if (d.getFullYear() === jetzt.getFullYear()) {
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    return datum(d, { day: '2-digit', month: '2-digit' });
   }
-  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return datum(d, { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 /**
@@ -117,14 +118,21 @@ function LokalHinweis({
 }) {
   return (
     <div className="lokal-hinweis">
+      {/*
+        Was hier steht, muss stimmen - sonst hört jemand zu früh auf zu suchen.
+
+        Vorher stand hier "im Text von N bereits geöffneten". Das gilt nicht mehr: die
+        Nachrichtentexte liegen verschlüsselt auf der Platte, und ein Volltextindex über
+        sie wäre eine unverschlüsselte zweite Fassung gleich daneben. Gesucht wird lokal
+        deshalb in Betreff, Absender und Empfänger; für den Nachrichtentext steht der Weg
+        über den Anbieter rechts daneben, und der reicht ohnehin weiter.
+      */}
       <span>
-        Sofort gefunden ({stand.dauerMs} ms) — in Betreff und Absender von{' '}
-        {stand.bestand.kopfdaten.toLocaleString('de-DE')} Nachrichten, im Text von{' '}
-        {stand.bestand.mitText.toLocaleString('de-DE')} bereits geöffneten.
+        Sofort gefunden ({stand.dauerMs} ms) — in Betreff, Absender und Empfänger von{' '}
+        {zahl(stand.bestand.kopfdaten)} Nachrichten. Im Nachrichtentext
+        sucht nur der Anbieter.
       </span>
-      <button className="link-btn" onClick={onVollstaendig}>
-        Beim Anbieter vollständig suchen
-      </button>
+      <button className="link-btn" onClick={onVollstaendig}>{t('Beim Anbieter vollständig suchen')}</button>
     </div>
   );
 }
@@ -396,9 +404,13 @@ export function MessageList({
         >
           <button
             className="gespraech-schalter"
-            aria-label={aufgeklappt ? 'Gespräch zuklappen' : 'Alle Nachrichten des Gesprächs zeigen'}
+            aria-label={
+              aufgeklappt ? t('Gespräch zuklappen') : t('Alle Nachrichten des Gesprächs zeigen')
+            }
             aria-expanded={aufgeklappt}
-            title={aufgeklappt ? 'Gespräch zuklappen' : 'Alle Nachrichten des Gesprächs zeigen'}
+            title={
+              aufgeklappt ? t('Gespräch zuklappen') : t('Alle Nachrichten des Gesprächs zeigen')
+            }
             onClick={(e) => {
               e.stopPropagation();
               umschalten(gruppe.id);
@@ -469,23 +481,21 @@ export function MessageList({
             />
           </label>
         )}
-        <h2 className="list-title">{searchActive ? 'Suchergebnisse' : folderLabel}</h2>
+        <h2 className="list-title">{searchActive ? t('Suchergebnisse') : folderLabel}</h2>
         {!gesamtAnsicht && (
           <button
             className={`gruppieren-schalter${konversationen ? ' an' : ''}`}
             title={
               konversationen
-                ? 'Gespräche gruppieren: an – zusammengehörige Nachrichten stehen als ein Eintrag'
-                : 'Gespräche gruppieren: aus – jede Nachricht steht für sich'
+                ? t('Gespräche gruppieren: an – zusammengehörige Nachrichten stehen als ein Eintrag')
+                : t('Gespräche gruppieren: aus – jede Nachricht steht für sich')
             }
             onClick={() => onToggleKonversationen(!konversationen)}
-          >
-            Gespräche
-          </button>
+          >{t('Gespräche')}</button>
         )}
         {total > 0 && (
           <span className="list-count">
-            {messages.length} von {total.toLocaleString('de-DE')}
+            {t('{geladen} von {gesamt}', { geladen: messages.length, gesamt: zahl(total) })}
           </span>
         )}
       </div>
@@ -517,11 +527,11 @@ export function MessageList({
           disabled={loading}
           title="Nach neuen Nachrichten sehen"
         >
-          {loading ? 'Lädt…' : '↻ Neu laden'}
+          {loading ? t('Lädt…') : '↻ Neu laden'}
         </button>
 
         <label className="steuerung-feld">
-          <span>Sortieren</span>
+          <span>{t('Sortieren')}</span>
           <select
             value={`${sortierung.schluessel}:${sortierung.richtung}`}
             onChange={(e) => {
@@ -550,9 +560,9 @@ export function MessageList({
         </label>
 
         <label className="steuerung-feld">
-          <span>Dichte</span>
+          <span>{t('Dichte')}</span>
           <select value={dichte} onChange={(e) => onDichte(e.target.value as Dichte)}>
-            {DICHTEN.map((d) => (
+            {dichten().map((d) => (
               <option key={d.wert} value={d.wert} title={d.erklaerung}>
                 {d.name}
               </option>
@@ -565,7 +575,7 @@ export function MessageList({
             einen oben nach etwas suchen, das weiter unten steht. */}
         {!umfasstAlles(sortierung) && messages.length < total && (
           <span className="steuerung-hinweis">
-            sortiert die {messages.length} geladenen von {total.toLocaleString('de-DE')}
+            sortiert die {messages.length} geladenen von {zahl(total)}
           </span>
         )}
       </div>
@@ -582,7 +592,7 @@ export function MessageList({
       {ohneVerbindung && (
         <div className="ohne-verbindung" role="status">
           <span>
-            <strong>Keine Verbindung.</strong> Gezeigt wird der zuletzt geholte Stand von
+            <strong>{t('Keine Verbindung.')}</strong> Gezeigt wird der zuletzt geholte Stand von
             deinem Rechner. Gelesen werden kann alles, was schon einmal offen war.
           </span>
         </div>
@@ -606,11 +616,11 @@ export function MessageList({
         aria-busy={loading || undefined}
         aria-activedescendant={aktiveZeile}
       >
-        {loading && <div className="empty-state">Lade Nachrichten…</div>}
+        {loading && <div className="empty-state">{t('Lade Nachrichten…')}</div>}
         {!loading && messages.length === 0 && (
           <div className="empty-state">
             <LeererKorb groesse={38} />
-            <span>{searchActive ? 'Keine Treffer' : 'Keine Nachrichten'}</span>
+            <span>{searchActive ? t('Keine Treffer') : t('Keine Nachrichten')}</span>
           </div>
         )}
         {!loading &&
@@ -628,7 +638,7 @@ export function MessageList({
             */}
             {loadingMore
               ? 'Lade…'
-              : `Mehr laden (noch ${(total - messages.length).toLocaleString('de-DE')})`}
+              : `Mehr laden (noch ${zahl(total - messages.length)})`}
           </button>
         )}
       </div>

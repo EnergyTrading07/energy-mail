@@ -7,14 +7,22 @@ import {
   NutzerFehler,
   alleNutzer,
   entferneNutzer,
+  entferneZweiFaktor,
   findeNutzer,
   findeNutzerNachEmail,
+  hatZweiFaktor,
   istGesperrt,
   legeNutzerAn,
   setzeKennwort,
   setzeSperre,
+  setzeRolle,
+  istVerwalter,
+  stelleVerwalterSicher,
 } from './nutzer/nutzerStore.js';
 import { beendeAlleSitzungen, vergissSitzungen } from './nutzer/sitzung.js';
+import { entferneNutzerdaten } from './nutzer/umzug.js';
+import { freigabenZuNutzer } from './nutzer/freigaben.js';
+import { EINPLATZ_NUTZER } from './nutzer/kontext.js';
 
 /**
  * Nutzerverwaltung von der Befehlszeile.
@@ -69,7 +77,10 @@ function liste(): void {
   const breite = Math.max(...nutzer.map((n) => n.id.length), 8);
   console.log(`${'Kennung'.padEnd(breite)}  ${'Adresse'.padEnd(32)}  Angelegt`);
   for (const n of nutzer) {
-    const zusatz = istGesperrt(n.id) ? '  [gesperrt]' : '';
+    const zusatz =
+      (n.verwalter ? '  [Verwalter]' : '') +
+      (hatZweiFaktor(n.id) ? '  [2FA]' : '') +
+      (istGesperrt(n.id) ? '  [gesperrt]' : '');
     console.log(
       `${n.id.padEnd(breite)}  ${n.email.padEnd(32)}  ${n.angelegt.slice(0, 10)}${zusatz}`,
     );
@@ -80,7 +91,18 @@ function liste(): void {
 function anlegen(email: string, kennwort?: string): void {
   const vergeben = kennwort ?? erzeugeKennwort();
   const nutzer = legeNutzerAn({ email, kennwort: vergeben }, verpackeNutzerschluessel);
+  /*
+   * Der erste richtige Nutzer wird Verwalter.
+   *
+   * Sonst gäbe es niemanden, der die Verwaltung im Browser öffnen könnte - und der erste
+   * Nutzer ist derjenige, der gerade den Dienst aufsetzt. Der Pseudo-Nutzer der Hülle
+   * bleibt ausgenommen; an sein Kennwort kommt niemand.
+   */
+  stelleVerwalterSicher(EINPLATZ_NUTZER);
   console.log(`Angelegt: ${nutzer.email} (Kennung ${nutzer.id})`);
+  if (istVerwalter(nutzer.id)) {
+    console.log('Dieser Nutzer ist Verwalter - er darf im Browser Nutzer anlegen.');
+  }
   if (!kennwort) {
     console.log(`Kennwort: ${vergeben}`);
     console.log(
@@ -121,17 +143,62 @@ function sperren(wen: string, gesperrt: boolean): void {
   }
 }
 
+/**
+ * Verwalterrolle geben oder nehmen.
+ *
+ * Der Weg zurueck, wenn im Browser niemand mehr hereinkommt: Wer auf dem Server sitzt,
+ * kann sich hier jederzeit selbst wieder Rechte verschaffen. Deshalb bleibt dieses
+ * Werkzeug bestehen, auch wenn es die Verwaltung im Browser gibt.
+ */
+function rolleSetzen(wen: string, verwalter: boolean): void {
+  const nutzer = sucheNutzer(wen);
+  if (!nutzer) throw new NutzerFehler(`"${wen}" ist hier niemand.`);
+  setzeRolle(nutzer.id, verwalter);
+  console.log(
+    verwalter
+      ? `${nutzer.email} ist jetzt Verwalter.`
+      : `${nutzer.email} ist kein Verwalter mehr.`,
+  );
+}
+
+/**
+ * Den zweiten Faktor abraeumen.
+ *
+ * Der letzte Ausweg, und er wird gebraucht: Wenn der einzige Verwalter sein Telefon
+ * verliert und seine Wiederherstellungscodes nicht findet, kommt niemand mehr in die
+ * Verwaltung - dort ist der Knopf dafuer ja. Von hier aus geht es immer, denn wer auf dem
+ * Server sitzt, hat ohnehin den Masterschluessel.
+ *
+ * Genau deshalb steht es auch so in BETRIEB.md: Der zweite Faktor schuetzt gegen ein
+ * abhandengekommenes Kennwort, nicht gegen den Betreiber des Servers.
+ */
+function zweiFaktorAbraeumen(wen: string): void {
+  const nutzer = sucheNutzer(wen);
+  if (!nutzer) throw new NutzerFehler(`"${wen}" ist hier niemand.`);
+  if (!entferneZweiFaktor(nutzer.id)) {
+    console.log(`Fuer ${nutzer.email} war kein zweiter Faktor eingerichtet.`);
+    return;
+  }
+  console.log(
+    `Der zweite Faktor von ${nutzer.email} ist entfernt.\n` +
+      'Die naechste Anmeldung geht wieder mit dem Kennwort allein - und sollte gleich\n' +
+      'damit beginnen, einen neuen einzurichten.',
+  );
+}
+
 function entfernen(wen: string, mitDaten: boolean): void {
   const nutzer = sucheNutzer(wen);
   if (!nutzer) throw new NutzerFehler(`"${wen}" ist hier niemand.`);
 
   vergissSitzungen();
   beendeAlleSitzungen(nutzer.id);
+  // Auch seine Freigaben - in beide Richtungen. Siehe nutzer/freigaben.ts.
+  freigabenZuNutzer(nutzer.id);
   entferneNutzer(nutzer.id);
 
   const ordner = getNutzerDirFuer(nutzer.id);
   if (mitDaten) {
-    fs.rmSync(ordner, { recursive: true, force: true });
+    entferneNutzerdaten(nutzer.id);
     console.log(`${nutzer.email} entfernt, Ordner gelöscht.`);
   } else {
     /*
@@ -158,6 +225,9 @@ function hilfe(): void {
   kennwort <adresse|kennung> [kennwort] Kennwort neu setzen, meldet überall ab
   sperren <adresse|kennung>             kommt nicht mehr herein, Daten bleiben
   freigeben <adresse|kennung>           Sperre aufheben
+  verwalter <adresse|kennung>           darf im Browser Nutzer verwalten
+  entmachten <adresse|kennung>          Verwalterrolle nehmen (nie beim letzten)
+  zweifaktor-aus <adresse|kennung>      zweiten Faktor entfernen (verlorenes Telefon)
   entfernen <adresse|kennung> [--mit-daten]
                                         endgültig: mit dem Eintrag geht sein Schlüssel
 
@@ -198,6 +268,18 @@ function haupt(): void {
     case 'freigeben':
       if (!argumente[0]) throw new NutzerFehler('Wen?');
       sperren(argumente[0], false);
+      break;
+    case 'verwalter':
+      if (!argumente[0]) throw new NutzerFehler('Wen?');
+      rolleSetzen(argumente[0], true);
+      break;
+    case 'entmachten':
+      if (!argumente[0]) throw new NutzerFehler('Wen?');
+      rolleSetzen(argumente[0], false);
+      break;
+    case 'zweifaktor-aus':
+      if (!argumente[0]) throw new NutzerFehler('Wen?');
+      zweiFaktorAbraeumen(argumente[0]);
       break;
     case 'entfernen':
       if (!argumente[0]) throw new NutzerFehler('Wen?');

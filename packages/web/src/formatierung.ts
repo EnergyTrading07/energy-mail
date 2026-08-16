@@ -1,3 +1,5 @@
+import { t } from './sprache.js';
+
 /**
  * Die Formatierleiste beim Verfassen.
  *
@@ -27,70 +29,91 @@ export interface Werkzeug {
  * Reihenfolge folgt dem, was man am häufigsten braucht - Auszeichnung vor Absatz vor
  * Listen; Rückgängig und Farben zuletzt.
  */
-export const WERKZEUGE: Werkzeug[][] = [
-  [
-    { befehl: 'bold', titel: 'Fett (Strg+B)', aufschrift: 'F', zeigtZustand: true },
-    { befehl: 'italic', titel: 'Kursiv (Strg+I)', aufschrift: 'K', zeigtZustand: true },
-    { befehl: 'underline', titel: 'Unterstrichen (Strg+U)', aufschrift: 'U', zeigtZustand: true },
-    {
-      befehl: 'strikeThrough',
-      titel: 'Durchgestrichen',
-      aufschrift: 'S',
-      zeigtZustand: true,
-    },
-  ],
-  [
-    {
-      befehl: 'formatBlock',
-      wert: 'h2',
-      titel: 'Überschrift',
-      aufschrift: 'H',
-    },
-    {
-      befehl: 'formatBlock',
-      wert: 'blockquote',
-      titel: 'Zitat',
-      aufschrift: '❞',
-    },
-    {
-      befehl: 'formatBlock',
-      wert: 'pre',
-      titel: 'Feste Schrittweite - für Zahlen und Befehle',
-      aufschrift: '</>',
-    },
-    { befehl: 'formatBlock', wert: 'p', titel: 'Wieder gewöhnlicher Absatz', aufschrift: '¶' },
-  ],
-  [
-    {
-      befehl: 'insertUnorderedList',
-      titel: 'Aufzählung',
-      aufschrift: '•',
-      zeigtZustand: true,
-    },
-    {
-      befehl: 'insertOrderedList',
-      titel: 'Nummerierung',
-      aufschrift: '1.',
-      zeigtZustand: true,
-    },
-    { befehl: 'outdent', titel: 'Ausrücken', aufschrift: '⇤' },
-    { befehl: 'indent', titel: 'Einrücken', aufschrift: '⇥' },
-  ],
-  [
-    { befehl: 'undo', titel: 'Rückgängig (Strg+Z)', aufschrift: '↶' },
-    { befehl: 'redo', titel: 'Wiederherstellen (Strg+Y)', aufschrift: '↷' },
-    { befehl: 'removeFormat', titel: 'Formatierung entfernen', aufschrift: 'A̶' },
-  ],
-];
+export function werkzeuge(): Werkzeug[][] {
+  /*
+   * Eine Funktion und keine Konstante, und die Aufschriften gehen mit durch t().
+   *
+   * Auf einem englischen Rechner steht auf dem Fett-Knopf ein B und nicht ein F - das
+   * ist keine Spielerei, sondern die Beschriftung, nach der jemand sucht, der aus Word
+   * oder Outlook kommt. Deshalb ist auch das eine Übersetzung und keine feste Marke.
+   */
+  return [
+    [
+      { befehl: 'bold', titel: t('Fett (Strg+B)'), aufschrift: t('F'), zeigtZustand: true },
+      { befehl: 'italic', titel: t('Kursiv (Strg+I)'), aufschrift: t('K'), zeigtZustand: true },
+      {
+        befehl: 'underline',
+        titel: t('Unterstrichen (Strg+U)'),
+        aufschrift: t('U'),
+        zeigtZustand: true,
+      },
+      {
+        befehl: 'strikeThrough',
+        titel: t('Durchgestrichen'),
+        aufschrift: t('S'),
+        zeigtZustand: true,
+      },
+    ],
+    [
+      {
+        befehl: 'formatBlock',
+        wert: 'h2',
+        titel: t('Überschrift'),
+        aufschrift: t('H'),
+      },
+      {
+        befehl: 'formatBlock',
+        wert: 'blockquote',
+        titel: t('Zitat'),
+        aufschrift: '❞',
+      },
+      {
+        befehl: 'formatBlock',
+        wert: 'pre',
+        titel: t('Feste Schrittweite - für Zahlen und Befehle'),
+        aufschrift: '</>',
+      },
+      {
+        befehl: 'formatBlock',
+        wert: 'p',
+        titel: t('Wieder gewöhnlicher Absatz'),
+        aufschrift: '¶',
+      },
+    ],
+    [
+      {
+        befehl: 'insertUnorderedList',
+        titel: t('Aufzählung'),
+        aufschrift: '•',
+        zeigtZustand: true,
+      },
+      {
+        befehl: 'insertOrderedList',
+        titel: t('Nummerierung'),
+        aufschrift: '1.',
+        zeigtZustand: true,
+      },
+      { befehl: 'outdent', titel: t('Ausrücken'), aufschrift: '⇤' },
+      { befehl: 'indent', titel: t('Einrücken'), aufschrift: '⇥' },
+    ],
+    [
+      { befehl: 'undo', titel: t('Rückgängig (Strg+Z)'), aufschrift: '↶' },
+      { befehl: 'redo', titel: t('Wiederherstellen (Strg+Y)'), aufschrift: '↷' },
+      { befehl: 'removeFormat', titel: t('Formatierung entfernen'), aufschrift: 'A̶' },
+    ],
+  ];
+}
 
 /** Farben für Text. Wenige und kräftige - eine Farbwahl mit 200 Tönen braucht niemand. */
-export const TEXTFARBEN: { name: string; wert: string }[] = [
-  { name: 'Schwarz', wert: '#1c2430' },
-  { name: 'Rot', wert: '#c1121f' },
-  { name: 'Grün', wert: '#127a3d' },
-  { name: 'Blau', wert: '#1b4fd8' },
-  { name: 'Grau', wert: '#6b7280' },
-];
+export function textfarben(): { name: string; wert: string }[] {
+  return [
+    { name: t('Schwarz'), wert: '#1c2430' },
+    { name: t('Rot'), wert: '#c1121f' },
+    { name: t('Grün'), wert: '#127a3d' },
+    { name: t('Blau'), wert: '#1b4fd8' },
+    { name: t('Grau'), wert: '#6b7280' },
+  ];
+}
 
 /**
  * Übersetzt einen Tastendruck in einen Befehl.

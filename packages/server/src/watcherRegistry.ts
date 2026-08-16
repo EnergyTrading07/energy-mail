@@ -11,6 +11,8 @@ import { aktualisiereGelesen, nachrichtenSchluessel, verwirfNachrichten } from '
 import { aktuellerNutzer, alsNutzer } from './nutzer/kontext.js';
 import { jeNutzer } from './nutzer/jeNutzer.js';
 import { passt, regelnFuer, wendeRegelnAn } from './rules.js';
+import { beantworteNeue } from './abwesenheit.js';
+import { erfasseEingang } from './archiv/erfassen.js';
 
 interface EventBase {
   accountId: string;
@@ -373,6 +375,40 @@ function starteWatcher(nutzerId: string, account: AccountConfig, ordner: string)
             }
           } catch (err) {
             log.warn(`Regeln konnten nicht angewendet werden: ${(err as Error).message}`);
+          }
+
+          /*
+           * Die Abwesenheitsnotiz - nach den Regeln und auf dem, was übrig blieb.
+           *
+           * Auf `uebrig` und nicht auf `neue`: Was eine Regel gerade wegsortiert hat, hat
+           * der Nutzer ausdrücklich als etwas gekennzeichnet, das ihn nicht erreichen
+           * soll. Darauf zu antworten hieße, einem Verteiler zu schreiben, den er längst
+           * beiseitegelegt hat.
+           *
+           * Fehler bleiben hier drin. Eine Notiz, die nicht hinausgeht, ist ärgerlich -
+           * eine, die die Postfachüberwachung mitreißt, ist ein Ausfall des ganzen
+           * Postfachs.
+           */
+          try {
+            await beantworteNeue(account, event.folder, uebrig);
+          } catch (err) {
+            log.warn(`Abwesenheitsnotiz nicht möglich: ${(err as Error).message}`);
+          }
+
+          /*
+           * Ins Archiv - und zwar auf `neue`, nicht auf `uebrig`.
+           *
+           * Der Unterschied zur Abwesenheitsnotiz ist der Zweck. Dort ging es darum, wem
+           * geantwortet wird, und was eine Regel wegsortiert hat, soll keine Antwort
+           * bekommen. Hier geht es um Vollständigkeit: Eine Regel, die eine Nachricht in
+           * einen anderen Ordner schiebt, macht sie nicht weniger aufbewahrungspflichtig.
+           * Wer sie an dieser Stelle übergeht, hat ein Archiv mit Lücken, die genau dem
+           * folgen, was jemand einmal eingerichtet hat.
+           */
+          try {
+            await erfasseEingang(account, event.folder, neue);
+          } catch (err) {
+            log.warn(`Archivierung nicht möglich: ${(err as Error).message}`);
           }
 
           emit(nutzerId, {

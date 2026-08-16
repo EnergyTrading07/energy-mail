@@ -5,14 +5,18 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "//exports": "Der Einstiegspunkt zieht imapflow und damit node:dns, node:net und Verwandte nach sich - im Browser nicht zu gebrauchen. Die reinen Module bekommen deshalb einen eigenen Weg, damit die Oberflaeche sie einbinden kann, ohne den halben Server mitzunehmen.",
+  "//exports": "Der Einstiegspunkt zieht imapflow und damit node:dns, node:net und Verwandte nach sich - im Browser nicht zu gebrauchen. Die reinen Module bekommen deshalb einen eigenen Weg, damit die Oberflaeche sie einbinden kann, ohne den halben Server mitzunehmen. ACHTUNG: In diesem Block ist jeder Schluessel ein Pfad und muss mit './' beginnen. Ein Kommentarschluessel wie '//sprachen' macht die GANZE Tabelle ungueltig - danach loest kein einziger Unterpfad mehr auf, und der Typpruefer meldet dreissig Dateien auf einmal als kaputt. Erlaeuterungen gehoeren deshalb hierher, nicht dorthin.",
+  "//sprachen": "Nur der Registrator wird eingebunden - er holt die einzelnen Kataloge per import() nach. Ein fester Weg je Sprache verfuehrte dazu, sie alle ins Buendel zu ziehen, und neun Zehntel davon braeuchte niemand.",
   "exports": {
     ".": "./dist/index.js",
     "./etiketten": "./dist/etiketten.js",
     "./vcard": "./dist/vcard.js",
     "./mbox": "./dist/mbox.js",
     "./ics": "./dist/ics.js",
-    "./protokoll": "./dist/protokoll.js"
+    "./protokoll": "./dist/protokoll.js",
+    "./sprache": "./dist/sprache.js",
+    "./sprachen": "./dist/sprachen/register.js",
+    "./sicherungsschutz": "./dist/sicherungsschutz.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -22,7 +26,9 @@
     "imapflow": "^1.0.185",
     "mailparser": "^3.7.2",
     "nodemailer": "^9.0.5",
-    "openpgp": "^6.3.1"
+    "openpgp": "^6.3.1",
+    "socks": "^2.8.9",
+    "undici": "^6.28.0"
   },
   "devDependencies": {
     "@types/mailparser": "^3.4.5",

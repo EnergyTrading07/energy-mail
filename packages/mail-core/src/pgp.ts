@@ -1,5 +1,6 @@
 import * as openpgp from 'openpgp';
 import { beurteileSignatur, type Signaturbefund } from './pgpErkennung.js';
+import { t } from './sprache.js';
 
 /**
  * OpenPGP: unterschreiben, prüfen, verschlüsseln, entschlüsseln.
@@ -171,7 +172,7 @@ export async function pruefeAbgetrennteSignatur(
       return {
         vertrauen: 'schluessel-fehlt',
         fingerabdruck: kennungen.find(Boolean) || undefined,
-        grund: 'Der Schlüssel des Unterzeichners liegt nicht vor.',
+        grund: t('Der Schlüssel des Unterzeichners liegt nicht vor.'),
       };
     }
 
@@ -252,7 +253,7 @@ export async function entschluessle(
   }
   if (aufgeschlossen.length === 0) {
     throw new PgpFehler(
-      fehler[0] ?? 'Für diese Nachricht liegt kein passender geheimer Schlüssel vor.',
+      fehler[0] ?? t('Für diese Nachricht liegt kein passender geheimer Schlüssel vor.'),
     );
   }
 
@@ -312,7 +313,7 @@ export async function entschluessle(
       : {
           vertrauen: 'schluessel-fehlt',
           fingerabdruck: kennung,
-          grund: 'Der Schlüssel des Unterzeichners liegt nicht vor.',
+          grund: t('Der Schlüssel des Unterzeichners liegt nicht vor.'),
         },
   };
 }

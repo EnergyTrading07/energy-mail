@@ -38,6 +38,66 @@ export interface Nutzer {
   aktuelleGeneration: string;
   /** Gesperrte Nutzer können sich nicht anmelden, ihre Daten bleiben aber erhalten. */
   gesperrt?: boolean;
+  /**
+   * Die Rolle. Fehlt sie, ist es ein gewöhnlicher Nutzer.
+   *
+   * ## Warum zwei Rollen und keine Rechtematrix
+   *
+   * Weil es genau zwei Sorten Mensch an diesem Dienst gibt: den, der sein Postfach liest,
+   * und den, der die Nutzer verwaltet. Eine Matrix aus einzeln vergebbaren Rechten wäre
+   * eine Antwort auf eine Frage, die niemand gestellt hat - und jede Zeile darin ein
+   * weiterer Weg, sie falsch einzustellen. Wenn eine dritte Rolle gebraucht wird, ist sie
+   * hier eine Zeile.
+   *
+   * ## Was ein Verwalter kann - und was das ehrlicherweise heißt
+   *
+   * Er legt Nutzer an, setzt Kennwörter zurück, sperrt und entfernt. Ein zurückgesetztes
+   * Kennwort heißt: Er kann sich als dieser Nutzer anmelden und dessen Post lesen. Das
+   * ist keine Lücke, sondern die Bauart - die Postfachkennwörter liegen mit dem
+   * Masterschlüssel des Servers verschlüsselt, und den hat, wer den Server betreibt.
+   * Ein Verwalter, der behauptete, nicht an die Post zu können, sagte die Unwahrheit.
+   * Deshalb steht es hier, in BETRIEB.md und im Protokoll.
+   */
+  rolle?: 'verwalter';
+  /** Der zweite Faktor, wenn er eingerichtet ist - siehe unten. */
+  zweiFaktor?: ZweiFaktorEintrag;
+}
+
+/**
+ * Was zum zweiten Faktor eines Nutzers gespeichert wird.
+ *
+ * Dieses Modul weiß nichts über TOTP und rechnet nichts nach - es legt ab und gibt heraus.
+ * Das Verfahren steht in totp.ts, die Wege in zweiFaktor.ts. Der Grund für die Trennung ist
+ * derselbe wie beim Anmeldekennwort: Wo die Buchführung liegt, soll nicht auch die
+ * Kryptografie liegen, sonst wandert bei jeder Änderung beides durcheinander.
+ */
+export interface ZweiFaktorEintrag {
+  /**
+   * Das gemeinsame Geheimnis - VERSCHLÜSSELT, mit dem Masterschlüssel des Servers.
+   *
+   * Anders als beim Kennwort geht hier keine Prüfsumme: Der Server muss den Code selbst
+   * ausrechnen können und braucht das Geheimnis dafür im Klartext. Eine Prüfsumme wäre
+   * unbrauchbar.
+   *
+   * Deshalb ist die Verschlüsselung hier nicht Zierrat, sondern das Einzige, was zwischen
+   * einer abhandengekommenen nutzer.json und einem funktionierenden zweiten Faktor steht:
+   * Wer das Geheimnis hat, kann jeden Code erzeugen, den die App des Nutzers anzeigt.
+   * Verpackt wird mit dem Masterschlüssel und nicht mit dem Nutzerschlüssel - beim
+   * Anmelden steht noch kein Nutzerkontext, und der Nutzerschlüssel wäre unerreichbar.
+   */
+  geheimnis: string;
+  /** Seit wann er gilt. Erst mit diesem Feld ist die Einrichtung abgeschlossen. */
+  seit: string;
+  /** sha256 der Wiederherstellungscodes. Ein benutzter wird gestrichen, nicht markiert. */
+  codes: string[];
+  /**
+   * Der zuletzt eingelöste Zeitschritt.
+   *
+   * Ohne ihn ließe sich ein abgelesener Code innerhalb seiner dreißig Sekunden ein zweites
+   * Mal einlösen - und TOTP wäre ein Kennwort mit halber Minute Haltbarkeit statt eines
+   * Einmalkennworts. Der Name sagt es ja: einmal.
+   */
+  letzterSchritt?: number;
 }
 
 /** Was nach außen gehen darf - ohne Prüfsumme, ohne Schlüssel. */
@@ -45,6 +105,10 @@ export interface OeffentlicherNutzer {
   id: string;
   email: string;
   angelegt: string;
+  gesperrt: boolean;
+  verwalter: boolean;
+  /** Ob ein zweiter Faktor eingerichtet ist - nicht, welcher. */
+  zweiFaktor: boolean;
 }
 
 type Ablage = { nutzer: Nutzer[] };
@@ -70,11 +134,101 @@ function schreiben(ablage: Ablage): void {
 
 /** Für die Anzeige - nie die Prüfsumme oder die Schlüssel herausgeben. */
 export function oeffentlich(n: Nutzer): OeffentlicherNutzer {
-  return { id: n.id, email: n.email, angelegt: n.angelegt };
+  return {
+    id: n.id,
+    email: n.email,
+    angelegt: n.angelegt,
+    gesperrt: Boolean(n.gesperrt),
+    verwalter: n.rolle === 'verwalter',
+    zweiFaktor: Boolean(n.zweiFaktor?.seit),
+  };
 }
 
 export function alleNutzer(): OeffentlicherNutzer[] {
   return lesen().nutzer.map(oeffentlich);
+}
+
+/** Ob dieser Nutzer verwalten darf. */
+export function istVerwalter(id: string): boolean {
+  return findeNutzer(id)?.rolle === 'verwalter';
+}
+
+/** Wie viele Verwalter es gibt - für die Frage, ob der letzte gerade abgeräumt wird. */
+export function verwalterAnzahl(): number {
+  return lesen().nutzer.filter((n) => n.rolle === 'verwalter').length;
+}
+
+/**
+ * Setzt oder nimmt die Verwalterrolle.
+ *
+ * Der letzte Verwalter lässt sich nicht absetzen, und das ist keine Bevormundung: Danach
+ * könnte niemand mehr Nutzer anlegen, Kennwörter zurücksetzen oder die Rolle wieder
+ * vergeben - der Dienst wäre nur noch über die Befehlszeile auf dem Server zu retten. Wer
+ * die Rolle wirklich abgeben will, gibt sie erst jemand anderem.
+ */
+export function setzeRolle(id: string, verwalter: boolean): void {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  if (!nutzer) throw new NutzerFehler('Diesen Nutzer gibt es nicht.');
+
+  if (!verwalter && nutzer.rolle === 'verwalter') {
+    const uebrig = ablage.nutzer.filter((n) => n.rolle === 'verwalter' && n.id !== id).length;
+    if (uebrig === 0) {
+      throw new NutzerFehler(
+        'Das ist der letzte Verwalter. Ernennen Sie erst einen anderen.',
+      );
+    }
+  }
+
+  if (verwalter) nutzer.rolle = 'verwalter';
+  else delete nutzer.rolle;
+  schreiben(ablage);
+  protokolliere(
+    'info',
+    'nutzer',
+    `Nutzer "${id}" ist ${verwalter ? 'jetzt Verwalter' : 'kein Verwalter mehr'}.`,
+  );
+}
+
+/**
+ * Sorgt dafür, dass es einen Verwalter gibt.
+ *
+ * Zwei Fälle, und beide brauchen das:
+ *
+ *  - **Eine bestehende Aufstellung.** In nutzer.json steht bis heute keine Rolle. Ohne
+ *    diesen Schritt hätte nach der Aktualisierung niemand Verwalterrechte, und die neue
+ *    Verwaltung wäre für den, der sie am nötigsten hat, unerreichbar.
+ *  - **Der erste Nutzer überhaupt.** Wer als Erster angelegt wird, ist derjenige, der den
+ *    Dienst aufsetzt.
+ *
+ * Genommen wird der zuerst Angelegte, nicht irgendeiner: Das ist der, der den Server
+ * eingerichtet hat. Und es wird laut ins Protokoll geschrieben - eine Rechteerweiterung,
+ * die stillschweigend geschieht, ist genau die Sorte Vorgang, die man später sucht.
+ */
+export function stelleVerwalterSicher(ausser?: string): void {
+  const ablage = lesen();
+  if (ablage.nutzer.some((n) => n.rolle === 'verwalter')) return;
+
+  /*
+   * Der Pseudo-Nutzer der Hülle kommt nicht in Frage - und das ist keine Kleinigkeit.
+   *
+   * Auch im Serverbetrieb legt der Start einen Eintrag "lokal" an; über ihn weist sich das
+   * Desktop-Fenster aus. Sein Kennwort sind vierundzwanzig zufällige Bytes, die nie jemand
+   * zu sehen bekommt. Er ist zugleich der ZUERST angelegte Eintrag - ohne diese Zeile
+   * bekäme also ausgerechnet das Konto die Verwalterrolle, an das niemand herankommt, und
+   * der Mensch, der den Dienst betreibt, stünde ohne Rechte da.
+   */
+  const inFrage = ablage.nutzer.filter((n) => n.id !== ausser);
+  if (inFrage.length === 0) return;
+
+  const erster = [...inFrage].sort((a, b) => a.angelegt.localeCompare(b.angelegt))[0]!;
+  erster.rolle = 'verwalter';
+  schreiben(ablage);
+  protokolliere(
+    'warnung',
+    'nutzer',
+    `Kein Verwalter vorhanden - "${erster.id}" (zuerst angelegt) wurde dazu ernannt.`,
+  );
 }
 
 export function nutzerAnzahl(): number {
@@ -247,6 +401,19 @@ export function setzeSperre(id: string, gesperrt: boolean): void {
   const ablage = lesen();
   const nutzer = ablage.nutzer.find((n) => n.id === id);
   if (!nutzer) throw new NutzerFehler('Diesen Nutzer gibt es nicht.');
+  /*
+   * Den letzten Verwalter zu sperren hat dieselbe Wirkung wie ihn abzusetzen: Danach kommt
+   * niemand mehr herein, der die Sperre wieder aufheben könnte. Deshalb dieselbe Bremse
+   * wie in setzeRolle - sonst wäre sie über diesen Weg zu umgehen.
+   */
+  if (gesperrt && nutzer.rolle === 'verwalter') {
+    const uebrig = ablage.nutzer.filter(
+      (n) => n.rolle === 'verwalter' && n.id !== id && !n.gesperrt,
+    ).length;
+    if (uebrig === 0) {
+      throw new NutzerFehler('Das ist der letzte Verwalter. Ernennen Sie erst einen anderen.');
+    }
+  }
   if (gesperrt) nutzer.gesperrt = true;
   else delete nutzer.gesperrt;
   schreiben(ablage);
@@ -256,6 +423,92 @@ export function setzeSperre(id: string, gesperrt: boolean): void {
 /** Ob ein Nutzer gesperrt ist - für die Anzeige im Verwaltungswerkzeug. */
 export function istGesperrt(id: string): boolean {
   return Boolean(findeNutzer(id)?.gesperrt);
+}
+
+// --- Der zweite Faktor ---
+
+/** Ob ein Nutzer einen zweiten Faktor eingerichtet hat. */
+export function hatZweiFaktor(id: string): boolean {
+  return Boolean(findeNutzer(id)?.zweiFaktor?.seit);
+}
+
+/** Was zum zweiten Faktor gespeichert ist - das Geheimnis darin ist verschlüsselt. */
+export function liesZweiFaktor(id: string): ZweiFaktorEintrag | null {
+  return findeNutzer(id)?.zweiFaktor ?? null;
+}
+
+/** Schaltet ihn ein. Das Geheimnis kommt fertig verschlüsselt herein - siehe zweiFaktor.ts. */
+export function setzeZweiFaktor(id: string, geheimnis: string, codes: string[]): void {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  if (!nutzer) throw new NutzerFehler('Diesen Nutzer gibt es nicht.');
+  nutzer.zweiFaktor = { geheimnis, seit: new Date().toISOString(), codes };
+  schreiben(ablage);
+  protokolliere('info', 'nutzer', `Zweiter Faktor für "${id}" eingerichtet.`);
+}
+
+/** Und wieder aus. Gibt zurück, ob überhaupt einer da war. */
+export function entferneZweiFaktor(id: string): boolean {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  if (!nutzer?.zweiFaktor) return false;
+  delete nutzer.zweiFaktor;
+  schreiben(ablage);
+  protokolliere('warnung', 'nutzer', `Zweiter Faktor für "${id}" entfernt.`);
+  return true;
+}
+
+/**
+ * Bucht einen eingelösten Zeitschritt - und meldet, ob er schon einmal dran war.
+ *
+ * `false` heißt: Dieser Code wurde bereits benutzt. Der Aufrufer muss die Anmeldung dann
+ * abweisen, obwohl der Code rechnerisch stimmt. Genau darin besteht der Unterschied
+ * zwischen einem Einmalkennwort und einem Kennwort, das sich alle dreißig Sekunden ändert.
+ *
+ * Der Vergleich ist "kleiner oder gleich" und nicht "gleich": Wer die Uhr seines Rechners
+ * zurückstellt, könnte sonst einen alten Code erneut einlösen.
+ */
+export function merkeZweiFaktorSchritt(id: string, schritt: number): boolean {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  if (!nutzer?.zweiFaktor) return false;
+  if (nutzer.zweiFaktor.letzterSchritt !== undefined && schritt <= nutzer.zweiFaktor.letzterSchritt) {
+    return false;
+  }
+  nutzer.zweiFaktor.letzterSchritt = schritt;
+  schreiben(ablage);
+  return true;
+}
+
+/**
+ * Löst einen Wiederherstellungscode ein.
+ *
+ * Er wird gestrichen und nicht als "benutzt" markiert - ein Code, der noch dasteht, wird
+ * irgendwann wieder abgetippt. Zurück kommt, wie viele noch übrig sind, damit der Nutzer
+ * rechtzeitig neue bekommt.
+ */
+export function verbraucheWiederherstellungscode(id: string, pruefsumme: string): number | null {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  const stelle = nutzer?.zweiFaktor?.codes.indexOf(pruefsumme) ?? -1;
+  if (!nutzer?.zweiFaktor || stelle < 0) return null;
+  nutzer.zweiFaktor.codes.splice(stelle, 1);
+  schreiben(ablage);
+  protokolliere(
+    'warnung',
+    'anmeldung',
+    `"${id}" hat einen Wiederherstellungscode eingelöst - ${nutzer.zweiFaktor.codes.length} übrig.`,
+  );
+  return nutzer.zweiFaktor.codes.length;
+}
+
+/** Legt einen frischen Satz Wiederherstellungscodes an - die alten gelten dann nicht mehr. */
+export function setzeWiederherstellungscodes(id: string, codes: string[]): void {
+  const ablage = lesen();
+  const nutzer = ablage.nutzer.find((n) => n.id === id);
+  if (!nutzer?.zweiFaktor) throw new NutzerFehler('Für diesen Nutzer ist kein zweiter Faktor eingerichtet.');
+  nutzer.zweiFaktor.codes = codes;
+  schreiben(ablage);
 }
 
 /** Trägt eine neue Schlüsselgeneration ein - für den Wechsel des Nutzerschlüssels. */
@@ -277,6 +530,15 @@ export function setzeSchluesselGeneration(id: string, generation: string, verpac
  */
 export function entferneNutzer(id: string): boolean {
   const ablage = lesen();
+  // Auch hier: Der letzte Verwalter geht nicht. Ein Dienst ohne Verwalter lässt sich nur
+  // noch auf dem Server selbst wieder in Ordnung bringen.
+  const weg = ablage.nutzer.find((n) => n.id === id);
+  if (weg?.rolle === 'verwalter') {
+    const uebrig = ablage.nutzer.filter((n) => n.rolle === 'verwalter' && n.id !== id).length;
+    if (uebrig === 0) {
+      throw new NutzerFehler('Das ist der letzte Verwalter. Ernennen Sie erst einen anderen.');
+    }
+  }
   const vorher = ablage.nutzer.length;
   ablage.nutzer = ablage.nutzer.filter((n) => n.id !== id);
   if (ablage.nutzer.length === vorher) return false;

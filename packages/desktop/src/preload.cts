@@ -42,6 +42,22 @@ const FASSUNG =
   process.argv.find((a) => a.startsWith('--energy-mail-fassung='))?.split('=')[1] ?? '';
 
 /**
+ * Die Sprache, auf die sich die Huelle festgelegt hat.
+ *
+ * Denselben Weg wie die Fassung, und aus denselben Gruenden: sie steht beim Bauen des
+ * Fensters fest und aendert sich waehrend seines Lebens nicht. Und sie ist kein
+ * Geheimnis - anders als das Zugangsgeheimnis darunter darf sie in der Befehlszeile
+ * stehen.
+ *
+ * Waere sie es nicht, muesste die Oberflaeche sie selbst ermitteln - und kaeme zu einer
+ * anderen Antwort als das Menue daneben: Die Huelle kennt die Richtliniendatei, der
+ * Browser nicht. Eine Anwendung mit englischem Menue und deutscher Oberflaeche waere die
+ * Folge.
+ */
+const SPRACHE =
+  process.argv.find((a) => a.startsWith('--energy-mail-sprache='))?.split('=')[1] ?? '';
+
+/**
  * Das Zugangsgeheimnis des lokalen Servers.
  *
  * Ohne es beantwortet der Server keine Anfrage (siehe server/src/zugang.ts). Es steht
@@ -62,6 +78,7 @@ const ZUGANG = (ipcRenderer.sendSync('zugang:holen') as string | undefined) ?? '
 
 contextBridge.exposeInMainWorld('energyMail', {
   fassung: FASSUNG,
+  sprache: SPRACHE,
   zugang: ZUGANG,
   plattform: process.platform,
 

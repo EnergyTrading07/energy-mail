@@ -18,6 +18,7 @@ import { FolderIcon } from './FolderIcon.js';
 import { FolderMenu, type MenuEintrag } from './FolderMenu.js';
 import { LEERE_HANDWERTE, Serverauskunft, type HandWerte } from './Serverauskunft.js';
 import { Feder, Winkel } from './Symbole.js';
+import { t, tp } from '../sprache.js';
 
 interface Props {
   accounts: Account[];
@@ -40,11 +41,32 @@ interface Props {
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
   onOpenSchluessel: () => void;
+  onOpenZertifikate: () => void;
+  onOpenArchiv: () => void;
+  onOpenAbwesenheit: () => void;
+  /** Ein freigegebenes Postfach weglegen - der Beschenkte darf das selbst. */
+  onFreigabeWeglegen: (freigabeId: string) => void;
+  /**
+   * Konten, deren Abwesenheitsnotiz gerade wirklich antwortet.
+   *
+   * Nicht "eingeschaltet", sondern "antwortet jetzt" - eine Notiz mit abgelaufenem
+   * Zeitraum soll nicht mahnen. Der Hinweis ist der Grund, warum dieser Knopf überhaupt
+   * in der Seitenleiste steht und nicht in einem Untermenü: Eine Abwesenheitsnotiz, die
+   * man nicht sieht, bleibt drei Monate nach dem Urlaub an.
+   */
+  abwesenheitAktiv: string[];
+  /** Nur fuer Verwalter - die Oberflaeche zeigt den Weg nur, der Riegel sitzt am Server. */
+  darfVerwalten?: boolean;
+  onOpenVerwaltung: () => void;
   /** Ob die Sitzung an einem Keks hängt - nur dann gibt es etwas abzumelden. */
   abmeldbar: boolean;
+  /** Das eigene Konto: Kennwort und zweiter Faktor. Nur dort, wo es eine Anmeldung gibt. */
+  onOpenKonto: () => void;
   /** Für den Hinweistext am Knopf: unter welcher Adresse man angemeldet ist. */
   angemeldetAls?: string;
   onAbmelden: () => void;
+  /** Sperrt den Bildschirm sofort - siehe Sperrschirm.tsx. */
+  onSperren: () => void;
   /** Verschiebt gezogene Nachrichten in einen Ordner. */
   onAblegen: (fracht: Fracht, ziel: FolderInfo) => void;
   /** Ob gerade der Posteingang aller Konten angezeigt wird. */
@@ -209,9 +231,18 @@ export function Sidebar({
   onOpenWartend,
   onOpenAdressbuch,
   onOpenSchluessel,
+  onOpenZertifikate,
+  onOpenArchiv,
+  onOpenAbwesenheit,
+  abwesenheitAktiv,
+  onFreigabeWeglegen,
+  darfVerwalten,
+  onOpenVerwaltung,
   abmeldbar,
+  onOpenKonto,
   angemeldetAls,
   onAbmelden,
+  onSperren,
   onAblegen,
   gesamtAnsicht,
   onGesamtAnsicht,
@@ -262,10 +293,12 @@ export function Sidebar({
     frage({
       titel,
       vorgabe,
-      ok: 'Übernehmen',
+      ok: t('Übernehmen'),
       pruefe: (name) =>
         name.includes(delimiter)
-          ? `Ein Ordnername darf kein "${delimiter}" enthalten – das trennt beim Anbieter die Ebenen.`
+          ? t('Ein Ordnername darf kein „{zeichen}“ enthalten – das trennt beim Anbieter die Ebenen.', {
+              zeichen: delimiter,
+            })
           : null,
     });
 
@@ -278,71 +311,79 @@ export function Sidebar({
 
     return [
       {
-        label: 'Unterordner anlegen…',
+        label: t('Unterordner anlegen…'),
         onClick: folder.selectable
           ? () =>
-              void frageName(`Unterordner in "${folder.name}" anlegen`, '', delimiter).then(
+              void frageName(t('Unterordner in „{ordner}“ anlegen', { ordner: folder.name }), '', delimiter).then(
                 (name) =>
                   name && ordnerAktionen.anlegen(accountId, `${folder.path}${delimiter}${name}`),
               )
           : undefined,
-        grund: folder.selectable ? undefined : 'Dieser Eintrag ist nur eine Überschrift.',
+        grund: folder.selectable ? undefined : t('Dieser Eintrag ist nur eine Überschrift.'),
       },
       {
-        label: 'Umbenennen…',
+        label: t('Umbenennen…'),
         onClick: istSonderordner
           ? undefined
           : () =>
-              void frageName('Neuer Name', folder.name, delimiter).then((name) => {
+              void frageName(t('Neuer Name'), folder.name, delimiter).then((name) => {
                 if (!name) return;
                 // Nur den letzten Teil ersetzen, damit der Ordner an seinem Platz bleibt.
                 const teile = folder.path.split(delimiter);
                 teile[teile.length - 1] = name;
                 ordnerAktionen.umbenennen(accountId, folder, teile.join(delimiter));
               }),
-        grund: istSonderordner ? 'Sonderordner des Anbieters lassen sich nicht umbenennen.' : undefined,
+        grund: istSonderordner
+          ? t('Sonderordner des Anbieters lassen sich nicht umbenennen.')
+          : undefined,
       },
       {
-        label: 'Alle als gelesen markieren',
+        label: t('Alle als gelesen markieren'),
         onClick: folder.unseen
           ? () => ordnerAktionen.alleGelesen(accountId, folder)
           : undefined,
-        grund: folder.unseen ? undefined : 'Hier ist nichts ungelesen.',
+        grund: folder.unseen ? undefined : t('Hier ist nichts ungelesen.'),
       },
       {
-        label: 'Als Datei sichern…',
+        label: t('Als Datei sichern…'),
         onClick: folder.selectable
           ? () => ordnerAktionen.sichern(accountId, folder)
           : undefined,
-        grund: folder.selectable ? undefined : 'Dieser Eintrag ist nur eine Überschrift.',
+        grund: folder.selectable ? undefined : t('Dieser Eintrag ist nur eine Überschrift.'),
       },
       {
-        label: 'Ordner leeren…',
+        label: t('Ordner leeren…'),
         gefaehrlich: true,
         onClick: istPapierkorbOderSpam
           ? () =>
               void bestaetige({
-                titel: `"${folder.name}" leeren?`,
-                text: `Alle Nachrichten darin werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.`,
+                titel: t('„{ordner}“ leeren?', { ordner: folder.name }),
+                text: t(
+                  'Alle Nachrichten darin werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.',
+                ),
                 stil: 'gefahr',
-                ok: 'Endgültig löschen',
+                ok: t('Endgültig löschen'),
               }).then((ja) => ja && ordnerAktionen.leeren(accountId, folder))
           : undefined,
-        grund: istPapierkorbOderSpam ? undefined : 'Nur für Papierkorb und Spam vorgesehen.',
+        grund: istPapierkorbOderSpam ? undefined : t('Nur für Papierkorb und Spam vorgesehen.'),
       },
       {
-        label: 'Ordner löschen…',
+        label: t('Ordner löschen…'),
         gefaehrlich: true,
         onClick: istSonderordner
           ? undefined
           : () =>
               void bestaetige({
-                titel: `Ordner "${folder.name}" löschen?`,
-                text: 'Alle darin enthaltenen Nachrichten werden mitgelöscht. Das lässt sich nicht rückgängig machen.',
+                titel: t('Ordner „{ordner}“ löschen?', { ordner: folder.name }),
+                text: t(
+                  'Alle darin enthaltenen Nachrichten werden mitgelöscht. Das lässt sich nicht rückgängig machen.',
+                ),
                 stil: 'gefahr',
-                ok: 'Ordner löschen',
+                ok: t('Ordner löschen'),
               }).then((ja) => ja && ordnerAktionen.loeschen(accountId, folder)),
-        grund: istSonderordner ? 'Sonderordner des Anbieters lassen sich nicht löschen.' : undefined,
+        grund: istSonderordner
+          ? t('Sonderordner des Anbieters lassen sich nicht löschen.')
+          : undefined,
       },
     ];
   };
@@ -390,9 +431,7 @@ export function Sidebar({
           {/* Eine gezeichnete Feder statt des Schriftzeichens ✎: das zeichnet jedes
               System anders, steht je nach Schriftschnitt auf einer anderen Höhe und
               bringt in manchen Fassungen eine eigene Farbe mit. */}
-          <Feder groesse={14} />
-          Neue Nachricht
-        </button>
+          <Feder groesse={14} />{t('Neue Nachricht')}</button>
       </div>
 
       <div className="sidebar-scroll">
@@ -407,7 +446,7 @@ export function Sidebar({
             title="Die Posteingänge aller Konten in einer Liste"
           >
             <FolderIcon role="\Inbox" />
-            <span className="folder-name">Alle Posteingänge</span>
+            <span className="folder-name">{t('Alle Posteingänge')}</span>
           </button>
         )}
 
@@ -439,6 +478,22 @@ export function Sidebar({
                 <span className="account-label" title={`${account.email} · ${thema.label}`}>
                   {account.displayName || account.email}
                 </span>
+                {/*
+                  Ein freigegebenes Postfach traegt seinen Vermerk immer.
+
+                  Wer in fremder Post arbeitet, soll es an jeder Stelle sehen und nicht
+                  erst merken, wenn er versehentlich in Annas Namen geantwortet hat. Bei
+                  reinem Leserecht steht es ausdruecklich dabei - sonst waere der erste
+                  Hinweis darauf eine Fehlermeldung beim Loeschen.
+                */}
+                {account.freigabe && (
+                  <span
+                    className={`freigabe-marke${account.freigabe.rechte === 'lesen' ? ' nur-lesen' : ''}`}
+                    title={t('Freigegeben von {wer}', { wer: account.freigabe.von })}
+                  >
+                    {account.freigabe.rechte === 'lesen' ? t('nur lesen') : t('freigegeben')}
+                  </span>
+                )}
                 {account.needsReauth && (
                   <span
                     className="auth-warn"
@@ -453,6 +508,14 @@ export function Sidebar({
                 {!aktiv && posteingang?.folder.unseen ? (
                   <span className="unread-badge">{badge(posteingang.folder.unseen)}</span>
                 ) : null}
+                {/*
+                  Kein Zahnrad an einem fremden Postfach.
+
+                  Name, Signatur, Zugangsdaten und die Freigaben selbst gehoeren dem
+                  Eigentuemer - der Server weist das ohnehin mit 403 ab. Ein Knopf, der
+                  immer eine Fehlermeldung bringt, ist eine Falle.
+                */}
+                {!account.freigabe && (
                 <button
                   className="icon-btn"
                   title="Einstellungen (Name, Signatur)"
@@ -463,21 +526,54 @@ export function Sidebar({
                 >
                   ⚙
                 </button>
+                )}
+                {!account.freigabe && (
                 <button
                   className="icon-btn"
-                  title="Konto entfernen"
+                  title={t('Konto entfernen')}
                   onClick={(e) => {
                     e.stopPropagation();
                     void bestaetige({
-                      titel: 'Konto entfernen?',
-                      text: `${account.email} wird aus Energy Mail entfernt. Beim Anbieter bleibt alles unverändert – die Nachrichten liegen weiterhin dort.`,
+                      titel: t('Konto entfernen?'),
+                      text: t(
+                        '{adresse} wird aus Energy Mail entfernt. Beim Anbieter bleibt alles unverändert – die Nachrichten liegen weiterhin dort.',
+                        { adresse: account.email },
+                      ),
                       stil: 'warnung',
-                      ok: 'Konto entfernen',
+                      ok: t('Konto entfernen'),
                     }).then((ja) => ja && void onDeleteAccount(account.id));
                   }}
                 >
                   ×
                 </button>
+                )}
+                {/*
+                  An einem freigegebenen Postfach steht stattdessen "weglegen".
+
+                  Wer es nicht mehr sehen will, soll es loswerden koennen, ohne den
+                  Eigentuemer zu fragen - und ohne dabei Gefahr zu laufen, ein fremdes
+                  Konto zu entfernen. Der Server laesst genau das zu: Zuruecknehmen darf
+                  auch der Beschenkte.
+                */}
+                {account.freigabe && (
+                  <button
+                    className="icon-btn"
+                    title={t('Dieses freigegebene Postfach weglegen')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void bestaetige({
+                        titel: t('{adresse} weglegen?', { adresse: account.email }),
+                        text: t(
+                          'Es verschwindet aus Ihrer Seitenleiste. Am Postfach selbst ändert sich nichts – es gehört weiterhin {wer}. Wer es zurückhaben will, muss neu freigegeben werden.',
+                          { wer: account.freigabe!.von },
+                        ),
+                        ok: t('Weglegen'),
+                      }).then((ja) => ja && void onFreigabeWeglegen(account.freigabe!.id));
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
               {aktiv && (
@@ -486,21 +582,23 @@ export function Sidebar({
                       geladen werden kann - der Hinweis ist dann das Einzige, was hilft. */}
                   {account.needsReauth && account.canReauth && (
                     <div className="reauth-notice">
-                      <strong>Anmeldung abgelaufen</strong>
+                      <strong>{t('Anmeldung abgelaufen')}</strong>
                       <p>
-                        {account.email} kann nicht mehr abgerufen werden. Eine neue Anmeldung
-                        genügt – Signatur und Einstellungen bleiben erhalten.
+                        {t(
+                          '{adresse} kann nicht mehr abgerufen werden. Eine neue Anmeldung genügt – Signatur und Einstellungen bleiben erhalten.',
+                          { adresse: account.email },
+                        )}
                       </p>
                       <button
                         className="btn"
                         disabled={reauthBusy !== null}
                         onClick={() => onReauth(account.id)}
                       >
-                        {reauthBusy === account.id ? 'Warte auf Anmeldung…' : 'Neu anmelden'}
+                        {reauthBusy === account.id ? t('Warte auf Anmeldung…') : t('Neu anmelden')}
                       </button>
                     </div>
                   )}
-                  {loadingFolders && ordner.length === 0 && <div className="empty-state">Lade Ordner…</div>}
+                  {loadingFolders && ordner.length === 0 && <div className="empty-state">{t('Lade Ordner…')}</div>}
                   {ansicht.sonder.map((eintrag) => (
                     <div key={eintrag.folder.path}>
                       <FolderRow
@@ -590,7 +688,7 @@ export function Sidebar({
 
       {suchen.length > 0 && (
         <div className="gemerkte-suchen">
-          <div className="sidebar-abschnitt">Gemerkte Suchen</div>
+          <div className="sidebar-abschnitt">{t('Gemerkte Suchen')}</div>
           {suchen.map((suche) => (
             <div key={suche.id} className="gemerkte-suche">
               <button
@@ -603,8 +701,8 @@ export function Sidebar({
               <button
                 className="link-btn gefaehrlich"
                 onClick={() => onSucheLoeschen(suche)}
-                aria-label={`Suche „${suche.name}“ vergessen`}
-                title="Diese Suche vergessen"
+                aria-label={t('Suche „{name}“ vergessen', { name: suche.name })}
+                title={t('Diese Suche vergessen')}
               >
                 ×
               </button>
@@ -623,17 +721,56 @@ export function Sidebar({
           onClick={onOpenWartend}
         >
           {wartendAnzahl > 0
-            ? `Offen · ${wartendAnzahl} ${wartendAnzahl === 1 ? 'wartet' : 'warten'}`
-            : 'Was ist offen?'}
+            ? tp(wartendAnzahl, 'Offen · {anzahl} wartet', 'Offen · {anzahl} warten', {
+                anzahl: wartendAnzahl,
+              })
+            : t('Was ist offen?')}
         </button>
-        <button className="link-btn" onClick={onOpenAdressbuch}>
-          Adressbuch
+        <button className="link-btn" onClick={onOpenAdressbuch}>{t('Adressbuch')}</button>
+        {/*
+          Der Knopf trägt seinen Zustand, statt ihn zu verstecken.
+
+          Eine eingeschaltete Abwesenheitsnotiz ist der eine Zustand dieses Programms, den
+          man vergisst und der dann monatelang Fremden erzählt, man sei im Urlaub. Deshalb
+          steht sie in der Seitenleiste und nicht in einem Untermenü, und deshalb steht
+          daneben, für wie viele Konten sie gerade wirklich antwortet.
+        */}
+        <button
+          className={`link-btn${abwesenheitAktiv.length > 0 ? ' abwesend' : ''}`}
+          onClick={onOpenAbwesenheit}
+          title={
+            abwesenheitAktiv.length > 0
+              ? t('Es wird gerade automatisch geantwortet.')
+              : t('Automatisch antworten, während Sie weg sind')
+          }
+        >
+          {t('Abwesenheit')}
+          {abwesenheitAktiv.length > 0 && <span className="abwesend-punkt" aria-hidden="true" />}
         </button>
-        <button className="link-btn" onClick={onOpenSchluessel} title="OpenPGP-Schlüssel verwalten">
-          Schlüssel
-        </button>
+        <button className="link-btn" onClick={onOpenSchluessel} title={t('OpenPGP-Schlüssel verwalten')}>{t('Schlüssel')}</button>
+        {/*
+          Zwei Knoepfe nebeneinander und nicht einer mit Auswahl. Die beiden Verfahren
+          haben nichts miteinander zu tun: anderes Dateiformat, andere Herkunft, andere
+          Verwaltung. Sie unter einem Wort zusammenzufassen hiesse, jemandem eine
+          Verwandtschaft zu behaupten, die nicht besteht - und wer eines von beiden sucht,
+          suchte danach unter dem falschen Namen.
+        */}
+        <button className="link-btn" onClick={onOpenZertifikate} title={t('S/MIME-Zertifikate verwalten')}>{t('Zertifikate')}</button>
+        <button className="link-btn" onClick={onOpenArchiv} title={t('Aufbewahrung nach GoBD')}>{t('Archiv')}</button>
+        {/*
+          Nur für Verwalter sichtbar - und das ist Höflichkeit, kein Schutz.
+
+          Wer die Adresse von Hand aufruft, bekommt vom Server 403, gleich was hier
+          angezeigt wird. Der Riegel steht in nutzer/verwaltung.ts; hier steht nur, wem
+          ein Knopf etwas nützt.
+        */}
+        {darfVerwalten && (
+          <button className="link-btn" onClick={onOpenVerwaltung} title={t('Nutzer verwalten')}>
+            {t('Nutzer')}
+          </button>
+        )}
         <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
-          {formSichtbar ? '× Konto hinzufügen abbrechen' : '+ Konto hinzufügen'}
+          {formSichtbar ? t('× Konto hinzufügen abbrechen') : t('+ Konto hinzufügen')}
         </button>
 
         {/*
@@ -645,9 +782,31 @@ export function Sidebar({
           Oberfläche entscheidet das nicht selbst.
         */}
         {abmeldbar && (
-          <button className="link-btn" onClick={onAbmelden} title={angemeldetAls}>
-            Abmelden
-          </button>
+          <>
+            {/*
+              Das eigene Konto - Kennwort und zweiter Faktor.
+
+              Steht neben "Sperren" und "Abmelden", weil es dieselbe Frage betrifft: wie
+              man hier hereinkommt. Und aus demselben Grund wie diese beiden nur dort, wo
+              es eine Anmeldung gibt: In der Desktop-Hülle weist sich das Fenster über das
+              Zugangsgeheimnis des Prozesses aus, es gibt kein Kennwort zu ändern und
+              keinen zweiten Faktor, vor den sich etwas schalten ließe.
+            */}
+            <button className="link-btn" onClick={onOpenKonto} title={angemeldetAls}>
+              {t('Mein Konto')}
+            </button>
+            {/*
+              Sperren steht vor Abmelden - es ist der häufigere Griff.
+
+              Wer den Platz verlässt, will zurückkommen und weiterarbeiten, nicht sich neu
+              anmelden und den begonnenen Brief verlieren. Abmelden bleibt daneben für den,
+              der wirklich Schluss macht.
+            */}
+            <button className="link-btn" onClick={onSperren} title={t('Bildschirm sperren')}>
+              {t('Sperren')}
+            </button>
+            <button className="link-btn" onClick={onAbmelden} title={angemeldetAls}>{t('Abmelden')}</button>
+          </>
         )}
 
         {formSichtbar && (
@@ -663,12 +822,14 @@ export function Sidebar({
                   onClick={() => (eingerichtet ? onOAuthLogin(provider) : onOpenOAuthSetup())}
                   disabled={oauthBusy !== null}
                 >
-                  {oauthBusy === provider ? 'Warte auf Anmeldung…' : `Mit ${label} anmelden`}
-                  {!eingerichtet && <span className="badge-setup">Einrichtung nötig</span>}
+                  {oauthBusy === provider
+                    ? t('Warte auf Anmeldung…')
+                    : t('Mit {anbieter} anmelden', { anbieter: label })}
+                  {!eingerichtet && <span className="badge-setup">{t('Einrichtung nötig')}</span>}
                 </button>
               );
             })}
-            <div className="oauth-divider">oder mit Passwort</div>
+            <div className="oauth-divider">{t('oder mit Passwort')}</div>
 
             <form onSubmit={hinzufuegen}>
               <div className="form-row">
@@ -687,7 +848,7 @@ export function Sidebar({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Passwort / App-Passwort"
+                  placeholder={t('Passwort / App-Passwort')}
                   disabled={busy}
                 />
               </div>
@@ -701,13 +862,14 @@ export function Sidebar({
               {fehler && <div className="error-banner">{fehler}</div>}
               <div className="form-row">
                 <button className="btn" type="submit" disabled={busy}>
-                  {busy ? 'Prüfe Verbindung…' : 'Hinzufügen'}
+                  {busy ? t('Prüfe Verbindung…') : t('Hinzufügen')}
                 </button>
               </div>
             </form>
             <p className="hint">
-              Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein
-              App-Passwort benötigt, nicht das Login-Passwort.
+              {t(
+                'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.',
+              )}
             </p>
           </div>
         )}

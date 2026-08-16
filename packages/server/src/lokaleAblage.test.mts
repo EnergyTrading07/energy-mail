@@ -5,9 +5,21 @@ import path from 'node:path';
 import type { MessageSummary } from '@energy-mail/mail-core';
 import { setDataDir, getNutzerDir } from './paths.js';
 import { betreteNutzerFuerProzess } from './nutzer/kontext.js';
+import { setKeyProvider } from './secretCrypto.js';
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'energy-mail-ablage-test-'));
 setDataDir(tempDir);
+
+/*
+ * Ein Schluessel, damit die Verschluesselung der Inhalte hier ueberhaupt greift.
+ *
+ * Ohne eingerichteten Schluessel legt die Ablage im Klartext ab - der Rueckfallweg fuer
+ * Werkzeuge und den Standalone-Server ohne Master-Passwort. Genau der wuerde die eine
+ * Pruefung wertlos machen, auf die es hier ankommt: dass der Wortlaut einer Nachricht
+ * nicht in der Datei steht. Fester Wert statt Zufall, damit ein Fehlschlag
+ * nachvollziehbar bleibt.
+ */
+setKeyProvider({ name: 'Pruefung', getKey: () => Buffer.alloc(32, 7) });
 // Die Pruefungen rufen die Speicher unmittelbar auf - ohne Anfrage, die den
 // Nutzerkontext mitbraechte. Dieser Prozess arbeitet durchgehend als ein Nutzer.
 betreteNutzerFuerProzess('pruefung');
@@ -25,6 +37,7 @@ const {
   hoechsteUid,
   holeInhalt,
   holeSeite,
+  leereAblage,
   merkeInhalt,
   ablage,
   merkeKopfdaten,
@@ -261,6 +274,158 @@ pruefe('ein Konto verwerfen raeumt alles seine weg', () => {
   assert.equal(anzahlAbgelegt('b'), 1, 'das andere Konto bleibt unberuehrt');
 });
 
+/*
+ * Was "geloescht" bedeutet - auf der Platte nachgesehen.
+ *
+ * Die Pruefungen darueber fragen die Datenbank, und die antwortet artig "nicht mehr da".
+ * Das ist die halbe Antwort: SQLite hakt eine geloeschte Zeile ohne Zutun nur als "Platz
+ * ist wieder frei" ab und laesst den Wortlaut stehen, bis zufaellig etwas anderes
+ * darueberfaellt. Ein Nutzer loescht eine Nachricht, sie verschwindet aus der Liste - und
+ * ihr Text steht weiter in der Datei, lesbar mit jedem Texteditor.
+ *
+ * Deshalb sieht diese Pruefung nicht die Datenbank an, sondern die Bytes. Sie ist der
+ * einzige Waechter ueber "pragma secure_delete" in lokaleAblage.ts: faellt die Zeile
+ * einmal weg, faellt es sonst niemandem auf.
+ *
+ * Vorher schliessen: im WAL-Betrieb steht die Aenderung zunaechst in der Begleitdatei,
+ * und die urspruengliche Seite bleibt bis zum Zusammenfuehren unberuehrt in ablage.db.
+ */
+pruefe('den ganzen Bestand wegwerfen', () => {
+  /*
+   * Der Knopf fuer den Rechner, der weitergegeben wird. Er muss dreierlei leisten: der
+   * Bestand ist weg, die Suche findet nichts mehr, und die Anwendung laeuft danach
+   * weiter - die Ablage ist ein Abbild und baut sich beim naechsten Abruf wieder auf.
+   */
+  frisch();
+  merkeKopfdaten('a', 'INBOX', [mail(1), mail(2)]);
+  merkeKopfdaten('b', 'Gesendet', [mail(1)]);
+  merkeInhalt('a', 'INBOX', 1, { text: 'Termin beim Amtsgericht' });
+
+  const weg = leereAblage();
+  assert.equal(weg.nachrichten, 3, 'die Meldung nennt eine andere Zahl als geloescht wurde');
+  assert.equal(weg.inhalte, 1);
+
+  assert.equal(anzahlAbgelegt('a'), 0);
+  assert.equal(anzahlAbgelegt('b'), 0);
+  assert.equal(holeInhalt('a', 'INBOX', 1), null);
+  assert.deepEqual(sucheLokal('a', 'Amtsgericht'), [], 'der Suchindex haelt es noch fest');
+
+  // Und danach laesst sich weiterarbeiten, ohne Neustart.
+  merkeKopfdaten('a', 'INBOX', [mail(5)]);
+  assert.equal(anzahlAbgelegt('a', 'INBOX'), 1);
+});
+
+pruefe('geloeschte Kopfdaten stehen nicht mehr in der Datei', () => {
+  /*
+   * Am Betreff gemessen und nicht am Nachrichtentext, seit der verschluesselt liegt: der
+   * Betreff steht im Klartext in der Datei (die Liste und der Suchindex haengen daran),
+   * und damit ist er der richtige Zeuge fuer "secure_delete". Faellt die Pragma-Zeile
+   * weg, schlaegt diese Pruefung an.
+   */
+  frisch();
+  const betreff = 'Kernspintomographie-Befund-42';
+  merkeKopfdaten(K, 'INBOX', [mail(1, { subject: betreff })]);
+
+  schliesseAblage();
+  const datei = path.join(getNutzerDir(), 'ablage.db');
+  assert.ok(
+    fs.readFileSync(datei).includes(betreff),
+    'die Pruefung selbst taugt nichts - der Betreff stand von vornherein nicht in der Datei',
+  );
+
+  entferneNachrichten(K, 'INBOX', [1]);
+  schliesseAblage();
+  assert.ok(
+    !fs.readFileSync(datei).includes(betreff),
+    'der Betreff der geloeschten Nachricht steht weiter in ablage.db',
+  );
+});
+
+console.log('\nVerschluesselte Inhalte:');
+
+/*
+ * Die Pruefung, um die es bei der ganzen Umstellung geht.
+ *
+ * Bis dahin galt: verschluesselt sind die Zugangsdaten, nicht die Post. Wer den
+ * Benutzerordner kopierte oder die Platte ausbaute, las in ablage.db den vollen Text
+ * jeder geoeffneten Nachricht - ohne ein Kennwort zu kennen. Gemessen wird deshalb nicht
+ * an der Datenbank, sondern an den Bytes der Datei.
+ */
+pruefe('der Wortlaut einer Nachricht steht nicht in der Datei', () => {
+  frisch();
+  const wortlaut = 'HOCHVERTRAULICH-Befund-Kernspintomographie-42';
+  const html = '<p>HOCHVERTRAULICH-als-HTML-4711</p>';
+  merkeKopfdaten(K, 'INBOX', [mail(1)]);
+  merkeInhalt(K, 'INBOX', 1, {
+    text: wortlaut,
+    html,
+    anhaenge: [{ filename: 'Befund-Mueller.pdf', size: 100 }],
+  });
+  schliesseAblage();
+
+  const bytes = fs.readFileSync(path.join(getNutzerDir(), 'ablage.db'));
+  assert.ok(!bytes.includes(wortlaut), 'der Nachrichtentext steht im Klartext in ablage.db');
+  assert.ok(!bytes.includes(html), 'das HTML der Nachricht steht im Klartext in ablage.db');
+  assert.ok(
+    !bytes.includes('Befund-Mueller.pdf'),
+    'der Dateiname des Anhangs steht im Klartext in ablage.db',
+  );
+});
+
+pruefe('und kommt trotzdem unveraendert zurueck', () => {
+  // Verschluesseln, das beim Lesen etwas anderes ergibt, waere schlimmer als keines.
+  frisch();
+  const inhalt = {
+    text: 'Zeile eins\nZeile zwei mit Umlauten: Grüße, Straße, Öl',
+    html: '<p>Grüße &amp; Tschüss</p>',
+    anhaenge: [{ filename: 'a.pdf', size: 100 }],
+  };
+  merkeKopfdaten(K, 'INBOX', [mail(1)]);
+  merkeInhalt(K, 'INBOX', 1, inhalt);
+
+  // Ueber das Schliessen hinweg: sonst kaeme die Antwort womoeglich aus dem Speicher.
+  schliesseAblage();
+  const zurueck = holeInhalt(K, 'INBOX', 1)!;
+  assert.equal(zurueck.text, inhalt.text);
+  assert.equal(zurueck.html, inhalt.html);
+  assert.deepEqual(zurueck.anhaenge, inhalt.anhaenge);
+});
+
+pruefe('ein Text, der zufaellig wie ein Geheimnis anfaengt', () => {
+  /*
+   * "v1." ist der Anfang des Formats, in dem Geheimnisse abgelegt werden - und der Anfang
+   * einer voellig gewoehnlichen Zeile in einer Mail. Wuerde der Text beim Lesen fuer ein
+   * Geheimnis gehalten und das Entschluesseln scheiterte, waere die Nachricht weg.
+   */
+  frisch();
+  const text = 'v1.2.3 ist draussen. Bitte einmal aktualisieren.';
+  merkeKopfdaten(K, 'INBOX', [mail(1)]);
+  merkeInhalt(K, 'INBOX', 1, { text });
+  schliesseAblage();
+  assert.equal(holeInhalt(K, 'INBOX', 1)!.text, text);
+});
+
+pruefe('mit einem anderen Schluessel bleibt der Inhalt verschlossen', () => {
+  /*
+   * Der Fall, um dessentwillen das Ganze da ist: der Ordner liegt auf einem anderen
+   * Rechner oder unter einem anderen Windows-Konto. Dann ist der Inhalt nicht lesbar -
+   * und zwar ohne Absturz. Die Ablage ist ein Abbild; was sich nicht oeffnen laesst, wird
+   * beim naechsten Abruf neu geholt.
+   */
+  frisch();
+  merkeKopfdaten(K, 'INBOX', [mail(1)]);
+  merkeInhalt(K, 'INBOX', 1, { text: 'Nur fuer mich.' });
+  schliesseAblage();
+
+  setKeyProvider({ name: 'Fremder', getKey: () => Buffer.alloc(32, 9) });
+  try {
+    const zurueck = holeInhalt(K, 'INBOX', 1);
+    assert.equal(zurueck?.text, undefined, 'der Text kam trotz fremdem Schluessel heraus');
+  } finally {
+    setKeyProvider({ name: 'Pruefung', getKey: () => Buffer.alloc(32, 7) });
+  }
+});
+
 console.log('\nInhalte:');
 
 pruefe('ablegen und wiederholen', () => {
@@ -356,21 +521,41 @@ pruefe('mehrere Woerter muessen ALLE vorkommen', () => {
   assert.equal(sucheLokal(K, 'Rechnung').length, 2);
 });
 
-pruefe('der Text geoeffneter Nachrichten wird mitdurchsucht', () => {
+/*
+ * Der Nachrichtentext wird NICHT mitdurchsucht - und das ist der Sinn der Sache.
+ *
+ * Hier stand die umgekehrte Pruefung, und sie hielt fest, was damals richtig war. Seit
+ * die Inhalte verschluesselt liegen, waere ein Volltextindex ueber sie eine
+ * unverschluesselte zweite Fassung jeder gelesenen Nachricht, gleich daneben in derselben
+ * Datei: eine FTS5-Tabelle legt den Originaltext ab, nicht nur die Wortliste. Man kann
+ * das eine oder das andere haben.
+ *
+ * Diese Pruefung ist der Waechter darueber. Kommt der Text eines Tages wieder in den
+ * Index - weil jemand die Suche "repariert" -, schlaegt sie an und sagt, was dabei
+ * aufgegeben wird.
+ */
+pruefe('der Nachrichtentext geht nicht in den Suchindex', () => {
   frisch();
   merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Kurze Frage' })]);
-  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 0, 'noch nichts abgelegt');
   merkeInhalt(K, 'INBOX', 1, { text: 'Wir treffen uns am Zebrastreifen.' });
-  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 1);
+  assert.equal(
+    sucheLokal(K, 'Zebrastreifen').length,
+    0,
+    'der Nachrichtentext steht im Klartext im Suchindex',
+  );
+  // Der Betreff dagegen schon - sonst waere die Suche gar nichts mehr wert.
+  assert.equal(sucheLokal(K, 'Frage').length, 1);
 });
 
-pruefe('ein erneuter Abruf der Kopfdaten verliert den Text nicht', () => {
+pruefe('ein erneuter Abruf der Kopfdaten laesst den Betreff im Index', () => {
   // Die Liste frischt sich staendig auf - dabei darf der Index nicht leerlaufen.
   frisch();
   merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Kurze Frage' })]);
   merkeInhalt(K, 'INBOX', 1, { text: 'Wir treffen uns am Zebrastreifen.' });
   merkeKopfdaten(K, 'INBOX', [mail(1, { subject: 'Kurze Frage', seen: true })]);
-  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 1, 'der Text ging beim Auffrischen verloren');
+  assert.equal(sucheLokal(K, 'Frage').length, 1, 'der Betreff ging beim Auffrischen verloren');
+  // Und der Text ist auch nach dem Auffrischen nicht hineingerutscht.
+  assert.equal(sucheLokal(K, 'Zebrastreifen').length, 0);
 });
 
 pruefe('auf einen Ordner einschraenken', () => {

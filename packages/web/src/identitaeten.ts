@@ -1,4 +1,5 @@
 import type { Identitaet } from '@energy-mail/mail-core';
+import { t } from './sprache.js';
 
 /**
  * Welche der eigenen Adressen beim Antworten die richtige ist.
@@ -90,11 +91,11 @@ export function pruefeIdentitaet(
   ausserId?: string,
 ): string | null {
   const wert = email.trim();
-  if (!wert) return 'Bitte eine Adresse eintragen.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(wert)) return 'Das sieht nicht nach einer Adresse aus.';
-  if (gleich(wert, konto.email)) return 'Das ist bereits die Adresse des Kontos.';
+  if (!wert) return t('Bitte eine Adresse eintragen.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(wert)) return t('Das sieht nicht nach einer Adresse aus.');
+  if (gleich(wert, konto.email)) return t('Das ist bereits die Adresse des Kontos.');
   if ((konto.identitaeten ?? []).some((i) => i.id !== ausserId && gleich(i.email, wert))) {
-    return 'Diese Adresse ist schon eingetragen.';
+    return t('Diese Adresse ist schon eingetragen.');
   }
   return null;
 }

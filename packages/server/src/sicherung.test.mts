@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  HINWEIS,
+  hinweis,
   SICHERUNG_FASSUNG,
   nurNeue,
   ohneGeheimnisse,
@@ -118,7 +118,7 @@ pruefe('fehlende Abschnitte sind kein Fehler', () => {
   const d = (e as { daten: { konten: unknown[]; regeln: object; hinweis: string } }).daten;
   assert.deepEqual(d.konten, []);
   assert.deepEqual(d.regeln, {});
-  assert.equal(d.hinweis, HINWEIS);
+  assert.equal(d.hinweis, hinweis());
 });
 
 console.log('\nZusammenführen statt Überschreiben:');

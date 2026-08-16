@@ -1,6 +1,12 @@
 import { fileURLToPath } from 'node:url';
-import { BrowserWindow, app, dialog, ipcMain, nativeImage, powerMonitor, shell } from 'electron';
-import { mailtoAusArgumenten } from '@energy-mail/mail-core';
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, powerMonitor, session, shell } from 'electron';
+import {
+  beschreibeProxy,
+  beschreibeZertifikate,
+  mailtoAusArgumenten,
+  nutzeSystemZertifikate,
+  richteHttpProxyEin,
+} from '@energy-mail/mail-core';
 import { EINPLATZ_NUTZER, alsEinplatznutzer, buildServer } from '@energy-mail/server/app';
 import { erzeugeZugangsgeheimnis, setzeZugangsgeheimnis } from '@energy-mail/server/zugang';
 import { listAccounts } from '@energy-mail/server/konten';
@@ -32,6 +38,12 @@ import {
   setzeUngelesenImInfobereich,
 } from './infobereich.js';
 import { starteBenachrichtigungen } from './notifications.js';
+import { richteNetzhygieneEin } from './netzhygiene.js';
+import { beschreibeRichtlinien, richtlinien } from './richtlinien.js';
+import { quellenFuer, richteProxyEin } from './proxyQuellen.js';
+import { beschreibeSprache } from './spracheWaehlen.js';
+import { sprache, t } from '@energy-mail/mail-core/sprache';
+import { setzeOAuthVorgabe } from '@energy-mail/server/oauth';
 import { richteRechtschreibungEin } from './rechtschreibung.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 import { horcheAufFensterfehler, richteAbsturzbehandlungEin } from './diagnose.js';
@@ -160,14 +172,24 @@ function zeigeInfobereichHinweis(): void {
   const antwort = dialog.showMessageBoxSync({
     type: 'info',
     title: 'Energy Mail',
-    message: 'Energy Mail läuft weiter',
+    message: t('Energy Mail läuft weiter'),
+    /*
+     * Der ganze Absatz als EIN Text, nicht als drei zusammengesetzte Stücke.
+     *
+     * Aneinandergehängte Halbsätze sind die häufigste Art, eine Übersetzung unmöglich zu
+     * machen: Im Englischen steht die Wortstellung anders, und wer nur "Sie finden es
+     * unten rechts" übersetzen darf, kann den Satz nicht bauen. Die Länge im Quelltext
+     * ist der Preis dafür.
+     */
     detail:
-      'Das Fenster ist zu, das Programm nicht – nur so kann es neue Post melden. Sie ' +
-      'finden es unten rechts im Infobereich neben der Uhr; ein Klick darauf holt es ' +
-      'zurück.\n\n' +
-      'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den ' +
-      'Infobereich" abschalten.',
-    buttons: ['Verstanden', 'Lieber beenden'],
+      t(
+        'Das Fenster ist zu, das Programm nicht – nur so kann es neue Post melden. Sie finden es unten rechts im Infobereich neben der Uhr; ein Klick darauf holt es zurück.',
+      ) +
+      '\n\n' +
+      t(
+        'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.',
+      ),
+    buttons: [t('Verstanden'), t('Lieber beenden')],
     defaultId: 0,
     cancelId: 0,
     noLink: true,
@@ -279,7 +301,11 @@ function createWindow(url: string) {
        * Es kommt jetzt über eine gerichtete Rückfrage - siehe 'zugang:holen' unten.
        * Die Fassung darf bleiben; sie ist kein Geheimnis.
        */
-      additionalArguments: [`--energy-mail-fassung=${app.getVersion()}`],
+      additionalArguments: [
+        `--energy-mail-fassung=${app.getVersion()}`,
+        // Kein Geheimnis, deshalb darf sie hier stehen - siehe die Begründung darüber.
+        `--energy-mail-sprache=${sprache()}`,
+      ],
     },
   });
 
@@ -419,8 +445,9 @@ function createWindow(url: string) {
     protokolliere('fehler', 'anzeige', `Seite nicht geladen (${code} ${beschreibung}): ${adresse}`);
     zeigeStartfehler(
       `${beschreibung} (${code})`,
-      'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr ' +
-        'erreichbar – ein Neustart der Anwendung behebt das.',
+      t(
+        'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.',
+      ),
     );
   });
 
@@ -637,6 +664,53 @@ app.whenReady().then(async () => {
   richteAbsturzbehandlungEin();
   protokolliere('info', 'start', `Energy Mail ${app.getVersion()} startet`);
 
+  /*
+   * Den Zertifikatsspeicher von Windows dazunehmen - vor der ersten Verbindung.
+   *
+   * In einem Firmennetz führt der Weg nach draußen fast immer über einen prüfenden
+   * Vorbau, der TLS aufbricht und mit einer firmeneigenen Wurzel neu unterschreibt. Die
+   * liegt per Gruppenrichtlinie im Windows-Speicher, den Node aber nicht ansieht - ohne
+   * diese Zeile bräche dort JEDE IMAP- und SMTP-Verbindung ab, und zwar so, dass weder
+   * Nutzer noch Administrator etwas einstellen könnten. Einzelheiten in zertifikate.ts.
+   */
+  protokolliere('info', 'start', beschreibeZertifikate(nutzeSystemZertifikate()));
+  // Was die Organisation vorgibt, gehört in den Fehlerbericht: sonst sucht jemand den
+  // Grund für ein Verhalten im Programm, das in einer Datei unter %PROGRAMDATA% steht.
+  protokolliere('info', 'start', beschreibeRichtlinien());
+
+  /*
+   * Der Weg nach draußen - vor der ersten Verbindung.
+   *
+   * In vielen Firmennetzen ist Port 993 an der Firewall zu und alles läuft über einen
+   * Proxy. richteProxyEin() hängt die Ermittlung ein (Richtlinie, Umgebung, Systemproxy
+   * samt PAC-Skript); richteHttpProxyEin() nimmt zusätzlich die gewöhnlichen Abrufe mit,
+   * also den OAuth-Markentausch und die Serversuche. Ohne den zweiten Teil liefe die Post,
+   * aber kein OAuth-Konto könnte sich anmelden.
+   */
+  richteProxyEin();
+  /*
+   * Die von der IT registrierte Anwendung, falls es eine gibt.
+   *
+   * Damit entfällt für den Mitarbeiter die gesamte Einrichtung: keine Cloud Console, kein
+   * Azure-Portal, kein Client-Geheimnis - er klickt auf „Anmelden". Ohne Richtlinie
+   * bleibt alles wie bisher, und der Privatnutzer registriert weiterhin selbst.
+   */
+  setzeOAuthVorgabe((anbieter) => {
+    const eintrag = richtlinien().oauth?.[anbieter];
+    return eintrag
+      ? {
+          clientId: eintrag.clientId,
+          clientSecret: eintrag.clientSecret,
+          mandant: eintrag.mandant,
+        }
+      : null;
+  });
+  protokolliere(
+    'info',
+    'start',
+    beschreibeProxy(await richteHttpProxyEin(await quellenFuer('login.microsoftonline.com'))),
+  );
+
   // Als Allererstes, noch vor dem Server: von hier an dauert es je nach Rechner ein bis
   // drei Sekunden, und in dieser Zeit soll etwas zu sehen sein.
   const startbild = zeigeStartbild();
@@ -654,16 +728,33 @@ app.whenReady().then(async () => {
     startbild.destroy();
     zeigeStartfehler(
       (err as Error).message,
-      `Der lokale Server auf Port ${LOCAL_PORT} ließ sich nicht starten. ` +
-        'Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein ' +
-        '"npm run dev:server" aus dem Quellbaum.',
+      t(
+        'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.',
+        { port: LOCAL_PORT },
+      ),
     );
     return;
   }
 
+  /*
+   * Die Sprache VOR dem Menü.
+   *
+   * Danach umzustellen ginge auch - das Menü wird beim Umschalten ohnehin neu gebaut -,
+   * aber beim Start baute es sich sonst einmal auf Deutsch auf und gleich darauf noch
+   * einmal richtig. Sichtbar wäre das als kurzes Flackern in der Menüleiste.
+   */
+  protokolliere('info', 'start', beschreibeSprache());
+
   // Vor dem Fenster: sonst blitzt kurz Electrons englisches Standardmenü auf.
   setzeMenue();
   richteBrueckeEin();
+
+  /*
+   * Ebenfalls vor dem Fenster, und aus demselben Grund wie das Menü: was hier eingerichtet
+   * wird, muss stehen, bevor der erste Abruf hinausgeht. Am gemeinsamen Sitzungsobjekt und
+   * nicht am Fenster - dann gilt es auch für jedes weitere, das später dazukommt.
+   */
+  richteNetzhygieneEin(session.defaultSession);
 
   const fenster = createWindow(url);
   horcheAufFensterfehler(fenster);

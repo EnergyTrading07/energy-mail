@@ -4062,6 +4062,18 @@ input[type='file']::file-selector-button:hover {
   color: inherit;
 }
 
+/*
+  Der Hinweis, dass ein Zertifikat übernommen wurde. Ruhiger als eine Warnung: Es ist eine
+  gute Nachricht - ab jetzt geht verschlüsselte Antwort -, und sie soll den Befund darüber
+  nicht überschreien.
+*/
+.pgp-hinweis {
+  margin: var(--a-2) 0 0;
+  line-height: 1.5;
+  font-size: var(--t-m);
+  opacity: 0.85;
+}
+
 .pgp-naeheres {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -4224,6 +4236,20 @@ input[type='file']::file-selector-button:hover {
 
 .pgp-wahl-hinweis {
   color: var(--warn);
+}
+
+/*
+  Die Wahl zwischen OpenPGP und S/MIME. Sie erscheint nur, wenn wirklich beides
+  eingerichtet ist - deshalb ist sie klein gehalten und steht vor den Schaltern: sie sagt,
+  WORAUF sich die drei danach beziehen.
+*/
+.pgp-verfahren {
+  padding: 2px var(--a-2);
+  font-size: var(--t-m);
+  border-radius: var(--r-1);
+  border: 1px solid var(--rand);
+  background: var(--grund-2);
+  color: var(--text-2);
 }
 
 /* --- Sortierung und Anzeigedichte --------------------------------------------- */
@@ -4769,4 +4795,833 @@ input[type='file']::file-selector-button:hover {
   line-height: 1.55;
   color: var(--text-3);
   text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+ * Der Sperrschirm
+ *
+ * Liegt UEBER der Anwendung, nicht an ihrer Stelle - der Zustand dahinter bleibt
+ * stehen, samt begonnenem Entwurf. Deshalb position: fixed mit einem sehr hohen
+ * z-index statt eines Austauschs in der Weiche.
+ *
+ * Undurchsichtig und nicht verwischt: Ein Weichzeichner sieht besser aus und ist
+ * zwecklos - ein Betreff in grosser Schrift bleibt durch jede Unschaerfe lesbar.
+ * Hier geht es darum, dass nichts mehr zu sehen ist.
+ * ------------------------------------------------------------------------ */
+.sperrschirm {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--a-5);
+  background: var(--grund);
+}
+
+.sperrschirm-kasten {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--a-3);
+  width: 100%;
+  max-width: 320px;
+  padding: var(--a-7);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-4);
+  background: var(--flaeche);
+  box-shadow: var(--glanz), var(--schatten-3);
+  text-align: center;
+}
+
+.sperrschirm-kasten h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sperrschirm-kasten input {
+  width: 100%;
+}
+
+.sperrschirm-kasten .btn {
+  width: 100%;
+}
+
+.sperrschirm-kasten .fein {
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+/* ---------------------------------------------------------------------------
+ * Die Nutzerverwaltung
+ *
+ * Eine Tabelle und kein Kartenstapel: Hier wird verglichen - wer ist gesperrt, wer
+ * ist Verwalter, wer ist wann dazugekommen. Karten nebeneinander beantworten
+ * solche Fragen schlechter als Zeilen untereinander.
+ * ------------------------------------------------------------------------ */
+.verwaltung-neu {
+  display: flex;
+  gap: var(--a-2);
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: var(--a-3);
+  border-bottom: 1px solid var(--rand);
+}
+
+.verwaltung-neu input[type='email'] {
+  flex: 1 1 220px;
+}
+
+.verwaltung-haken {
+  display: flex;
+  align-items: center;
+  gap: var(--a-1);
+  font-size: 0.85rem;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.verwaltung-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.verwaltung-tabelle th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-2);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: var(--a-2) var(--a-1);
+  border-bottom: 1px solid var(--rand);
+}
+
+.verwaltung-tabelle td {
+  padding: var(--a-2) var(--a-1);
+  border-bottom: 1px solid var(--rand);
+  vertical-align: top;
+}
+
+/* Gesperrte Zeilen blasser - der Zustand soll man sehen, bevor man liest. */
+.verwaltung-gesperrt {
+  opacity: 0.55;
+}
+
+.verwaltung-adresse {
+  display: block;
+  font-weight: 500;
+}
+
+.verwaltung-kennung {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-2);
+  font-family: 'Cascadia Mono', Consolas, monospace;
+}
+
+.verwaltung-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  justify-content: flex-end;
+}
+
+.marke-verwalter,
+.marke-faktor,
+.marke-gesperrt,
+.marke-selbst,
+.marke-an {
+  display: inline-block;
+  margin-right: var(--a-1);
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.marke-verwalter {
+  background: color-mix(in srgb, var(--marke-rein) 18%, transparent);
+  color: var(--marke-rein);
+}
+
+.marke-gesperrt {
+  background: color-mix(in srgb, #c2410c 18%, transparent);
+  color: #c2410c;
+}
+
+.marke-selbst {
+  background: var(--flaeche-2, var(--rand));
+  color: var(--text-2);
+}
+
+/* Der zweite Faktor - gruen, weil er ein guter Zustand ist und keine Meldung. */
+.marke-faktor,
+.marke-an {
+  background: color-mix(in srgb, #15803d 16%, transparent);
+  color: #15803d;
+}
+
+/*
+ * Das eigene Konto.
+ *
+ * Drei Bereiche untereinander, durch eine Linie getrennt: Adresse, Kennwort, zweiter
+ * Faktor. Keine Reiter - es sind drei kurze Abschnitte, und wer sein Kennwort aendert,
+ * schaut haeufig genug gleich auf den Faktor daneben.
+ */
+.konto-adresse {
+  margin: 0 0 var(--a-3);
+  font-weight: 600;
+}
+
+.konto-teil {
+  margin-top: var(--a-4);
+  padding-top: var(--a-4);
+  border-top: 1px solid var(--rand);
+}
+
+.konto-teil h3 {
+  margin: 0 0 var(--a-2);
+  font-size: 0.95rem;
+}
+
+.konto-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+  margin-top: var(--a-3);
+}
+
+.konto-form label {
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.konto-form .btn {
+  align-self: flex-start;
+  margin-top: var(--a-2);
+}
+
+.konto-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  margin-top: var(--a-3);
+}
+
+.konto-stand {
+  margin: var(--a-2) 0;
+}
+
+.konto-einrichtung {
+  margin-top: var(--a-3);
+}
+
+/*
+ * Das QR-Bild: immer dunkel auf hell, auch im dunklen Erscheinungsbild.
+ *
+ * Die Farben stehen im SVG selbst und nicht hier - ein umgekehrtes QR-Bild lesen manche
+ * Kameras und viele nicht, und das darf kein spaeteres Feinschleifen am Farbschema
+ * aushebeln. Hier steht nur die Groesse, und ein heller Rahmen, damit das weisse Feld auf
+ * dunklem Grund nicht wie ein Loch aussieht.
+ */
+.qr-bild {
+  display: block;
+  /*
+   * 280 Pixel, und das ist keine Geschmacksfrage.
+   *
+   * Ein otpauth-Weg fuer eine gewoehnliche Firmenadresse ergibt Fassung 7 bis 8, also 45
+   * bis 49 Module. Bei 220 Pixeln blieben davon 4,5 Pixel je Modul - eine Kamera, die schraeg
+   * oder aus dreissig Zentimetern draufhaelt, verzaehlt sich daran. Bei 280 sind es gut
+   * sechs, und das liest jedes Telefon.
+   */
+  width: min(280px, 100%);
+  aspect-ratio: 1;
+  height: auto;
+  margin: var(--a-3) 0;
+  border-radius: var(--r-2);
+  border: 1px solid var(--rand);
+  /* Ohne das glaettet der Browser die Modulkanten, und aus scharfen Quadraten werden graue Raender. */
+  shape-rendering: crispEdges;
+}
+
+.konto-geheimnis {
+  display: block;
+  padding: var(--a-2) var(--a-3);
+  border-radius: var(--r-2);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
+/* Derselbe auffaellige Kasten wie beim einmaligen Kennwort - aus demselben Grund. */
+.konto-codes {
+  margin: var(--a-3) 0;
+  padding: var(--a-4);
+  border: 2px solid var(--marke-rein);
+  border-radius: var(--r-3);
+  background: color-mix(in srgb, var(--marke-rein) 7%, var(--flaeche));
+}
+
+.konto-codeliste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--a-1) var(--a-3);
+  margin: var(--a-3) 0;
+  padding-left: var(--a-4);
+}
+
+.konto-codeliste code {
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  user-select: all;
+}
+
+.konto-codeknoepfe {
+  display: flex;
+  gap: var(--a-2);
+}
+
+/*
+ * Das Firmenverzeichnis - das Einrichtungsformular in der Verwaltung.
+ *
+ * Ausfuehrlich, weil kein Verzeichnis dem anderen gleicht: Ein Active Directory nennt das
+ * Anzeigefeld anders als ein OpenLDAP. Ein Formular mit drei Feldern liesse die Haelfte
+ * der Betreiber im Regen, und die merken es erst, wenn niemand gefunden wird.
+ */
+.verzeichnis-teil {
+  border-top: 1px solid var(--rand);
+  padding-top: var(--a-3);
+  margin-top: var(--a-4);
+}
+
+.verzeichnis-schalter {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  margin: var(--a-2) 0;
+  cursor: pointer;
+}
+
+.verzeichnis-vorlagen {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  margin: var(--a-2) 0;
+}
+
+.verzeichnis-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-3);
+  margin: var(--a-2) 0;
+}
+
+.verzeichnis-zeile > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+  flex: 1;
+  min-width: 12rem;
+}
+
+.verzeichnis-zeile > div.schmal {
+  flex: 0 0 6rem;
+  min-width: 6rem;
+}
+
+.verzeichnis-felder {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--a-2) var(--a-3);
+  margin: var(--a-3) 0;
+}
+
+.verzeichnis-felder > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+}
+
+.verzeichnis-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  margin-top: var(--a-3);
+}
+
+.hinweis-gut {
+  color: #15803d;
+}
+
+/* Woher ein Vorschlag stammt - eigenes Adressbuch oder Firmenverzeichnis. */
+.suggestion-quelle {
+  margin-left: auto;
+  padding-left: var(--a-2);
+  font-size: 0.74rem;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/*
+ * Das Band der Lesebestaetigung.
+ *
+ * Ueber der Nachricht und nicht darunter: Hier wird etwas verschickt, sobald sie offen
+ * ist. Was der Nutzer entscheiden oder wenigstens sehen soll, gehoert nach oben.
+ */
+.lesebest-band {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  margin: 0 var(--a-4);
+  padding: var(--a-2) var(--a-3);
+  border-radius: var(--r-2);
+  border: 1px solid var(--rand);
+  background: var(--flaeche-2, var(--grund));
+  font-size: 0.88rem;
+}
+
+/* Abweichende Bestaetigungsadresse - der Fall, der sich missbrauchen laesst. */
+.lesebest-band.warnung {
+  border-color: #c2410c;
+  background: color-mix(in srgb, #c2410c 8%, var(--flaeche));
+}
+
+.lesebest-band.gesendet {
+  color: var(--text-2);
+}
+
+.lesebest-text {
+  flex: 1;
+  min-width: 14rem;
+}
+
+.lesebest-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+}
+
+.lesebest-fehler {
+  color: #c2410c;
+}
+
+.lesebest-teil {
+  border-top: 1px solid var(--rand);
+  padding-top: var(--a-3);
+  margin-top: var(--a-3);
+}
+
+.lesebest-wahl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-3);
+  margin: var(--a-2) 0;
+}
+
+.lesebest-wahl label {
+  display: flex;
+  align-items: center;
+  gap: var(--a-1);
+  cursor: pointer;
+}
+
+.compose-lesebest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  margin: var(--a-2) 0;
+  cursor: pointer;
+}
+
+.compose-lesebest .hint {
+  margin: 0;
+  flex-basis: 100%;
+}
+
+/*
+ * Freigegebene Postfaecher.
+ *
+ * Die Marke traegt das Konto immer, nicht nur beim Ueberfahren: Wer in fremder Post
+ * arbeitet, soll es an jeder Stelle sehen und nicht erst merken, wenn er versehentlich in
+ * fremdem Namen geantwortet hat. Bei reinem Leserecht in gedeckter Farbe - es ist ein
+ * Hinweis und keine Warnung.
+ */
+.freigabe-marke {
+  flex-shrink: 0;
+  margin-left: var(--a-1);
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--marke-rein) 16%, transparent);
+  color: var(--marke-rein);
+}
+
+.freigabe-marke.nur-lesen {
+  background: var(--flaeche-2, var(--rand));
+  color: var(--text-2);
+}
+
+.freigabe-teil {
+  border-top: 1px solid var(--rand);
+  padding-top: var(--a-3);
+  margin-top: var(--a-3);
+}
+
+.freigabe-liste {
+  list-style: none;
+  margin: var(--a-2) 0;
+  padding: 0;
+}
+
+.freigabe-liste li {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  padding: var(--a-1) 0;
+  border-bottom: 1px solid var(--rand);
+}
+
+.freigabe-wer {
+  flex: 1;
+  font-weight: 500;
+}
+
+.freigabe-recht {
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--marke-rein) 16%, transparent);
+  color: var(--marke-rein);
+}
+
+.freigabe-recht.nur-lesen {
+  background: var(--flaeche-2, var(--rand));
+  color: var(--text-2);
+}
+
+/*
+ * Die Abwesenheitsnotiz.
+ *
+ * Der Knopf traegt seinen Zustand: Ist sie an, bekommt er die Marke des Programms und
+ * einen Punkt daneben. Das ist der eine Zustand, den man vergisst - und der dann
+ * monatelang Fremden erzaehlt, man sei im Urlaub.
+ */
+.link-btn.abwesend {
+  color: var(--marke-rein);
+  font-weight: 600;
+}
+
+.abwesend-punkt {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--marke-rein);
+  vertical-align: middle;
+}
+
+.abw-kontowahl {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  margin-bottom: var(--a-3);
+}
+
+.abw-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+}
+
+.abw-form label {
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.abw-form textarea {
+  resize: vertical;
+  min-height: 7em;
+  font: inherit;
+}
+
+.abw-schalter {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  margin: var(--a-2) 0;
+  cursor: pointer;
+}
+
+.abw-schalter span {
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.abw-zeitraum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-3);
+}
+
+.abw-zeitraum > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-1);
+}
+
+.abw-wiederholung {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  margin: var(--a-2) 0;
+}
+
+.abw-wiederholung input {
+  width: 5em;
+}
+
+.abw-wiederholung label {
+  margin: 0;
+}
+
+/* Der Satz, der niemanden ueberraschen soll - abgesetzt, damit er nicht mitgelesen wird. */
+.abw-hinweis {
+  margin-top: var(--a-3);
+  padding: var(--a-2) var(--a-3);
+  border-left: 3px solid var(--rand);
+  border-radius: 0 var(--r-2) var(--r-2) 0;
+  background: var(--flaeche-2, var(--grund));
+}
+
+.abw-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin-top: var(--a-3);
+}
+
+.abw-gesichert {
+  color: #15803d;
+  font-size: 0.88rem;
+}
+
+/* Die zweite Stufe der Anmeldung - dieselbe Karte, nur mit einem Feld. */
+.anmeldung-hinweis {
+  margin: 0 0 var(--a-2);
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+
+.anmeldung-zurueck {
+  align-self: center;
+  margin-top: var(--a-2);
+}
+
+/*
+ * Der Kasten mit dem einmaligen Kennwort.
+ *
+ * Auffaellig, weil es genau einmal dasteht: Wer ihn wegklickt, ohne das Kennwort
+ * mitzunehmen, muss es zuruecksetzen. Deshalb ein Rahmen in der Warnfarbe, ein
+ * Knopf zum Kopieren und ein zweiter, mit dem man ausdruecklich bestaetigt.
+ */
+.verwaltung-kennwort {
+  margin: var(--a-3) 0;
+  padding: var(--a-4);
+  border: 2px solid var(--marke-rein);
+  border-radius: var(--r-3);
+  background: color-mix(in srgb, var(--marke-rein) 7%, var(--flaeche));
+}
+
+.verwaltung-kennwort code {
+  display: block;
+  margin: var(--a-2) 0;
+  padding: var(--a-3);
+  border-radius: var(--r-2);
+  background: var(--grund);
+  border: 1px solid var(--rand);
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  user-select: all;
+  word-break: break-all;
+}
+
+.verwaltung-kennwort-knoepfe {
+  display: flex;
+  gap: var(--a-2);
+  margin-top: var(--a-3);
+}
+
+/* --- Das Archiv nach GoBD ------------------------------------------------------ */
+
+/*
+  Der Stand oben: vier Zahlen nebeneinander. Wer das Fenster oeffnet, waehrend ein
+  Pruefer danebensitzt, will als Erstes wissen, ob ueberhaupt etwas darin liegt und aus
+  welchem Zeitraum. Alles andere kommt danach.
+*/
+.archiv-stand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-6);
+  padding: var(--a-3) 0;
+  border-bottom: 1px solid var(--rand);
+}
+
+.archiv-stand > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.archiv-zahl {
+  font-size: var(--t-l);
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+/*
+  Das Siegel in Schreibmaschinenschrift und umbrechbar: Es sind vierundsechzig Zeichen,
+  und man vergleicht sie zeichenweise mit einem Wert, den man woanders notiert hat.
+*/
+.archiv-siegel code {
+  font-family: var(--schrift-fest, ui-monospace, monospace);
+  font-size: var(--t-s);
+  overflow-wrap: anywhere;
+}
+
+.archiv-suche {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--a-2);
+  align-items: center;
+  margin-bottom: var(--a-3);
+}
+
+.archiv-suche input[type='text'],
+.archiv-suche input:not([type]) {
+  flex: 1 1 12rem;
+}
+
+.archiv-liste {
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+}
+
+.archiv-zeile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-3);
+  padding: var(--a-3);
+  border-bottom: 1px solid var(--rand);
+}
+
+.archiv-zeile:last-child {
+  border-bottom: none;
+}
+
+.archiv-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.archiv-betreff {
+  display: flex;
+  align-items: center;
+  gap: var(--a-2);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Richtung als Marke und nicht als Wort im Fliesstext - beim Ueberfliegen einer langen
+   Liste ist die Richtung das Erste, wonach man sucht. */
+.archiv-richtung {
+  flex: none;
+  padding: 1px var(--a-2);
+  border-radius: var(--r-1);
+  font-size: var(--t-s);
+  font-weight: 500;
+  background: var(--grund-3);
+  color: var(--text-3);
+}
+
+.archiv-richtung.gesendet {
+  background: var(--akzent-schwach, var(--grund-3));
+}
+
+.archiv-wer {
+  font-size: var(--t-m);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* Vermerke eingerueckt und abgesetzt: Sie gehoeren zum Eintrag, sind aber spaeter
+   dazugekommen - genau so liest man auch ein Kassenbuch mit Berichtigungen. */
+.archiv-vermerk {
+  margin-top: var(--a-1);
+  padding-left: var(--a-3);
+  border-left: 2px solid var(--rand);
+  font-size: var(--t-s);
+  color: var(--text-3);
+}
+
+/* --- Datenschutz: der Befund vor dem Formular ---------------------------------- */
+
+/*
+  Abgesetzt und ohne Eingabefelder: Das ist eine Auskunft und keine Einstellung. Wer sie
+  liest, soll nicht nach dem Knopf suchen, mit dem er sie aendert - sie folgt aus dem,
+  was ohnehin eingestellt ist.
+*/
+.datenschutz-befund {
+  margin: var(--a-3) 0;
+  padding: var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--grund-2);
+}
+
+.datenschutz-befund h5 {
+  margin: var(--a-4) 0 var(--a-1);
+  font-size: var(--t-m);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.datenschutz-befund h5:first-child {
+  margin-top: 0;
+}
+
+.datenschutz-befund p,
+.datenschutz-befund li {
+  font-size: var(--t-m);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.datenschutz-befund ul {
+  margin: 0;
+  padding-left: var(--a-5);
+}
+
+.datenschutz-befund li + li {
+  margin-top: var(--a-2);
+}
+
+.datenschutz-teil input:not([type='checkbox']) {
+  width: 100%;
 }
