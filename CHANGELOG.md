@@ -11,6 +11,69 @@ was sich geändert hat.
 
 ## Unveröffentlicht
 
+### Ein Ort für Einstellungen
+
+Es gab keinen. Was eine Einstellung ist, lag an vier Stellen: in der Titelleiste (Ansicht,
+und die Sprache nur im Browserbetrieb), an einem Zahnrad neben jedem Konto, als Wand aus
+elf gleich aussehenden Textknöpfen im Fuß der Seitenleiste, und im Anwendungsmenü der
+Desktop-Hülle (Sprache, Autostart, Infobereich, Meldungsvorschau, Rechtschreibung). Wer
+etwas suchte, musste wissen, in welcher dieser vier Welten es wohnt — und in der Hülle
+stand es woanders als im Browser, obwohl es dieselbe Anwendung ist.
+
+Jetzt gibt es **ein Einstellungsfenster** (Strg+,) mit zehn Bereichen in fünf benannten
+Gruppen: Darstellung · Postfach (Konten, Regeln, Abwesenheit) · Sicherheit (OpenPGP,
+S/MIME) · Aufbewahrung (Archiv, Bestand) · Programm (Anwendung, Nutzer, Anmeldung). Die
+Bereiche sind dieselben Bausteine, die vorher eigene Fenster waren — sie zeichnen sich nur
+als Abschnitt statt als Fenster. Es gibt weiterhin je eine Fassung von ihnen, keine
+Nachbauten.
+
+**Zwei Löcher sind dabei zugegangen.** Die Ansicht kannte immer drei Werte — hell, dunkel,
+„folgt dem System" —, der Umschalter in der Titelleiste konnte aber nur zwischen den ersten
+beiden kippen: Wer einmal geklickt hatte, kam nie wieder zurück. Und die vier Schalter der
+Hülle (Infobereich, Autostart, Meldungsvorschau, Rechtschreibung) waren im Browserbetrieb
+überhaupt nicht erreichbar. Beides steht jetzt in beiden Betriebsarten an derselben Stelle;
+geschrieben werden die Schalter der Hülle weiterhin nur vom Hauptprozess.
+
+Die **Sprache** ebenso: bisher in der Hülle nur im Menü, im Browser nur in der Titelleiste —
+und dort wurde die Wahl zwar gelesen, aber von keiner Stelle je geschrieben. Neun gepflegte
+Kataloge hingen damit allein an der Spracheinstellung des Browsers.
+
+### Der Fuß der Seitenleiste ist wieder ein Fuß
+
+Elf gleich lange Wörter untereinander sind keine Liste, sondern eine Wand: „Abwesenheit"
+stand zwischen „Adressbuch" und „Schlüssel", „Abmelden" neben „Archiv". Weil das Formular
+zum Hinzufügen eines Kontos mit darin lag, brauchte der Fuß eine eigene Bildlauffläche über
+60 % der Fensterhöhe.
+
+Geblieben sind drei Griffe und eine Auskunft: „Offen" (Arbeit, die aussteht), „Adressbuch"
+(ein Nachschlagewerk), „Einstellungen" (der Weg zu allem Übrigen) und eine Zeile, die sagt,
+unter welchem Namen man angemeldet ist — mit Anmeldung, Sperren und Abmelden dahinter. Ein
+Konto kommt jetzt am Ende der Kontenliste hinzu statt im Fuß zwischen „Nutzer" und „Mein
+Konto".
+
+Eine laufende **Abwesenheitsnotiz** bleibt sichtbar: Sie ist der eine Zustand, den man
+vergisst und der dann monatelang Fremden erzählt, man sei im Urlaub. Sie meldet sich als
+eigene Fläche im Fuß, aber nur solange wirklich geantwortet wird.
+
+### Knöpfe: aus sieben Sorten werden vier
+
+`.btn`, `.secondary`, `.danger`, `.gefahr-schlicht`, `.link-btn`, dazu zwei Regeln, die
+Knöpfe je nach Umgebung heimlich umfärbten. Jetzt: **primär** (die eine Sache, die dieses
+Fenster tun soll), **sekundär** (eine gleichrangige Wahl daneben), **leise** (Bänke wie die
+über einer geöffneten Nachricht) und **Warnung** (Unumkehrbares, als Umriss statt gefüllt).
+`gefahr-schlicht` war ein zweites „Warnung" unter anderem Namen und ist es geworden. Dabei
+fiel ein stiller Fehler auf: Der Knopf „Alles Freigegebene löschen" im Archiv trug die
+Klasse `secondary gefaehrlich`, für die es nie eine Regel gab — er sah aus wie jeder
+andere.
+
+### Doppelt Vorhandenes entfernt
+
+„Zwischengespeicherte Nachrichten…" im Menü der Hülle tat dasselbe wie die Tafel „Bestand"
+im Einstellungsfenster, über dieselben zwei Aufrufe — nur eben nicht im Browserbetrieb. Der
+Menüpunkt und seine neunzig Zeilen sind weg.
+
+---
+
 Ergebnis einer Durchsicht des gesamten Quellbaums auf Lücken und Unvollständigkeit. Der
 Baum trug keine einzige TODO-Marke; fast jeder Fund stammt aus dem Abgleich zwischen dem,
 was ein Kommentar zusagt, und dem, was der Code tut.
