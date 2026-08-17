@@ -88,6 +88,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': 'Sélectionner {betreff}',
   'Nachricht ohne Betreff': 'Message sans objet',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Messages stockés',
+  'Wird geladen …': 'Chargement …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Le disque contient actuellement {kopfdaten} en-têtes et {inhalte} corps de messages ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Les en-têtes sont l\'expéditeur, l\'objet et la date de tous les messages récupérés. Ils sont stockés en clair dans votre dossier utilisateur afin que la liste reste complète hors connexion.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Vider ne perd rien : votre courrier est chez votre fournisseur et sera récupéré à la prochaine relève. En attendant, la liste hors connexion est vide et la recherche plein texte ne trouve que ce qui a été récupéré depuis.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Comptes, mots de passe, carnet d\'adresses, règles et étiquettes ne sont pas touchés.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': '{kopfdaten} en-têtes et {inhalte} textes de messages ont été supprimés et le fichier de stockage réécrit – y compris l\'espace ainsi libéré.',
+  'Schließen': 'Fermer',
+  'Wird geleert …': 'Vidage …',
+  'Bestand leeren': 'Vider le cache',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Réponse d\'absence',
   'Konto': 'Compte',
@@ -152,7 +164,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Importer un fichier vCard depuis un autre programme',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Enregistrer tous les contacts dans un fichier vCard',
   'Als vCard sichern': 'Enregistrer en vCard',
-  'Schließen': 'Fermer',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Recherche de mises à jour',
@@ -710,6 +721,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Certificats',
   'Aufbewahrung nach GoBD': 'Conservation selon les GoBD',
   'Archiv': 'Archives',
+  'Was von der Post auf dieser Platte liegt': 'Ce qui reste de votre courrier sur ce disque',
+  'Bestand': 'Stockage',
   'Nutzer verwalten': 'Gérer les utilisateurs',
   'Nutzer': 'Utilisateurs',
   '× Konto hinzufügen abbrechen': '× Annuler l\'ajout de compte',
@@ -754,6 +767,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Rechercher des mises à jour',
+  'Sprache der Oberfläche': 'Langue de l\'interface',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Expéditeurs au contenu autorisé',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'Pour ces expéditeurs, les images et autres contenus distants se chargent sans demander. Pour tous les autres, ils restent bloqués, car une image chargée signale à l\'expéditeur que le message a été ouvert.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'Aucun expéditeur n\'est autorisé pour ce compte – les contenus distants restent bloqués partout.',
+  'Wird entfernt …': 'Suppression …',
+  'Vertrauen entziehen': 'Retirer la confiance',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Mot de passe de {name}',
@@ -979,12 +1000,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'Le fichier est chiffré avec votre mot de passe. Conservez-le : sans lui, la sauvegarde ne pourra plus être ouverte.',
   'Zwischenspeicher': 'Cache',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Vider les messages en cache ?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Le disque contient actuellement {kopfdaten} en-têtes et {inhalte} corps de messages ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Les en-têtes sont l\'expéditeur, l\'objet et la date de tous les messages récupérés. Ils sont stockés en clair dans votre dossier utilisateur afin que la liste reste complète hors connexion.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Vider ne perd rien : votre courrier est chez votre fournisseur et sera récupéré à la prochaine relève. En attendant, la liste hors connexion est vide et la recherche plein texte ne trouve que ce qui a été récupéré depuis.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Comptes, mots de passe, carnet d\'adresses, règles et étiquettes ne sont pas touchés.',
   'Behalten': 'Conserver',
-  'Bestand leeren': 'Vider le cache',
   'Zwischenspeicher geleert': 'Cache vidé',
   'Der Bestand ist weg.': 'Le cache a été vidé.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': '{kopfdaten} en-têtes et {inhalte} corps de messages ont été supprimés et le fichier de stockage réécrit, y compris l\'espace ainsi libéré.\n\nRecharger (F5) remplit à nouveau la liste.',
@@ -1093,6 +1109,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'Les adresses de serveur pour « {adresse} » n\'ont pas pu être déterminées. Indiquez les serveurs IMAP et SMTP à la main.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Les messages chiffrés ne peuvent pas encore porter de pièces jointes. La signature fonctionne avec des pièces jointes ; pour chiffrer, envoyez sans.',
   'Der Datenordner ist nicht beschreibbar.': 'Le dossier de données n\'est pas accessible en écriture.',
   'Konto nicht gefunden': 'Compte introuvable',
   'Feld „{feld}“ fehlt.': 'Le champ « {feld} » est manquant.',
@@ -1151,10 +1168,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'Aucune étiquette n\'a été ajoutée ni retirée',
   'Feld "targetFolder" ist erforderlich': 'Le champ « targetFolder » est obligatoire',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'Aucune clé privée n\'est enregistrée pour ce compte.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Les pièces jointes ne peuvent pas encore être protégées. Envoyez sans pièce jointe ou désactivez la protection.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Un message vide ne peut pas être protégé.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'Aucun certificat personnel n\'est enregistré pour ce compte.',
+  'Die Nachricht hat keinen Empfänger.': 'Le message n\'a pas de destinataire.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Un message ne peut être protégé que par l\'une des deux méthodes.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'Cette date est trop lointaine.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'Le champ « antwort » doit valoir zusagen, absagen ou vorbehalten',
   'Diese Nachricht enthält keine Einladung': 'Ce message ne contient aucune invitation',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'L\'invitation ne désigne personne à qui répondre',

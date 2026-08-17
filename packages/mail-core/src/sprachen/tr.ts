@@ -88,6 +88,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': '{betreff} ögesini seç',
   'Nachricht ohne Betreff': 'Konusuz ileti',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Saklanan iletiler',
+  'Wird geladen …': 'Yükleniyor …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Diskte şu anda {kopfdaten} başlık ve {inhalte} ileti gövdesi var ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Başlıklar, alınan tüm iletilerin göndereni, konusu ve tarihidir. Liste bağlantı olmadan da eksiksiz olsun diye kullanıcı klasörünüzde şifrelenmeden durur.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Boşaltmakla hiçbir şey kaybolmaz: postanız sağlayıcınızda durur ve bir sonraki alışta yeniden indirilir. O zamana kadar bağlantısız liste boştur ve tam metin araması yalnızca o günden beri yeniden alınanları bulur.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Hesaplar, parolalar, adres defteri, kurallar ve etiketler el değmeden kalır.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': '{kopfdaten} başlık ve {inhalte} ileti metni kaldırıldı ve saklama dosyası yeniden yazıldı – içinde boşalan yerler dahil.',
+  'Schließen': 'Kapat',
+  'Wird geleert …': 'Boşaltılıyor …',
+  'Bestand leeren': 'Önbelleği boşalt',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Yokluk yanıtı',
   'Konto': 'Hesap',
@@ -152,7 +164,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Başka bir programdan vCard dosyası içe aktar',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Kayıtlı tüm kişileri vCard dosyası olarak kaydet',
   'Als vCard sichern': 'vCard olarak kaydet',
-  'Schließen': 'Kapat',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Güncellemeler aranıyor',
@@ -710,6 +721,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Sertifikalar',
   'Aufbewahrung nach GoBD': 'GoBD\'ye göre saklama',
   'Archiv': 'Arşiv',
+  'Was von der Post auf dieser Platte liegt': 'Postanızdan bu diskte duranlar',
+  'Bestand': 'Depo',
   'Nutzer verwalten': 'Kullanıcıları yönet',
   'Nutzer': 'Kullanıcılar',
   '× Konto hinzufügen abbrechen': '× Hesap eklemekten vazgeç',
@@ -754,6 +767,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Güncelleme ara',
+  'Sprache der Oberfläche': 'Arayüz dili',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'İçeriğine izin verilen göndericiler',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'Bu göndericilerde resimler ve diğer uzak içerikler sorulmadan yüklenir. Diğerlerinde durdurulmuş kalır, çünkü yüklenen bir resim göndericiye iletinin açıldığını bildirir.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'Bu hesap için izin verilen gönderici yok – uzak içerikler her yerde durdurulmuş kalır.',
+  'Wird entfernt …': 'Kaldırılıyor …',
+  'Vertrauen entziehen': 'Güveni geri al',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': '{name} için parola',
@@ -979,12 +1000,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'Dosya parolanızla şifrelendi. Parolayı saklayın – onsuz yedek bir daha açılamaz.',
   'Zwischenspeicher': 'Önbellek',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Önbellekteki iletiler silinsin mi?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Diskte şu anda {kopfdaten} başlık ve {inhalte} ileti gövdesi var ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Başlıklar, alınan tüm iletilerin göndereni, konusu ve tarihidir. Liste bağlantı olmadan da eksiksiz olsun diye kullanıcı klasörünüzde şifrelenmeden durur.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Boşaltmakla hiçbir şey kaybolmaz: postanız sağlayıcınızda durur ve bir sonraki alışta yeniden indirilir. O zamana kadar bağlantısız liste boştur ve tam metin araması yalnızca o günden beri yeniden alınanları bulur.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Hesaplar, parolalar, adres defteri, kurallar ve etiketler el değmeden kalır.',
   'Behalten': 'Sakla',
-  'Bestand leeren': 'Önbelleği boşalt',
   'Zwischenspeicher geleert': 'Önbellek boşaltıldı',
   'Der Bestand ist weg.': 'Önbellek boşaltıldı.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': '{kopfdaten} başlık ve {inhalte} ileti gövdesi kaldırıldı; boşalan yerler de dâhil olmak üzere depolama dosyası yeniden yazıldı.\n\nYeniden yükleme (F5) listeyi tekrar doldurur.',
@@ -1093,6 +1109,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': '“{adresse}” için sunucu adresleri belirlenemedi. IMAP ve SMTP sunucularını elle girin.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Şifreli iletiler henüz ek taşıyamaz. İmzalama eklerle çalışır; şifrelemek için eksiz gönderin.',
   'Der Datenordner ist nicht beschreibbar.': 'Veri klasörüne yazılamıyor.',
   'Konto nicht gefunden': 'Hesap bulunamadı',
   'Feld „{feld}“ fehlt.': '“{feld}” alanı eksik.',
@@ -1151,10 +1168,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'Ne etiket eklendi ne de kaldırıldı',
   'Feld "targetFolder" ist erforderlich': '“targetFolder” alanı zorunludur',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'Bu hesap için kayıtlı bir özel anahtar yok.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Ekler henüz korunamıyor. Eksiz gönderin ya da korumayı kapatın.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Boş bir ileti korunamaz.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'Bu hesap için kendi sertifikanız kayıtlı değil.',
+  'Die Nachricht hat keinen Empfänger.': 'İletinin alıcısı yok.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Bir ileti yalnızca iki yöntemden biriyle korunabilir.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'Bu zaman gelecekte fazla uzakta.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': '“antwort” alanı zusagen, absagen ya da vorbehalten olmalıdır',
   'Diese Nachricht enthält keine Einladung': 'Bu ileti herhangi bir davet içermiyor',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'Davet, yanıt gönderilecek kimseyi belirtmiyor',

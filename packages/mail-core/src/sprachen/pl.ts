@@ -126,6 +126,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': 'Zaznacz: {betreff}',
   'Nachricht ohne Betreff': 'Wiadomość bez tematu',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Zapisane wiadomości',
+  'Wird geladen …': 'Wczytywanie …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Na dysku znajduje się obecnie {kopfdaten} nagłówków i {inhalte} treści wiadomości ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Nagłówki to nadawca, temat i data – dla wszystkich pobranych wiadomości. Leżą niezaszyfrowane w folderze użytkownika, żeby lista była pełna także bez połączenia.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Po opróżnieniu nic nie ginie: poczta leży u dostawcy i zostanie pobrana przy następnym odbiorze. Do tego czasu lista bez połączenia jest pusta, a wyszukiwanie pełnotekstowe znajdzie tylko to, co od tej pory zostało pobrane ponownie.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Konta, hasła, książka adresowa, reguły i etykiety pozostają nietknięte.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': 'Usunięto nagłówki ({kopfdaten}) oraz treści wiadomości ({inhalte}) i zapisano plik magazynu na nowo – wraz ze zwolnionym w nim miejscem.',
+  'Schließen': 'Zamknij',
+  'Wird geleert …': 'Opróżnianie …',
+  'Bestand leeren': 'Opróżnij',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Autoodpowiedź o nieobecności',
   'Konto': 'Konto',
@@ -190,7 +202,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Wczytaj plik vCard z innego programu',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Zapisz wszystkie kontakty jako plik vCard',
   'Als vCard sichern': 'Zapisz jako vCard',
-  'Schließen': 'Zamknij',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Szukanie aktualizacji',
@@ -769,6 +780,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Certyfikaty',
   'Aufbewahrung nach GoBD': 'Przechowywanie według GoBD',
   'Archiv': 'Archiwum',
+  'Was von der Post auf dieser Platte liegt': 'Co z poczty leży na tym dysku',
+  'Bestand': 'Magazyn',
   'Nutzer verwalten': 'Zarządzaj użytkownikami',
   'Nutzer': 'Użytkownicy',
   '× Konto hinzufügen abbrechen': '× Anuluj dodawanie konta',
@@ -813,6 +826,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Sprawdź aktualizacje',
+  'Sprache der Oberfläche': 'Język interfejsu',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Nadawcy z dozwoloną treścią',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'U tych nadawców obrazy i inne zdalne treści wczytują się bez pytania. U pozostałych pozostają wstrzymane, ponieważ wczytany obraz informuje nadawcę, że wiadomość została otwarta.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'Dla tego konta nie dopuszczono żadnego nadawcy – zdalne treści pozostają wszędzie wstrzymane.',
+  'Wird entfernt …': 'Usuwanie …',
+  'Vertrauen entziehen': 'Cofnij zaufanie',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Hasło dla {name}',
@@ -1038,12 +1059,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'Plik jest zaszyfrowany Twoim hasłem. Zachowaj to hasło – bez niego kopii zapasowej nie da się już otworzyć.',
   'Zwischenspeicher': 'Pamięć podręczna',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Usunąć zapisane wiadomości z pamięci podręcznej?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Na dysku znajduje się obecnie {kopfdaten} nagłówków i {inhalte} treści wiadomości ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Nagłówki to nadawca, temat i data – dla wszystkich pobranych wiadomości. Leżą niezaszyfrowane w folderze użytkownika, żeby lista była pełna także bez połączenia.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Po opróżnieniu nic nie ginie: poczta leży u dostawcy i zostanie pobrana przy następnym odbiorze. Do tego czasu lista bez połączenia jest pusta, a wyszukiwanie pełnotekstowe znajdzie tylko to, co od tej pory zostało pobrane ponownie.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Konta, hasła, książka adresowa, reguły i etykiety pozostają nietknięte.',
   'Behalten': 'Zachowaj',
-  'Bestand leeren': 'Opróżnij',
   'Zwischenspeicher geleert': 'Opróżniono pamięć podręczną',
   'Der Bestand ist weg.': 'Zapisane dane zniknęły.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': 'Usunięto {kopfdaten} nagłówków i {inhalte} treści wiadomości, a plik składnicy zapisano na nowo – razem ze zwolnionymi w nim miejscami.\n\nOdświeżenie (F5) ponownie wypełni listę.',
@@ -1164,6 +1180,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'Dla „{adresse}” nie udało się ustalić adresów serwerów. Podaj serwer IMAP i SMTP ręcznie.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Zaszyfrowane wiadomości nie mogą jeszcze zawierać załączników. Podpisywanie działa z załącznikami; aby zaszyfrować, wyślij bez nich.',
   'Der Datenordner ist nicht beschreibbar.': 'Folder danych nie jest zapisywalny.',
   'Konto nicht gefunden': 'Nie znaleziono konta',
   'Feld „{feld}“ fehlt.': 'Brakuje pola „{feld}”.',
@@ -1222,10 +1239,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'Nie dodano ani nie zdjęto żadnej etykiety',
   'Feld "targetFolder" ist erforderlich': 'Pole "targetFolder" jest wymagane',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'Dla tego konta nie zapisano klucza prywatnego.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Załączników nie da się jeszcze objąć ochroną. Wyślij bez załącznika albo wyłącz ochronę.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Pustej wiadomości nie da się chronić.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'Dla tego konta nie zapisano własnego certyfikatu.',
+  'Die Nachricht hat keinen Empfänger.': 'Wiadomość nie ma odbiorcy.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Wiadomość można chronić tylko jedną z dwóch metod.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'Ten termin jest zbyt odległy.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'Pole "antwort" musi mieć wartość zusagen, absagen lub vorbehalten',
   'Diese Nachricht enthält keine Einladung': 'Ta wiadomość nie zawiera zaproszenia',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'Zaproszenie nie wskazuje nikogo, komu można wysłać odpowiedź',

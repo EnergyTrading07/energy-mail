@@ -88,6 +88,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': 'Seleziona {betreff}',
   'Nachricht ohne Betreff': 'Messaggio senza oggetto',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Messaggi memorizzati',
+  'Wird geladen …': 'Caricamento …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Sul disco ci sono attualmente {kopfdaten} intestazioni e {inhalte} corpi di messaggio ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Le intestazioni sono mittente, oggetto e data di tutti i messaggi scaricati. Restano in chiaro nella sua cartella utente, così l\'elenco è completo anche senza connessione.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Svuotandola non si perde nulla: la posta è presso il suo provider e verrà riscaricata al prossimo controllo. Fino ad allora l\'elenco senza connessione è vuoto e la ricerca full text trova solo ciò che è stato riscaricato da allora.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Account, password, rubrica, regole ed etichette restano intatti.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': 'Sono stati rimossi {kopfdaten} intestazioni e {inhalte} testi di messaggi e il file di memoria è stato riscritto, compreso lo spazio liberato.',
+  'Schließen': 'Chiudi',
+  'Wird geleert …': 'Svuotamento …',
+  'Bestand leeren': 'Svuota la cache',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Risposta di assenza',
   'Konto': 'Account',
@@ -152,7 +164,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Importa un file vCard da un altro programma',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Salva tutti i contatti in un file vCard',
   'Als vCard sichern': 'Salva come vCard',
-  'Schließen': 'Chiudi',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Ricerca di aggiornamenti',
@@ -710,6 +721,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Certificati',
   'Aufbewahrung nach GoBD': 'Conservazione secondo le GoBD',
   'Archiv': 'Archivio',
+  'Was von der Post auf dieser Platte liegt': 'Ciò che resta della posta su questo disco',
+  'Bestand': 'Memoria',
   'Nutzer verwalten': 'Gestisci utenti',
   'Nutzer': 'Utenti',
   '× Konto hinzufügen abbrechen': '× Annulla l\'aggiunta dell\'account',
@@ -754,6 +767,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Cerca aggiornamenti',
+  'Sprache der Oberfläche': 'Lingua dell\'interfaccia',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Mittenti con contenuti consentiti',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'Per questi mittenti le immagini e gli altri contenuti remoti vengono caricati senza chiedere. Per tutti gli altri restano bloccati, perché un\'immagine caricata segnala al mittente che il messaggio è stato aperto.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'Per questo account non è consentito alcun mittente: i contenuti remoti restano bloccati ovunque.',
+  'Wird entfernt …': 'Rimozione …',
+  'Vertrauen entziehen': 'Revocare la fiducia',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Password di {name}',
@@ -979,12 +1000,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'Il file è cifrato con la tua password. Conservala: senza di essa il backup non si apre più.',
   'Zwischenspeicher': 'Cache',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Svuotare i messaggi nella cache?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Sul disco ci sono attualmente {kopfdaten} intestazioni e {inhalte} corpi di messaggio ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Le intestazioni sono mittente, oggetto e data di tutti i messaggi scaricati. Restano in chiaro nella sua cartella utente, così l\'elenco è completo anche senza connessione.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Svuotandola non si perde nulla: la posta è presso il suo provider e verrà riscaricata al prossimo controllo. Fino ad allora l\'elenco senza connessione è vuoto e la ricerca full text trova solo ciò che è stato riscaricato da allora.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Account, password, rubrica, regole ed etichette restano intatti.',
   'Behalten': 'Conserva',
-  'Bestand leeren': 'Svuota la cache',
   'Zwischenspeicher geleert': 'Cache svuotata',
   'Der Bestand ist weg.': 'La cache è stata svuotata.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': 'Sono stati rimossi {kopfdaten} intestazioni e {inhalte} corpi di messaggio e il file di archiviazione è stato riscritto, compreso lo spazio così liberato.\n\nRicaricare (F5) riempie di nuovo l\'elenco.',
@@ -1093,6 +1109,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'Non è stato possibile determinare gli indirizzi dei server per «{adresse}». Indichi a mano i server IMAP e SMTP.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'I messaggi cifrati non possono ancora contenere allegati. La firma funziona con gli allegati; per cifrare, invii senza.',
   'Der Datenordner ist nicht beschreibbar.': 'La cartella dei dati non è scrivibile.',
   'Konto nicht gefunden': 'Account non trovato',
   'Feld „{feld}“ fehlt.': 'Manca il campo «{feld}».',
@@ -1151,10 +1168,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'Non è stata aggiunta né rimossa alcuna etichetta',
   'Feld "targetFolder" ist erforderlich': 'Il campo «targetFolder» è obbligatorio',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'Per questo account non è memorizzata alcuna chiave privata.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Gli allegati non possono ancora essere protetti. Invii senza allegati o disattivi la protezione.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Un messaggio vuoto non può essere protetto.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'Per questo account non è memorizzato alcun certificato proprio.',
+  'Die Nachricht hat keinen Empfänger.': 'Il messaggio non ha destinatari.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Un messaggio può essere protetto solo con uno dei due metodi.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'La data è troppo lontana nel futuro.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'Il campo «antwort» deve essere zusagen, absagen o vorbehalten',
   'Diese Nachricht enthält keine Einladung': 'Questo messaggio non contiene alcun invito',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'L\'invito non indica nessuno a cui rispondere',

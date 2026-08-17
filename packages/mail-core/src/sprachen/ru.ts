@@ -130,6 +130,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': 'Выбрать: {betreff}',
   'Nachricht ohne Betreff': 'Письмо без темы',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Сохранённые сообщения',
+  'Wird geladen …': 'Загрузка …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Сейчас на диске: заголовков — {kopfdaten}, текстов писем — {inhalte} ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Заголовки — это отправитель, тема и дата всех загруженных писем. Они лежат незашифрованными в пользовательской папке, чтобы список был полным и без связи.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'При очистке ничего не теряется: почта лежит у вашего провайдера и будет загружена заново при следующем обращении. До этого список без связи пуст, а полнотекстовый поиск найдёт только то, что загружено с тех пор.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Аккаунты, пароли, адресная книга, правила и метки остаются нетронутыми.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': 'Удалено заголовков: {kopfdaten}, текстов сообщений: {inhalte}. Файл хранилища перезаписан — вместе с освободившимся в нём местом.',
+  'Schließen': 'Закрыть',
+  'Wird geleert …': 'Очистка …',
+  'Bestand leeren': 'Очистить',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Автоответ об отсутствии',
   'Konto': 'Учётная запись',
@@ -194,7 +206,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Загрузить файл vCard из другой программы',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Сохранить все контакты в файл vCard',
   'Als vCard sichern': 'Сохранить как vCard',
-  'Schließen': 'Закрыть',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Поиск обновлений',
@@ -773,6 +784,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Сертификаты',
   'Aufbewahrung nach GoBD': 'Хранение по GoBD',
   'Archiv': 'Архив',
+  'Was von der Post auf dieser Platte liegt': 'Что из почты лежит на этом диске',
+  'Bestand': 'Хранилище',
   'Nutzer verwalten': 'Управление пользователями',
   'Nutzer': 'Пользователи',
   '× Konto hinzufügen abbrechen': '× Отменить добавление аккаунта',
@@ -817,6 +830,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Проверить обновления',
+  'Sprache der Oberfläche': 'Язык интерфейса',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Отправители с разрешённым содержимым',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'У этих отправителей изображения и другое внешнее содержимое загружаются без запроса. У остальных они остаются заблокированными, потому что загруженное изображение сообщает отправителю, что письмо открыли.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'Для этой учётной записи не разрешён ни один отправитель — внешнее содержимое везде остаётся заблокированным.',
+  'Wird entfernt …': 'Удаление …',
+  'Vertrauen entziehen': 'Отозвать доверие',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Пароль для {name}',
@@ -1042,12 +1063,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'Файл зашифрован вашим паролем. Сохраните пароль — без него резервную копию больше не открыть.',
   'Zwischenspeicher': 'Кэш',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Удалить сохранённые в кэше письма?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Сейчас на диске: заголовков — {kopfdaten}, текстов писем — {inhalte} ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Заголовки — это отправитель, тема и дата всех загруженных писем. Они лежат незашифрованными в пользовательской папке, чтобы список был полным и без связи.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'При очистке ничего не теряется: почта лежит у вашего провайдера и будет загружена заново при следующем обращении. До этого список без связи пуст, а полнотекстовый поиск найдёт только то, что загружено с тех пор.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Аккаунты, пароли, адресная книга, правила и метки остаются нетронутыми.',
   'Behalten': 'Оставить',
-  'Bestand leeren': 'Очистить',
   'Zwischenspeicher geleert': 'Кэш очищен',
   'Der Bestand ist weg.': 'Сохранённые данные удалены.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': 'Удалено заголовков — {kopfdaten}, текстов писем — {inhalte}; файл хранилища перезаписан вместе с освободившимися в нём местами.\n\nОбновление (F5) снова заполнит список.',
@@ -1168,6 +1184,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'Для «{adresse}» не удалось определить адреса серверов. Укажите серверы IMAP и SMTP вручную.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Зашифрованные сообщения пока не могут содержать вложения. Подпись работает с вложениями; для шифрования отправьте без них.',
   'Der Datenordner ist nicht beschreibbar.': 'Папка данных недоступна для записи.',
   'Konto nicht gefunden': 'Аккаунт не найден',
   'Feld „{feld}“ fehlt.': 'Отсутствует поле «{feld}».',
@@ -1226,10 +1243,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'Ни одна метка не добавлена и не снята',
   'Feld "targetFolder" ist erforderlich': 'Поле "targetFolder" обязательно',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'Для этого аккаунта закрытый ключ не сохранён.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Вложения пока нельзя защитить. Отправьте без вложения или отключите защиту.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Пустое письмо защитить нельзя.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'Для этой учётной записи не сохранён собственный сертификат.',
+  'Die Nachricht hat keinen Empfänger.': 'У сообщения нет получателя.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Письмо можно защитить только одним из двух способов.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'Этот срок слишком далеко в будущем.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'Поле "antwort" должно быть zusagen, absagen или vorbehalten',
   'Diese Nachricht enthält keine Einladung': 'В этом письме нет приглашения',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'В приглашении не указан никто, кому можно отправить ответ',

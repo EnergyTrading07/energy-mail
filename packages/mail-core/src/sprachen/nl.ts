@@ -88,6 +88,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': '{betreff} selecteren',
   'Nachricht ohne Betreff': 'Bericht zonder onderwerp',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Opgeslagen berichten',
+  'Wird geladen …': 'Bezig met laden …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Op de schijf staan op dit moment {kopfdaten} kopgegevens en {inhalte} berichtteksten ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Kopgegevens zijn afzender, onderwerp en datum van alle opgehaalde berichten. Ze staan onversleuteld in uw gebruikersmap, zodat de lijst ook zonder verbinding volledig is.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Als u de cache leegt, gaat er niets verloren: uw post staat bij uw provider en wordt bij de volgende keer ophalen opnieuw binnengehaald. Tot dan is de lijst zonder verbinding leeg en vindt het zoeken in de volledige tekst alleen wat sindsdien weer is opgehaald.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Accounts, wachtwoorden, adresboek, regels en labels blijven ongemoeid.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': '{kopfdaten} kopgegevens en {inhalte} berichtteksten zijn verwijderd en het opslagbestand is opnieuw geschreven – ook de daarin vrijgekomen ruimte.',
+  'Schließen': 'Sluiten',
+  'Wird geleert …': 'Bezig met legen …',
+  'Bestand leeren': 'Cache legen',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Afwezigheidsbericht',
   'Konto': 'Account',
@@ -152,7 +164,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Een vCard-bestand uit een ander programma inlezen',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Alle contacten opslaan als vCard-bestand',
   'Als vCard sichern': 'Opslaan als vCard',
-  'Schließen': 'Sluiten',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Zoeken naar updates',
@@ -710,6 +721,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Certificaten',
   'Aufbewahrung nach GoBD': 'Bewaring volgens GoBD',
   'Archiv': 'Archief',
+  'Was von der Post auf dieser Platte liegt': 'Wat er van uw post op deze schijf staat',
+  'Bestand': 'Opslag',
   'Nutzer verwalten': 'Gebruikers beheren',
   'Nutzer': 'Gebruikers',
   '× Konto hinzufügen abbrechen': '× Account toevoegen annuleren',
@@ -754,6 +767,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Zoeken naar updates',
+  'Sprache der Oberfläche': 'Taal van de interface',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Afzenders met toegestane inhoud',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'Bij deze afzenders worden afbeeldingen en andere externe inhoud zonder vragen geladen. Bij alle andere blijft die tegengehouden, want een geladen afbeelding meldt de afzender dat het bericht is geopend.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'Voor dit account is geen enkele afzender toegestaan – externe inhoud blijft overal tegengehouden.',
+  'Wird entfernt …': 'Bezig met verwijderen …',
+  'Vertrauen entziehen': 'Vertrouwen intrekken',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Wachtwoord voor {name}',
@@ -979,12 +1000,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'Het bestand is met uw wachtwoord versleuteld. Bewaar het wachtwoord – zonder dat kan de back-up niet meer worden geopend.',
   'Zwischenspeicher': 'Cache',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Moeten de berichten in de cache weg?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'Op de schijf staan op dit moment {kopfdaten} kopgegevens en {inhalte} berichtteksten ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Kopgegevens zijn afzender, onderwerp en datum van alle opgehaalde berichten. Ze staan onversleuteld in uw gebruikersmap, zodat de lijst ook zonder verbinding volledig is.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Als u de cache leegt, gaat er niets verloren: uw post staat bij uw provider en wordt bij de volgende keer ophalen opnieuw binnengehaald. Tot dan is de lijst zonder verbinding leeg en vindt het zoeken in de volledige tekst alleen wat sindsdien weer is opgehaald.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Accounts, wachtwoorden, adresboek, regels en labels blijven ongemoeid.',
   'Behalten': 'Behouden',
-  'Bestand leeren': 'Cache legen',
   'Zwischenspeicher geleert': 'Cache geleegd',
   'Der Bestand ist weg.': 'De cache is leeg.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': 'Er zijn {kopfdaten} kopgegevens en {inhalte} berichtteksten verwijderd en het opslagbestand is opnieuw weggeschreven, inclusief de ruimte die daarbij vrijkwam.\n\nOpnieuw laden (F5) vult de lijst weer aan.',
@@ -1093,6 +1109,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'De serveradressen voor “{adresse}” konden niet worden bepaald. Geef de IMAP- en SMTP-server met de hand op.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Versleutelde berichten kunnen nog geen bijlagen bevatten. Ondertekenen werkt wel met bijlagen; verstuur zonder bijlage om te versleutelen.',
   'Der Datenordner ist nicht beschreibbar.': 'De gegevensmap is niet beschrijfbaar.',
   'Konto nicht gefunden': 'Account niet gevonden',
   'Feld „{feld}“ fehlt.': 'Het veld “{feld}” ontbreekt.',
@@ -1151,10 +1168,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'Er is geen label toegevoegd en ook geen label verwijderd',
   'Feld "targetFolder" ist erforderlich': 'Het veld “targetFolder” is verplicht',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'Voor dit account is geen privésleutel opgeslagen.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Bijlagen kunnen nog niet worden beveiligd. Verstuur zonder bijlage of schakel de beveiliging uit.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Een leeg bericht kan niet worden beveiligd.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'Voor dit account is geen eigen certificaat opgeslagen.',
+  'Die Nachricht hat keinen Empfänger.': 'Het bericht heeft geen ontvanger.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Een bericht kan maar met één van beide methoden worden beschermd.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'Dat tijdstip ligt te ver in de toekomst.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'Het veld “antwort” moet zusagen, absagen of vorbehalten zijn',
   'Diese Nachricht enthält keine Einladung': 'Dit bericht bevat geen uitnodiging',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'De uitnodiging noemt niemand aan wie een antwoord kan worden gestuurd',

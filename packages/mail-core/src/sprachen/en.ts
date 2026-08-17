@@ -87,6 +87,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': 'Select {betreff}',
   'Nachricht ohne Betreff': 'Message without a subject',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Stored messages',
+  'Wird geladen …': 'Loading …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'There are currently {kopfdaten} headers and {inhalte} message bodies on disk ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Headers are sender, subject and date – for every message fetched. They sit unencrypted in your user folder so the list is complete even offline.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Clearing loses nothing: your mail sits with your provider and is fetched again next time. Until then the offline list is empty, and full-text search only finds what has been fetched since.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Accounts, passwords, address book, rules and labels are left untouched.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': '{kopfdaten} headers and {inhalte} message texts were removed and the store file rewritten – including the space freed inside it.',
+  'Schließen': 'Close',
+  'Wird geleert …': 'Emptying …',
+  'Bestand leeren': 'Clear cache',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Out-of-office reply',
   'Konto': 'Account',
@@ -151,7 +163,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Import a vCard file from another program',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Save every contact as a vCard file',
   'Als vCard sichern': 'Save as vCard',
-  'Schließen': 'Close',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Checking for updates',
@@ -709,6 +720,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Certificates',
   'Aufbewahrung nach GoBD': 'Retention under GoBD',
   'Archiv': 'Archive',
+  'Was von der Post auf dieser Platte liegt': 'What of your mail is stored on this disk',
+  'Bestand': 'Storage',
   'Nutzer verwalten': 'Manage users',
   'Nutzer': 'Users',
   '× Konto hinzufügen abbrechen': '× Cancel adding account',
@@ -753,6 +766,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Check for updates',
+  'Sprache der Oberfläche': 'Interface language',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Senders with allowed content',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'For these senders, images and other remote content load without asking. For everyone else they stay blocked, because a loaded image tells the sender that the message was opened.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'No sender is allowed for this account – remote content stays blocked everywhere.',
+  'Wird entfernt …': 'Removing …',
+  'Vertrauen entziehen': 'Withdraw trust',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Password for {name}',
@@ -978,12 +999,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'The file is encrypted with your password. Keep the password safe – without it the backup cannot be opened again.',
   'Zwischenspeicher': 'Cache',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': 'Clear the cached messages?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'There are currently {kopfdaten} headers and {inhalte} message bodies on disk ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Headers are sender, subject and date – for every message fetched. They sit unencrypted in your user folder so the list is complete even offline.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Clearing loses nothing: your mail sits with your provider and is fetched again next time. Until then the offline list is empty, and full-text search only finds what has been fetched since.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Accounts, passwords, address book, rules and labels are left untouched.',
   'Behalten': 'Keep',
-  'Bestand leeren': 'Clear cache',
   'Zwischenspeicher geleert': 'Cache cleared',
   'Der Bestand ist weg.': 'The cache is gone.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': '{kopfdaten} headers and {inhalte} message bodies were removed and the store file rewritten – including the space they freed up.\n\nReload (F5) fills the list again.',
@@ -1092,6 +1108,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'The server addresses for “{adresse}” could not be determined. Please enter the IMAP and SMTP servers by hand.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Encrypted messages cannot carry attachments yet. Signing works with attachments; to encrypt, please send without.',
   'Der Datenordner ist nicht beschreibbar.': 'The data folder is not writable.',
   'Konto nicht gefunden': 'Account not found',
   'Feld „{feld}“ fehlt.': 'Field “{feld}” is missing.',
@@ -1150,10 +1167,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'No label was added and none was removed',
   'Feld "targetFolder" ist erforderlich': 'Field "targetFolder" is required',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'No private key is stored for this account.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Attachments cannot be protected yet. Please send without attachments or turn the protection off.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'An empty message cannot be protected.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'No certificate of your own is stored for this account.',
+  'Die Nachricht hat keinen Empfänger.': 'The message has no recipient.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'A message can only be protected with one of the two methods.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'That time is too far in the future.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'Field "antwort" must be zusagen, absagen or vorbehalten',
   'Diese Nachricht enthält keine Einladung': 'This message contains no invitation',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'The invitation names no one a reply could go to',

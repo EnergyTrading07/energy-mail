@@ -88,6 +88,18 @@ export const KATALOG: Katalog = {
   '{betreff} auswählen': 'Seleccionar {betreff}',
   'Nachricht ohne Betreff': 'Mensaje sin asunto',
 
+  // --- packages/web/src/components/AblageModal.tsx ---
+  'Gespeicherter Nachrichtenbestand': 'Mensajes almacenados',
+  'Wird geladen …': 'Cargando …',
+  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'En el disco hay actualmente {kopfdaten} cabeceras y {inhalte} cuerpos de mensaje ({groesse}).',
+  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Las cabeceras son el remitente, el asunto y la fecha de todos los mensajes descargados. Están sin cifrar en su carpeta de usuario para que la lista esté completa también sin conexión.',
+  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Al vaciarla no se pierde nada: su correo está en el proveedor y se vuelve a descargar en la siguiente consulta. Hasta entonces la lista sin conexión está vacía y la búsqueda de texto completo solo encuentra lo que se haya descargado desde entonces.',
+  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Cuentas, contraseñas, libreta de direcciones, reglas y etiquetas quedan intactas.',
+  '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.': 'Se han eliminado {kopfdaten} cabeceras y {inhalte} textos de mensajes y se ha reescrito el archivo de almacenamiento, incluido el espacio liberado.',
+  'Schließen': 'Cerrar',
+  'Wird geleert …': 'Vaciando …',
+  'Bestand leeren': 'Vaciar la caché',
+
   // --- packages/web/src/components/AbwesenheitModal.tsx ---
   'Abwesenheitsnotiz': 'Respuesta de ausencia',
   'Konto': 'Cuenta',
@@ -152,7 +164,6 @@ export const KATALOG: Katalog = {
   'Eine vCard-Datei aus einem anderen Programm einlesen': 'Importar un archivo vCard de otro programa',
   'Alle eingetragenen Kontakte als vCard-Datei sichern': 'Guardar todos los contactos en un archivo vCard',
   'Als vCard sichern': 'Guardar como vCard',
-  'Schließen': 'Cerrar',
 
   // --- packages/web/src/components/Aktualisierung.tsx ---
   'Suche nach Aktualisierungen': 'Buscando actualizaciones',
@@ -710,6 +721,8 @@ export const KATALOG: Katalog = {
   'Zertifikate': 'Certificados',
   'Aufbewahrung nach GoBD': 'Conservación según las GoBD',
   'Archiv': 'Archivo',
+  'Was von der Post auf dieser Platte liegt': 'Lo que queda de su correo en este disco',
+  'Bestand': 'Almacenamiento',
   'Nutzer verwalten': 'Gestionar usuarios',
   'Nutzer': 'Usuarios',
   '× Konto hinzufügen abbrechen': '× Cancelar añadir cuenta',
@@ -754,6 +767,14 @@ export const KATALOG: Katalog = {
 
   // --- packages/web/src/components/Titelleiste.tsx ---
   'Nach Aktualisierungen suchen': 'Buscar actualizaciones',
+  'Sprache der Oberfläche': 'Idioma de la interfaz',
+
+  // --- packages/web/src/components/VertrauteAbsenderTeil.tsx ---
+  'Absender mit freigegebenen Inhalten': 'Remitentes con contenido permitido',
+  'Bei diesen Absendern werden Bilder und andere entfernte Inhalte ohne Rückfrage geladen. Bei allen übrigen bleiben sie angehalten, denn ein nachgeladenes Bild meldet dem Absender, dass die Nachricht geöffnet wurde.': 'Con estos remitentes, las imágenes y otros contenidos remotos se cargan sin preguntar. Con los demás siguen bloqueados, porque una imagen cargada avisa al remitente de que el mensaje se ha abierto.',
+  'Für dieses Konto ist kein Absender freigegeben – entfernte Inhalte bleiben überall angehalten.': 'En esta cuenta no hay ningún remitente permitido: el contenido remoto sigue bloqueado en todas partes.',
+  'Wird entfernt …': 'Eliminando …',
+  'Vertrauen entziehen': 'Retirar la confianza',
 
   // --- packages/web/src/components/VerwaltungModal.tsx ---
   'Kennwort für {name}': 'Contraseña de {name}',
@@ -979,12 +1000,7 @@ export const KATALOG: Katalog = {
   'Die Datei ist mit Ihrem Kennwort verschlüsselt. Bewahren Sie das Kennwort auf – ohne es lässt sich die Sicherung nicht mehr öffnen.': 'El archivo está cifrado con su contraseña. Guarde la contraseña: sin ella la copia de seguridad ya no podrá abrirse.',
   'Zwischenspeicher': 'Caché',
   'Soll der zwischengespeicherte Nachrichtenbestand weg?': '¿Vaciar los mensajes en caché?',
-  'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).': 'En el disco hay actualmente {kopfdaten} cabeceras y {inhalte} cuerpos de mensaje ({groesse}).',
-  'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.': 'Las cabeceras son el remitente, el asunto y la fecha de todos los mensajes descargados. Están sin cifrar en su carpeta de usuario para que la lista esté completa también sin conexión.',
-  'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.': 'Al vaciarla no se pierde nada: su correo está en el proveedor y se vuelve a descargar en la siguiente consulta. Hasta entonces la lista sin conexión está vacía y la búsqueda de texto completo solo encuentra lo que se haya descargado desde entonces.',
-  'Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.': 'Cuentas, contraseñas, libreta de direcciones, reglas y etiquetas quedan intactas.',
   'Behalten': 'Conservar',
-  'Bestand leeren': 'Vaciar la caché',
   'Zwischenspeicher geleert': 'Caché vaciada',
   'Der Bestand ist weg.': 'La caché se ha vaciado.',
   '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.': 'Se han eliminado {kopfdaten} cabeceras y {inhalte} cuerpos de mensaje y se ha reescrito el archivo de almacenamiento, incluido el espacio que quedó libre.\n\nRecargar (F5) vuelve a llenar la lista.',
@@ -1093,6 +1109,7 @@ export const KATALOG: Katalog = {
   'Für „{adresse}“ ließen sich die Serveradressen nicht ermitteln. Bitte IMAP- und SMTP-Server von Hand angeben.': 'No se han podido determinar las direcciones de servidor para «{adresse}». Indique los servidores IMAP y SMTP a mano.',
 
   // --- packages/server/src/app.ts ---
+  'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Los mensajes cifrados aún no pueden llevar adjuntos. Firmar sí funciona con adjuntos; para cifrar, envíe sin ellos.',
   'Der Datenordner ist nicht beschreibbar.': 'No se puede escribir en la carpeta de datos.',
   'Konto nicht gefunden': 'Cuenta no encontrada',
   'Feld „{feld}“ fehlt.': 'Falta el campo «{feld}».',
@@ -1151,10 +1168,11 @@ export const KATALOG: Katalog = {
   'Es wurde weder ein Etikett angehängt noch eines abgenommen': 'No se ha añadido ni quitado ninguna etiqueta',
   'Feld "targetFolder" ist erforderlich': 'El campo «targetFolder» es obligatorio',
   'Für dieses Konto ist kein geheimer Schlüssel hinterlegt.': 'No hay ninguna clave privada guardada para esta cuenta.',
-  'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.': 'Los archivos adjuntos aún no se pueden proteger. Envíe sin adjuntos o desactive la protección.',
   'Eine leere Nachricht lässt sich nicht schützen.': 'Un mensaje vacío no se puede proteger.',
   'Für dieses Konto ist kein eigenes Zertifikat hinterlegt.': 'No hay ningún certificado propio guardado para esta cuenta.',
+  'Die Nachricht hat keinen Empfänger.': 'El mensaje no tiene destinatario.',
   'Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.': 'Un mensaje solo puede protegerse con uno de los dos métodos.',
+  'Der Zeitpunkt liegt zu weit in der Zukunft.': 'La fecha está demasiado lejos en el futuro.',
   'Feld "antwort" muss zusagen, absagen oder vorbehalten sein': 'El campo «antwort» debe ser zusagen, absagen o vorbehalten',
   'Diese Nachricht enthält keine Einladung': 'Este mensaje no contiene ninguna invitación',
   'Die Einladung nennt niemanden, an den eine Antwort ginge': 'La invitación no indica a nadie a quien responder',
