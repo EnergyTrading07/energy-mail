@@ -43,6 +43,7 @@ interface Props {
   onOpenSchluessel: () => void;
   onOpenZertifikate: () => void;
   onOpenArchiv: () => void;
+  onOpenAblage: () => void;
   onOpenAbwesenheit: () => void;
   /** Ein freigegebenes Postfach weglegen - der Beschenkte darf das selbst. */
   onFreigabeWeglegen: (freigabeId: string) => void;
@@ -233,6 +234,7 @@ export function Sidebar({
   onOpenSchluessel,
   onOpenZertifikate,
   onOpenArchiv,
+  onOpenAblage,
   onOpenAbwesenheit,
   abwesenheitAktiv,
   onFreigabeWeglegen,
@@ -757,6 +759,14 @@ export function Sidebar({
         */}
         <button className="link-btn" onClick={onOpenZertifikate} title={t('S/MIME-Zertifikate verwalten')}>{t('Zertifikate')}</button>
         <button className="link-btn" onClick={onOpenArchiv} title={t('Aufbewahrung nach GoBD')}>{t('Archiv')}</button>
+        {/*
+          Was von der Post auf dieser Platte liegt - und der Weg, es loszuwerden.
+
+          Steht hier und nicht nur im Menü der Desktop-Hülle: Im Browser gibt es kein Menü,
+          und dort war der unverschlüsselt abgelegte Bestand bisher weder einzusehen noch
+          zu entfernen.
+        */}
+        <button className="link-btn" onClick={onOpenAblage} title={t('Was von der Post auf dieser Platte liegt')}>{t('Bestand')}</button>
         {/*
           Nur für Verwalter sichtbar - und das ist Höflichkeit, kein Schutz.
 

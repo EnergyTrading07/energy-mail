@@ -77,6 +77,27 @@ export const SPRACHEN: Record<Sprache, Sprachangaben> = {
 const KENNUNGEN = Object.keys(SPRACHEN) as Sprache[];
 
 /**
+ * Was einer Sprachwahl zur Auswahl steht - abgeleitet und nicht danebengeschrieben.
+ *
+ * Steht hier und nicht in einer der beiden Oberflächen, weil es beide brauchen: das Menü
+ * der Desktop-Hülle und die Auswahl im Browser. Eine zweite Liste neben der ersten geht
+ * genau so lange gut, bis jemand nur eine davon ergänzt - und dann fehlt die neue Sprache
+ * an einer Stelle, obwohl ihr Katalog vorliegt. Niemand sucht den Fehler dort, weil "die
+ * Sprache ist eingebaut" ja stimmt.
+ *
+ * Die Namen bleiben unübersetzt: Wer die Oberfläche auf einer Sprache vorfindet, die er
+ * nicht liest, sucht seine eigene - und "Deutsch" erkennt er, "German" womöglich nicht.
+ * So macht es jedes Betriebssystem.
+ */
+export const SPRACHWAHL: { wert: string; name: string }[] = [
+  { wert: 'automatisch', name: 'Automatisch / Automatic' },
+  ...(Object.entries(SPRACHEN) as [Sprache, Sprachangaben][]).map(([wert, angaben]) => ({
+    wert,
+    name: angaben.name,
+  })),
+];
+
+/**
  * Ein Katalog: deutscher Text auf übersetzten Text.
  *
  * Bewusst flach und ohne Namensräume. Bei 500 Einträgen ist eine Ebene übersichtlicher

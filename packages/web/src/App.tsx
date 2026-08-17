@@ -35,6 +35,7 @@ import {
 import { SchluesselModal } from './components/SchluesselModal.js';
 import { ZertifikatModal } from './components/ZertifikatModal.js';
 import { ArchivModal } from './components/ArchivModal.js';
+import { AblageModal } from './components/AblageModal.js';
 import { VerwaltungModal } from './components/VerwaltungModal.js';
 import { KontoModal } from './components/KontoModal.js';
 import { AbwesenheitModal } from './components/AbwesenheitModal.js';
@@ -189,6 +190,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
   const [schluesselOffen, setSchluesselOffen] = useState(false);
   const [zertifikateOffen, setZertifikateOffen] = useState(false);
   const [archivOffen, setArchivOffen] = useState(false);
+  const [ablageOffen, setAblageOffen] = useState(false);
   const [verwaltungOffen, setVerwaltungOffen] = useState(false);
   const [kontoOffen, setKontoOffen] = useState(false);
   const [abwesenheitOffen, setAbwesenheitOffen] = useState(false);
@@ -861,6 +863,26 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
    * überhaupt behält: ein Server, der es nicht tut, nimmt den Befehl trotzdem an und
    * vergisst ihn beim Schließen - ohne die Rückfrage wäre das eine stille Enttäuschung.
    */
+  /**
+   * Holt die Auskunft, ob der offene Ordner Etiketten dauerhaft behält.
+   *
+   * Gerufen vom Etikettenmenü, wenn es aufgeht und die Antwort noch nicht vorliegt. Bis
+   * hierher wurde die Auskunft nie geholt: Sie stand serverseitig bereit und in der
+   * Schnittstelle ebenso, aber gefragt hat sie niemand - der Hinweis entstand allein aus
+   * der Antwort auf das erste vergebene Etikett, also nachdem der Nutzer bereits getan
+   * hatte, wovor der Hinweis warnt.
+   *
+   * Ein Fehlschlag bleibt still. Die Auskunft ist eine Vorwarnung, kein Arbeitsschritt -
+   * misslingt sie, greift weiterhin die Rückmeldung beim Vergeben selbst.
+   */
+  const pruefeEtikettenDauerhaft = () => {
+    if (!arbeitsKonto || !arbeitsOrdner) return;
+    void api
+      .pruefeEtikettenMoeglich(arbeitsKonto, arbeitsOrdner)
+      .then((a) => setEtikettenDauerhaft(a.dauerhaft))
+      .catch(() => undefined);
+  };
+
   const setzeEtikett = async (uid: number, schluessel: string, an: boolean) => {
     if (!arbeitsKonto || !arbeitsOrdner) return;
 
@@ -1997,6 +2019,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
           onOpenSchluessel={() => setSchluesselOffen(true)}
           onOpenZertifikate={() => setZertifikateOffen(true)}
           onOpenArchiv={() => setArchivOffen(true)}
+          onOpenAblage={() => setAblageOffen(true)}
           onOpenAbwesenheit={() => setAbwesenheitOffen(true)}
           onFreigabeWeglegen={(id) => {
             void api
@@ -2156,6 +2179,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
             onZumAdressbuch={(address, name) => setAdressbuch({ vorgabe: { address, name } })}
             etiketten={etiketten}
             etikettenDauerhaft={etikettenDauerhaft}
+            onEtikettenPruefen={pruefeEtikettenDauerhaft}
             onEtikettSetzen={(uid, schluessel, an) => setzeEtikett(uid, schluessel, an)}
             onEtikettenGeaendert={setEtiketten}
             accountId={arbeitsKonto}
@@ -2294,6 +2318,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
           <ZertifikatModal accounts={accounts} onClose={() => setZertifikateOffen(false)} />
         )}
         {archivOffen && <ArchivModal accounts={accounts} onClose={() => setArchivOffen(false)} />}
+        {ablageOffen && <AblageModal onClose={() => setAblageOffen(false)} />}
         {adressbuch && (
           <AdressbuchModal
             vorgabe={adressbuch.vorgabe}

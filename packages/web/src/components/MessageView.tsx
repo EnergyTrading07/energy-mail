@@ -54,6 +54,8 @@ interface Props {
   etiketten: Etikett[];
   /** Ob der Ordner Etiketten dauerhaft behält; null heißt "noch nicht gefragt". */
   etikettenDauerhaft: boolean | null;
+  /** Fragt beim Server nach, ob der Ordner Etiketten behält - siehe EtikettMenue. */
+  onEtikettenPruefen: () => void;
   onEtikettSetzen: (uid: number, schluessel: string, an: boolean) => void | Promise<void>;
   onEtikettenGeaendert: (etiketten: Etikett[]) => void;
   /** Fuer die Antwort auf eine Einladung: wo die Nachricht liegt und wer man selbst ist. */
@@ -348,6 +350,7 @@ export function MessageView({
   onZumAdressbuch,
   etiketten,
   etikettenDauerhaft,
+  onEtikettenPruefen,
   onEtikettSetzen,
   onEtikettenGeaendert,
   accountId,
@@ -432,6 +435,7 @@ export function MessageView({
                 bekannte={etiketten}
                 flags={message.flags}
                 dauerhaft={etikettenDauerhaft}
+                onPruefen={onEtikettenPruefen}
                 onSetzen={(schluessel, an) => onEtikettSetzen(message.uid, schluessel, an)}
                 onVerzeichnisGeaendert={onEtikettenGeaendert}
                 onClose={() => setEtikettMenue(false)}

@@ -59,6 +59,20 @@ interface MenueProps {
   flags: string[];
   /** Ob der Ordner Etiketten dauerhaft behält; null heißt "noch nicht gefragt". */
   dauerhaft: boolean | null;
+  /**
+   * Fragt beim Server nach, ob der Ordner Etiketten behält.
+   *
+   * Gerufen wird das beim Öffnen dieses Menüs und nur dann, wenn es noch niemand gefragt
+   * hat. Der Zeitpunkt ist der Kern der Sache: Die Auskunft gab es serverseitig von
+   * Anfang an, abgerufen wurde sie aber nie - der Hinweis entstand erst aus der Antwort
+   * auf das erste tatsächlich vergebene Etikett. Gewarnt wurde also, nachdem man getan
+   * hatte, wovor gewarnt werden sollte.
+   *
+   * Nicht bei jedem Ordnerwechsel, und das bleibt auch so: Das wäre ein zusätzlicher
+   * Abruf für jeden Klick in der Seitenleiste, auch für alle, die nie ein Etikett
+   * vergeben. Hier steht der Mensch bereits vor der Auswahl.
+   */
+  onPruefen: () => void;
   onSetzen: (schluessel: string, an: boolean) => void | Promise<void>;
   onVerzeichnisGeaendert: (etiketten: Etikett[]) => void;
   onClose: () => void;
@@ -74,6 +88,7 @@ export function EtikettMenue({
   bekannte,
   flags,
   dauerhaft,
+  onPruefen,
   onSetzen,
   onVerzeichnisGeaendert,
   onClose,
@@ -81,6 +96,17 @@ export function EtikettMenue({
   const [neu, setNeu] = useState('');
   const [busy, setBusy] = useState(false);
   const kasten = useRef<HTMLDivElement>(null);
+
+  /*
+   * Einmal nachfragen, sobald das Menü aufgeht - siehe onPruefen.
+   *
+   * Ohne Abhängigkeit auf `dauerhaft`: Die Antwort setzt genau diesen Wert, und stünde er
+   * in der Liste, liefe die Prüfung nach ihrer eigenen Antwort ein zweites Mal.
+   */
+  useEffect(() => {
+    if (dauerhaft === null) onPruefen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Ein Klick daneben oder die Fluchttaste schließt - so wie jedes andere Menü auch.
   useEffect(() => {

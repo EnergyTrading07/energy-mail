@@ -608,6 +608,35 @@ input[type='file']::file-selector-button:hover {
   color: var(--blitz);
 }
 
+/* Die Sprachwahl im Browserbetrieb - sieht aus wie die Knöpfe daneben und trägt deshalb
+   deren Maße. Ein eigenes Aussehen hätte hier nichts zu sagen: Es ist dieselbe Art
+   Bedienelement wie die Ansicht, nur mit mehr als zwei Möglichkeiten. */
+.leisten-sprache {
+  height: 26px;
+  max-width: 11rem;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--r-1);
+  background: none;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: var(--t-s);
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
+}
+
+.leisten-sprache:hover {
+  background: var(--flaeche-tief);
+  color: var(--text);
+}
+
+/* Die aufgeklappte Liste zeichnet das Betriebssystem - sie braucht Farben, die auch in
+   der dunklen Ansicht tragen, sonst steht dort schwarz auf schwarz. */
+.leisten-sprache option {
+  background: var(--flaeche);
+  color: var(--text);
+}
+
 /*
  * Platz für die drei Fensterknöpfe.
  *

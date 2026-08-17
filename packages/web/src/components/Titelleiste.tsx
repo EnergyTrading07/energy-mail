@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { SPRACHWAHL } from '@energy-mail/mail-core/sprache';
 import { Kreispfeil, Marke, Mond, Sonne } from './Symbole.js';
 import type { Ansicht, Themawahl } from '../design/thema.js';
-import { t } from '../sprache.js';
+import { gewaehlteSprache, t, waehleSpracheUndLadeNeu } from '../sprache.js';
 
 /**
  * Die eigene Titelleiste.
@@ -99,6 +100,35 @@ export function Titelleiste({
         <button className="leisten-btn" onClick={onThemaUmschalten} title={themaTitel}>
           {ansicht === 'dunkel' ? <Mond groesse={14} /> : <Sonne groesse={14} />}
         </button>
+        {/*
+          Die Sprachwahl - und AUSSCHLIESSLICH im Browser.
+
+          In der Desktop-Hülle hat die Anwendung bereits entschieden: Richtlinie des
+          Unternehmens, dann die Wahl im Menü, dann Windows. Hier noch eine zweite
+          Auswahl danebenzustellen hieße, die Richtlinie örtlich überstimmbar zu machen -
+          und eine Richtlinie, die sich überstimmen lässt, ist keine.
+
+          Im Browser gibt es diese Kette nicht. Dort las die Anwendung bisher zwar einen
+          gewählten Wert aus dem Browserspeicher, aber nichts schrieb ihn je hinein: Die
+          Umschaltung war geschrieben und wurde von keiner Stelle aufgerufen. Damit
+          entschied allein die Spracheinstellung des Browsers, und neun gepflegte Kataloge
+          waren nur über die Browsereinstellungen erreichbar.
+        */}
+        {!bruecke && (
+          <select
+            className="leisten-sprache"
+            value={gewaehlteSprache()}
+            onChange={(e) => waehleSpracheUndLadeNeu(e.target.value)}
+            title={t('Sprache der Oberfläche')}
+            aria-label={t('Sprache der Oberfläche')}
+          >
+            {SPRACHWAHL.map((s) => (
+              <option key={s.wert} value={s.wert}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     </header>
   );
