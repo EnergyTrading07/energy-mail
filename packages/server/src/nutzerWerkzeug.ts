@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { setDataDir, getNutzerDirFuer, getWurzelDir } from './paths.js';
 import { masterSchluesselAusDatei } from './nutzer/einrichten.js';
-import { verpackeNutzerschluessel } from './nutzer/schluesselHuelle.js';
+import { verpackeNutzerschluessel, wechsleNutzerschluessel } from './nutzer/schluesselHuelle.js';
 import {
   NutzerFehler,
   alleNutzer,
@@ -186,6 +186,38 @@ function zweiFaktorAbraeumen(wen: string): void {
   );
 }
 
+/**
+ * Den Schluessel eines Nutzers wechseln.
+ *
+ * Gebraucht, wenn der Verdacht besteht, dass er abhandengekommen ist - etwa nach einer
+ * abgegriffenen Sicherung. Bis hierher gab es dafuer keinen Weg: Die Struktur mit den
+ * Generationen war vorhanden, der Vorgang nicht.
+ *
+ * Die Meldung sagt ausdruecklich, was der Wechsel NICHT tut. Alles andere waere ein
+ * falsches Versprechen: Wer glaubt, nach diesem Befehl seien die alten Geheimnisse
+ * unlesbar, verlaesst sich auf etwas, das nicht eingetreten ist.
+ */
+function schluesselWechseln(wen: string): void {
+  const nutzer = sucheNutzer(wen);
+  if (!nutzer) throw new NutzerFehler(`"${wen}" ist hier niemand.`);
+
+  const { generation } = wechsleNutzerschluessel(nutzer.id);
+  console.log(
+    [
+      `Neuer Schluessel fuer ${nutzer.email} - Generation ${generation}.`,
+      '',
+      'Ab sofort wird alles Neue damit verschluesselt. Die bisherigen Geheimnisse',
+      '(Postfachkennwoerter, Marken, PGP-Schluessel) bleiben mit ihrer alten Generation',
+      'lesbar und wandern mit, sobald sie ohnehin neu geschrieben werden - beim naechsten',
+      'Speichern des Kontos etwa.',
+      '',
+      'Der alte Schluessel steht deshalb weiterhin im Eintrag. Soll er wirklich weg,',
+      'muessen die betroffenen Zugangsdaten einmal neu eingetragen werden; erst dann',
+      'zeigt nichts mehr auf ihn.',
+    ].join('\n'),
+  );
+}
+
 function entfernen(wen: string, mitDaten: boolean): void {
   const nutzer = sucheNutzer(wen);
   if (!nutzer) throw new NutzerFehler(`"${wen}" ist hier niemand.`);
@@ -228,6 +260,7 @@ function hilfe(): void {
   verwalter <adresse|kennung>           darf im Browser Nutzer verwalten
   entmachten <adresse|kennung>          Verwalterrolle nehmen (nie beim letzten)
   zweifaktor-aus <adresse|kennung>      zweiten Faktor entfernen (verlorenes Telefon)
+  schluessel-wechseln <adresse|kennung> neuen Nutzerschluessel anlegen (Altes bleibt lesbar)
   entfernen <adresse|kennung> [--mit-daten]
                                         endgültig: mit dem Eintrag geht sein Schlüssel
 
@@ -280,6 +313,10 @@ function haupt(): void {
     case 'zweifaktor-aus':
       if (!argumente[0]) throw new NutzerFehler('Wen?');
       zweiFaktorAbraeumen(argumente[0]);
+      break;
+    case 'schluessel-wechseln':
+      if (!argumente[0]) throw new NutzerFehler('Wessen Schluessel?');
+      schluesselWechseln(argumente[0]);
       break;
     case 'entfernen':
       if (!argumente[0]) throw new NutzerFehler('Wen?');

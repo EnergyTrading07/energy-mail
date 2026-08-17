@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { entschluesselMitMaster, verschluesselMitMaster } from '../secretCrypto.js';
 import { aktuellerNutzer } from './kontext.js';
-import { findeNutzer } from './nutzerStore.js';
+import { findeNutzer, setzeSchluesselGeneration } from './nutzerStore.js';
 
 /**
  * Umschlagverschlüsselung: ein Schlüssel je Nutzer, verpackt mit dem des Servers.
@@ -122,8 +122,54 @@ export function entschluessleFuerNutzer(nutzlast: string): string {
   ]).toString('utf8');
 }
 
-/** Ob ein Nutzer überhaupt einen Schlüssel hat - für den Einplatz-Umstieg. */
-export function hatNutzerschluessel(nutzerId: string): boolean {
+/**
+ * Wechselt den Schlüssel eines Nutzers - der Vorgang, für den es die Generationen gibt.
+ *
+ * ## Warum das hier bisher fehlte
+ *
+ * Der Eintrag trägt seit jeher `schluessel[generation]` und `aktuelleGeneration`, das
+ * Format der Geheimnisse führt die Generation mit, und `setzeSchluesselGeneration` stand
+ * geschrieben und dokumentiert im Nutzerspeicher. Nur rief es niemand: Es gab keinen Weg,
+ * einen Schlüssel tatsächlich zu wechseln. Die ganze Mehrgenerationen-Struktur kostete
+ * Aufwand in jedem Lesepfad, ohne dass der Vorgang existierte, für den sie gebaut wurde -
+ * und ein abhandengekommener Nutzerschlüssel war nicht austauschbar.
+ *
+ * ## Was hier geschieht, und was ausdrücklich nicht
+ *
+ * Angelegt wird eine neue Generation; ab dem nächsten Schreibvorgang trägt jedes Geheimnis
+ * sie. Die alten Generationen BLEIBEN stehen, und das ist keine Nachlässigkeit, sondern
+ * die Bauart: Bestehende Geheimnisse tragen ihre Generation im Format und bleiben damit
+ * lesbar. Sie wandern nach und nach mit, sobald ihr Datensatz ohnehin neu geschrieben wird.
+ *
+ * Ein Zwangsdurchlauf über alle Dateien wäre ein Vorgang, bei dem viel schiefgehen kann,
+ * für einen Gewinn, der sich auch von selbst einstellt - dieselbe Überlegung, die in
+ * secretCrypto.ts schon für den Übergang von v1 auf v2 steht.
+ *
+ * Wer also einen kompromittierten Schlüssel loswerden will, wechselt ihn hier und muss die
+ * alte Generation danach getrennt austragen, wenn nichts mehr auf sie zeigt. Das ist die
+ * ehrliche Auskunft und steht so auch in der Meldung des Werkzeugs.
+ */
+export function wechsleNutzerschluessel(nutzerId: string): { generation: string } {
   const nutzer = findeNutzer(nutzerId);
-  return Boolean(nutzer && nutzer.schluessel[nutzer.aktuelleGeneration]);
+  if (!nutzer) throw new Error(`Zu "${nutzerId}" gibt es keinen Eintrag in nutzer.json.`);
+
+  /*
+   * Die Generation ist eine fortlaufende Zahl als Text.
+   *
+   * Aus den vorhandenen abgeleitet und nicht aus `aktuelleGeneration` hochgezählt: Stünde
+   * dort nach einem Rückspielen einer Sicherung eine kleinere Zahl, überschriebe der
+   * nächste Wechsel eine bestehende Generation - und damit den Schlüssel, mit dem
+   * vorhandene Geheimnisse verschlüsselt sind.
+   */
+  const hoechste = Object.keys(nutzer.schluessel)
+    .map((g) => Number(g))
+    .filter((n) => Number.isFinite(n))
+    .reduce((a, b) => Math.max(a, b), 0);
+  const generation = String(hoechste + 1);
+
+  setzeSchluesselGeneration(nutzerId, generation, verpackeNutzerschluessel(crypto.randomBytes(32)));
+  // Der Zwischenspeicher hält die entpackten Schlüssel je Generation - nach dem Wechsel
+  // muss er neu einlesen, sonst verschlüsselt dieser Prozess weiter mit dem alten.
+  vergissNutzerschluessel(nutzerId);
+  return { generation };
 }
