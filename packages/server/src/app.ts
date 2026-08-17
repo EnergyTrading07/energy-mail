@@ -155,13 +155,17 @@ import {
   setWiedervorlageUmgebung,
   sofortZurueck,
   stelleZurueck,
+  verwerfeKontoWiedervorlagen,
 } from './snooze.js';
 import {
   ladeGeplanteSendungen,
   listeGeplanteSendungen,
   planeSendung,
+  setAufgabeVerfahren,
   setSendeVerfahren,
   storniereSendung,
+  verwerfeKontoSendungen,
+  type GeplanteSendung,
 } from './sendQueue.js';
 import {
   abwesenheitFuer,
@@ -320,6 +324,30 @@ const webDistDir = path.join(__dirname, '..', '..', 'web', 'dist');
  * entsprechen also etwa 30 MB tatsächlicher Anhangsgröße.
  */
 const BODY_LIMIT_BYTES = 40 * 1024 * 1024;
+
+/**
+ * Wie weit sich ein Versand höchstens vorausplanen lässt.
+ *
+ * Eine Obergrenze, keine Meinung darüber, was sinnvoll ist: Ein vertipptes Jahr ("2205"
+ * statt "2025") ergäbe einen Eintrag, der die Warteschlangendatei für alle Zeit begleitet
+ * und bei jedem Start neu eingeplant wird. Fünf Jahre sind großzügig über allem, was
+ * jemand ernsthaft vorausplant.
+ */
+const FUENF_JAHRE_MS = 5 * 365 * 24 * 60 * 60 * 1000;
+
+/**
+ * Die Meldung für die verbliebene Grenze beim geschützten Versand.
+ *
+ * Als Funktion und nicht als Konstante, und das hat zwei Gründe: Die Übersetzung muss zum
+ * Zeitpunkt der Anfrage geschehen (die Sprache gehört zur Anfrage, nicht zum Programm),
+ * und der Textsammler für die Kataloge verlangt das Literal unmittelbar in `t(` - eine
+ * Variable dort hineinzureichen hieße, dass dieser Satz in keinem Katalog landet und
+ * überall deutsch stehen bliebe. Dasselbe Muster wie bei VORGEGEBEN weiter unten.
+ */
+const ANHANG_NUR_SIGNIERT = () =>
+  t(
+    'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.',
+  );
 
 function publicAccount(account: AccountConfig) {
   // Zugangsdaten bleiben bewusst draußen - nach außen nur, was die Oberfläche braucht.
@@ -1812,6 +1840,27 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     umgangVerwerfen(request.params.id);
     vertrauenVerwerfen(request.params.id);
     verwerfeKontoAblage(request.params.id);
+    /*
+     * Auch die Hintergrundarbeit dieses Kontos - sie hing bisher als einzige nicht mit
+     * daran.
+     *
+     * Eine Wiedervorlage blieb in der Liste stehen und ließ sich nicht öffnen; eine
+     * vorgemerkte Sendung lief zu ihrem Termin auf "Das Konto gibt es nicht mehr",
+     * verbrauchte ihre Versuche und wurde dann verworfen. Beides zusammen mit dem Konto
+     * abzuräumen ist der Zeitpunkt, an dem es niemandem mehr wehtut.
+     */
+    const wiedervorlagen = verwerfeKontoWiedervorlagen(request.params.id);
+    if (wiedervorlagen > 0) {
+      app.log.info(`${wiedervorlagen} Wiedervorlage(n) des entfernten Kontos verworfen.`);
+    }
+    for (const sendung of verwerfeKontoSendungen(request.params.id)) {
+      protokolliere(
+        'warnung',
+        'senden',
+        `Die vorgemerkte Nachricht "${sendung.betreff}" wurde mit ihrem Konto entfernt und ` +
+          'geht nicht mehr hinaus.',
+      );
+    }
     syncWatchers();
     return { ok: true };
   });
@@ -1935,7 +1984,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     '/accounts/:id/snoozed/:snoozeId/return',
     async (request) => {
       requireAccount(request.params.id);
-      if (!(await sofortZurueck(request.params.snoozeId))) {
+      if (!(await sofortZurueck(request.params.snoozeId, request.params.id))) {
         throw new HttpError(404, t('Diese Wiedervorlage gibt es nicht mehr.'));
       }
       return { ok: true };
@@ -2434,16 +2483,35 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     };
   }>('/accounts/:id/folders/:folder/messages', async (request) => {
     const account = requireAccount(request.params.id);
-    const { beforeUid, pageSize, category } = request.query;
+    const { category } = request.query;
     const aeltesteZuerst = request.query.aelteste === '1';
     const ordner = decodeURIComponent(request.params.folder);
     const einordnung = parseCategory(category);
 
-    const groesse = pageSize ? Number(pageSize) : DEFAULT_SEITENGROESSE;
+    /*
+     * Geprüft und nicht geraten - siehe zahlAus.
+     *
+     * Hier stand `Number(pageSize)` unmittelbar. Die zweite Sicherung in mail-core
+     * (`brauchbareAnzahl`) fängt zwar NaN ab, aber nur NaN: `?pageSize=1000000` ging
+     * ungebremst durch und holte die Kopfdaten einer Million Nachrichten. Ausgerechnet
+     * auf dem Weg, den die Oberfläche bei jedem Ordnerwechsel benutzt.
+     *
+     * Dieselbe Obergrenze wie bei den übrigen Listenwegen. Die Oberfläche fragt stets 25
+     * an; die Grenze trifft also nur, wer von Hand etwas anderes einträgt.
+     */
+    const groesse = zahlAus(request.query.pageSize, 'pageSize', {
+      von: 1,
+      bis: 500,
+      standard: DEFAULT_SEITENGROESSE,
+    });
+    const vorUid =
+      request.query.beforeUid === undefined || request.query.beforeUid === ''
+        ? undefined
+        : uidAus(request.query.beforeUid, 'beforeUid');
 
     const holen = async () => {
       const seite = await listMessages(account, ordner, {
-        beforeUid: beforeUid ? Number(beforeUid) : undefined,
+        beforeUid: vorUid,
         pageSize: groesse,
         category: einordnung,
         aeltesteZuerst,
@@ -2487,7 +2555,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
         if (!istVerbindungsfehler(err)) throw err;
 
         const abgelegt = holeSeite(account.id, ordner, {
-          vorUid: beforeUid ? Number(beforeUid) : undefined,
+          vorUid,
           anzahl: groesse,
         });
         if (abgelegt.length === 0) throw err;
@@ -2507,7 +2575,7 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     // Nur die erste Seite kommt in den Zwischenspeicher. Nachgeladene ältere Seiten holt
     // man einmal beim Blättern - dort wartet man ohnehin auf etwas Neues, und sie alle
     // vorzuhalten würde den Speicher bei großen Postfächern vollaufen lassen.
-    if (beforeUid) return holenOderAusAblage();
+    if (vorUid !== undefined) return holenOderAusAblage();
 
     // Der Abruf der ersten Seite heißt: dieser Ordner wird gerade angesehen. Er kommt
     // damit in die Überwachung, sodass Änderungen dort ebenso sofort ankommen wie im
@@ -2915,10 +2983,18 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     if (!hatEinschraenkung(kriterien)) {
       return { messages: [], total: 0, nextCursor: null, hasMore: false };
     }
-    const { beforeUid, pageSize } = request.query;
+    // Geprüft wie auf dem Listenweg daneben - eine unbrauchbare Angabe ist ein Fehler des
+    // Aufrufers und keine Einladung, den ganzen Ordner durchzumustern.
     return searchMessages(account, decodeURIComponent(request.params.folder), kriterien, {
-      beforeUid: beforeUid ? Number(beforeUid) : undefined,
-      pageSize: pageSize ? Number(pageSize) : undefined,
+      beforeUid:
+        request.query.beforeUid === undefined || request.query.beforeUid === ''
+          ? undefined
+          : uidAus(request.query.beforeUid, 'beforeUid'),
+      pageSize: zahlAus(request.query.pageSize, 'pageSize', {
+        von: 1,
+        bis: 500,
+        standard: DEFAULT_SEITENGROESSE,
+      }),
     });
   });
 
@@ -3138,20 +3214,14 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     if (eigene.length === 0) {
       throw new HttpError(400, t('Für dieses Konto ist kein geheimer Schlüssel hinterlegt.'));
     }
-    if (attachments.length > 0) {
-      throw new HttpError(
-        400,
-        t(
-          'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.',
-        ),
-      );
-    }
-
     const klartext = message.text?.trim() || entferneHtml(message.html ?? '');
     if (!klartext) throw new HttpError(400, t('Eine leere Nachricht lässt sich nicht schützen.'));
     const eigener = { armored: eigene[0]!, kennwort };
 
     if (pgp === 'verschluesseln') {
+      if (attachments.length > 0) {
+        throw new HttpError(400, ANHANG_NUR_SIGNIERT());
+      }
       const empfaenger = [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])];
       const schluessel: string[] = [];
       const fehlend: string[] = [];
@@ -3174,9 +3244,15 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       };
     }
 
-    // Unterschrieben wird der fertige MIME-Teil, nicht der nackte Text: genau diese
-    // Bytes gehen hinaus, und genau sie prueft der Empfaenger.
-    const teil = baueSigniertenTeil(klartext);
+    /*
+     * Unterschrieben wird der fertige MIME-Teil, nicht der nackte Text: genau diese
+     * Bytes gehen hinaus, und genau sie prueft der Empfaenger.
+     *
+     * Mit Anhaengen wird daraus ein mehrteiliger Umschlag, und die Unterschrift deckt ihn
+     * vollstaendig ab - Text UND Dateien. Ein Schutz, der nur den Text erfasst und die
+     * Anhaenge daneben offen mitschickt, waere schlimmer als keiner.
+     */
+    const teil = baueSigniertenTeil(klartext, attachments);
     return {
       ...message,
       text: klartext,
@@ -3211,13 +3287,8 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     if (eigene.length === 0) {
       throw new HttpError(400, t('Für dieses Konto ist kein eigenes Zertifikat hinterlegt.'));
     }
-    if (attachments.length > 0) {
-      throw new HttpError(
-        400,
-        t(
-          'Anhänge lassen sich noch nicht mitschützen. Bitte ohne Anhang senden oder den Schutz abschalten.',
-        ),
-      );
+    if (smime === 'verschluesseln' && attachments.length > 0) {
+      throw new HttpError(400, ANHANG_NUR_SIGNIERT());
     }
     const klartext = message.text?.trim() || entferneHtml(message.html ?? '');
     if (!klartext) throw new HttpError(400, t('Eine leere Nachricht lässt sich nicht schützen.'));
@@ -3230,7 +3301,9 @@ export async function buildServer(optionen: ServerOptionen = {}) {
       throw new HttpError(400, (err as Error).message);
     }
 
-    const teil = baueSigniertenTeil(klartext);
+    // Wie bei PGP: mit Anhaengen wird der unterschriebene Teil mehrteilig, und die
+    // Unterschrift deckt Text und Dateien zusammen ab.
+    const teil = baueSigniertenTeil(klartext, attachments);
     const signatur = baueSignierteDaten({
       inhalt: Buffer.from(teil, 'utf8'),
       zertifikat: eigenes.zertifikat,
@@ -3288,10 +3361,100 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     };
   }
 
+  /**
+   * Was sich vor dem Versand feststellen lässt, ohne etwas zu verschlüsseln.
+   *
+   * ## Warum es diese Funktion gibt
+   *
+   * Ein verzögerter Versand wanderte bisher ungeprüft in die Warteschlange. Geprüft wurde
+   * erst beim Auslösen - also Stunden oder Tage später, wenn niemand mehr davorsitzt. Wer
+   * eine geschützte Nachricht mit Anhang auf morgen früh legte, bekam "geplant" bestätigt
+   * und erfuhr nie, dass sie nicht hinausging: Am nächsten Morgen scheiterte sie an einer
+   * Prüfung, die schon beim Einstellen gegriffen hätte.
+   *
+   * Deshalb steht das hier und nicht in `baueGeschuetzt` allein: EINE Stelle, die beide
+   * Wege benutzen. Die Prüfungen in den Bauwegen bleiben daneben stehen - sie sind die
+   * letzte Sicherung, und die soll nicht davon abhängen, dass jemand vorher gefragt hat.
+   *
+   * Geprüft wird ausschließlich, was ohne Kennwort und ohne Netz feststeht. Ob der
+   * geheime Schlüssel mit dem eingegebenen Kennwort aufgeht, gehört nicht dazu - danach
+   * fragt die Oberfläche unmittelbar vor dem Absenden.
+   */
+  function pruefeVersandVorab(account: AccountConfig, koerper: SendBody): void {
+    const empfaenger = [...(koerper.to ?? []), ...(koerper.cc ?? []), ...(koerper.bcc ?? [])];
+    if (empfaenger.length === 0) {
+      throw new HttpError(400, t('Die Nachricht hat keinen Empfänger.'));
+    }
+
+    const { pgp, smime } = koerper;
+    if (pgp && smime) {
+      throw new HttpError(
+        400,
+        t('Eine Nachricht lässt sich nur mit einem der beiden Verfahren schützen.'),
+      );
+    }
+    if (!pgp && !smime) return;
+
+    /*
+     * Anhänge gehen beim Unterschreiben mit, beim Verschlüsseln (noch) nicht.
+     *
+     * Unterschrieben wird ein mehrteiliger MIME-Umschlag, der Text und Dateien zusammen
+     * enthält - der Empfänger sieht die Anhänge wie bei jeder anderen Nachricht, und die
+     * Unterschrift deckt sie mit ab.
+     *
+     * Beim Verschlüsseln fehlt die Gegenseite: Der Leser dieser Anwendung gibt den
+     * entschlüsselten Inhalt unmittelbar als Text aus, statt ihn als MIME zu zerlegen.
+     * Verschlüsselte Anhänge kämen damit zwar heil an, würden hier aber als
+     * Quelltext angezeigt statt als Dateien. Lieber eine klar benannte Grenze als eine
+     * Nachricht, bei der niemand weiß, was er vor sich hat.
+     */
+    const anhaenge =
+      (koerper.attachments?.length ?? 0) + (koerper.attachOriginal?.partIds.length ?? 0);
+    if (anhaenge > 0 && (pgp === 'verschluesseln' || smime === 'verschluesseln')) {
+      throw new HttpError(400, ANHANG_NUR_SIGNIERT());
+    }
+
+    if (!koerper.text?.trim() && !koerper.html?.trim()) {
+      throw new HttpError(400, t('Eine leere Nachricht lässt sich nicht schützen.'));
+    }
+
+    const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
+
+    if (smime) {
+      if (eigeneFuer(account.id, adressen).length === 0) {
+        throw new HttpError(400, t('Für dieses Konto ist kein eigenes Zertifikat hinterlegt.'));
+      }
+      if (smime === 'verschluesseln') {
+        const fehlend = empfaenger.filter((a) => zertifikateFuer(a).length === 0);
+        if (fehlend.length > 0) {
+          throw new HttpError(
+            400,
+            `Kein Zertifikat vorhanden für: ${fehlend.join(', ')}. Diese Empfänger könnten die Nachricht nicht lesen.`,
+          );
+        }
+      }
+      return;
+    }
+
+    if (geheimeFuer(account.id, adressen).length === 0) {
+      throw new HttpError(400, t('Für dieses Konto ist kein geheimer Schlüssel hinterlegt.'));
+    }
+    if (pgp === 'verschluesseln') {
+      const fehlend = empfaenger.filter((a) => oeffentlicheFuer(a).length === 0);
+      if (fehlend.length > 0) {
+        throw new HttpError(
+          400,
+          `Kein Schlüssel vorhanden für: ${fehlend.join(', ')}. Diese Empfänger könnten die Nachricht nicht lesen.`,
+        );
+      }
+    }
+  }
+
   async function fuehreVersandAus(
     account: AccountConfig,
     koerper: SendBody & { draftFolder?: string; draftUid?: number },
   ) {
+    pruefeVersandVorab(account, koerper);
     const {
       attachOriginal,
       attachments: wire,
@@ -3421,6 +3584,73 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     await fuehreVersandAus(account, sendung.koerper as SendBody);
   }, (msg) => app.log.info(msg));
 
+  /**
+   * Was mit einer Nachricht geschieht, die endgültig nicht hinausgeht.
+   *
+   * Sie wird als Entwurf ins Postfach gelegt. Damit steht sie dort, wo ein Mensch sie
+   * sucht - im Entwürfe-Ordner, auch am Handy -, statt in einer Datei zu liegen, die keine
+   * Oberfläche zeigt.
+   *
+   * Die Warteschlange löscht den Eintrag erst, wenn diese Funktion `true` sagt. Solange
+   * hier etwas schiefgeht, bleibt der Körper dort liegen und wird weiter versucht; ein
+   * fehlgeschlagener Versand darf keine Nachricht kosten.
+   *
+   * Der Nutzerkontext trägt bis hierher: Der Zeitgeber, aus dem der Aufruf kommt, ist
+   * innerhalb von `alsNutzer()` entstanden - siehe den Block über den Hintergrundnutzern.
+   */
+  setAufgabeVerfahren(async (sendung: GeplanteSendung, grund: string) => {
+    const account = getAccount(sendung.accountId);
+    if (!account) {
+      /*
+       * Ohne Konto gibt es keinen Entwürfe-Ordner mehr, in den etwas passte. Hier ist
+       * `true` richtig: Weiterversuchen könnte an dieser Lage nichts ändern, und ein
+       * Eintrag, der ewig kreist, wäre schlechter als ein vermerkter Verlust.
+       */
+      protokolliere(
+        'warnung',
+        'senden',
+        `Die geplante Nachricht "${sendung.betreff}" gehört zu einem entfernten Konto und ` +
+          `ließ sich nicht ablegen: ${grund}`,
+      );
+      return true;
+    }
+
+    const koerper = sendung.koerper as SendBody & { draftFolder?: string; draftUid?: number };
+    try {
+      const attachments = await collectAttachments(
+        account,
+        koerper.attachments,
+        koerper.attachOriginal,
+      );
+      const { folder, uid } = await saveDraft(account, {
+        ...koerper,
+        to: koerper.to ?? [],
+        subject: koerper.subject ?? '',
+        attachments,
+      } as OutgoingMessage);
+      verwerfeStaende(account.id, folder);
+      meldeAktualisierung({
+        type: 'data-updated',
+        accountId: account.id,
+        was: 'messages',
+        folder,
+      });
+      protokolliere(
+        'warnung',
+        'senden',
+        `"${sendung.betreff}" ging nicht hinaus (${grund}) und liegt jetzt als Entwurf in ` +
+          `"${folder}" (Nr. ${uid}).`,
+      );
+      return true;
+    } catch (err) {
+      app.log.warn(
+        `Entwurf für die aufgegebene Sendung "${sendung.betreff}" ließ sich nicht ablegen: ` +
+          `${(err as Error).message}`,
+      );
+      return false;
+    }
+  });
+
   // ladeGeplanteSendungen() steht bewusst nicht hier, sondern ganz am Ende - siehe dort.
 
   app.post<{
@@ -3438,6 +3668,22 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     if (verzoegerung > 0 || zeitpunkt) {
       const faellig = zeitpunkt ? new Date(zeitpunkt).getTime() : Date.now() + verzoegerung * 1000;
       if (!Number.isFinite(faellig)) throw new HttpError(400, t('Unbrauchbarer Zeitpunkt.'));
+      /*
+       * Ein Zeitpunkt, der schon vorbei ist, wird abgewiesen und nicht stillschweigend zu
+       * "sofort" gemacht - dieselbe Haltung wie bei der Wiedervorlage. Wer den 3. auf den
+       * 2. legt, hat sich vertippt, und das soll er sehen.
+       *
+       * Die Bedenkzeit nach dem Absenden geht über `sendenIn` und ist damit immer in der
+       * Zukunft; sie ist von dieser Prüfung nicht betroffen.
+       */
+      if (faellig <= Date.now()) {
+        throw new HttpError(400, t('Der Zeitpunkt liegt in der Vergangenheit.'));
+      }
+      if (faellig > Date.now() + FUENF_JAHRE_MS) {
+        throw new HttpError(400, t('Der Zeitpunkt liegt zu weit in der Zukunft.'));
+      }
+      // Erst prüfen, dann vormerken - siehe pruefeVersandVorab.
+      pruefeVersandVorab(account, request.body);
       const sendung = planeSendung(account.id, request.body as Record<string, unknown>, faellig);
       return { ok: true, geplant: true, id: sendung.id, faellig: sendung.faellig };
     }
@@ -3445,6 +3691,19 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     try {
       return { ok: true, ...(await fuehreVersandAus(account, request.body)) };
     } catch (err) {
+      /*
+       * Ein Fehler, der seinen Rang schon kennt, behält ihn.
+       *
+       * `fuehreVersandAus` weist Eingabefehler mit 400 ab: kein hinterlegter Schlüssel,
+       * ein Anhang bei geschütztem Versand, beide Schutzverfahren zugleich. Hier stand
+       * pauschal `reply.code(502)` darüber - aus "so nicht" wurde damit "die Gegenstelle
+       * hat versagt". Das ist nicht nur der falsche Rang, es ist die falsche Auskunft:
+       * 502 lädt zum erneuten Versuch ein, und der kann bei einer Eingabe, die nicht
+       * stimmt, niemals helfen.
+       *
+       * Alles Übrige bleibt 502 - dort ist die Gegenstelle wirklich die Ursache.
+       */
+      if (err instanceof HttpError) throw err;
       reply.code(502);
       return { error: (err as Error).message };
     }

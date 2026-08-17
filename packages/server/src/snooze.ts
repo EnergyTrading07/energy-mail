@@ -241,9 +241,45 @@ export function listeWiedervorlagen(accountId?: string): Zurueckgestellt[] {
     .sort((a, b) => a.faellig - b.faellig);
 }
 
-/** Holt eine Nachricht vorzeitig zurück. */
-export async function sofortZurueck(id: string): Promise<boolean> {
-  if (!offenVon().has(id)) return false;
+/**
+ * Beim Entfernen eines Kontos gehen auch seine Wiedervorlagen - samt Zeitgebern.
+ *
+ * Ohne das blieben Einträge stehen, die auf ein Postfach zeigen, das es nicht mehr gibt:
+ * In der Liste sichtbar, aber nicht zu öffnen, und beim Fälligwerden still verworfen. Der
+ * Zeitgeber muss mit weg, sonst läuft er bis zu seinem Termin weiter und arbeitet an
+ * einem Konto, dessen Zugangsdaten längst gelöscht sind.
+ *
+ * Die Nachrichten selbst liegen im Ordner "Wiedervorlage" des Postfachs. Sie bleiben dort,
+ * wo sie sind - dieses Programm entfernt beim Löschen eines Kontos keine fremde Post.
+ */
+export function verwerfeKontoWiedervorlagen(accountId: string): number {
+  const offen = offenVon();
+  const zeitgeber = timerVon();
+  let weg = 0;
+  for (const [id, eintrag] of [...offen]) {
+    if (eintrag.accountId !== accountId) continue;
+    clearTimeout(zeitgeber.get(id));
+    zeitgeber.delete(id);
+    offen.delete(id);
+    weg += 1;
+  }
+  if (weg > 0) speichern();
+  return weg;
+}
+
+/**
+ * Holt eine Nachricht vorzeitig zurück.
+ *
+ * `accountId` ist freiwillig und wird, wenn angegeben, geprüft: Der Weg in app.ts trägt
+ * die Kontokennung im Pfad, und ohne diesen Abgleich ließe sich eine Wiedervorlage aus
+ * Konto A über den Weg von Konto B auslösen. Keine Rechtefrage - Wiedervorlagen liegen je
+ * Nutzer, es bliebe derselbe Mensch -, aber eine Kennung im Pfad, die nichts bedeutet,
+ * ist eine Einladung an den nächsten Umbau.
+ */
+export async function sofortZurueck(id: string, accountId?: string): Promise<boolean> {
+  const eintrag = offenVon().get(id);
+  if (!eintrag) return false;
+  if (accountId !== undefined && eintrag.accountId !== accountId) return false;
   clearTimeout(timerVon().get(id));
   await holeZurueck(id);
   return true;

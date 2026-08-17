@@ -3,6 +3,7 @@ import path from 'node:path';
 import { getNutzerDir } from './paths.js';
 import { liesGeschuetzt, schreibeGeschuetzt } from './geschuetzteAblage.js';
 import { jeNutzer } from './nutzer/jeNutzer.js';
+import { istVerbindungsfehler } from './verbindungsfehler.js';
 import { t } from '@energy-mail/mail-core/sprache';
 
 /**
@@ -90,6 +91,17 @@ function speichern(): void {
 /** Wie oft ein vorübergehender Fehler wiederholt wird, bevor aufgegeben wird. */
 const MAX_VERSUCHE = 5;
 
+/**
+ * Fehlendes Netz zählt anders - dieselbe Unterscheidung wie bei der Wiedervorlage.
+ *
+ * Fünf Versuche sind in gut anderthalb Stunden aufgebraucht. Wer abends auf "senden für
+ * morgen früh" drückt und über Nacht kein Netz hat, hätte seine Nachricht damit verloren,
+ * obwohl an ihr nichts falsch ist. Ein Verbindungsfehler geht vorüber; eine abgewiesene
+ * Adresse tut es nicht. Zwanzig Versuche mit dem gedeckelten Abstand tragen über rund
+ * siebzehn Stunden - lange genug für eine Nacht, eine Zugfahrt oder einen Umzug.
+ */
+const MAX_VERSUCHE_OHNE_NETZ = 20;
+
 /** Abstände zwischen den Versuchen - wachsend, damit ein toter Server nicht bestürmt wird. */
 const ABSTAENDE_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000];
 
@@ -120,15 +132,40 @@ async function ausfuehren(id: string): Promise<void> {
   } catch (err) {
     const versuche = (sendung.versuche ?? 0) + 1;
     const grund = (err as Error).message;
+    const grenze = istVerbindungsfehler(err) ? MAX_VERSUCHE_OHNE_NETZ : MAX_VERSUCHE;
 
-    if (versuche >= MAX_VERSUCHE) {
-      geplantVon().delete(id);
-      speichern();
+    if (versuche >= grenze) {
+      /*
+       * Aufgeben heißt NICHT wegwerfen.
+       *
+       * Gelöscht wird der Eintrag erst, wenn der Körper nachweislich woanders liegt - als
+       * Entwurf im Postfach. Vorher stand hier ein `delete` und daneben ein Aufruf, den
+       * niemand entgegennahm: `setAufgabeVerfahren` war geschrieben, exportiert und
+       * dokumentiert, aber nirgends im Programm gesetzt. `aufgegeben` blieb damit für
+       * immer null, der Aufruf war ein Nichts, und die Nachricht verschwand nach dem
+       * fünften Versuch ersatzlos - genau der Verlust, den der Kommentar weiter oben als
+       * behoben beschreibt.
+       *
+       * Misslingt auch das Ablegen, bleibt der Eintrag in der Warteschlange und wird
+       * weiter versucht. Das kann bei einer dauerhaft unzustellbaren Adresse lange
+       * dauern, aber es verliert nichts: Sobald wieder eine Verbindung steht, greift
+       * entweder der Versand oder die Rettung als Entwurf, und beides beendet die Sache.
+       */
+      const gerettet = aufgegeben ? await aufgegeben(sendung, grund).catch(() => false) : false;
+      if (gerettet) {
+        geplantVon().delete(id);
+        speichern();
+        log(
+          `Geplante Nachricht "${sendung.betreff}" wurde nach ${versuche} Versuchen aufgegeben ` +
+            `und als Entwurf abgelegt: ${grund}`,
+        );
+        return;
+      }
       log(
-        `Geplante Nachricht "${sendung.betreff}" wurde nach ${versuche} Versuchen aufgegeben: ${grund}`,
+        `Geplante Nachricht "${sendung.betreff}" ging nach ${versuche} Versuchen nicht hinaus ` +
+          `und ließ sich auch nicht als Entwurf ablegen: ${grund}. Sie bleibt in der ` +
+          'Warteschlange, damit sie nicht verlorengeht.',
       );
-      aufgegeben?.(sendung, grund);
-      return;
     }
 
     sendung.versuche = versuche;
@@ -144,10 +181,20 @@ async function ausfuehren(id: string): Promise<void> {
   }
 }
 
-/** Wird gerufen, wenn eine Sendung endgültig aufgegeben wird - der Aufrufer legt sie als Entwurf ab. */
-let aufgegeben: ((sendung: GeplanteSendung, grund: string) => void) | null = null;
+/**
+ * Wird gerufen, wenn eine Sendung endgültig nicht hinausgeht - der Aufrufer legt sie als
+ * Entwurf ab.
+ *
+ * Die Antwort ist `true`, wenn der Körper sicher woanders liegt. Nur dann verschwindet er
+ * hier. Ein blosses `void` genügte nicht: Der häufigste Grund, warum ein Versand endgültig
+ * scheitert, ist ein fehlendes Netz - und dann scheitert auch das Ablegen des Entwurfs,
+ * denn der Entwürfe-Ordner liegt beim selben Anbieter.
+ */
+let aufgegeben: ((sendung: GeplanteSendung, grund: string) => Promise<boolean>) | null = null;
 
-export function setAufgabeVerfahren(fn: (sendung: GeplanteSendung, grund: string) => void): void {
+export function setAufgabeVerfahren(
+  fn: (sendung: GeplanteSendung, grund: string) => Promise<boolean>,
+): void {
   aufgegeben = fn;
 }
 
@@ -257,6 +304,30 @@ export function storniereSendung(id: string): GeplanteSendung | null {
   geplantVon().delete(id);
   speichern();
   return sendung;
+}
+
+/**
+ * Beim Entfernen eines Kontos gehen auch seine vorgemerkten Sendungen.
+ *
+ * Zurückgegeben wird, was dabei wegfällt - und das ist keine Höflichkeit gegenüber dem
+ * Aufrufer, sondern der Grund dieser Bauart: Hier verschwinden Nachrichtenkörper, die
+ * niemand mehr versenden kann, weil es das absendende Postfach nicht mehr gibt. Sie
+ * anderswohin zu retten, geht nicht - ein Entwürfe-Ordner braucht dasselbe Konto. Also
+ * wird wenigstens benannt, was verlorengeht, statt es still zu tun.
+ */
+export function verwerfeKontoSendungen(accountId: string): GeplanteSendung[] {
+  const geplant = geplantVon();
+  const zeitgeber = timerVon();
+  const weg: GeplanteSendung[] = [];
+  for (const [id, sendung] of [...geplant]) {
+    if (sendung.accountId !== accountId) continue;
+    clearTimeout(zeitgeber.get(id));
+    zeitgeber.delete(id);
+    geplant.delete(id);
+    weg.push(sendung);
+  }
+  if (weg.length > 0) speichern();
+  return weg;
 }
 
 export function listeGeplanteSendungen(accountId?: string): GeplanteSendung[] {
