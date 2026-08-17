@@ -670,34 +670,9 @@ input[type='file']::file-selector-button:hover {
   color: var(--blitz);
 }
 
-/* Die Sprachwahl im Browserbetrieb - sieht aus wie die Knöpfe daneben und trägt deshalb
-   deren Maße. Ein eigenes Aussehen hätte hier nichts zu sagen: Es ist dieselbe Art
-   Bedienelement wie die Ansicht, nur mit mehr als zwei Möglichkeiten. */
-.leisten-sprache {
-  height: 26px;
-  max-width: 11rem;
-  padding: 0 6px;
-  border: none;
-  border-radius: var(--r-1);
-  background: none;
-  color: var(--text-3);
-  font-family: inherit;
-  font-size: var(--t-s);
-  cursor: pointer;
-  transition: background var(--weich), color var(--weich);
-}
-
-.leisten-sprache:hover {
-  background: var(--flaeche-tief);
-  color: var(--text);
-}
-
-/* Die aufgeklappte Liste zeichnet das Betriebssystem - sie braucht Farben, die auch in
-   der dunklen Ansicht tragen, sonst steht dort schwarz auf schwarz. */
-.leisten-sprache option {
-  background: var(--flaeche);
-  color: var(--text);
-}
+/* Die Sprachwahl stand in dieser Leiste - und nur im Browserbetrieb. Sie steht jetzt in
+   beiden Betriebsarten im Einstellungsfenster unter "Ansicht und Sprache"; die Regeln
+   dafuer sind mit ihr gegangen. */
 
 /*
  * Platz für die drei Fensterknöpfe.
@@ -827,11 +802,228 @@ input[type='file']::file-selector-button:hover {
   padding: var(--a-1) 0 var(--a-3);
 }
 
+/*
+ * Der Fuß der Seitenleiste.
+ *
+ * Hier standen elf Textknöpfe untereinander, alle gleich gesetzt, in keiner erkennbaren
+ * Ordnung - und weil das Formular zum Hinzufügen eines Kontos mit darin lag, brauchte er
+ * eine eigene Bildlauffläche über 60 % der Fensterhöhe. Ein Fuß, in dem man blättert, ist
+ * kein Fuß mehr.
+ *
+ * Geblieben sind drei Griffe und eine Auskunft; das Formular ist dorthin gewandert, wo
+ * die Konten stehen. Damit kommt der Fuß ohne Höhenbegrenzung und ohne Bildlauf aus.
+ */
 .sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   border-top: 1px solid var(--rand);
-  padding: var(--a-3) var(--a-4) var(--a-4) var(--a-5);
-  max-height: 60vh;
-  overflow-y: auto;
+  padding: var(--a-3);
+}
+
+/*
+ * Eine Zeile im Fuß: Zeichen links, Text daneben, die ganze Breite anklickbar.
+ *
+ * Als Zeile und nicht als Verweis: Ein `link-btn` ist so breit wie sein Wort, und ein
+ * Klick daneben tat nichts - bei einer Zeile, die man mit dem Mauszeiger überstreicht,
+ * sieht man vorher, was man trifft.
+ */
+.fuss-zeile {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  width: 100%;
+  min-width: 0;
+  padding: 6px var(--a-3);
+  border: none;
+  border-radius: var(--r-2);
+  background: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--t-m);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
+}
+
+.fuss-zeile > svg {
+  flex-shrink: 0;
+  color: var(--text-aus);
+  transition: color var(--weich);
+}
+
+.fuss-zeile > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fuss-zeile:hover {
+  background: var(--flaeche-hover);
+  color: var(--text);
+}
+
+.fuss-zeile:hover > svg {
+  color: var(--text-3);
+}
+
+/* Nur hervorgehoben, wenn tatsaechlich etwas aussteht - eine dauerhafte Betonung
+   stumpft ab, und genau dann uebersieht man sie, wenn sie zaehlt. */
+.fuss-zeile.meldet {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.fuss-zeile.meldet > svg {
+  color: var(--blitz);
+}
+
+/* Adressbuch und Einstellungen nebeneinander: gleichrangig, beide selten, und
+   zusammen eine Zeile statt zweier. */
+.fuss-reihe {
+  display: flex;
+  gap: 2px;
+}
+
+.fuss-reihe > .fuss-zeile {
+  flex: 1;
+}
+
+/*
+ * Der Hinweis, dass gerade automatisch geantwortet wird.
+ *
+ * Der einzige Zustand, der sich von selbst melden muss - deshalb als einziges hier mit
+ * eigener Fläche. Er erscheint nur, solange es ihn gibt.
+ */
+.fuss-hinweis {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  width: 100%;
+  margin-bottom: var(--a-2);
+  padding: var(--a-3);
+  border: 1px solid var(--blitz-rand);
+  border-radius: var(--r-2);
+  background: var(--blitz-leise);
+  color: var(--blitz);
+  font-family: inherit;
+  font-size: var(--t-s);
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--weich);
+}
+
+.fuss-hinweis > svg {
+  flex-shrink: 0;
+}
+
+.fuss-hinweis:hover {
+  background: color-mix(in srgb, var(--blitz-rein) 18%, var(--blitz-leise));
+}
+
+/*
+ * Wer man gerade ist - und dahinter die Sitzung.
+ *
+ * "Mein Konto", "Sperren" und "Abmelden" standen als drei gleich aussehende Verweise
+ * zwischen "Nutzer" und dem Anmeldeformular. Sie beantworten dieselbe Frage und werden
+ * selten gebraucht; als Menü hinter einer Zeile kosten sie eine statt dreier. Die Zeile
+ * tut dabei etwas, was die drei Knöpfe nicht taten: Sie sagt, unter welchem Namen man
+ * angemeldet ist.
+ */
+.fuss-konto {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  width: 100%;
+  min-width: 0;
+  margin-top: var(--a-2);
+  padding: var(--a-2) var(--a-3);
+  border: none;
+  border-top: 1px solid var(--rand-fein);
+  border-radius: var(--r-2);
+  background: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--t-m);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
+}
+
+.fuss-konto:hover {
+  background: var(--flaeche-hover);
+  color: var(--text);
+}
+
+.fuss-konto > svg:last-child {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-aus);
+  transform: rotate(-90deg);
+}
+
+.fuss-monogramm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-voll);
+  background: hsl(var(--mono-h) 46% 88%);
+  color: hsl(var(--mono-h) 55% 26%);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+:root[data-thema='dunkel'] .fuss-monogramm {
+  background: hsl(var(--mono-h) 40% 24%);
+  color: hsl(var(--mono-h) 62% 78%);
+}
+
+.fuss-konto-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Ein Postfach kommt dort hinzu, wo die Postfächer stehen.
+ *
+ * Der Knopf stand im Fuß, zwischen "Nutzer" und "Mein Konto" - zwei Dingen, mit denen er
+ * nichts zu tun hat, und weit weg von der Liste, die er verlängert.
+ */
+.konto-hinzu {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  /* Kein eigenes Maß: Als Blockelement füllt der Knopf, was die Ränder ihm lassen - und
+     die sind dieselben wie bei den Kontozeilen darüber. */
+  margin: var(--a-3) var(--a-3) 0 var(--a-5);
+  padding: 6px var(--a-3);
+  border: 1px dashed var(--rand);
+  border-radius: var(--r-2);
+  background: none;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: var(--t-m);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--weich), color var(--weich), background var(--weich);
+}
+
+.konto-hinzu:hover {
+  border-color: var(--marke-rand);
+  background: var(--marke-leise);
+  color: var(--marke);
+}
+
+.konto-hinzu > svg {
+  flex-shrink: 0;
 }
 
 .account-block + .account-block {
@@ -1172,11 +1364,13 @@ input[type='file']::file-selector-button:hover {
   width: 100%;
 }
 
+/* Steht seit der Neuordnung in der Kontenliste statt im Fuß - und braucht deshalb
+   dieselbe Einrückung wie die Kontozeilen darüber. */
 .add-account {
-  margin-top: var(--a-3);
   display: flex;
   flex-direction: column;
   gap: var(--a-2);
+  margin: var(--a-2) var(--a-3) var(--a-3) var(--a-5);
 }
 
 .hint {
@@ -3339,19 +3533,6 @@ input[type='file']::file-selector-button:hover {
   flex: none;
 }
 
-/* Hinweis auf Wartendes und die zugehörige Übersicht. */
-.wartend-hinweis {
-  display: block;
-  margin-bottom: var(--a-2);
-  margin-left: 0;
-  font-size: var(--t-m);
-}
-
-/* Nur hervorgehoben, wenn tatsaechlich etwas aussteht - sonst stumpft es ab. */
-.wartend-hinweis.meldet {
-  font-weight: 600;
-}
-
 .wartend-titel {
   margin: var(--a-5) 0 var(--a-1);
   font-family: var(--sf-marke);
@@ -5372,27 +5553,9 @@ input[type='file']::file-selector-button:hover {
   color: var(--text-2);
 }
 
-/*
- * Die Abwesenheitsnotiz.
- *
- * Der Knopf traegt seinen Zustand: Ist sie an, bekommt er die Marke des Programms und
- * einen Punkt daneben. Das ist der eine Zustand, den man vergisst - und der dann
- * monatelang Fremden erzaehlt, man sei im Urlaub.
- */
-.link-btn.abwesend {
-  color: var(--marke-rein);
-  font-weight: 600;
-}
-
-.abwesend-punkt {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--marke-rein);
-  vertical-align: middle;
-}
+/* Der Hinweis auf eine laufende Abwesenheitsnotiz steht jetzt als eigene Fläche im Fuß
+   der Seitenleiste (.fuss-hinweis) - er ist kein eingefärbter Verweis mehr unter zehn
+   anderen Verweisen. */
 
 .abw-kontowahl {
   display: flex;
@@ -5686,4 +5849,352 @@ input[type='file']::file-selector-button:hover {
 
 .datenschutz-teil input:not([type='checkbox']) {
   width: 100%;
+}
+
+/* ==========================================================================
+ * Das Einstellungsfenster
+ *
+ * Links die Bereiche in vier benannten Gruppen, rechts der gewählte. Vorher gab es
+ * keinen solchen Ort: Wer eine Einstellung suchte, musste wissen, ob sie in der
+ * Titelleiste, an einem Zahnrad neben dem Konto, im Fuß der Seitenleiste oder im
+ * Anwendungsmenü der Hülle wohnt.
+ *
+ * Die Tafeln rechts sind dieselben Bausteine, die vorher eigene Fenster waren - sie
+ * kommen als .modal.eingebettet herein (siehe Fenster.tsx). Deshalb steht "modal"
+ * weiter an ihnen: Sonst müsste jede Regel, die ein einzelnes Fenster für sein Inneres
+ * mitbringt (.modal h4, .modal .wartend-zeile, …), ein zweites Mal geschrieben werden.
+ * ========================================================================== */
+
+.modal.einstellungen {
+  display: flex;
+  flex-direction: column;
+  width: 960px;
+  max-width: 100%;
+  height: 88vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+.modal.einstellungen > h3 {
+  margin: 0;
+  padding: var(--a-5) var(--a-6) var(--a-4);
+  border-bottom: 1px solid var(--rand-fein);
+}
+
+.einstellungen-raster {
+  display: grid;
+  grid-template-columns: 214px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+.einstellungen-leiste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-5);
+  padding: var(--a-4) var(--a-3) var(--a-6);
+  overflow-y: auto;
+  border-right: 1px solid var(--rand-fein);
+  background: var(--flaeche-leise);
+}
+
+.einstellungen-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/*
+ * Die Überschrift einer Gruppe.
+ *
+ * In der Stimme der Marke gesetzt (siehe --sf-marke in tokens.css) und deutlich kleiner
+ * als die Einträge darunter: Sie ist die Beschriftung des Fachs, kein Eintrag darin.
+ * Ohne diesen Abstand in Größe und Farbe läse man elf gleichwertige Zeilen - und genau
+ * das war der Zustand vorher.
+ */
+.einstellungen-gruppentitel {
+  padding: 0 var(--a-3) var(--a-2);
+  font-family: var(--sf-marke);
+  font-size: var(--t-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-aus);
+}
+
+.einstellungen-eintrag {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  width: 100%;
+  min-width: 0;
+  padding: 7px var(--a-3);
+  border: none;
+  border-radius: var(--r-2);
+  background: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--t-m);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich);
+}
+
+.einstellungen-eintrag > svg {
+  flex-shrink: 0;
+  color: var(--text-aus);
+  transition: color var(--weich);
+}
+
+.einstellungen-eintrag > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.einstellungen-eintrag:hover {
+  background: var(--flaeche-hover);
+  color: var(--text);
+}
+
+.einstellungen-eintrag:hover > svg {
+  color: var(--text-3);
+}
+
+.einstellungen-eintrag.aktiv {
+  background: var(--marke-leise);
+  color: var(--marke);
+  font-weight: 600;
+}
+
+.einstellungen-eintrag.aktiv > svg {
+  color: var(--marke);
+}
+
+/* Ein Wort neben dem Namen, wenn der Bereich etwas meldet - heute nur die laufende
+   Abwesenheitsnotiz. In Bernstein und nicht in Blau: es ist ein Zustand, nichts
+   Anklickbares (siehe die Farbregel in tokens.css). */
+.einstellungen-vermerk {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: var(--r-voll);
+  background: var(--blitz-leise);
+  color: var(--blitz);
+  font-family: var(--sf-marke);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.einstellungen-tafel {
+  min-width: 0;
+  padding: var(--a-6);
+  overflow-y: auto;
+}
+
+/*
+ * Ein Fenster, das als Tafel steht.
+ *
+ * Alles, was es zum schwebenden Fenster machte, wird zurückgenommen: Maß, Rahmen,
+ * Schatten, Polster, das Auftauchen. Was bleibt, sind die Regeln für sein Inneres.
+ *
+ * Steht bewusst am Ende der Datei: .modal.eingebettet hat dieselbe Wertigkeit wie
+ * .modal.adressbuch oder .modal.archiv, und bei gleicher Wertigkeit gewinnt in CSS das
+ * Spätere. Weiter oben stehend behielten einzelne dieser Fenster ihre feste Breite und
+ * ragten aus der Tafel.
+ */
+.modal.eingebettet {
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+  animation: none;
+}
+
+/* Das Fenster trug seinen Namen als Überschrift; als Tafel ist derselbe Text die
+   Überschrift des Abschnitts - eine Stufe kleiner, weil das Fenster darüber schon eine
+   hat. */
+.modal.eingebettet > h3 {
+  margin: 0 0 var(--a-5);
+  font-size: var(--t-xl);
+}
+
+/* Ein Postfach aussuchen, bevor die Tafel es zeigt. Steht über der Tafel und nicht
+   darin: Es gehört nicht zu den Einstellungen, sondern sagt, wessen Einstellungen. */
+.tafel-kontowahl {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin-bottom: var(--a-5);
+  padding-bottom: var(--a-4);
+  border-bottom: 1px solid var(--rand-fein);
+}
+
+.tafel-kontowahl label {
+  flex-shrink: 0;
+  font-size: var(--t-s);
+  color: var(--text-3);
+}
+
+.tafel-kontowahl select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ==========================================================================
+ * Schalter und Wahlreihen - die beiden Bauteile der neuen Tafeln
+ * ========================================================================== */
+
+.schalterliste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-3);
+}
+
+/*
+ * Ein Schalter mit Begründung.
+ *
+ * Die Begründung ist der Grund für die eigene Form. "Rechtschreibprüfung" sagt nicht,
+ * dass dafür Wörterbücher von einem fremden Server geholt werden - und genau deshalb
+ * gibt es den Schalter. Ein Haken mit drei Wörtern daneben ist eine Frage, die niemand
+ * beantworten kann.
+ */
+.schalterzeile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-4);
+  padding: var(--a-4);
+  border: 1px solid var(--rand-fein);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+  cursor: pointer;
+  transition: border-color var(--weich), background var(--weich);
+}
+
+.schalterzeile:hover {
+  border-color: var(--rand);
+  background: var(--flaeche-hover);
+}
+
+.schalterzeile input {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.schalterzeile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.schalterzeile-text strong {
+  font-size: var(--t-n);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.schalterzeile-text .hint {
+  margin: 0;
+}
+
+.schalterzeile.gesperrt {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/*
+ * Zwei oder drei Wahlen nebeneinander, von denen genau eine gilt.
+ *
+ * Für die Ansicht: automatisch, hell, dunkel. Als Reihe und nicht als Auswahlliste, weil
+ * es genau drei sind und alle drei sofort sichtbar sein sollen - eine zugeklappte Liste
+ * verschweigt, dass es "automatisch" überhaupt gibt, und genau diese Wahl war vorher
+ * unerreichbar.
+ */
+.wahlreihe {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+}
+
+.wahlreihe-knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--a-2);
+  padding: 6px var(--a-4);
+  border: none;
+  border-radius: calc(var(--r-2) - 3px);
+  background: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--t-m);
+  cursor: pointer;
+  transition: background var(--weich), color var(--weich), box-shadow var(--weich);
+}
+
+.wahlreihe-knopf > svg {
+  color: var(--text-aus);
+  transition: color var(--weich);
+}
+
+.wahlreihe-knopf:hover {
+  color: var(--text);
+}
+
+.wahlreihe-knopf.gewaehlt {
+  background: var(--flaeche);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--glanz), var(--schatten-1);
+}
+
+.wahlreihe-knopf.gewaehlt > svg {
+  color: var(--marke);
+}
+
+/* Unter 900px steht die Leiste über der Tafel statt daneben - zwei Spalten in einem
+   Fenster, das selbst nur noch 700px hat, ergeben zwei zu schmale. Die
+   Gruppenüberschriften fallen dabei weg: nebeneinander gesetzt trennen sie nichts mehr,
+   sondern stehen nur zwischen den Einträgen. */
+@media (max-width: 900px) {
+  .einstellungen-raster {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .einstellungen-leiste {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--a-2);
+    max-height: 30vh;
+    padding: var(--a-3);
+    border-right: none;
+    border-bottom: 1px solid var(--rand-fein);
+  }
+
+  .einstellungen-gruppe {
+    flex-direction: row;
+    gap: var(--a-1);
+  }
+
+  .einstellungen-gruppentitel {
+    display: none;
+  }
+
+  .einstellungen-eintrag {
+    width: auto;
+  }
+
+  .einstellungen-tafel {
+    padding: var(--a-5);
+  }
 }
