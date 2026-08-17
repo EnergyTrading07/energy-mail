@@ -169,7 +169,26 @@ input[type='radio'] {
 
 /* ==========================================================================
  * Bedienelemente
- * ========================================================================== */
+ * ==========================================================================
+ *
+ * Vier Sorten Knopf, und jede beantwortet eine andere Frage:
+ *
+ *   .btn             Die eine Sache, die dieses Fenster tun soll. Höchstens einer je
+ *                    Ansicht - stehen zwei nebeneinander, ist keiner mehr die Hauptsache.
+ *   .btn.secondary   Eine gleichrangige Wahl daneben: Abbrechen, Schließen, Hinzufügen.
+ *   .btn.ghost       Etwas, das man oft tut und selten sucht - die Bank über einer
+ *                    geöffneten Nachricht. Ohne Rahmen, damit acht davon nebeneinander
+ *                    keine Wand ergeben; beim Überfahren kommt die Fläche.
+ *   .btn.danger      Unumkehrbares. Als Umriss und nicht gefüllt: eine rote Fläche wäre
+ *                    eine Drohung, und man klickt sie aus Reflex nicht - auch dann nicht,
+ *                    wenn sie das Richtige ist.
+ *
+ * Dazu .btn.klein als einzige Größenstufe. Was es NICHT mehr gibt, ist der Knopf, der
+ * je nach Umgebung anders aussieht: `.toolbar .btn.secondary` hat einem `secondary`
+ * borderlos umgefärbt, und `.gefahr-schlicht` war ein zweites `danger` unter anderem
+ * Namen. Wer einen Knopf setzte, musste wissen, worin er landet - genau das kann man
+ * beim Verschieben eines Bausteins nicht wissen.
+ */
 
 /*
  * Der Hauptknopf.
@@ -232,6 +251,42 @@ input[type='radio'] {
   box-shadow: var(--glanz);
 }
 
+/*
+ * Der leise Knopf.
+ *
+ * Ohne Fläche und ohne Rahmen, bis man ihn überfährt. Für Bänke, in denen sechs bis acht
+ * Knöpfe nebeneinander stehen - die Leseansicht über einer Nachricht ist die einzige
+ * Stelle, an der das vorkommt. Als `secondary` gesetzt ergaben sie dort eine Reihe
+ * gerahmter Kästchen, in der kein einzelnes mehr auffiel; das Regelwerk hat sie deshalb
+ * über `.toolbar .btn.secondary` heimlich umgefärbt. Jetzt steht es am Knopf.
+ */
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: var(--flaeche);
+  border-color: var(--rand);
+  color: var(--text);
+  box-shadow: var(--glanz);
+}
+
+/* Ein leiser Knopf, der etwas wegwirft. Er trägt seine Farbe von Anfang an - er ist der
+   einzige der Bank, den man nicht zurücknehmen kann. */
+.btn.ghost.warnend {
+  color: var(--fehler);
+}
+
+.btn.ghost.warnend:hover:not(:disabled) {
+  background: var(--fehler-grund);
+  border-color: var(--fehler-rand);
+  color: var(--fehler);
+}
+
 .btn.danger {
   background: var(--flaeche);
   border-color: var(--fehler-rand);
@@ -244,6 +299,13 @@ input[type='radio'] {
   background: var(--fehler-grund);
   border-color: var(--fehler);
   box-shadow: var(--glanz);
+}
+
+/* Die einzige Größenstufe. Für Knöpfe, die in einer Zeile mit Text stehen und sie sonst
+   auseinanderzögen. */
+.btn.klein {
+  padding: 5px var(--a-4);
+  font-size: var(--t-m);
 }
 
 .btn:disabled {
@@ -1822,33 +1884,12 @@ input[type='file']::file-selector-button:hover {
   border: 1px solid var(--rand-fein);
 }
 
-.toolbar .btn.secondary {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--text-2);
+/* Die Knöpfe der Bank sind `.btn ghost` und tragen ihr Aussehen selbst - hier steht nur
+   noch, dass sie in der Bank etwas enger sitzen. Vorher färbte diese Stelle jedes
+   `secondary` darin heimlich um, und derselbe Knopf sah je nach Elternelement anders
+   aus. */
+.toolbar .btn {
   padding: 6px var(--a-4);
-}
-
-.toolbar .btn.secondary:hover:not(:disabled) {
-  background: var(--flaeche);
-  border-color: var(--rand);
-  color: var(--text);
-}
-
-/* Löschen bleibt an seinem Platz, tritt aber aus der Reihe: es ist der einzige Knopf
-   der Bank, den man nicht zurücknehmen kann, und trägt deshalb als einziger von Anfang
-   an seine Farbe - nur eben ohne Rahmen wie die anderen. */
-.toolbar .btn.danger {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  padding: 6px var(--a-4);
-}
-
-.toolbar .btn.danger:hover:not(:disabled) {
-  background: var(--fehler-grund);
-  border-color: var(--fehler-rand);
 }
 
 /*
@@ -4577,17 +4618,9 @@ input[type='file']::file-selector-button:hover {
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
-/* Ein dritter Weg in einer Rueckfrage, der etwas wegwirft. Nicht in voller Warnfarbe -
-   er ist eine gleichwertige Wahl, keine Drohung. */
-.dialog .btn.gefahr-schlicht {
-  background: none;
-  border: 1px solid var(--fehler);
-  color: var(--fehler);
-}
-
-.dialog .btn.gefahr-schlicht:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--fehler) 12%, transparent);
-}
+/* Hier stand `.gefahr-schlicht` - der dritte Weg in einer Rückfrage, der etwas wegwirft.
+   Er war bis auf den Grundton dasselbe wie `.btn.danger` und heißt jetzt auch so: Umriss
+   in Warnfarbe, gefüllt erst beim Überfahren. Eine gleichwertige Wahl, keine Drohung. */
 
 /* --- Enge Fenster -------------------------------------------------------------
    Ordnerliste und Nachrichtenliste hatten feste Breiten, die Nachricht bekam den Rest.
