@@ -54,6 +54,8 @@ interface Props {
   etiketten: Etikett[];
   /** Ob der Ordner Etiketten dauerhaft behält; null heißt "noch nicht gefragt". */
   etikettenDauerhaft: boolean | null;
+  /** Fragt beim Server nach, ob der Ordner Etiketten behält - siehe EtikettMenue. */
+  onEtikettenPruefen: () => void;
   onEtikettSetzen: (uid: number, schluessel: string, an: boolean) => void | Promise<void>;
   onEtikettenGeaendert: (etiketten: Etikett[]) => void;
   /** Fuer die Antwort auf eine Einladung: wo die Nachricht liegt und wer man selbst ist. */
@@ -348,6 +350,7 @@ export function MessageView({
   onZumAdressbuch,
   etiketten,
   etikettenDauerhaft,
+  onEtikettenPruefen,
   onEtikettSetzen,
   onEtikettenGeaendert,
   accountId,
@@ -432,6 +435,7 @@ export function MessageView({
                 bekannte={etiketten}
                 flags={message.flags}
                 dauerhaft={etikettenDauerhaft}
+                onPruefen={onEtikettenPruefen}
                 onSetzen={(schluessel, an) => onEtikettSetzen(message.uid, schluessel, an)}
                 onVerzeichnisGeaendert={onEtikettenGeaendert}
                 onClose={() => setEtikettMenue(false)}
@@ -530,24 +534,24 @@ export function MessageView({
           <>
             <button className="btn" onClick={() => onReply(message, false)}>{t('Antworten')}</button>
             {canReplyAll && (
-              <button className="btn secondary" onClick={() => onReply(message, true)}>{t('Allen antworten')}</button>
+              <button className="btn ghost" onClick={() => onReply(message, true)}>{t('Allen antworten')}</button>
             )}
-            <button className="btn secondary" onClick={() => onForward(message)}>{t('Weiterleiten')}</button>
+            <button className="btn ghost" onClick={() => onForward(message)}>{t('Weiterleiten')}</button>
           </>
         )}
         {archiveLabel && (
-          <button className="btn secondary" onClick={() => onArchive(message.uid)} title={archiveLabel}>{t('Archivieren')}</button>
+          <button className="btn ghost" onClick={() => onArchive(message.uid)} title={archiveLabel}>{t('Archivieren')}</button>
         )}
-        <button className="btn secondary" onClick={() => onSetSeen(message.uid, !message.seen)}>
+        <button className="btn ghost" onClick={() => onSetSeen(message.uid, !message.seen)}>
           {message.seen ? 'Als ungelesen' : 'Als gelesen'}
         </button>
         <button
-          className="btn secondary"
+          className="btn ghost"
           title={t('Aus dem Posteingang nehmen und spaeter wieder vorlegen')}
           onClick={() => onSnooze(message.uid)}
         >{t('Wiedervorlage')}</button>
         <button
-          className="btn secondary"
+          className="btn ghost"
           title={t('Nachricht drucken oder als PDF sichern')}
           onClick={() =>
             druckeNachricht(
@@ -569,11 +573,11 @@ export function MessageView({
           }
         >{t('Drucken')}</button>
         <button
-          className="btn secondary"
+          className="btn ghost"
           title={t('Die Nachricht im Original mit allen Kopfzeilen')}
           onClick={() => onQuelltext?.(message)}
         >{t('Quelltext')}</button>
-        <button className="btn danger" onClick={() => onDelete(message.uid)}>
+        <button className="btn ghost warnend" onClick={() => onDelete(message.uid)}>
           {isInTrash ? t('Endgültig löschen') : t('Löschen')}
         </button>
         <select

@@ -101,11 +101,6 @@ export function aktualisiereGelesen(
   }
 }
 
-/** Für Protokoll und Prüfung. */
-export function speicherStand(): { eintraege: number; bytes: number } {
-  return { eintraege: speicher.size, bytes: belegt };
-}
-
 /**
  * Grobe Schätzung des Platzbedarfs. Die genaue Größe zu ermitteln wäre teurer als der
  * Nutzen: entscheidend ist nur, dass große Nachrichten stärker zählen als kleine, und

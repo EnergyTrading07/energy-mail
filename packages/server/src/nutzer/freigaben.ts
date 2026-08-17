@@ -229,12 +229,15 @@ export function freigabenZuNutzer(nutzerId: string): void {
   const ablage = lesen();
   const uebrig = ablage.freigaben.filter((f) => f.besitzer !== nutzerId && f.an !== nutzerId);
   if (uebrig.length === ablage.freigaben.length) return;
+  // Vor dem Zuweisen zählen: danach IST ablage.freigaben die Liste uebrig, und die
+  // Differenz wäre zwangsläufig null. Genau das stand hier und meldete jedes Mal "(0)".
+  const entfernt = ablage.freigaben.length - uebrig.length;
   ablage.freigaben = uebrig;
   schreiben(ablage);
   protokolliere(
     'info',
     'freigabe',
-    `Alle Freigaben von und an "${nutzerId}" entfernt (${ablage.freigaben.length - uebrig.length}).`,
+    `Alle Freigaben von und an "${nutzerId}" entfernt (${entfernt}).`,
   );
 }
 

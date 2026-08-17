@@ -127,26 +127,6 @@ export function oktette(daten: Buffer): Buffer {
   return tlv(DER.OCTET_STRING, daten);
 }
 
-/**
- * Eine Bitkette.
- *
- * Das erste Byte des Inhalts zählt die unbenutzten Bits am Ende. Bei allem, was hier
- * vorkommt - Schlüssel, Unterschriften -, sind das null.
- */
-export function bitkette(daten: Buffer): Buffer {
-  return tlv(DER.BIT_STRING, Buffer.concat([Buffer.from([0]), daten]));
-}
-
-/**
- * Eine ganze Zahl aus rohen Bytes - für Seriennummern.
- *
- * Die Seriennummer eines Zertifikats hat bis zu 20 Bytes und passt in keine Zahl. Sie
- * wird deshalb nie in eine umgerechnet, sondern als Bytefolge weitergereicht.
- */
-export function ganzzahlAusBytes(bytes: Buffer): Buffer {
-  return tlv(DER.INTEGER, bytes);
-}
-
 export function kleineZahl(wert: number): Buffer {
   const bytes: number[] = [];
   let rest = Math.trunc(wert);
@@ -189,13 +169,6 @@ export function huelle(nummer: number, ...teile: Buffer[]): Buffer {
 
 // --- Lesen ---
 
-/** Die vollständigen Bytes eines Elements, Kennung und Länge eingeschlossen. */
-export function rohBytes(daten: Buffer, ab = 0): Buffer {
-  const element = liesElement(daten, ab);
-  if (!element) throw new BerFehler('Abgeschnittenes Element.');
-  return daten.subarray(ab, ab + element.gesamt);
-}
-
 /**
  * Zerlegt einen Puffer in seine Elemente - jedes mit seinen eigenen Bytes dabei.
  *
@@ -236,11 +209,6 @@ export function erwarte(stueck: Stueck | undefined, kennung: number, wo: string)
     throw new BerFehler(`${wo}: Erwartet war 0x${soll}, gefunden 0x${ist}.`);
   }
   return stueck;
-}
-
-/** Der Objektbezeichner eines Elements, das einer sein muss. */
-export function oidVon(stueck: Stueck | undefined, wo: string): string {
-  return alsOid(erwarte(stueck, DER.OID, wo).inhalt);
 }
 
 /**

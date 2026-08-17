@@ -99,6 +99,21 @@ export function Titelleiste({
         <button className="leisten-btn" onClick={onThemaUmschalten} title={themaTitel}>
           {ansicht === 'dunkel' ? <Mond groesse={14} /> : <Sonne groesse={14} />}
         </button>
+        {/*
+          Die Sprachwahl stand hier - als Auswahlliste, und ausschließlich im
+          Browserbetrieb.
+
+          Sie war der Notausgang aus einem Missstand: In der Hülle ließ sich die Sprache
+          nur im Anwendungsmenü umstellen, im Browser gab es kein Menü, und ein
+          gewählter Wert wurde zwar gelesen, aber von keiner Stelle je geschrieben. Neun
+          gepflegte Kataloge hingen damit allein an der Spracheinstellung des Browsers.
+
+          Jetzt steht sie in beiden Betriebsarten an derselben Stelle - im
+          Einstellungsfenster unter "Ansicht und Sprache" -, und sie schreibt dorthin,
+          wo sie hingehört: in der Hülle nach huelle.json, im Browser in den
+          Browserspeicher. Eine Auswahlliste in der Titelleiste daneben wäre wieder ein
+          zweiter Ort für dieselbe Frage.
+        */}
       </div>
     </header>
   );

@@ -9,6 +9,163 @@ was sich geändert hat.
 
 ---
 
+## Unveröffentlicht
+
+### Ein Ort für Einstellungen
+
+Es gab keinen. Was eine Einstellung ist, lag an vier Stellen: in der Titelleiste (Ansicht,
+und die Sprache nur im Browserbetrieb), an einem Zahnrad neben jedem Konto, als Wand aus
+elf gleich aussehenden Textknöpfen im Fuß der Seitenleiste, und im Anwendungsmenü der
+Desktop-Hülle (Sprache, Autostart, Infobereich, Meldungsvorschau, Rechtschreibung). Wer
+etwas suchte, musste wissen, in welcher dieser vier Welten es wohnt — und in der Hülle
+stand es woanders als im Browser, obwohl es dieselbe Anwendung ist.
+
+Jetzt gibt es **ein Einstellungsfenster** (Strg+,) mit zehn Bereichen in fünf benannten
+Gruppen: Darstellung · Postfach (Konten, Regeln, Abwesenheit) · Sicherheit (OpenPGP,
+S/MIME) · Aufbewahrung (Archiv, Bestand) · Programm (Anwendung, Nutzer, Anmeldung). Die
+Bereiche sind dieselben Bausteine, die vorher eigene Fenster waren — sie zeichnen sich nur
+als Abschnitt statt als Fenster. Es gibt weiterhin je eine Fassung von ihnen, keine
+Nachbauten.
+
+**Zwei Löcher sind dabei zugegangen.** Die Ansicht kannte immer drei Werte — hell, dunkel,
+„folgt dem System" —, der Umschalter in der Titelleiste konnte aber nur zwischen den ersten
+beiden kippen: Wer einmal geklickt hatte, kam nie wieder zurück. Und die vier Schalter der
+Hülle (Infobereich, Autostart, Meldungsvorschau, Rechtschreibung) waren im Browserbetrieb
+überhaupt nicht erreichbar. Beides steht jetzt in beiden Betriebsarten an derselben Stelle;
+geschrieben werden die Schalter der Hülle weiterhin nur vom Hauptprozess.
+
+Die **Sprache** ebenso: bisher in der Hülle nur im Menü, im Browser nur in der Titelleiste —
+und dort wurde die Wahl zwar gelesen, aber von keiner Stelle je geschrieben. Neun gepflegte
+Kataloge hingen damit allein an der Spracheinstellung des Browsers.
+
+### Der Fuß der Seitenleiste ist wieder ein Fuß
+
+Elf gleich lange Wörter untereinander sind keine Liste, sondern eine Wand: „Abwesenheit"
+stand zwischen „Adressbuch" und „Schlüssel", „Abmelden" neben „Archiv". Weil das Formular
+zum Hinzufügen eines Kontos mit darin lag, brauchte der Fuß eine eigene Bildlauffläche über
+60 % der Fensterhöhe.
+
+Geblieben sind drei Griffe und eine Auskunft: „Offen" (Arbeit, die aussteht), „Adressbuch"
+(ein Nachschlagewerk), „Einstellungen" (der Weg zu allem Übrigen) und eine Zeile, die sagt,
+unter welchem Namen man angemeldet ist — mit Anmeldung, Sperren und Abmelden dahinter. Ein
+Konto kommt jetzt am Ende der Kontenliste hinzu statt im Fuß zwischen „Nutzer" und „Mein
+Konto".
+
+Eine laufende **Abwesenheitsnotiz** bleibt sichtbar: Sie ist der eine Zustand, den man
+vergisst und der dann monatelang Fremden erzählt, man sei im Urlaub. Sie meldet sich als
+eigene Fläche im Fuß, aber nur solange wirklich geantwortet wird.
+
+### Knöpfe: aus sieben Sorten werden vier
+
+`.btn`, `.secondary`, `.danger`, `.gefahr-schlicht`, `.link-btn`, dazu zwei Regeln, die
+Knöpfe je nach Umgebung heimlich umfärbten. Jetzt: **primär** (die eine Sache, die dieses
+Fenster tun soll), **sekundär** (eine gleichrangige Wahl daneben), **leise** (Bänke wie die
+über einer geöffneten Nachricht) und **Warnung** (Unumkehrbares, als Umriss statt gefüllt).
+`gefahr-schlicht` war ein zweites „Warnung" unter anderem Namen und ist es geworden. Dabei
+fiel ein stiller Fehler auf: Der Knopf „Alles Freigegebene löschen" im Archiv trug die
+Klasse `secondary gefaehrlich`, für die es nie eine Regel gab — er sah aus wie jeder
+andere.
+
+### Doppelt Vorhandenes entfernt
+
+„Zwischengespeicherte Nachrichten…" im Menü der Hülle tat dasselbe wie die Tafel „Bestand"
+im Einstellungsfenster, über dieselben zwei Aufrufe — nur eben nicht im Browserbetrieb. Der
+Menüpunkt und seine neunzig Zeilen sind weg.
+
+---
+
+Ergebnis einer Durchsicht des gesamten Quellbaums auf Lücken und Unvollständigkeit. Der
+Baum trug keine einzige TODO-Marke; fast jeder Fund stammt aus dem Abgleich zwischen dem,
+was ein Kommentar zusagt, und dem, was der Code tut.
+
+### Eine gescheiterte geplante Nachricht ging ersatzlos verloren
+
+**Behoben.** `setAufgabeVerfahren` war geschrieben, exportiert und dokumentiert („der
+Aufrufer legt sie als Entwurf ab") — und wurde nirgends im Programm gesetzt. Der Haken
+blieb damit für immer leer, der Aufruf ein Nichts. Nach fünf Fehlschlägen wurde der
+Eintrag gelöscht und der Nachrichtenkörper war weg; die einzige Spur war eine Zeile im
+Protokoll. Genau diesen Verlust beschreibt der Kommentar in derselben Datei als behoben —
+eingebaut war nur die eine Hälfte, der Wiederholungszähler.
+
+Jetzt gilt: Gelöscht wird erst, wenn der Körper **nachweislich woanders liegt**. Die
+Rettung legt ihn als Entwurf ins Postfach und meldet zurück, ob das geglückt ist; misslingt
+sie, bleibt der Eintrag stehen und wird weiter versucht. Dazu zählt fehlendes Netz jetzt
+anders als ein abgewiesener Empfänger — zwanzig statt fünf Versuche, dieselbe Unterscheidung,
+die die Wiedervorlage längst trifft. Fünf Versuche waren in anderthalb Stunden aufgebraucht;
+wer abends auf „morgen früh" stellte und über Nacht kein Netz hatte, verlor die Nachricht,
+obwohl an ihr nichts falsch war.
+
+### Ein verzögerter Versand wurde beim Einstellen nicht geprüft
+
+Der Körper wanderte ungeprüft in die Warteschlange; geprüft wurde erst beim Auslösen, Tage
+später, wenn niemand mehr davorsitzt. Wer eine geschützte Nachricht mit Anhang auf morgen
+legte, bekam „geplant" bestätigt und erfuhr nie, dass sie nicht hinausging. Beide Wege
+teilen sich jetzt dieselbe Vorabprüfung. Ein Zeitpunkt in der Vergangenheit wird abgewiesen
+statt stillschweigend zu „sofort" gemacht, einer über fünf Jahre voraus ebenfalls.
+
+### Eingabefehler beim Senden kamen als 502 zurück
+
+Ein fehlender Schlüssel oder ein Anhang bei geschütztem Versand ist eine Sache der Eingabe.
+Der umschließende Fang setzte darüber pauschal 502 — „die Gegenstelle hat versagt", eine
+Antwort, die zum erneuten Versuch einlädt, der niemals helfen kann. Fehler, die ihren Rang
+kennen, behalten ihn jetzt.
+
+### Geschützter Versand trägt Anhänge
+
+Bisher wurde abgewiesen, sobald ein Anhang dabei war. Beim **Unterschreiben** geht er jetzt
+mit: Der unterschriebene Teil ist ein mehrteiliger MIME-Umschlag, und die Unterschrift deckt
+Text und Dateien zusammen ab — ein Schutz, der nur den Text erfasste und die Dateien offen
+danebenlegte, wäre schlimmer als keiner. Gilt für OpenPGP wie für S/MIME.
+
+Beim **Verschlüsseln** bleibt die Grenze, jetzt aber genau benannt: Der Leser dieser
+Anwendung gibt entschlüsselten Inhalt unmittelbar als Text aus, statt ihn als MIME zu
+zerlegen; verschlüsselte Anhänge kämen heil an, stünden hier aber als Quelltext da.
+
+### Der Schlüssel eines Nutzers lässt sich wechseln
+
+Die Struktur dafür stand von Anfang an — Generationen im Eintrag, Generation im Format jedes
+Geheimnisses — nur gab es den Vorgang nicht. Ein abhandengekommener Nutzerschlüssel war
+nicht austauschbar. Neu: `nutzerWerkzeug.js schluessel-wechseln <adresse>`. Alte Generationen
+bleiben lesbar und wandern mit, sobald ihr Datensatz ohnehin neu geschrieben wird; die
+Meldung sagt ausdrücklich, was der Wechsel **nicht** tut.
+
+### Vertraute Absender lassen sich wieder zurücknehmen
+
+„Von diesem Absender immer laden" war eine Einbahnstraße: Server und Schnittstelle konnten
+die Liste immer schon herausgeben und Einträge daraus entfernen, nur rief es niemand auf.
+Wer einmal freigegeben hatte, sah nie wieder, wen — und konnte es nicht widerrufen. Die
+Liste steht jetzt in den Kontoeinstellungen, neben der Lesebestätigung.
+
+### Im Browser gibt es eine Sprachwahl
+
+Die Umschaltung war geschrieben und wurde von keiner Stelle aufgerufen; gelesen wurde ein
+Wert, den nichts je schrieb. Damit entschied allein die Browsereinstellung, und neun
+gepflegte Kataloge waren anders nicht erreichbar. Die Auswahl steht in der Titelleiste — nur
+im Browser: In der Hülle entscheidet das Menü, und eine Richtlinie, die sich örtlich
+überstimmen lässt, ist keine.
+
+### Der gespeicherte Nachrichtenbestand ist auch im Browser einzusehen
+
+Von 141 Serverwegen hatten genau zwei kein Gegenstück in der Oberfläche: nachsehen und
+leeren. Erreichbar waren sie nur über das Menü der Desktop-Hülle. Jetzt steht „Bestand" in
+der Seitenleiste — erst die Zahlen, dann die Frage.
+
+### Kleineres
+
+- Das Löschen eines Kontos räumt jetzt auch dessen Wiedervorlagen und vorgemerkte Sendungen
+  ab. Bisher blieben sie liegen: eine Wiedervorlage, die sich nicht öffnen ließ, und eine
+  Sendung, die zu ihrem Termin auf „Das Konto gibt es nicht mehr" lief.
+- Der Hinweis, dass ein Ordner Etiketten nicht behält, kommt beim Öffnen des Etikettenmenüs
+  statt erst nach dem ersten vergebenen Etikett.
+- Zwei Wege nahmen die Seitengröße weiterhin ungeprüft entgegen — darunter der, den die
+  Oberfläche bei jedem Ordnerwechsel benutzt. `?pageSize=1000000` holte die Kopfdaten einer
+  Million Nachrichten.
+- Das Protokoll meldete beim Entfernen aller Freigaben eines Nutzers stets „(0)".
+- Vorzeitiges Zurückholen einer Wiedervorlage prüft, ob sie zum Konto im Pfad gehört.
+- Siebzehn tote Ausfuhren entfernt, die nirgends verwendet wurden.
+
+---
+
 ## 0.3.1
 
 ### Sicherheit: ein gewöhnlicher Nutzer kam in die Verwaltung

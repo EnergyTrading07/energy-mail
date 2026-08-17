@@ -1546,6 +1546,21 @@ export async function fetchQuelltext(
   return antwort.text();
 }
 
+/**
+ * Was an Nachrichtenbestand auf der Platte liegt - und der Weg, ihn loszuwerden.
+ *
+ * Beide Wege gab es auf dem Server von Anfang an; hier fehlten sie. Erreichbar waren sie
+ * damit nur über das Menü der Desktop-Hülle, und wer die Anwendung im Browser benutzt,
+ * hatte keine Möglichkeit, den unverschlüsselt abgelegten Bestand auch nur anzusehen.
+ */
+export function holeAblageStand(): Promise<{ bytes: number; nachrichten: number; inhalte: number }> {
+  return request('/ablage');
+}
+
+export function leereAblage(): Promise<{ nachrichten: number; inhalte: number; bytes: number }> {
+  return request('/ablage', { method: 'DELETE' });
+}
+
 /** Absender, deren entfernte Bilder ohne Rückfrage geladen werden dürfen. */
 export function fetchVertrauteAbsender(accountId: string): Promise<{ absender: string[] }> {
   return request(`/accounts/${accountId}/vertraute-absender`);

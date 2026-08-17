@@ -243,6 +243,122 @@ export const Winkel = (p: { groesse?: number }) => (
   <Strichzeichen {...p} strich={1.6} d="M6 3.4L10.6 8 6 12.6" />
 );
 
+/* --- Zeichen des Einstellungsfensters ------------------------------------
+ *
+ * Die Leiste darin führt zehn Tafeln auf, und eine Liste aus zehn gleich langen
+ * Wörtern liest sich nicht - man geht sie jedes Mal von oben durch. Ein Zeichen
+ * davor macht aus dem Lesen ein Wiedererkennen: Wer den Schlüssel einmal gesehen
+ * hat, findet ihn beim nächsten Mal, ohne die Beschriftung zu lesen.
+ *
+ * Alle im selben 16er-Raster und derselben Strichstärke wie die übrigen - ein
+ * Zeichen, das aus der Reihe fällt, sieht wie ein Fehler aus.
+ */
+
+/** Zahnrad - Einstellungen, überall dort, wo etwas eingerichtet wird. */
+export const Zahnrad = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    strich={1.3}
+    d="M8 3.4a4.6 4.6 0 100 9.2 4.6 4.6 0 000-9.2z M8 5.9a2.1 2.1 0 100 4.2 2.1 2.1 0 000-4.2z M8 1.5v1.9 M8 12.6v1.9 M1.5 8h1.9 M12.6 8h1.9 M3.4 3.4l1.4 1.4 M11.2 11.2l1.4 1.4 M12.6 3.4l-1.4 1.4 M4.8 11.2l-1.4 1.4"
+  />
+);
+
+/** Aufgeschlagenes Register - das Adressbuch. */
+export const Buch = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M5 2.4h6.6v11.2H5z M7.2 2.4v11.2 M3 5h2 M3 8h2 M3 11h2" />
+);
+
+/** Schlüssel - OpenPGP. */
+export const Schluessel = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M10.6 2.6a3.4 3.4 0 100 6.8 3.4 3.4 0 000-6.8z M8.5 7.5L2.6 13.4 M4.4 11.6l1.4 1.4 M6.2 9.8l1.4 1.4"
+  />
+);
+
+/** Siegel mit Bändern - ein Zertifikat, das jemand ausgestellt hat. */
+export const Siegel = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M8 1.9a3.6 3.6 0 100 7.2 3.6 3.6 0 000-7.2z M5.8 8.8L4.9 14l3.1-1.7 3.1 1.7-.9-5.2"
+  />
+);
+
+/** Kasten mit Deckel - das Archiv, in das etwas für Jahre hineingeht. */
+export const Archivkasten = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M2.2 3.2h11.6v2.6H2.2z M3.2 5.8v7.2h9.6V5.8 M6.4 8.6h3.2" />
+);
+
+/** Gestapelte Scheiben - was auf der Platte liegt. */
+export const Speicher = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M8 2.2c2.9 0 5.2.9 5.2 1.9S10.9 6 8 6 2.8 5.1 2.8 4.1 5.1 2.2 8 2.2z M2.8 4.1v7.8c0 1 2.3 1.9 5.2 1.9s5.2-.9 5.2-1.9V4.1 M2.8 8c0 1 2.3 1.9 5.2 1.9s5.2-.9 5.2-1.9"
+  />
+);
+
+/** Zwei Figuren - die Nutzerverwaltung. */
+export const Personen = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M6 2.6a2.3 2.3 0 100 4.6 2.3 2.3 0 000-4.6z M1.8 13.4v-1.2a3.4 3.4 0 013.4-3.4h1.6a3.4 3.4 0 013.4 3.4v1.2 M10.8 3.1a2.3 2.3 0 010 4.4 M11.6 8.9h.6a3 3 0 013 3v1.5"
+  />
+);
+
+/** Eine Figur - das eigene Konto. */
+export const Person = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M8 2.4a2.7 2.7 0 100 5.4 2.7 2.7 0 000-5.4z M2.9 13.6v-1.3a3.6 3.6 0 013.6-3.6h3a3.6 3.6 0 013.6 3.6v1.3"
+  />
+);
+
+/** Geschlossenes Schloss - den Bildschirm sperren. */
+export const Schloss = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M3.4 7.2h9.2v6.4H3.4z M5.4 7.2V5a2.6 2.6 0 015.2 0v2.2 M8 9.6v1.8" />
+);
+
+/** Tür mit Pfeil hinaus - abmelden. */
+export const Tuer = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M9.6 2.6H3.4v10.8h6.2 M6.6 8h6.8 M11.2 5.8L13.4 8l-2.2 2.2" />
+);
+
+/** Trichter - Regeln, die den Zulauf sortieren. */
+export const Trichter = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M2 2.8h12l-4.6 5.4v5.2l-2.8-1.5V8.2z" />
+);
+
+/** Umschlag mit Pfeil hinaus - es antwortet etwas von selbst. */
+export const Abwesend = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M2.2 3.4h9.2v6.2H2.2z M2.2 3.8l4.6 3.2 4.6-3.2 M8.2 12.8h4.6 M10.8 10.8l2 2-2 2"
+  />
+);
+
+/** Bildschirm - was die Hülle betrifft und nicht die Post. */
+export const Bildschirm = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M2.2 3h11.6v7.4H2.2z M6 13.4h4 M8 10.4v3" />
+);
+
+/** Kreis mit schraffierter Hälfte - hell und dunkel, die Darstellung. */
+export const Kontrast = (p: { groesse?: number }) => (
+  <Strichzeichen
+    {...p}
+    d="M8 1.8a6.2 6.2 0 100 12.4A6.2 6.2 0 008 1.8z M8 1.8v12.4 M8 4.4h3.4 M8 7h4.1 M8 9.6h3.4"
+  />
+);
+
+/** Umschlag - ein Postfach und seine Angaben. */
+export const Umschlag = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M2.2 3.6h11.6v8.8H2.2z M2.2 4.2l5.8 4.4 5.8-4.4" />
+);
+
+/** Plus im Kreis - noch eines hinzufügen. */
+export const Plus = (p: { groesse?: number }) => (
+  <Strichzeichen {...p} d="M8 1.8a6.2 6.2 0 100 12.4A6.2 6.2 0 008 1.8z M8 5.2v5.6 M5.2 8h5.6" />
+);
+
 /** Leerer Posteingang - für Bereiche, in denen nichts (mehr) liegt. */
 export const LeererKorb = ({ groesse = 44 }: { groesse?: number }) => (
   <svg

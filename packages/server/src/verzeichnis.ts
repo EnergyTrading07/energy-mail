@@ -207,11 +207,6 @@ const gedaechtnis = new Map<string, { bis: number; treffer: Verzeichniseintrag[]
 const GEDAECHTNIS_MS = 30_000;
 const MAX_GEDAECHTNIS = 200;
 
-/** Nur für Prüfungen. */
-export function vergissVerzeichnis(): void {
-  gedaechtnis.clear();
-}
-
 function ersterWert(werte: Record<string, string[]>, feld?: string): string | undefined {
   if (!feld) return undefined;
   return werte[feld.trim().toLowerCase()]?.[0];

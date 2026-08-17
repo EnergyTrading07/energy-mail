@@ -24,24 +24,14 @@ import { richtlinien } from './richtlinien.js';
  */
 
 /**
- * Was im Menü zur Wahl steht - aus SPRACHEN abgeleitet und nicht danebengeschrieben.
+ * Was im Menü zur Wahl steht.
  *
- * Hier standen bis eben nur Deutsch und Englisch, während mail-core bereits zehn Sprachen
- * führte. Eine zweite Liste neben der ersten geht genau so lange gut, bis jemand nur eine
- * davon ergänzt - und dann fehlt die neue Sprache im Menü, obwohl ihr Katalog vorliegt.
- * Niemand sucht den Fehler dort, weil "die Sprache ist eingebaut" ja stimmt.
- *
- * Die Namen bleiben unübersetzt: Wer die Oberfläche auf einer Sprache vorfindet, die er
- * nicht liest, sucht seine eigene - und "Deutsch" erkennt er, "German" womöglich nicht.
- * So macht es jedes Betriebssystem.
+ * Die Liste stand einmal hier und wurde aus SPRACHEN abgeleitet. Inzwischen steht sie in
+ * mail-core neben SPRACHEN selbst - die Oberfläche im Browser braucht dieselbe Auswahl,
+ * und zwei Ableitungen derselben Tabelle sind wieder zwei Listen. Hier bleibt nur die
+ * Weitergabe stehen, damit das Menü nichts von der Umstellung merkt.
  */
-export const SPRACHWAHL: { wert: string; name: string }[] = [
-  { wert: 'automatisch', name: 'Automatisch / Automatic' },
-  ...(Object.entries(SPRACHEN) as [Sprache, { name: string }][]).map(([wert, angaben]) => ({
-    wert,
-    name: angaben.name,
-  })),
-];
+export { SPRACHWAHL } from '@energy-mail/mail-core/sprache';
 
 /**
  * Ermittelt die Sprache und stellt sie ein.

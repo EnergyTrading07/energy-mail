@@ -92,8 +92,3 @@ export async function ladeFuer(sprache: Sprache): Promise<void> {
 export async function ladeAlle(): Promise<void> {
   await Promise.all((Object.keys(LADER) as Exclude<Sprache, 'de'>[]).map(laden));
 }
-
-/** Nur für Prüfungen: den gemerkten Stand vergessen. */
-export function vergissGeladene(): void {
-  schonGeladen.clear();
-}

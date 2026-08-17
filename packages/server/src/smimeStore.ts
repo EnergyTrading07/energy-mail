@@ -260,11 +260,6 @@ export function eigeneFuer(accountId: string, adressen: readonly string[]): Eige
     }));
 }
 
-/** Ob für ein Konto überhaupt ein eigenes Zertifikat vorliegt. */
-export function hatEigenes(accountId: string, adressen: readonly string[]): boolean {
-  return eigeneFuer(accountId, adressen).length > 0;
-}
-
 /** Prüft ein Kennwort, ohne etwas zu verändern - vor dem Senden gefragt. */
 export function kennwortStimmt(
   accountId: string,

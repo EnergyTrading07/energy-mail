@@ -411,7 +411,7 @@ function Fenster({ anfrage, fertig }: { anfrage: Anfrage; fertig: (wert: unknown
             </button>
           )}
           {anfrage.art === 'bestaetigen' && anfrage.verwerfen && (
-            <button type="button" className="btn gefahr-schlicht" onClick={() => fertig('verwerfen')}>
+            <button type="button" className="btn danger" onClick={() => fertig('verwerfen')}>
               {anfrage.verwerfen}
             </button>
           )}

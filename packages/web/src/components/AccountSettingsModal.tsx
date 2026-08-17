@@ -6,6 +6,7 @@ import { Fenster } from './Fenster.js';
 import { t } from '../sprache.js';
 import { FreigabeTeil } from './FreigabeTeil.js';
 import { LesebestaetigungTeil } from './LesebestaetigungTeil.js';
+import { VertrauteAbsenderTeil } from './VertrauteAbsenderTeil.js';
 
 interface Props {
   account: Account;
@@ -198,6 +199,12 @@ export function AccountSettingsModal({ account, onClose, onSave }: Props) {
         </div>
 
         <LesebestaetigungTeil kontoId={account.id} />
+
+        {/*
+          Steht neben der Lesebestätigung, und das ist kein Zufall: Beides beantwortet
+          dieselbe Frage - wer erfährt, dass ich diese Nachricht geöffnet habe.
+        */}
+        <VertrauteAbsenderTeil kontoId={account.id} />
 
         <FreigabeTeil kontoId={account.id} email={account.email} />
 

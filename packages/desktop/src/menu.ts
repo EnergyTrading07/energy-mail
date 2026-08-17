@@ -2,13 +2,8 @@ import { BrowserWindow, Menu, app, shell, type MenuItemConstructorOptions } from
 import { t } from '@energy-mail/mail-core/sprache';
 import { sucheAktualisierung } from './autoUpdate.js';
 import { zeigeUeber } from './kleineFenster.js';
-import { einstellungen, setzeEinstellung, wendeAutostartAn } from './einstellungen.js';
-import { wendeRechtschreibungAn } from './rechtschreibung.js';
-import { richtlinien } from './richtlinien.js';
-import { SPRACHWAHL, wendeSpracheAn } from './spracheWaehlen.js';
 import {
   erzeugeFehlerbericht,
-  leereZwischenspeicher,
   leseEinstellungen,
   oeffneProtokollordner,
   sichereEinstellungen,
@@ -46,6 +41,7 @@ type Befehl =
   | 'regeln'
   | 'aufraeumen'
   | 'wartet'
+  | 'einstellungen'
   | 'ansichtUmschalten';
 
 function sende(befehl: Befehl): void {
@@ -134,6 +130,24 @@ export function setzeMenue(): void {
         eintrag(t('Regeln…'), 'regeln'),
         { type: 'separator' },
         /*
+         * Der eine Weg zu allem Einstellbaren.
+         *
+         * Darunter standen bis hierher fünf Punkte, die es nur hier gab: Sprache,
+         * Rechtschreibung, Autostart, Infobereich, Meldungsvorschau. Die Begründung
+         * dafür war, der Hauptprozess müsse sie kennen, bevor eine Oberfläche geladen
+         * ist. Das stimmt weiter - es ist ein Grund dafür, WO sie liegen (huelle.json,
+         * nicht der Browserspeicher), und keiner dafür, wo man sie umlegt. Solange sie
+         * nur hier standen, suchte man sie im Menü statt in den Einstellungen, und im
+         * Browserbetrieb gab es sie überhaupt nicht.
+         *
+         * Sie stehen jetzt in der Anwendung unter "Anwendung"; geschrieben werden sie
+         * weiterhin nur vom Hauptprozess (siehe 'huelle:setzen' in main.ts).
+         *
+         * Strg+, weil es das Kürzel für Einstellungen ist, seit es Einstellungen gibt.
+         */
+        eintrag(t('Einstellungen…'), 'einstellungen', 'CmdOrCtrl+,'),
+        { type: 'separator' },
+        /*
          * Der Weg auf einen neuen Rechner.
          *
          * Im Benutzerordner liegen zwölf Dateien; welche davon Arbeit enthalten und
@@ -149,114 +163,14 @@ export function setzeMenue(): void {
           click: () => void leseEinstellungen(SERVER),
         },
         /*
-         * Der Gegenpol zu den beiden darüber: nicht mitnehmen, sondern loswerden.
+         * Was zwischengespeichert auf der Platte liegt, steht nicht mehr hier.
          *
-         * Was das Programm zwischenspeichert - Betreffzeilen, Absender, den Wortlaut der
-         * zuletzt gelesenen Nachrichten -, liegt unverschlüsselt im Benutzerordner, und
-         * bis hierher gab es keinen Weg dorthin außer der Suche von Hand nach ablage.db.
-         * Für einen Rechner, der weitergegeben wird, ist das der wichtigste Punkt in
-         * diesem Menü.
+         * Der Punkt hieß "Zwischengespeicherte Nachrichten…" und öffnete eine Rückfrage
+         * der Hülle, die dasselbe tat wie die Tafel "Bestand" im Einstellungsfenster:
+         * nachsehen, wie viel dort liegt, und es löschen. Zwei Umsetzungen derselben
+         * Sache laufen auseinander - und die in der Anwendung gibt es auch im Browser,
+         * wo es kein Menü gibt.
          */
-        {
-          label: t('Zwischengespeicherte Nachrichten…'),
-          click: () => void leereZwischenspeicher(SERVER),
-        },
-        { type: 'separator' },
-        /*
-         * Zwei Schalter, die die Hülle betreffen und nicht die Oberfläche.
-         *
-         * Bewusst hier und nicht im Einstellungsfenster der Anwendung: Fensterverhalten
-         * und Autostart sind Sache des Betriebssystems, der Hauptprozess muss sie kennen,
-         * bevor überhaupt eine Oberfläche geladen ist, und über das Menü brauchen sie
-         * keinen neuen Kanal in der Brücke - die absichtlich schmal gehalten ist.
-         */
-        {
-          label: t('Beim Schließen in den Infobereich'),
-          type: 'checkbox',
-          checked: einstellungen().imInfobereich,
-          click: (eintrag) => {
-            setzeEinstellung('imInfobereich', eintrag.checked);
-            // Neu aufbauen, damit der Haken auch dann stimmt, wenn die Einstellung
-            // anderswo geändert wurde (etwa über "Lieber beenden" im Hinweis).
-            setzeMenue();
-          },
-        },
-        {
-          label: t('Mit Windows starten'),
-          type: 'checkbox',
-          checked: einstellungen().mitWindowsStarten,
-          click: (eintrag) => {
-            setzeEinstellung('mitWindowsStarten', eintrag.checked);
-            wendeAutostartAn();
-            setzeMenue();
-          },
-        },
-        /*
-         * Der einzige Schalter hier, der nicht das Fensterverhalten betrifft, sondern
-         * eine Verbindung nach draußen.
-         *
-         * Die Prüfung ist die von Chromium, und die Wörterbücher, die Windows nicht
-         * mitbringt, holt sie sich von einem Server von Google. Geschriebener Text geht
-         * dabei nicht hinaus - aber ein Abruf ist es, und in einem Programm, das für sich
-         * in Anspruch nimmt, nur mit dem Postfach zu sprechen, gehört er abstellbar.
-         * Ausgeschrieben statt "Rechtschreibprüfung": ein Schalter, dessen Wirkung man
-         * erst nach dem Umlegen versteht, ist keiner.
-         */
-        /*
-         * Nicht der Rechner, sondern der Raum.
-         *
-         * Eine Meldung erscheint über allem, was gerade auf dem Bildschirm ist - im
-         * Vortrag, in der Bildschirmübertragung, auf dem Sperrbildschirm, wo Windows sie
-         * im Info-Center aufhebt. Wer daneben steht, liest mit.
-         */
-        {
-          label: t('Absender und Betreff in Meldungen zeigen'),
-          type: 'checkbox',
-          checked: einstellungen().meldungsvorschau,
-          click: (eintrag) => {
-            setzeEinstellung('meldungsvorschau', eintrag.checked);
-            // Nichts weiter anzuwenden: die nächste Meldung fragt den Wert selbst ab.
-            setzeMenue();
-          },
-        },
-        /*
-         * Die Sprache der Oberfläche.
-         *
-         * Als Untermenü mit Punkten und nicht als Haken: „automatisch" ist eine eigene
-         * Wahl und nicht die Abwesenheit einer Wahl - wer sie trifft, will die Sprache von
-         * Windows, auch wenn die sich später ändert.
-         *
-         * Gibt die Organisation eine Sprache vor, steht sie hier ausgegraut. Den Punkt
-         * ganz wegzulassen wäre der naheliegende Weg und der schlechtere: Wer die Sprache
-         * sucht und nichts findet, hält es für ein fehlendes Merkmal statt für eine
-         * Entscheidung seines Hauses.
-         */
-        {
-          label: t('Sprache'),
-          submenu: SPRACHWAHL.map(({ wert, name }) => ({
-            label: name,
-            type: 'radio' as const,
-            checked: einstellungen().sprache === wert,
-            enabled: !richtlinien().sprache,
-            click: () => {
-              setzeEinstellung('sprache', wert);
-              wendeSpracheAn();
-              // Das Menü ist bereits gebaut; seine Beschriftungen ändern sich nicht von
-              // selbst. Neu aufbauen ist hier kein Umweg, sondern der ganze Vorgang.
-              setzeMenue();
-            },
-          })),
-        },
-        {
-          label: t('Rechtschreibprüfung (lädt Wörterbücher von Google)'),
-          type: 'checkbox',
-          checked: einstellungen().rechtschreibung,
-          click: (eintrag) => {
-            setzeEinstellung('rechtschreibung', eintrag.checked);
-            wendeRechtschreibungAn();
-            setzeMenue();
-          },
-        },
       ],
     },
     {

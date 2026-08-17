@@ -6,7 +6,6 @@ import type {
   FolderInfo,
   FullMessage,
   GmailCategory,
-  MessageSummary,
 } from '@energy-mail/mail-core';
 import * as api from './api.js';
 import type { Account } from './api.js';
@@ -17,28 +16,22 @@ import { MessageList, type Listeneintrag } from './components/MessageList.js';
 import { Sidebar } from './components/Sidebar.js';
 import { Titelleiste } from './components/Titelleiste.js';
 import { MessageView } from './components/MessageView.js';
-import { AccountSettingsModal } from './components/AccountSettingsModal.js';
+import {
+  EinstellungenModal,
+  type Einstellungsbereich,
+} from './components/EinstellungenModal.js';
 import { OAuthSetupModal } from './components/OAuthSetupModal.js';
 import { CleanupModal } from './components/CleanupModal.js';
 import { AdressbuchModal } from './components/AdressbuchModal.js';
-import { bringtDateien, type Fracht } from './ziehen.js';
+import type { Fracht } from './ziehen.js';
 import {
-  STANDARD_SORTIERUNG,
   alsDichte,
   alsSortierung,
   alsText,
   sortiere,
-  umfasstAlles,
   type Dichte,
   type Sortierung,
 } from './sortierung.js';
-import { SchluesselModal } from './components/SchluesselModal.js';
-import { ZertifikatModal } from './components/ZertifikatModal.js';
-import { ArchivModal } from './components/ArchivModal.js';
-import { VerwaltungModal } from './components/VerwaltungModal.js';
-import { KontoModal } from './components/KontoModal.js';
-import { AbwesenheitModal } from './components/AbwesenheitModal.js';
-import { RulesModal } from './components/RulesModal.js';
 import { QuelltextModal } from './components/QuelltextModal.js';
 import { absenderFuerAntwort, alleAbsender } from './identitaeten.js';
 import { WartendModal } from './components/WartendModal.js';
@@ -154,9 +147,15 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
   const [composeInitial, setComposeInitial] = useState<Partial<api.Draft> | null>(null);
   const [composeTitle, setComposeTitle] = useState(t('Neue Nachricht'));
   const [draftLocation, setDraftLocation] = useState<DraftLocation | undefined>(undefined);
-  const [settingsFor, setSettingsFor] = useState<api.Account | null>(null);
+  /*
+   * Auf welches Postfach die kontobezogenen Tafeln zeigen sollen.
+   *
+   * Getrennt vom gerade benutzten Konto: Wer am Zahnrad eines Postfachs zieht, will
+   * dessen Einstellungen sehen - und nicht, dass darunter die Nachrichtenliste wechselt.
+   * Leer heißt "das gerade benutzte", und das ist in neun von zehn Fällen das gemeinte.
+   */
+  const [einstellungenKonto, setEinstellungenKonto] = useState<string | null>(null);
   /** Konto, dessen Regeln gerade verwaltet werden. */
-  const [rulesFor, setRulesFor] = useState<api.Account | null>(null);
   /** Vorbelegung, wenn die Regel aus dem Aufraeumen heraus angelegt wird. */
   const [regelVorgabe, setRegelVorgabe] = useState<{ von: string; name: string } | undefined>();
   /** Konto, dessen Postfach gerade aufgeraeumt wird. */
@@ -186,12 +185,15 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
   /** Gespeicherte Suchen - Ordner, die es gar nicht gibt. */
   const [suchen, setSuchen] = useState<api.GespeicherteSuche[]>([]);
   /** Ob der Schluesselbund offen ist. */
-  const [schluesselOffen, setSchluesselOffen] = useState(false);
-  const [zertifikateOffen, setZertifikateOffen] = useState(false);
-  const [archivOffen, setArchivOffen] = useState(false);
-  const [verwaltungOffen, setVerwaltungOffen] = useState(false);
-  const [kontoOffen, setKontoOffen] = useState(false);
-  const [abwesenheitOffen, setAbwesenheitOffen] = useState(false);
+  /*
+   * Das Einstellungsfenster - ein Zustand statt sieben.
+   *
+   * Hier standen sieben Wahrheitswerte nebeneinander (Schluessel, Zertifikate, Archiv,
+   * Bestand, Verwaltung, Mein Konto, Abwesenheit), von denen nie mehr als einer wahr sein
+   * durfte und nichts das erzwang. Jetzt steht hier, welcher Bereich offen ist - oder
+   * null, wenn keiner offen ist.
+   */
+  const [einstellungen, setEinstellungen] = useState<Einstellungsbereich | null>(null);
   /**
    * Konten, deren Abwesenheitsnotiz gerade wirklich antwortet.
    *
@@ -861,6 +863,26 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
    * überhaupt behält: ein Server, der es nicht tut, nimmt den Befehl trotzdem an und
    * vergisst ihn beim Schließen - ohne die Rückfrage wäre das eine stille Enttäuschung.
    */
+  /**
+   * Holt die Auskunft, ob der offene Ordner Etiketten dauerhaft behält.
+   *
+   * Gerufen vom Etikettenmenü, wenn es aufgeht und die Antwort noch nicht vorliegt. Bis
+   * hierher wurde die Auskunft nie geholt: Sie stand serverseitig bereit und in der
+   * Schnittstelle ebenso, aber gefragt hat sie niemand - der Hinweis entstand allein aus
+   * der Antwort auf das erste vergebene Etikett, also nachdem der Nutzer bereits getan
+   * hatte, wovor der Hinweis warnt.
+   *
+   * Ein Fehlschlag bleibt still. Die Auskunft ist eine Vorwarnung, kein Arbeitsschritt -
+   * misslingt sie, greift weiterhin die Rückmeldung beim Vergeben selbst.
+   */
+  const pruefeEtikettenDauerhaft = () => {
+    if (!arbeitsKonto || !arbeitsOrdner) return;
+    void api
+      .pruefeEtikettenMoeglich(arbeitsKonto, arbeitsOrdner)
+      .then((a) => setEtikettenDauerhaft(a.dauerhaft))
+      .catch(() => undefined);
+  };
+
   const setzeEtikett = async (uid: number, schluessel: string, an: boolean) => {
     if (!arbeitsKonto || !arbeitsOrdner) return;
 
@@ -1692,10 +1714,11 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
         else if (selectedUid !== null) void handleDelete([selectedUid]);
         return;
       case 'regeln':
-        if (selectedAccount) {
-          setRegelVorgabe(undefined);
-          setRulesFor(selectedAccount);
-        }
+        setRegelVorgabe(undefined);
+        setEinstellungen('regeln');
+        return;
+      case 'einstellungen':
+        setEinstellungen((v) => v ?? 'darstellung');
         return;
       case 'aufraeumen':
         if (selectedAccount) setCleanupFor(selectedAccount);
@@ -1840,13 +1863,23 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
     setFolderReload((n) => n + 1);
   };
 
-  const handleSaveSettings = async (settings: {
-    displayName?: string;
-    signature?: string;
-    identitaeten?: api.Identitaet[];
-  }) => {
-    if (!settingsFor) return;
-    const updated = await api.updateAccount(settingsFor.id, settings);
+  /*
+   * Die Kennung kommt jetzt als erstes Merkmal herein.
+   *
+   * Vorher las diese Stelle sie aus `settingsFor` - dem Zustand, der sagte, welches
+   * Fenster offen ist. Das ging nur so lange gut, wie es genau ein solches Fenster gab:
+   * Im Einstellungsfenster steht die Tafel fuer ein Postfach, das nicht dasselbe sein
+   * muss wie das gerade benutzte, und die Tafel weiss es besser als die Anwendung.
+   */
+  const handleSaveSettings = async (
+    kontoId: string,
+    settings: {
+      displayName?: string;
+      signature?: string;
+      identitaeten?: api.Identitaet[];
+    },
+  ) => {
+    const updated = await api.updateAccount(kontoId, settings);
     setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
   };
 
@@ -1994,10 +2027,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
           wartendAnzahl={wartendAnzahl}
           onOpenWartend={() => selectedAccount && setWartendFor(selectedAccount)}
           onOpenAdressbuch={() => setAdressbuch({})}
-          onOpenSchluessel={() => setSchluesselOffen(true)}
-          onOpenZertifikate={() => setZertifikateOffen(true)}
-          onOpenArchiv={() => setArchivOffen(true)}
-          onOpenAbwesenheit={() => setAbwesenheitOffen(true)}
+          onOpenEinstellungen={(bereich) => setEinstellungen(bereich ?? 'darstellung')}
           onFreigabeWeglegen={(id) => {
             void api
               .freigabeBeenden(id)
@@ -2005,9 +2035,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
               .catch(() => undefined);
           }}
           abwesenheitAktiv={abwesenheitAktiv}
-          darfVerwalten={Boolean(ich?.verwalter)}
-          onOpenVerwaltung={() => setVerwaltungOffen(true)}
-          onOpenKonto={() => setKontoOffen(true)}
+          eigeneAdresse={ich?.nutzer?.email}
           onAblegen={(fracht, ziel) => void verschiebeGezogene(fracht, ziel)}
           gesamtAnsicht={gesamtAnsicht}
           onGesamtAnsicht={waehleGesamt}
@@ -2028,7 +2056,10 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
           onCompose={handleCompose}
           onAddAccount={handleAddAccount}
           onDeleteAccount={handleDeleteAccount}
-          onOpenSettings={setSettingsFor}
+          onOpenSettings={(konto) => {
+            setEinstellungenKonto(konto.id);
+            setEinstellungen('konten');
+          }}
           onOAuthLogin={(provider) => void handleOAuthLogin(provider)}
           onOpenOAuthSetup={() => setShowOAuthSetup(true)}
         />
@@ -2156,6 +2187,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
             onZumAdressbuch={(address, name) => setAdressbuch({ vorgabe: { address, name } })}
             etiketten={etiketten}
             etikettenDauerhaft={etikettenDauerhaft}
+            onEtikettenPruefen={pruefeEtikettenDauerhaft}
             onEtikettSetzen={(uid, schluessel, an) => setzeEtikett(uid, schluessel, an)}
             onEtikettenGeaendert={setEtiketten}
             accountId={arbeitsKonto}
@@ -2198,13 +2230,6 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
             accountId={selectedAccountId}
           />
         )}
-        {settingsFor && (
-          <AccountSettingsModal
-            account={settingsFor}
-            onClose={() => setSettingsFor(null)}
-            onSave={handleSaveSettings}
-          />
-        )}
         {wartendFor && (
           <WartendModal
             account={wartendFor}
@@ -2236,22 +2261,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
               // Der Absender steht fest - die Regel schliesst sich unmittelbar an.
               setRegelVorgabe({ von, name });
               setCleanupFor(null);
-              setRulesFor(cleanupFor);
-            }}
-            onGeaendert={() => {
-              setReloadCounter((n) => n + 1);
-              setFolderReload((n) => n + 1);
-            }}
-          />
-        )}
-        {rulesFor && (
-          <RulesModal
-            account={rulesFor}
-            folders={foldersByAccount[rulesFor.id] ?? []}
-            vorgabe={regelVorgabe}
-            onClose={() => {
-              setRulesFor(null);
-              setRegelVorgabe(undefined);
+              setEinstellungen('regeln');
             }}
             onGeaendert={() => {
               setReloadCounter((n) => n + 1);
@@ -2262,18 +2272,31 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
         {showOAuthSetup && (
           <OAuthSetupModal onClose={() => setShowOAuthSetup(false)} onChanged={setOauthClients} />
         )}
-        {abwesenheitOffen && (
-          <AbwesenheitModal
+        {einstellungen && (
+          <EinstellungenModal
+            bereich={einstellungen}
+            onBereich={setEinstellungen}
+            onClose={() => {
+              setEinstellungen(null);
+              setEinstellungenKonto(null);
+              setRegelVorgabe(undefined);
+            }}
             konten={accounts}
-            startKonto={selectedAccount?.id}
-            onClose={() => setAbwesenheitOffen(false)}
-            onGeaendert={ladeAbwesenheit}
-          />
-        )}
-        {verwaltungOffen && <VerwaltungModal onClose={() => setVerwaltungOffen(false)} />}
-        {kontoOffen && (
-          <KontoModal
-            onClose={() => setKontoOffen(false)}
+            kontoId={einstellungenKonto ?? selectedAccountId}
+            ordnerJeKonto={foldersByAccount}
+            regelVorgabe={regelVorgabe}
+            themawahl={thema.wahl}
+            ansicht={thema.ansicht}
+            onThemawahl={thema.setzeWahl}
+            darfVerwalten={Boolean(ich?.verwalter)}
+            abmeldbar={Boolean(ich?.abmeldbar)}
+            abwesenheitAktiv={abwesenheitAktiv}
+            onKontoSpeichern={handleSaveSettings}
+            onGeaendert={() => {
+              setReloadCounter((n) => n + 1);
+              setFolderReload((n) => n + 1);
+            }}
+            onAbwesenheitGeaendert={ladeAbwesenheit}
             /*
              * Ein Kennwortwechsel beendet jede Sitzung - auch diese. Deshalb derselbe
              * Weg wie beim Abmelden: den örtlichen Speicher räumen und die Weiche neu
@@ -2281,19 +2304,12 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
              * jedem Abruf 401 bekommt.
              */
             onAbgemeldet={() => {
-              setKontoOffen(false);
+              setEinstellungen(null);
               raeumeOertlicheDatenAuf();
               onAbgemeldet?.();
             }}
           />
         )}
-        {schluesselOffen && (
-          <SchluesselModal accounts={accounts} onClose={() => setSchluesselOffen(false)} />
-        )}
-        {zertifikateOffen && (
-          <ZertifikatModal accounts={accounts} onClose={() => setZertifikateOffen(false)} />
-        )}
-        {archivOffen && <ArchivModal accounts={accounts} onClose={() => setArchivOffen(false)} />}
         {adressbuch && (
           <AdressbuchModal
             vorgabe={adressbuch.vorgabe}

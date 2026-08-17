@@ -17,7 +17,9 @@ import { providerTheme } from '../providerTheme.js';
 import { FolderIcon } from './FolderIcon.js';
 import { FolderMenu, type MenuEintrag } from './FolderMenu.js';
 import { LEERE_HANDWERTE, Serverauskunft, type HandWerte } from './Serverauskunft.js';
-import { Feder, Winkel } from './Symbole.js';
+import { Monogramm } from './Monogramm.js';
+import { Abwesend, Buch, Feder, Plus, Uhr, Winkel, Zahnrad } from './Symbole.js';
+import type { Einstellungsbereich } from './EinstellungenModal.js';
 import { t, tp } from '../sprache.js';
 
 interface Props {
@@ -40,30 +42,32 @@ interface Props {
   wartendAnzahl: number;
   onOpenWartend: () => void;
   onOpenAdressbuch: () => void;
-  onOpenSchluessel: () => void;
-  onOpenZertifikate: () => void;
-  onOpenArchiv: () => void;
-  onOpenAbwesenheit: () => void;
+  /**
+   * Das Einstellungsfenster, wahlweise gleich bei einem Bereich.
+   *
+   * Hier standen einmal sieben eigene Rückrufe (Schlüssel, Zertifikate, Archiv, Bestand,
+   * Abwesenheit, Nutzer, Mein Konto), und im Fuß dazu sieben gleich aussehende
+   * Textknöpfe. Sieben Wege für eine Frage - "wo stelle ich etwas ein?" - sind kein Weg.
+   */
+  onOpenEinstellungen: (bereich?: Einstellungsbereich) => void;
   /** Ein freigegebenes Postfach weglegen - der Beschenkte darf das selbst. */
   onFreigabeWeglegen: (freigabeId: string) => void;
   /**
    * Konten, deren Abwesenheitsnotiz gerade wirklich antwortet.
    *
    * Nicht "eingeschaltet", sondern "antwortet jetzt" - eine Notiz mit abgelaufenem
-   * Zeitraum soll nicht mahnen. Der Hinweis ist der Grund, warum dieser Knopf überhaupt
-   * in der Seitenleiste steht und nicht in einem Untermenü: Eine Abwesenheitsnotiz, die
-   * man nicht sieht, bleibt drei Monate nach dem Urlaub an.
+   * Zeitraum soll nicht mahnen. Sie ist der Grund, warum im Fuß der Seitenleiste
+   * überhaupt noch ein Hinweis steht und nicht bloß das Zahnrad: Eine
+   * Abwesenheitsnotiz, die man nicht sieht, bleibt drei Monate nach dem Urlaub an.
+   * Deshalb erscheint der Hinweis auch nur dann, wenn wirklich geantwortet wird.
    */
   abwesenheitAktiv: string[];
-  /** Nur fuer Verwalter - die Oberflaeche zeigt den Weg nur, der Riegel sitzt am Server. */
-  darfVerwalten?: boolean;
-  onOpenVerwaltung: () => void;
   /** Ob die Sitzung an einem Keks hängt - nur dann gibt es etwas abzumelden. */
   abmeldbar: boolean;
-  /** Das eigene Konto: Kennwort und zweiter Faktor. Nur dort, wo es eine Anmeldung gibt. */
-  onOpenKonto: () => void;
   /** Für den Hinweistext am Knopf: unter welcher Adresse man angemeldet ist. */
   angemeldetAls?: string;
+  /** Die eigene Adresse - sie steht im Fuß, damit man sieht, wer man gerade ist. */
+  eigeneAdresse?: string;
   onAbmelden: () => void;
   /** Sperrt den Bildschirm sofort - siehe Sperrschirm.tsx. */
   onSperren: () => void;
@@ -230,17 +234,12 @@ export function Sidebar({
   wartendAnzahl,
   onOpenWartend,
   onOpenAdressbuch,
-  onOpenSchluessel,
-  onOpenZertifikate,
-  onOpenArchiv,
-  onOpenAbwesenheit,
+  onOpenEinstellungen,
   abwesenheitAktiv,
   onFreigabeWeglegen,
-  darfVerwalten,
-  onOpenVerwaltung,
   abmeldbar,
-  onOpenKonto,
   angemeldetAls,
+  eigeneAdresse,
   onAbmelden,
   onSperren,
   onAblegen,
@@ -270,6 +269,8 @@ export function Sidebar({
     folder: FolderInfo;
     delimiter: string;
   } | null>(null);
+  /** Das Menü hinter der Kontozeile im Fuß - Anmeldung, Sperren, Abmelden. */
+  const [sitzungsmenue, setSitzungsmenue] = useState<{ x: number; y: number } | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fehler, setFehler] = useState<string | null>(null);
@@ -424,6 +425,25 @@ export function Sidebar({
           y={menue.y}
           eintraege={menueEintraege()}
           onClose={() => setMenue(null)}
+        />
+      )}
+      {sitzungsmenue && (
+        <FolderMenu
+          x={sitzungsmenue.x}
+          y={sitzungsmenue.y}
+          onClose={() => setSitzungsmenue(null)}
+          eintraege={[
+            { label: t('Anmeldung ändern…'), onClick: () => onOpenEinstellungen('zugang') },
+            /*
+              Sperren steht vor Abmelden - es ist der häufigere Griff.
+
+              Wer den Platz verlässt, will zurückkommen und weiterarbeiten, nicht sich neu
+              anmelden und den begonnenen Brief verlieren. Abmelden bleibt daneben für den,
+              der wirklich Schluss macht.
+            */
+            { label: t('Bildschirm sperren'), onClick: onSperren },
+            { label: t('Abmelden'), onClick: onAbmelden },
+          ]}
         />
       )}
       <div className="sidebar-head">
@@ -684,129 +704,22 @@ export function Sidebar({
             </div>
           );
         })}
-      </div>
 
-      {suchen.length > 0 && (
-        <div className="gemerkte-suchen">
-          <div className="sidebar-abschnitt">{t('Gemerkte Suchen')}</div>
-          {suchen.map((suche) => (
-            <div key={suche.id} className="gemerkte-suche">
-              <button
-                className="gemerkte-suche-name"
-                onClick={() => onSucheAusfuehren(suche)}
-                title={beschreibeSuche(suche.kriterien, etiketten)}
-              >
-                {suche.name}
-              </button>
-              <button
-                className="link-btn gefaehrlich"
-                onClick={() => onSucheLoeschen(suche)}
-                aria-label={t('Suche „{name}“ vergessen', { name: suche.name })}
-                title={t('Diese Suche vergessen')}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="sidebar-foot">
-        {/* Immer sichtbar, weil dahinter auch das Liegengebliebene steckt - das gibt es
-            gerade dann, wenn nichts geplant ist. Die Zahl steht nur dabei, wenn sie
-            etwas meldet: eine dauerhafte Null waere Rauschen, und genau dann uebersieht
-            man den Hinweis, wenn er zaehlt. */}
-        <button
-          className={`link-btn wartend-hinweis${wartendAnzahl > 0 ? ' meldet' : ''}`}
-          onClick={onOpenWartend}
-        >
-          {wartendAnzahl > 0
-            ? tp(wartendAnzahl, 'Offen · {anzahl} wartet', 'Offen · {anzahl} warten', {
-                anzahl: wartendAnzahl,
-              })
-            : t('Was ist offen?')}
-        </button>
-        <button className="link-btn" onClick={onOpenAdressbuch}>{t('Adressbuch')}</button>
         {/*
-          Der Knopf trägt seinen Zustand, statt ihn zu verstecken.
+          Ein Postfach kommt dort hinzu, wo die Postfächer stehen.
 
-          Eine eingeschaltete Abwesenheitsnotiz ist der eine Zustand dieses Programms, den
-          man vergisst und der dann monatelang Fremden erzählt, man sei im Urlaub. Deshalb
-          steht sie in der Seitenleiste und nicht in einem Untermenü, und deshalb steht
-          daneben, für wie viele Konten sie gerade wirklich antwortet.
+          Der Knopf stand vorher im Fuß, mitten zwischen "Nutzer" und "Mein Konto" - also
+          zwischen zwei Dingen, mit denen er nichts zu tun hat, und weit weg von der
+          Liste, die er verlängert. Hier steht er am Ende dieser Liste, und das Formular
+          klappt an derselben Stelle auf.
         */}
-        <button
-          className={`link-btn${abwesenheitAktiv.length > 0 ? ' abwesend' : ''}`}
-          onClick={onOpenAbwesenheit}
-          title={
-            abwesenheitAktiv.length > 0
-              ? t('Es wird gerade automatisch geantwortet.')
-              : t('Automatisch antworten, während Sie weg sind')
-          }
-        >
-          {t('Abwesenheit')}
-          {abwesenheitAktiv.length > 0 && <span className="abwesend-punkt" aria-hidden="true" />}
-        </button>
-        <button className="link-btn" onClick={onOpenSchluessel} title={t('OpenPGP-Schlüssel verwalten')}>{t('Schlüssel')}</button>
-        {/*
-          Zwei Knoepfe nebeneinander und nicht einer mit Auswahl. Die beiden Verfahren
-          haben nichts miteinander zu tun: anderes Dateiformat, andere Herkunft, andere
-          Verwaltung. Sie unter einem Wort zusammenzufassen hiesse, jemandem eine
-          Verwandtschaft zu behaupten, die nicht besteht - und wer eines von beiden sucht,
-          suchte danach unter dem falschen Namen.
-        */}
-        <button className="link-btn" onClick={onOpenZertifikate} title={t('S/MIME-Zertifikate verwalten')}>{t('Zertifikate')}</button>
-        <button className="link-btn" onClick={onOpenArchiv} title={t('Aufbewahrung nach GoBD')}>{t('Archiv')}</button>
-        {/*
-          Nur für Verwalter sichtbar - und das ist Höflichkeit, kein Schutz.
-
-          Wer die Adresse von Hand aufruft, bekommt vom Server 403, gleich was hier
-          angezeigt wird. Der Riegel steht in nutzer/verwaltung.ts; hier steht nur, wem
-          ein Knopf etwas nützt.
-        */}
-        {darfVerwalten && (
-          <button className="link-btn" onClick={onOpenVerwaltung} title={t('Nutzer verwalten')}>
-            {t('Nutzer')}
+        {/* Beim allerersten Start steht das Formular ohnehin offen - dann wäre ein Knopf,
+            der es zuklappt, ein Weg in eine leere Anwendung. */}
+        {accounts.length > 0 && (
+          <button className="konto-hinzu" onClick={() => setFormOffen((v) => !v)}>
+            <Plus groesse={14} />
+            <span>{formOffen ? t('Doch kein Konto hinzufügen') : t('Konto hinzufügen')}</span>
           </button>
-        )}
-        <button className="link-btn" onClick={() => setFormOffen((v) => !v)}>
-          {formSichtbar ? t('× Konto hinzufügen abbrechen') : t('+ Konto hinzufügen')}
-        </button>
-
-        {/*
-          Abmelden gibt es nur, wo es etwas zu tun hat.
-
-          In der Desktop-Hülle weist sich das Fenster über das Zugangsgeheimnis des
-          Prozesses aus - es gibt dort keine Sitzung, die sich beenden ließe, und der
-          Knopf führte ins Leere. Der Server sagt mit "abmeldbar", ob eine da ist; die
-          Oberfläche entscheidet das nicht selbst.
-        */}
-        {abmeldbar && (
-          <>
-            {/*
-              Das eigene Konto - Kennwort und zweiter Faktor.
-
-              Steht neben "Sperren" und "Abmelden", weil es dieselbe Frage betrifft: wie
-              man hier hereinkommt. Und aus demselben Grund wie diese beiden nur dort, wo
-              es eine Anmeldung gibt: In der Desktop-Hülle weist sich das Fenster über das
-              Zugangsgeheimnis des Prozesses aus, es gibt kein Kennwort zu ändern und
-              keinen zweiten Faktor, vor den sich etwas schalten ließe.
-            */}
-            <button className="link-btn" onClick={onOpenKonto} title={angemeldetAls}>
-              {t('Mein Konto')}
-            </button>
-            {/*
-              Sperren steht vor Abmelden - es ist der häufigere Griff.
-
-              Wer den Platz verlässt, will zurückkommen und weiterarbeiten, nicht sich neu
-              anmelden und den begonnenen Brief verlieren. Abmelden bleibt daneben für den,
-              der wirklich Schluss macht.
-            */}
-            <button className="link-btn" onClick={onSperren} title={t('Bildschirm sperren')}>
-              {t('Sperren')}
-            </button>
-            <button className="link-btn" onClick={onAbmelden} title={angemeldetAls}>{t('Abmelden')}</button>
-          </>
         )}
 
         {formSichtbar && (
@@ -873,6 +786,134 @@ export function Sidebar({
             </p>
           </div>
         )}
+      </div>
+
+      {suchen.length > 0 && (
+        <div className="gemerkte-suchen">
+          <div className="sidebar-abschnitt">{t('Gemerkte Suchen')}</div>
+          {suchen.map((suche) => (
+            <div key={suche.id} className="gemerkte-suche">
+              <button
+                className="gemerkte-suche-name"
+                onClick={() => onSucheAusfuehren(suche)}
+                title={beschreibeSuche(suche.kriterien, etiketten)}
+              >
+                {suche.name}
+              </button>
+              <button
+                className="link-btn gefaehrlich"
+                onClick={() => onSucheLoeschen(suche)}
+                aria-label={t('Suche „{name}“ vergessen', { name: suche.name })}
+                title={t('Diese Suche vergessen')}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/*
+        Der Fuß der Seitenleiste - vorher elf Textknöpfe untereinander.
+
+        Sie waren alle gleich gesetzt und in keiner erkennbaren Ordnung: "Abwesenheit"
+        stand zwischen "Adressbuch" und "Schlüssel", "Abmelden" neben "Archiv". Neun der
+        elf öffneten Fenster, die es alle nur um des Einstellens willen gibt - sie stehen
+        jetzt im Einstellungsfenster, jedes unter einer Überschrift, die sagt, wonach man
+        gesucht hat.
+
+        Was hier blieb, sind drei Griffe und eine Auskunft:
+
+          "Offen" ist keine Einstellung, sondern Arbeit, die noch aussteht.
+          "Adressbuch" ist ein Nachschlagewerk und wird beim Schreiben gebraucht.
+          "Einstellungen" ist der eine Weg zu allem Übrigen.
+          Die Zeile ganz unten sagt, wer man gerade ist - und öffnet die Sitzung.
+      */}
+      <div className="sidebar-foot">
+        {/*
+          Der einzige Zustand, der sich selbst melden muss.
+
+          Eine eingeschaltete Abwesenheitsnotiz ist das eine, was man vergisst und was
+          dann monatelang Fremden erzählt, man sei im Urlaub. Sie in ein
+          Einstellungsfenster zu räumen hieße, sie unsichtbar zu machen - deshalb steht
+          hier ein Hinweis, aber nur, solange wirklich geantwortet wird.
+        */}
+        {abwesenheitAktiv.length > 0 && (
+          <button
+            className="fuss-hinweis"
+            onClick={() => onOpenEinstellungen('abwesenheit')}
+            title={t('Es wird gerade automatisch geantwortet.')}
+          >
+            <Abwesend groesse={14} />
+            <span>
+              {tp(
+                abwesenheitAktiv.length,
+                'Abwesenheitsnotiz antwortet für {anzahl} Postfach',
+                'Abwesenheitsnotiz antwortet für {anzahl} Postfächer',
+                { anzahl: abwesenheitAktiv.length },
+              )}
+            </span>
+          </button>
+        )}
+
+        {/* Immer sichtbar, weil dahinter auch das Liegengebliebene steckt - das gibt es
+            gerade dann, wenn nichts geplant ist. Die Zahl steht nur dabei, wenn sie
+            etwas meldet: eine dauerhafte Null waere Rauschen, und genau dann uebersieht
+            man den Hinweis, wenn er zaehlt. */}
+        <button
+          className={`fuss-zeile${wartendAnzahl > 0 ? ' meldet' : ''}`}
+          onClick={onOpenWartend}
+        >
+          <Uhr groesse={15} />
+          <span>
+            {wartendAnzahl > 0
+              ? tp(wartendAnzahl, 'Offen · {anzahl} wartet', 'Offen · {anzahl} warten', {
+                  anzahl: wartendAnzahl,
+                })
+              : t('Was ist offen?')}
+          </span>
+        </button>
+
+        <div className="fuss-reihe">
+          <button className="fuss-zeile" onClick={onOpenAdressbuch}>
+            <Buch groesse={15} />
+            <span>{t('Adressbuch')}</span>
+          </button>
+          <button className="fuss-zeile" onClick={() => onOpenEinstellungen()}>
+            <Zahnrad groesse={15} />
+            <span>{t('Einstellungen')}</span>
+          </button>
+        </div>
+
+        {/*
+          Die Sitzung - und nur, wo es eine gibt.
+
+          In der Desktop-Hülle weist sich das Fenster über das Zugangsgeheimnis des
+          Prozesses aus: Es gibt dort keine Sitzung, die sich beenden ließe, kein Kennwort
+          zu ändern und keinen zweiten Faktor. Der Server sagt mit "abmeldbar", ob eine da
+          ist; die Oberfläche entscheidet das nicht selbst.
+
+          Als eine Zeile mit Menü statt dreier Knöpfe: "Mein Konto", "Sperren" und
+          "Abmelden" beantworten dieselbe Frage - wie komme ich hier herein und wieder
+          hinaus -, und die Antwort darauf braucht man selten. Die Zeile selbst tut dafür
+          etwas, was drei Knöpfe nicht taten: Sie sagt, wer man gerade ist.
+        */}
+        {abmeldbar && (
+          <button
+            className="fuss-konto"
+            title={angemeldetAls}
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const kasten = e.currentTarget.getBoundingClientRect();
+              setSitzungsmenue({ x: kasten.left, y: kasten.top });
+            }}
+          >
+            <Monogramm adresse={eigeneAdresse} className="fuss-monogramm" />
+            <span className="fuss-konto-name">{eigeneAdresse ?? t('Angemeldet')}</span>
+            <Winkel groesse={11} />
+          </button>
+        )}
+
       </div>
     </nav>
   );

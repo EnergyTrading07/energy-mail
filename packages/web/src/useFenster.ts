@@ -12,8 +12,15 @@ import { ansteuerbare, ersterFokus, naechstesZiel } from './barrierefrei.js';
  *
  * Rückgabe sind die Merkmale für den Rahmen und für die Überschrift - beide müssen
  * gesetzt werden, sonst hat das Fenster keinen Namen.
+ *
+ * `aktiv` ist der eine Fall, in dem nichts davon gelten darf: Steht derselbe Baustein als
+ * Tafel im Einstellungsfenster (siehe Fenster.tsx), ist er kein Fenster mehr, sondern ein
+ * Abschnitt darin. Zwei ineinanderliegende Fokusfallen stritten sonst um die
+ * Tabulatortaste, und Escape schlösse die Tafel statt des Fensters, in dem sie steht.
+ * Bewusst ein Schalter am Haken statt eines Aufrufs, den man weglässt: Haken lassen sich
+ * nicht bedingt aufrufen, und ein zweiter, fast gleicher Haken daneben liefe auseinander.
  */
-export function useFenster(schliessen: () => void) {
+export function useFenster(schliessen: () => void, aktiv = true) {
   const rahmen = useRef<HTMLDivElement>(null);
   const titelId = useId();
   // Über eine Referenz, damit ein neu gebautes Schließen den Zuhörer nicht ersetzt -
@@ -24,6 +31,7 @@ export function useFenster(schliessen: () => void) {
   });
 
   useEffect(() => {
+    if (!aktiv) return;
     const rueckkehr = document.activeElement as HTMLElement | null;
     const bereich = rahmen.current;
     if (bereich) ersterFokus(bereich).focus();
@@ -65,7 +73,7 @@ export function useFenster(schliessen: () => void) {
       // Schließen wieder ganz am Anfang der Seite.
       if (rueckkehr?.isConnected) rueckkehr.focus();
     };
-  }, []);
+  }, [aktiv]);
 
   return {
     /** Auf den Rahmen des Fensters. */

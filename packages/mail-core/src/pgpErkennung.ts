@@ -16,6 +16,8 @@
  *   "-----BEGIN PGP MESSAGE-----". Das ist der gefährlichere Fall, siehe unten.
  */
 
+import { randomBytes } from 'node:crypto';
+
 export type PgpArt =
   | { art: 'keine' }
   /** PGP/MIME: unterschrieben, Inhalt im Klartext lesbar. */
@@ -306,11 +308,79 @@ export function alsQuotedPrintable(text: string): string {
  * Versand dann zusammensetzt, wäre jede Unterschrift ungültig - und das fiele erst dem
  * Empfänger auf.
  */
-export function baueSigniertenTeil(text: string): string {
-  return (
+export function baueSigniertenTeil(text: string, anhaenge: GeschuetzterAnhang[] = []): string {
+  const textteil =
     'Content-Type: text/plain; charset=utf-8\r\n' +
     'Content-Transfer-Encoding: quoted-printable\r\n' +
     '\r\n' +
-    alsQuotedPrintable(text)
+    alsQuotedPrintable(text);
+
+  if (anhaenge.length === 0) return textteil;
+
+  /*
+   * Mit Anhängen wird daraus ein mehrteiliger Umschlag - und der GANZE geht in die
+   * Unterschrift beziehungsweise in den Geheimtext.
+   *
+   * Das ist der Punkt der Sache: Ein Schutz, der nur den Text erfasst und die Dateien
+   * daneben offen mitschickt, ist schlimmer als keiner - er sieht aus wie Schutz. Bisher
+   * wurde deshalb abgewiesen, sobald ein Anhang dabei war ("Anhänge lassen sich noch
+   * nicht mitschützen"). Ehrlich, aber eine Lücke: Wer eine Rechnung unterschrieben
+   * verschicken wollte, konnte es nicht.
+   *
+   * Die Kette dahinter bleibt unberührt. Sie behandelt diesen Teil als undurchsichtige
+   * Bytes - signiert, verschlüsselt und verschickt werden sie unverändert, gleich ob
+   * darin ein Textteil steht oder zehn.
+   */
+  const grenze = `=_EnergyMailTeil_${randomBytes(18).toString('base64url')}`;
+
+  const stuecke = [
+    `--${grenze}`,
+    textteil,
+    ...anhaenge.map((a) => [`--${grenze}`, anhangAlsTeil(a)].join('\r\n')),
+    `--${grenze}--`,
+  ];
+
+  return (
+    `Content-Type: multipart/mixed; boundary="${grenze}"\r\n` +
+    '\r\n' +
+    stuecke.join('\r\n') +
+    '\r\n'
+  );
+}
+
+/** Eine Datei, die mitgeschützt wird. */
+export interface GeschuetzterAnhang {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
+/**
+ * Ein Anhang als MIME-Teil.
+ *
+ * Base64 und nicht quoted-printable: Es geht um beliebige Bytes, nicht um Text - eine
+ * PDF-Datei als quoted-printable wäre um die Hälfte größer und nirgends lesbarer.
+ *
+ * Der Dateiname geht ZWEIMAL hinaus. `filename="…"` in ASCII versteht jedes Programm;
+ * `filename*=UTF-8''…` nach RFC 2231 trägt die Umlaute. Wer nur eines von beiden
+ * mitschickt, verliert entweder die alten Empfänger oder die Umlaute - und ein Anhang, der
+ * beim Gegenüber "Rechnung Mrz.pdf" statt "Rechnung März.pdf" heißt, ist genau die Sorte
+ * Kleinigkeit, die niemand meldet und die trotzdem stört.
+ */
+function anhangAlsTeil(anhang: GeschuetzterAnhang): string {
+  const art = anhang.contentType || 'application/octet-stream';
+  // eslint-disable-next-line no-control-regex
+  const ascii = anhang.filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
+  const kodiert = encodeURIComponent(anhang.filename);
+
+  // 76 Zeichen je Zeile - RFC 2045 erlaubt nicht mehr, und manche Server schneiden ab.
+  const base64 = anhang.content.toString('base64').replace(/(.{76})/g, '$1\r\n');
+
+  return (
+    `Content-Type: ${art}; name="${ascii}"\r\n` +
+    'Content-Transfer-Encoding: base64\r\n' +
+    `Content-Disposition: attachment; filename="${ascii}"; filename*=UTF-8''${kodiert}\r\n` +
+    '\r\n' +
+    base64
   );
 }

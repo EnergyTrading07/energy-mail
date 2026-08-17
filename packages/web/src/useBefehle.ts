@@ -18,6 +18,8 @@ export type Befehl =
   | 'regeln'
   | 'aufraeumen'
   | 'wartet'
+  /** Das Einstellungsfenster - aus dem Menü, mit Strg+, wie überall sonst. */
+  | 'einstellungen'
   /** Zwischen heller und dunkler Ansicht wechseln. */
   | 'ansichtUmschalten'
   /** In der Nachrichtenliste eine Zeile nach unten bzw. oben. */

@@ -457,7 +457,7 @@ export function ArchivModal({ accounts, onClose }: Props) {
       )}
 
       <div className="schluessel-knoepfe">
-        <button className="btn secondary gefaehrlich" disabled={busy} onClick={() => void aufraeumen()}>
+        <button className="btn danger" disabled={busy} onClick={() => void aufraeumen()}>
           {t('Abgelaufenes entfernen')}
         </button>
         <span className="adressbuch-fueller" />

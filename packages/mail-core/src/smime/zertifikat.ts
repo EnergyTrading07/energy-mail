@@ -270,18 +270,6 @@ export function felderVon(der: Buffer): Zertifikatsfelder {
   return zerlegeZertifikat(der).felder;
 }
 
-/**
- * Ob ein Zertifikat zu einer Adresse gehört.
- *
- * Verglichen wird die Adresse, nicht der Name - Namen sind frei wählbar und beweisen
- * nichts. Dieselbe Regel wie bei PGP, und aus demselben Grund.
- */
-export function gehoertZu(angaben: Zertifikatsangaben, adresse: string | undefined): boolean {
-  const wer = adresse?.trim().toLowerCase();
-  if (!wer) return false;
-  return angaben.adressen.includes(wer);
-}
-
 // --- Die Kette ---
 
 export type Kettenbefund =
@@ -331,11 +319,6 @@ function wurzeln(): crypto.X509Certificate[] {
     }
   }
   return (wurzelSpeicher = gesammelt);
-}
-
-/** Nur für die Prüfung: den Speicher vergessen, damit eigene Wurzeln gesetzt werden können. */
-export function vergissWurzeln(): void {
-  wurzelSpeicher = null;
 }
 
 /**
