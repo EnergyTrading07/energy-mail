@@ -24,10 +24,6 @@ export function setKeyProvider(next: KeyProvider): void {
   cachedKey = null;
 }
 
-export function getKeyProviderName(): string | null {
-  return provider?.name ?? null;
-}
-
 export function isEncryptionAvailable(): boolean {
   return provider !== null;
 }

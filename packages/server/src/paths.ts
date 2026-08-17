@@ -66,8 +66,3 @@ export function getNutzerDir(): string {
 export function getNutzerDirFuer(id: string): string {
   return path.join(getWurzelDir(), 'nutzer', pruefeNutzerId(id));
 }
-
-/** Wo alle Nutzerordner liegen - zum Auflisten. */
-export function getNutzerWurzel(): string {
-  return path.join(getWurzelDir(), 'nutzer');
-}

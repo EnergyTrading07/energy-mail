@@ -370,11 +370,6 @@ function darfNoch(accountId: string, jetzt: number): boolean {
   return true;
 }
 
-/** Nur für Prüfungen. */
-export function vergissDeckel(): void {
-  zaehler.clear();
-}
-
 /** Der Betreff, wenn der Nutzer keinen eigenen eingetragen hat. */
 function betreffFuer(notiz: Abwesenheit, original: string): string {
   if (notiz.betreff) return notiz.betreff;

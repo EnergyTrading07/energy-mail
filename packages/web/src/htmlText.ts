@@ -48,8 +48,3 @@ export function htmlToText(html: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
-
-/** Zitiert Text zeilenweise mit "> " - die übliche Form in Antworten. */
-export function quoteText(text: string): string {
-  return text.replace(/^/gm, '> ');
-}

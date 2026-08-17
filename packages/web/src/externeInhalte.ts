@@ -201,14 +201,6 @@ export function entschaerfeExterneInhalte(html: string): EntschaerftesErgebnis {
   return { html: doc.head.innerHTML + doc.body.innerHTML, anzahl: gesehen.size };
 }
 
-/**
- * Grobe Zählung, ohne das HTML umzubauen - für die Frage "hat diese Nachricht
- * überhaupt entfernte Inhalte?", bevor entschieden ist, ob entschärft wird.
- */
-export function zaehleExterneInhalte(html: string): number {
-  return entschaerfeExterneInhalte(html).anzahl;
-}
-
 /** Nur der Sonderfall Zählpixel: winzige Bilder, die nichts darstellen sollen. */
 export function enthaeltZaehlpixel(html: string): boolean {
   const doc = new DOMParser().parseFromString(html, 'text/html');

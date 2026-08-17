@@ -148,17 +148,6 @@ export function aktuellerNutzer(): string {
   return kontext.id;
 }
 
-/**
- * Wie oben, aber ohne zu werfen.
- *
- * Nur für Stellen, die ehrlich beides können müssen - etwa eine Protokollzeile, die den
- * Nutzer nennt, wenn einer da ist. Wer damit einen Speicherzugriff absichert, hebelt den
- * Schutz aus; dafür ist es nicht gedacht.
- */
-export function aktuellerNutzerOderNull(): string | null {
-  return speicher.getStore()?.id ?? null;
-}
-
 /** Ob gerade überhaupt ein Kontext gesetzt ist. */
 export function hatNutzerkontext(): boolean {
   return speicher.getStore() !== undefined;
