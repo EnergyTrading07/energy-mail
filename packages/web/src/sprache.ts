@@ -51,12 +51,27 @@ export function gewaehlteSprache(): string {
  * denen die wenigsten auf eine Änderung horchen. Ein halb umgestelltes Fenster wäre
  * schlechter als eine Sekunde Wartezeit - und die Sprache stellt man einmal um, nicht
  * beim Arbeiten.
+ *
+ * Wohin die Wahl geht, hängt an der Betriebsart, und das ist keine Feinheit: In der
+ * Desktop-Hülle spricht auch das Anwendungsmenü, sprechen die Meldungen von Windows und
+ * die kleinen Fenster der Hülle - alle aus huelle.json, alle bevor überhaupt eine
+ * Oberfläche geladen ist. Eine Wahl, die nur im Browserspeicher der Oberfläche landete,
+ * ergäbe eine englische Oberfläche unter einem deutschen Menü. Im Browser gibt es diese
+ * Kette nicht, dort ist der Browserspeicher der richtige Ort: Die Sprache gehört zum
+ * Gerät, nicht zum Postfach.
  */
-export function waehleSpracheUndLadeNeu(wert: string): void {
-  try {
-    localStorage.setItem(SCHLUESSEL, wert);
-  } catch {
-    // Dann gilt sie eben nur für diesen Lauf.
+export async function waehleSpracheUndLadeNeu(wert: string): Promise<void> {
+  const bruecke = window.energyMail;
+  if (bruecke) {
+    // Der Hauptprozess schreibt, stellt sein Menü um und meldet den Stand zurück; erst
+    // danach neu laden, sonst liest das Vorschaltskript noch die alte Sprache.
+    await bruecke.setzeHuelle('sprache', wert).catch(() => undefined);
+  } else {
+    try {
+      localStorage.setItem(SCHLUESSEL, wert);
+    } catch {
+      // Dann gilt sie eben nur für diesen Lauf.
+    }
   }
   window.location.reload();
 }

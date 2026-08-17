@@ -41,10 +41,10 @@ import { starteBenachrichtigungen } from './notifications.js';
 import { richteNetzhygieneEin } from './netzhygiene.js';
 import { beschreibeRichtlinien, richtlinien } from './richtlinien.js';
 import { quellenFuer, richteProxyEin } from './proxyQuellen.js';
-import { beschreibeSprache } from './spracheWaehlen.js';
-import { sprache, t } from '@energy-mail/mail-core/sprache';
+import { beschreibeSprache, wendeSpracheAn } from './spracheWaehlen.js';
+import { SPRACHWAHL, sprache, t } from '@energy-mail/mail-core/sprache';
 import { setzeOAuthVorgabe } from '@energy-mail/server/oauth';
-import { richteRechtschreibungEin } from './rechtschreibung.js';
+import { richteRechtschreibungEin, wendeRechtschreibungAn } from './rechtschreibung.js';
 import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 import { horcheAufFensterfehler, richteAbsturzbehandlungEin } from './diagnose.js';
 import { protokolliere } from '@energy-mail/server/protokoll';
@@ -300,12 +300,13 @@ function createWindow(url: string) {
        *
        * Es kommt jetzt über eine gerichtete Rückfrage - siehe 'zugang:holen' unten.
        * Die Fassung darf bleiben; sie ist kein Geheimnis.
+       *
+       * Die Sprache stand hier ebenfalls und ist aus einem anderen Grund weg: Sie
+       * ändert sich, seit sie im Einstellungsfenster umzustellen ist, und ein
+       * Startparameter übersteht ein Neuladen unverändert. Sie kommt jetzt über
+       * 'sprache:holen'. Die Fassung kann das nicht passieren.
        */
-      additionalArguments: [
-        `--energy-mail-fassung=${app.getVersion()}`,
-        // Kein Geheimnis, deshalb darf sie hier stehen - siehe die Begründung darüber.
-        `--energy-mail-sprache=${sprache()}`,
-      ],
+      additionalArguments: [`--energy-mail-fassung=${app.getVersion()}`],
     },
   });
 
@@ -456,6 +457,25 @@ function createWindow(url: string) {
 }
 
 /**
+ * Der Stand der Hülleneinstellungen, wie ihn die Oberfläche zu sehen bekommt.
+ *
+ * Vier Schalter und die Sprache - und dazu die eine Angabe, die nicht in huelle.json
+ * steht: ob die Sprache von der Organisation vorgegeben ist. Ohne sie zeigte die
+ * Oberfläche eine Auswahl an, die beim Anklicken nichts täte, und niemand wüsste warum.
+ */
+function huellenStand() {
+  const stand = einstellungen();
+  return {
+    imInfobereich: stand.imInfobereich,
+    mitWindowsStarten: stand.mitWindowsStarten,
+    rechtschreibung: stand.rechtschreibung,
+    meldungsvorschau: stand.meldungsvorschau,
+    sprache: stand.sprache,
+    spracheVorgegeben: Boolean(richtlinien().sprache),
+  };
+}
+
+/**
  * Was die Oberfläche an der Hülle auslösen darf.
  *
  * Alles benannt und ohne freie Parameter; die Gegenseite steht in preload.cts. Einmal
@@ -501,6 +521,23 @@ function richteBrueckeEin(): void {
     e.returnValue = ZUGANG;
   });
 
+  /*
+   * Die Sprache, auf die sich die Hülle festgelegt hat.
+   *
+   * Synchron, weil das Vorschaltskript sie braucht, bevor die Oberfläche ihre erste
+   * Zeile zeichnet. Vorher stand sie als Startparameter am Fenster - das war richtig,
+   * solange sie sich während dessen Lebens nicht ändern konnte. Seit die Einstellung in
+   * der Oberfläche liegt, ändert sie sich: Startparameter überstehen ein Neuladen
+   * unverändert, und die Oberfläche käme nach dem Umstellen in der alten Sprache
+   * zurück, während das Menü daneben schon die neue spräche.
+   *
+   * Anders als das Zugangsgeheimnis darüber ist sie kein Geheimnis - hier steht keine
+   * Prüfung, aus wessen Fenster gefragt wird.
+   */
+  ipcMain.on('sprache:holen', (e) => {
+    e.returnValue = sprache();
+  });
+
   ipcMain.on('fenster:minimieren', () => fenster()?.minimize());
   ipcMain.on('fenster:maximieren', () => {
     const win = fenster();
@@ -535,6 +572,64 @@ function richteBrueckeEin(): void {
       win.setBackgroundColor(farben.grund);
     }
     merkeAnsicht(ansicht);
+  });
+
+  /*
+   * Die Einstellungen der Hülle, von der Oberfläche aus.
+   *
+   * Sie standen bis hierher ausschließlich im Anwendungsmenü, mit der Begründung, der
+   * Hauptprozess müsse sie kennen, bevor überhaupt eine Oberfläche geladen ist. Das
+   * stimmt weiter - es ist ein Grund dafür, WO sie liegen (huelle.json, nicht der
+   * Browserspeicher), und keiner dafür, wo man sie umlegt. Solange sie nur im Menü
+   * standen, gab es sie im Browserbetrieb gar nicht und in der Hülle an einer Stelle,
+   * an der niemand nach Einstellungen sucht.
+   *
+   * Geschrieben wird trotzdem nur hier. Die Oberfläche schickt einen Namen aus einer
+   * festen Liste und einen Wert; alles andere weist der Behandler ab. Ein allgemeiner
+   * Kanal "setze irgendetwas in huelle.json" wäre eine Zeile kürzer und der Punkt, an
+   * dem fremdes Skript aus einer angezeigten Nachricht den Autostart setzen könnte.
+   */
+  ipcMain.handle('huelle:lesen', () => huellenStand());
+
+  ipcMain.handle('huelle:setzen', (_e, name: unknown, wert: unknown) => {
+    if (name === 'sprache') {
+      // Eine vorgegebene Sprache ist eine Vorgabe. Die Oberfläche zeigt die Wahl
+      // deshalb gesperrt an - der Riegel steht hier, nicht dort.
+      if (richtlinien().sprache) return huellenStand();
+      if (typeof wert !== 'string') return huellenStand();
+      if (!SPRACHWAHL.some((s) => s.wert === wert)) return huellenStand();
+      setzeEinstellung('sprache', wert);
+      wendeSpracheAn();
+      // Das Menü ist bereits gebaut; seine Beschriftungen ändern sich nicht von selbst.
+      setzeMenue();
+      return huellenStand();
+    }
+
+    if (typeof wert !== 'boolean') return huellenStand();
+    switch (name) {
+      case 'imInfobereich':
+        setzeEinstellung('imInfobereich', wert);
+        break;
+      case 'mitWindowsStarten':
+        setzeEinstellung('mitWindowsStarten', wert);
+        wendeAutostartAn();
+        break;
+      case 'rechtschreibung':
+        setzeEinstellung('rechtschreibung', wert);
+        wendeRechtschreibungAn();
+        break;
+      case 'meldungsvorschau':
+        // Nichts weiter anzuwenden: die nächste Meldung fragt den Wert selbst ab.
+        setzeEinstellung('meldungsvorschau', wert);
+        break;
+      default:
+        return huellenStand();
+    }
+    // Kein setzeMenue() dahinter, anders als bei der Sprache: Diese vier stehen im
+    // Anwendungsmenü nicht mehr, seit sie im Einstellungsfenster stehen. Ein Menü neu
+    // zu bauen, an dem sich nichts ändern kann, ist eine Zeile, die niemand mehr
+    // versteht, sobald sie einmal dasteht.
+    return huellenStand();
   });
 
   ipcMain.handle('aktualisierung:abfragen', () => holeAktualisierungsstand());

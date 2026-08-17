@@ -31,6 +31,34 @@ interface Fensterzustand {
   imVordergrund: boolean;
 }
 
+/**
+ * Was die Hülle einstellt und die Oberfläche nicht.
+ *
+ * Fensterverhalten, Autostart, Rechtschreibung, Meldungen und die Sprache. Alles fünf
+ * muss der Hauptprozess kennen, bevor überhaupt eine Oberfläche geladen ist - deshalb
+ * liegt es in huelle.json und nicht im Browserspeicher. Umgelegt wird es trotzdem dort,
+ * wo man Einstellungen sucht: im Einstellungsfenster.
+ *
+ * Siehe packages/desktop/src/einstellungen.ts - dort steht zu jedem Schalter, warum es
+ * ihn gibt.
+ */
+interface HuellenStand {
+  imInfobereich: boolean;
+  mitWindowsStarten: boolean;
+  rechtschreibung: boolean;
+  meldungsvorschau: boolean;
+  /** 'automatisch' oder eine Sprachkennung wie 'de'. */
+  sprache: string;
+  /** Von der Organisation vorgegeben - dann steht die Wahl gesperrt da. */
+  spracheVorgegeben: boolean;
+}
+
+type HuellenSchalter =
+  | 'imInfobereich'
+  | 'mitWindowsStarten'
+  | 'rechtschreibung'
+  | 'meldungsvorschau';
+
 interface EnergyMailBruecke {
   /** Fassung der Anwendung, für das Über-Fenster und den Fehlerbericht. */
   readonly fassung: string;
@@ -63,6 +91,18 @@ interface EnergyMailBruecke {
   // --- Ansicht ---
   /** Färbt die von Windows gezeichneten Fensterknöpfe passend zur gewählten Ansicht. */
   setzeAnsicht(ansicht: 'hell' | 'dunkel'): void;
+
+  // --- Einstellungen der Hülle ---
+  huelle(): Promise<HuellenStand>;
+  /**
+   * Legt einen der Schalter um; liefert den Stand danach zurück.
+   *
+   * Auch das Ergebnis eines abgewiesenen Aufrufs ist der Stand - eine vorgegebene
+   * Sprache lässt sich nicht ändern, und die Oberfläche soll dann sehen, was gilt,
+   * statt zu glauben, es habe geklappt.
+   */
+  setzeHuelle(name: HuellenSchalter, wert: boolean): Promise<HuellenStand>;
+  setzeHuelle(name: 'sprache', wert: string): Promise<HuellenStand>;
 
   // --- Aktualisierung ---
   aufAktualisierung(hoeren: (stand: Aktualisierungsstand) => void): () => void;

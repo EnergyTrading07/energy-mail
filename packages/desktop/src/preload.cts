@@ -44,18 +44,21 @@ const FASSUNG =
 /**
  * Die Sprache, auf die sich die Huelle festgelegt hat.
  *
- * Denselben Weg wie die Fassung, und aus denselben Gruenden: sie steht beim Bauen des
- * Fensters fest und aendert sich waehrend seines Lebens nicht. Und sie ist kein
- * Geheimnis - anders als das Zugangsgeheimnis darunter darf sie in der Befehlszeile
- * stehen.
+ * Muss von hier kommen und nicht aus der Oberflaeche: Die Huelle kennt die
+ * Richtliniendatei des Unternehmens, der Browser nicht - sonst kaeme eine Anwendung mit
+ * englischem Menue und deutscher Oberflaeche heraus.
  *
- * Waere sie es nicht, muesste die Oberflaeche sie selbst ermitteln - und kaeme zu einer
- * anderen Antwort als das Menue daneben: Die Huelle kennt die Richtliniendatei, der
- * Browser nicht. Eine Anwendung mit englischem Menue und deutscher Oberflaeche waere die
- * Folge.
+ * sendSync und nicht - wie die Fassung darueber - ein Startparameter. Das war der
+ * naheliegende Weg, solange die Sprache nur im Anwendungsmenue umzustellen war und ein
+ * Fenster sie fuer sein ganzes Leben mitbekam. Seit sie auch im Einstellungsfenster der
+ * Oberflaeche steht, aendert sie sich waehrend dieses Lebens: Startparameter ueberstehen
+ * ein Neuladen unveraendert, und die Oberflaeche kaeme nach dem Umstellen in der alten
+ * Sprache zurueck.
+ *
+ * Synchron aus demselben Grund wie das Zugangsgeheimnis darunter: Der Wert muss stehen,
+ * bevor die Oberflaeche ihre erste Zeile zeichnet.
  */
-const SPRACHE =
-  process.argv.find((a) => a.startsWith('--energy-mail-sprache='))?.split('=')[1] ?? '';
+const SPRACHE = (ipcRenderer.sendSync('sprache:holen') as string | undefined) ?? '';
 
 /**
  * Das Zugangsgeheimnis des lokalen Servers.
@@ -89,6 +92,10 @@ contextBridge.exposeInMainWorld('energyMail', {
   fensterzustand: () => ipcRenderer.invoke('fenster:zustand-abfragen'),
 
   setzeAnsicht: (ansicht: 'hell' | 'dunkel') => ipcRenderer.send('ansicht:setzen', ansicht),
+
+  huelle: () => ipcRenderer.invoke('huelle:lesen'),
+  setzeHuelle: (name: string, wert: boolean | string) =>
+    ipcRenderer.invoke('huelle:setzen', name, wert),
 
   aufAktualisierung: (h: (s: unknown) => void) => hoeren('aktualisierung:stand', h),
   aktualisierungStand: () => ipcRenderer.invoke('aktualisierung:abfragen'),

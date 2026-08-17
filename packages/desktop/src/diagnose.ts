@@ -368,86 +368,16 @@ export async function sichereEinstellungen(basis: string): Promise<void> {
   if (response === 0) shell.showItemInFolder(filePath);
 }
 
-/** "4,3 MB" statt "4508160" - eine Zahl, zu der man eine Meinung haben kann. */
-function alsGroesse(bytes: number): string {
-  if (bytes < 1024) return `${bytes} Byte`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
-}
-
-/**
- * Zeigt, was zwischengespeichert liegt, und wirft es auf Wunsch weg.
+/*
+ * Hier stand "leereZwischenspeicher" - der Menuepunkt "Zwischengespeicherte
+ * Nachrichten…".
  *
- * Der eine Punkt in diesem Menü, der nichts sichert und nichts anlegt, sondern etwas
- * entfernt. Er gehört hierher, weil die Antwort auf "was weiß dieses Programm über mich"
- * bislang nur in DATENSCHUTZ.md stand und nirgends in der Anwendung: Betreffzeilen,
- * Absender und der Wortlaut der zuletzt gelesenen Nachrichten liegen unverschlüsselt im
- * Benutzerordner, und der einzige Weg, sie loszuwerden, war die Datei von Hand zu suchen.
- *
- * Erst die Zahlen, dann die Frage. Wer nur nachsehen wollte, geht mit "Behalten" hinaus,
- * ohne etwas angerichtet zu haben - deshalb steht diese Schaltfläche vorn.
+ * Er zeigte, wie viel von der Post auf der Platte liegt, und warf es auf Wunsch weg.
+ * Genau das tut jetzt die Tafel "Bestand" im Einstellungsfenster (AblageModal.tsx),
+ * ueber dieselben beiden Aufrufe an /ablage - nur eben auch im Browserbetrieb, wo es
+ * kein Anwendungsmenue gibt. Zwei Umsetzungen derselben Sache nebeneinander stehen zu
+ * lassen hiesse, sich darauf zu verlassen, dass beide gleich gepflegt werden.
  */
-export async function leereZwischenspeicher(basis: string): Promise<void> {
-  let stand: { bytes: number; nachrichten: number; inhalte: number };
-  try {
-    const antwort = await fetch(`${basis}/ablage`, { headers: zugangskopfzeile() });
-    if (!antwort.ok) {
-      throw new Error(t('Der Server antwortete mit {status}.', { status: antwort.status }));
-    }
-    stand = (await antwort.json()) as typeof stand;
-  } catch (err) {
-    dialog.showErrorBox('Zwischenspeicher nicht lesbar', (err as Error).message);
-    return;
-  }
-
-  const { response } = await dialog.showMessageBox({
-    type: 'question',
-    title: t('Zwischenspeicher'),
-    message: t('Soll der zwischengespeicherte Nachrichtenbestand weg?'),
-    detail:
-      t(
-        'Auf der Platte liegen zurzeit {kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte ({groesse}).',
-        { kopfdaten: stand.nachrichten, inhalte: stand.inhalte, groesse: alsGroesse(stand.bytes) },
-      ) +
-      '\n\n' +
-      t(
-        'Kopfdaten sind Absender, Betreff und Datum – von allen abgerufenen Nachrichten. Sie liegen unverschlüsselt im Benutzerordner, damit die Liste auch ohne Verbindung vollständig ist.',
-      ) +
-      '\n\n' +
-      t(
-        'Wird der Bestand geleert, ist nichts verloren: die Post liegt bei Ihrem Anbieter und wird beim nächsten Abruf neu geholt. Bis dahin ist die Liste ohne Verbindung leer, und die Volltextsuche findet nur, was seitdem wieder abgerufen wurde.',
-      ) +
-      '\n\n' +
-      t('Konten, Kennwörter, Adressbuch, Regeln und Etiketten bleiben unangetastet.'),
-    buttons: [t('Behalten'), t('Bestand leeren')],
-    defaultId: 0,
-    cancelId: 0,
-  });
-  if (response !== 1) return;
-
-  try {
-    const antwort = await fetch(`${basis}/ablage`, {
-      method: 'DELETE',
-      headers: zugangskopfzeile(),
-    });
-    if (!antwort.ok) {
-      throw new Error(t('Der Server antwortete mit {status}.', { status: antwort.status }));
-    }
-    const weg = (await antwort.json()) as { nachrichten: number; inhalte: number };
-    await dialog.showMessageBox({
-      type: 'info',
-      title: t('Zwischenspeicher geleert'),
-      message: t('Der Bestand ist weg.'),
-      detail: t(
-        '{kopfdaten} Kopfdaten und {inhalte} Nachrichtentexte wurden entfernt und die Ablagedatei neu geschrieben – auch die freigewordenen Stellen darin.\n\nNeu laden (F5) füllt die Liste wieder auf.',
-        { kopfdaten: weg.nachrichten, inhalte: weg.inhalte },
-      ),
-      buttons: [t('Schließen')],
-    });
-  } catch (err) {
-    dialog.showErrorBox(t('Zwischenspeicher nicht geleert'), (err as Error).message);
-  }
-}
 
 /** Liest eine Sicherung ein - was schon da ist, bleibt unangetastet. */
 export async function leseEinstellungen(basis: string): Promise<void> {
