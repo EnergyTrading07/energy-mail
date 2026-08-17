@@ -49,6 +49,7 @@ const { richteUmschlagEin } = await import('./einrichten.js');
 const { verpackeNutzerschluessel } = await import('./schluesselHuelle.js');
 const { totp } = await import('./totp.js');
 const { vergissBremse } = await import('./anmeldebremse.js');
+const { vergissMarken } = await import('./zweiFaktor.js');
 
 richteUmschlagEin();
 
@@ -340,6 +341,33 @@ await pruefe('ein frischer Satz macht die alten ungueltig', async () => {
     payload: { marke: anmeldung.json().marke, code: codes[2] },
   });
   assert.equal(alt.statusCode, 401, 'Ein alter Code galt noch.');
+});
+
+await pruefe('nach einem Neustart gilt eine halbe Anmeldung nicht mehr', async () => {
+  /*
+   * Die halben Anmeldungen leben nur im Arbeitsspeicher - mit Absicht: Eine Marke ist der
+   * Beleg, dass das Kennwort eben stimmte, und dieser Beleg soll einen Neustart NICHT
+   * ueberdauern. vergissMarken() ist genau dieser Neustart, ohne dass dafuer ein zweiter
+   * Server aufgebaut werden muesste.
+   */
+  bremseLoesen();
+  const neu = await anmelden(ANNA);
+  const marke = neu.json().marke;
+  assert.ok(marke, 'Die Anmeldung muss eine Marke ergeben');
+
+  vergissMarken();
+
+  const antwort = await app.inject({
+    method: 'POST',
+    url: '/anmelden/code',
+    payload: { marke, code: totp(geheimnis) },
+  });
+  assert.notEqual(antwort.statusCode, 200);
+  assert.equal(
+    antwort.cookies.find((c) => c.name === KEKS),
+    undefined,
+    'Eine vergessene Marke darf keine Sitzung mehr eroeffnen.',
+  );
 });
 
 console.log('\nAbschalten und zuruecksetzen:');

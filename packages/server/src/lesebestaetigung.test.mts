@@ -55,6 +55,7 @@ const {
   pruefeBestaetigung,
   setzeUmgang,
   umgangFuer,
+  vergissEntscheidungen,
 } = await import('./lesebestaetigung.js');
 
 const KONTO = {
@@ -238,6 +239,17 @@ await pruefe('die Einstellung ueberlebt einen Neustart', () =>
 
 await pruefe('die Entscheidungen auch - und je Nutzer getrennt', () =>
   alsAnna(() => {
+    /*
+     * Erst raeumen, dann pruefen.
+     *
+     * Die Entscheidungen stehen in einer Datei je Nutzer und ueberdauern damit jeden
+     * vorherigen Fall in dieser Datei. Ohne das Raeumen pruefte dieser Fall womoeglich
+     * einen Eintrag, den ein anderer angelegt hat - und bliebe gruen, auch wenn
+     * merkeEntscheidung() gar nichts mehr taete.
+     */
+    vergissEntscheidungen('k1');
+    assert.equal(entscheidungZu('k1', '<abc@fremd.de>'), null);
+
     merkeEntscheidung('k1', '<abc@fremd.de>', 'abgelehnt');
     assert.equal(entscheidungZu('k1', '<abc@fremd.de>'), 'abgelehnt');
     alsNutzer('bernd', () => {
