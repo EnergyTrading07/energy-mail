@@ -92,6 +92,27 @@ jobs:
       - name: Electron-Binärdatei holen
         run: node node_modules/electron/install.js
 
+      # Die Anwendung wirklich starten und nachsehen, ob ein benutzbares Fenster dasteht.
+      #
+      # Hier stehen die Fehler, die bisher keine Prüfung gesehen hat: ein fehlendes
+      # `type` in der package.json, das den Start abbrach; eine Eingangskontrolle, die dem
+      # eigenen Fenster eine 401 schickte, sodass die Anwendung die JSON-Meldung ihres
+      # eigenen Servers anzeigte; ein Vorschaltskript, das nicht ankam. Alle drei sind in
+      # Typen, Bau und Prüfungen unsichtbar und in einem einzigen Start offensichtlich.
+      #
+      # An dieser Stelle, weil sie die Electron-Binärdatei braucht - die wurde eine Zeile
+      # weiter oben geholt. Vor dem Paketieren: Sie dauert Sekunden, das Paketieren Minuten.
+      - name: Oberfläche am laufenden Programm prüfen
+        run: npm run pruefe:oberflaeche
+
+      - name: Spuren der Oberflächenprüfung aufheben
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: oberflaechenpruefung
+          path: test-results/
+          if-no-files-found: ignore
+
       # Das Paket wirklich bauen. Alles, was sich erst am fertigen Paket zeigt - ob das
       # Programmsymbol enthalten ist, ob Prüfdateien mitgehen, ob app-update.yml stimmt -
       # sah vorher nur der Entwickler auf seinem Rechner, und auch nur, wenn er nachsah.

@@ -28,3 +28,11 @@ betrieb/sicherungen/
 *.log
 .DS_Store
 Thumbs.db
+
+# Was die Oberflaechenpruefung hinterlaesst.
+#
+# Playwright legt bei einem Fehlschlag Bildschirmabzuege und Spuren ab - hilfreich beim
+# Nachsehen, aber ein Erzeugnis. Der Datenordner der Pruefung liegt ohnehin im
+# Temp-Verzeichnis und nicht hier (siehe e2e/huelle.ts).
+test-results/
+playwright-report/

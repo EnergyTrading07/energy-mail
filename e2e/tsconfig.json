@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base.json",
+  "//": "Eigene Angabe, weil e2e/ kein Arbeitsbereich ist: Die Dateien fahren die fertige Anwendung, sie gehoeren zu keinem der vier Pakete. Ohne diese Datei pruefte niemand ihre Typen - Playwright uebersetzt mit esbuild und wirft Typen dabei weg, ein Fehler faellt also erst zur Laufzeit auf, wenn ueberhaupt.",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "noEmit": true,
+    "declaration": false
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}
