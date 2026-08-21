@@ -241,6 +241,10 @@ const FARBWERT = /^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i;
 export function istUnbedenklicheAdresse(adresse: string): boolean {
   const sauber = adresse.trim().toLowerCase();
   // Auch verschleierte Formen: "java\tscript:" oder "JaVaScRiPt:".
+  //
+  // Die Steuerzeichen stehen hier mit Absicht: Genau sie werden zum Verschleiern
+  // benutzt, und ein Muster, das sie nicht nennen darf, koennte sie nicht entfernen.
+  // eslint-disable-next-line no-control-regex
   const ohneLeerraum = sauber.replace(/[\s\u0000-\u001f]/g, '');
   if (/^(javascript|data|vbscript|file):/.test(ohneLeerraum)) return false;
   return /^(https?:|mailto:|#|\/|\.)/.test(ohneLeerraum) || !ohneLeerraum.includes(':');

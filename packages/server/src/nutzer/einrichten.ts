@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getWurzelDir } from '../paths.js';
 import { protokolliere } from '../protokollDatei.js';
-import { createPassphraseKeyProvider, setKeyProvider, setzeUmschlag } from '../secretCrypto.js';
+import { setKeyProvider, setzeUmschlag } from '../secretCrypto.js';
 import {
   entschluessleFuerNutzer,
   verpackeNutzerschluessel,

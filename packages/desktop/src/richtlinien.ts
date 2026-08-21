@@ -193,7 +193,7 @@ export function richtlinien(): Richtlinien {
      * gelesen und verworfen, und im Protokoll stand "Aktualisierung erlaubt", als stünde
      * dort nichts anderes.
      */
-    const text = fs.readFileSync(pfad, 'utf8').replace(/^﻿/, '');
+    const text = fs.readFileSync(pfad, 'utf8').replace(/^\uFEFF/, '');
     const roh = JSON.parse(text) as Partial<Richtlinien>;
     zwischenspeicher = {
       aktualisierungAbschalten: roh.aktualisierungAbschalten === true,

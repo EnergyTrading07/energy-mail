@@ -1,4 +1,4 @@
-import { KENNUNG, folge, kontext, tlv, zeichen } from './ber.js';
+import { KENNUNG, kontext, tlv, zeichen } from './ber.js';
 
 /**
  * LDAP-Suchfilter: aus der Schreibweise nach RFC 4515 in Bytes nach RFC 4511.

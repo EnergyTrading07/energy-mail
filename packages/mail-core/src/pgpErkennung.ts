@@ -369,7 +369,6 @@ export interface GeschuetzterAnhang {
  */
 function anhangAlsTeil(anhang: GeschuetzterAnhang): string {
   const art = anhang.contentType || 'application/octet-stream';
-  // eslint-disable-next-line no-control-regex
   const ascii = anhang.filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
   const kodiert = encodeURIComponent(anhang.filename);
 

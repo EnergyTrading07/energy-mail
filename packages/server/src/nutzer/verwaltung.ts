@@ -124,8 +124,15 @@ function frischesKennwort(): string {
   return [...bytes].map((b) => zeichen[b % zeichen.length]).join('');
 }
 
-/** Wer die Anfrage stellt - im Verwaltungsbereich immer ein angemeldeter Mensch. */
-function wer(request: FastifyRequest): string {
+/**
+ * Wer die Anfrage stellt - im Verwaltungsbereich immer ein angemeldeter Mensch.
+ *
+ * Die Anfrage wird nicht gelesen, steht aber weiter in der Signatur: Sie sagt dem Leser,
+ * dass diese Auskunft zur ANFRAGE gehoert und nicht zum Prozess. handelnderNutzer() holt
+ * sie aus dem Ausfuehrungszusammenhang, den der Nutzerkontext um die Route gelegt hat -
+ * ohne Anfrage gaebe es sie nicht.
+ */
+function wer(_request: FastifyRequest): string {
   return handelnderNutzer();
 }
 

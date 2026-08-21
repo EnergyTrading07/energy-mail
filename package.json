@@ -23,7 +23,11 @@
     "test": "node --import tsx --test \"packages/*/src/**/*.test.mts\"",
     "test:abdeckung": "node --import tsx --test --experimental-test-coverage \"packages/*/src/**/*.test.mts\"",
     "//pruefe": "Was die CI macht, in einem Aufruf - damit sich lokal derselbe Stand pruefen laesst, ohne drei Befehle zu merken.",
-    "pruefe": "npm run typecheck && npm run build && npm test && npm run sprachpruefung",
+    "pruefe": "npm run typecheck && npm run lint && npm run build && npm test && npm run sprachpruefung",
+    "//lint": "Findet, was uebersetzt und trotzdem falsch ist - eine vergessene Abhaengigkeit in einem useEffect vor allem. Steht VOR dem Bau: Er braucht keine zehn Sekunden, und wer einen Fehler darin hat, soll nicht erst zwei Minuten bauen. Was geprueft wird und was ausdruecklich nicht, steht in eslint.config.js.",
+    "lint": "eslint .",
+    "//lint:beheben": "Dasselbe, aber es raeumt weg, was sich maschinell wegraeumen laesst. Getrennt, weil ein Werkzeug, das beim blossen Nachsehen Dateien aendert, irgendwann etwas aendert, das niemand nachgesehen hat.",
+    "lint:beheben": "eslint . --fix",
     "build": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run build -w packages/web && npm run build -w packages/desktop",
     "typecheck": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run typecheck --workspaces --if-present",
     "dist": "npm run build && electron-builder",
@@ -50,14 +54,19 @@
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/jsdom": "^30.0.0",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.11.0",
     "jsdom": "^29.1.1",
     "tsx": "^4.23.11",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.67.0"
   },
-"//overrides": "Fassungen, die tiefer im Baum erzwungen werden - gegen gemeldete Luecken, die der Zwischenhaendler noch nicht nachgezogen hat. Jeder Eintrag braucht eine Begruendung darunter und gehoert wieder weg, sobald die Abhaengigkeit von selbst nachzieht: ein Override, an den sich niemand mehr erinnert, haelt eine Fassung fest, die laengst ueberholt ist. ACHTUNG: Ein Override wirkt nur, wenn npm den Baum ueberhaupt neu rechnen kann. Anzeige und Sperrdatei liegen hier auseinander (vite ^8.2.1 gegen einen festgehaltenen Stand mit vite 7.3.6 in der Wurzel); npm bricht ein Aufloesen von Grund auf deshalb mit ERESOLVE ab und faellt stillschweigend auf den festgehaltenen Stand zurueck - der Eintrag hier tut dann NICHTS. Solange das so ist, steht die erzwungene Fassung zusaetzlich unmittelbar in der Sperrdatei. Wird die Abweichung bereinigt, traegt dieser Eintrag allein.",
+  "//overrides": "Fassungen, die tiefer im Baum erzwungen werden - gegen gemeldete Luecken, die der Zwischenhaendler noch nicht nachgezogen hat. Jeder Eintrag braucht eine Begruendung darunter und gehoert wieder weg, sobald die Abhaengigkeit von selbst nachzieht: ein Override, an den sich niemand mehr erinnert, haelt eine Fassung fest, die laengst ueberholt ist. ACHTUNG: Ein Override wirkt nur, wenn npm den Baum ueberhaupt neu rechnen kann. Anzeige und Sperrdatei liegen hier auseinander (vite ^8.2.1 gegen einen festgehaltenen Stand mit vite 7.3.6 in der Wurzel); npm bricht ein Aufloesen von Grund auf deshalb mit ERESOLVE ab und faellt stillschweigend auf den festgehaltenen Stand zurueck - der Eintrag hier tut dann NICHTS. Solange das so ist, steht die erzwungene Fassung zusaetzlich unmittelbar in der Sperrdatei. Wird die Abweichung bereinigt, traegt dieser Eintrag allein.",
   "//overrides.html-to-text": "GHSA-ggr8-5vv4-36mx (hoch): deepmerge-ts unter 8.0.0 laeuft beim Zusammenfuehren rekursiver Objektgraphen den Stapel leer. Der Weg dorthin: mailparser -> html-to-text -> deepmerge-ts, und mailparser verarbeitet fremde Post - also genau Eingaben, denen nicht zu trauen ist. 'npm audit fix' kommt hier nicht durch: mailparser nagelt html-to-text auf genau 10.0.0 fest, auch in der neuesten 3.9.15. Die 10.0.1 ist ein Patch-Sprung und verlangt deepmerge-ts ^8.0.1 - deshalb wird sie hier erzwungen und nicht deepmerge-ts unmittelbar: ein Hauptsprung unter einem Paket, das ihn nicht angefordert hat, waere geraten statt geprueft.",
   "overrides": {
     "html-to-text": "10.0.1"

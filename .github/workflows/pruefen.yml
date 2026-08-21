@@ -54,6 +54,16 @@ jobs:
       - name: Typen
         run: npm run typecheck
 
+      # Vor dem Bau, und das ist keine Sortierfrage: Der Prüfer braucht ein paar Sekunden,
+      # der Bau ein Vielfaches davon. Wer eine vergessene Abhängigkeit in einem useEffect
+      # hat, soll das erfahren, bevor die CI zwei Minuten lang etwas baut, das ohnehin
+      # verworfen wird.
+      #
+      # Was er beanstandet, steht in eslint.config.js - bewusst wenig, dafür jedes davon
+      # ein echter Befund.
+      - name: Prüfer
+        run: npm run lint
+
       - name: Bau
         # Getrennt vom Typcheck: Vite wirft Typen weg und baut auch dann, wenn welche
         # nicht stimmen. Umgekehrt findet der Typcheck keine Fehler in der Bauwerkstatt.

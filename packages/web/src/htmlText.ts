@@ -43,7 +43,7 @@ export function htmlToText(html: string): string {
   });
 
   return (doc.body.textContent ?? '')
-    .replace(/ /g, ' ')
+    .replace(/\u00A0/g, ' ')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();

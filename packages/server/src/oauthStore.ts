@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import type { OAuthClientCredentials, OAuthProviderId } from '@energy-mail/mail-core';
 import { getNutzerDir } from './paths.js';

@@ -969,8 +969,8 @@ app.whenReady().then(async () => {
   // aufhalten. Ohne Internet passiert schlicht nichts.
   starteAktualisierungspruefung(
     {
-      info: (msg) => console.log(msg),
-      warn: (msg) => console.warn(msg),
+      info: (msg) => protokolliere('info', 'aktualisierung', msg),
+      warn: (msg) => protokolliere('warnung', 'aktualisierung', msg),
     },
     (stand) => {
       if (hauptfenster && !hauptfenster.isDestroyed()) {

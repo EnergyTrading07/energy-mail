@@ -333,7 +333,7 @@ export function leseEinladung(inhalt: string): Einladung {
   let dauer: number | null = null;
   let tiefe = 0;
 
-  for (const zeile of entfalte(inhalt.replace(/^﻿/, ''))) {
+  for (const zeile of entfalte(inhalt.replace(/^\uFEFF/, ''))) {
     const eig = zerlegeZeile(zeile);
     if (!eig) continue;
 

@@ -1,6 +1,5 @@
 import { app } from 'electron';
 import {
-  SPRACHEN,
   setzeSprache,
   waehleSprache,
   type Sprache,

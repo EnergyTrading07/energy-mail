@@ -281,7 +281,7 @@ export function leseVisitenkarten(inhalt: string): Visitenkarte[] {
     offen = null;
   };
 
-  for (const zeile of entfalte(inhalt.replace(/^﻿/, ''))) {
+  for (const zeile of entfalte(inhalt.replace(/^\uFEFF/, ''))) {
     const getrimmt = zeile.trim();
     if (/^BEGIN:VCARD$/i.test(getrimmt)) {
       offen = { adressen: [], telefone: [] };

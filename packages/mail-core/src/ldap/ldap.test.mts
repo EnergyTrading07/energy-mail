@@ -13,7 +13,6 @@ import {
   liesTeile,
   menge,
   tlv,
-  wahrheit,
   zeichen,
   type Element,
 } from './ber.js';
