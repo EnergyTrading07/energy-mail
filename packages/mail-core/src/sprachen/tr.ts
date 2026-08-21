@@ -841,6 +841,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': '{anbieter} ile oturum aç',
   'Einrichtung nötig': 'Kurulum gerekli',
   'oder mit Passwort': 'ya da parolayla',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google ve Microsoft burada “ile oturum aç” yoluyla kurulamaz: sağlayıcı bunun için tarayıcıyı hizmetin çalıştığı bilgisayara geri gönderir ve o bilgisayar sizin değil. Uygulamaya özel bir parola kullanın; nasıl yapıldığı sağlayıcınızın yardım sayfalarında yazar.',
   'Passwort / App-Passwort': 'Parola / uygulama parolası',
   'Prüfe Verbindung…': 'Bağlantı denetleniyor…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'Sunucular adresten çıkarılır. Çoğu sağlayıcıda oturum parolası değil, uygulama parolası gerekir.',
@@ -1215,25 +1216,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Şifreli iletiler henüz ek taşıyamaz. İmzalama eklerle çalışır; şifrelemek için eksiz gönderin.',
   'Der Datenordner ist nicht beschreibbar.': 'Veri klasörüne yazılamıyor.',
-  'Konto nicht gefunden': 'Hesap bulunamadı',
-  'Feld „{feld}“ fehlt.': '“{feld}” alanı eksik.',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” değeri {von} ile {bis} arasında bir tam sayı olmalıdır.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'Posta kutusuna şu anda erişilemiyor. Ağ bağlantısını denetleyin; bağlantı geri geldiğinde yeniden yükleyebilirsiniz.',
   'Interner Fehler': 'İç hata',
   'Feld "email" ist erforderlich': '“email” alanı zorunludur',
   'E-Mail und Passwort sind erforderlich': 'Adres ve parola zorunludur',
   'An wen soll freigegeben werden?': 'Kiminle paylaşılsın?',
   'Diese Freigabe gibt es nicht.': 'Böyle bir paylaşım yok.',
-  'Kontakt nicht gefunden': 'Kişi bulunamadı',
-  'Die Datei ist leer': 'Dosya boş',
-  'Es wurde kein Schlüssel übergeben': 'Herhangi bir anahtar verilmedi',
-  'Schlüssel nicht gefunden': 'Anahtar bulunamadı',
-  'Es wurde keine Datei übergeben': 'Hiçbir dosya verilmedi',
-  'Zertifikat nicht gefunden': 'Sertifika bulunamadı',
-  'Ein leerer Vermerk hilft niemandem.': 'Boş bir şerh kimseye yaramaz.',
-  'Unbekannte Aufbewahrungsart.': 'Bilinmeyen saklama türü.',
-  'Etikett nicht gefunden': 'Etiket bulunamadı',
-  'Suche nicht gefunden': 'Arama bulunamadı',
+  'Konto nicht gefunden': 'Hesap bulunamadı',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'Bu sağlayıcıda oturum açma biçimini kurumunuz belirler ve burada değiştirilemez.',
   'Client-ID ist erforderlich': 'İstemci kimliği zorunludur',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'Bu hesap parolayla oturum açar; sağlayıcı üzerinden yeniden oturum açma yoktur.',
@@ -1340,6 +1329,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Elde tek bir açık anahtar bile yok.',
   'Keine Unterschrift gefunden.': 'İmza bulunamadı.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'İmzalayanın anahtarı elde yok.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Kişi bulunamadı',
+  'Die Datei ist leer': 'Dosya boş',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Boş bir şerh kimseye yaramaz.',
+  'Unbekannte Aufbewahrungsart.': 'Bilinmeyen saklama türü.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Etiket bulunamadı',
+  'Suche nicht gefunden': 'Arama bulunamadı',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': '“{feld}” alanı eksik.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” değeri {von} ile {bis} arasında bir tam sayı olmalıdır.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Herhangi bir anahtar verilmedi',
+  'Schlüssel nicht gefunden': 'Anahtar bulunamadı',
+  'Es wurde keine Datei übergeben': 'Hiçbir dosya verilmedi',
+  'Zertifikat nicht gefunden': 'Sertifika bulunamadı',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Şifreleme kurulu olmadan özel anahtar düz metin olarak dururdu; bu reddedilir.',

@@ -841,6 +841,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Iniciar sessão com {anbieter}',
   'Einrichtung nötig': 'Configuração necessária',
   'oder mit Passwort': 'ou com palavra-passe',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'A Google e a Microsoft não podem ser configuradas aqui através de «Iniciar sessão com»: para isso o fornecedor devolve o navegador ao computador onde o serviço corre — e esse não é o seu. Utilize uma palavra-passe específica da aplicação; a ajuda do seu fornecedor explica como.',
   'Passwort / App-Passwort': 'Palavra-passe / palavra-passe de aplicação',
   'Prüfe Verbindung…': 'A verificar a ligação…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'Os servidores são deduzidos do endereço. Na maioria dos fornecedores é necessária uma palavra-passe de aplicação, não a de acesso.',
@@ -1215,25 +1216,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'As mensagens cifradas ainda não podem levar anexos. Assinar funciona com anexos; para cifrar, envie sem eles.',
   'Der Datenordner ist nicht beschreibbar.': 'Não é possível escrever na pasta de dados.',
-  'Konto nicht gefunden': 'Conta não encontrada',
-  'Feld „{feld}“ fehlt.': 'Falta o campo «{feld}».',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '«{feld}» tem de ser um número inteiro entre {von} e {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'A caixa de correio não está acessível de momento. Verifique a ligação de rede; assim que voltar, poderá recarregar.',
   'Interner Fehler': 'Erro interno',
   'Feld "email" ist erforderlich': 'O campo «email» é obrigatório',
   'E-Mail und Passwort sind erforderlich': 'O endereço e a palavra-passe são obrigatórios',
   'An wen soll freigegeben werden?': 'Com quem deve ser partilhada?',
   'Diese Freigabe gibt es nicht.': 'Esta partilha não existe.',
-  'Kontakt nicht gefunden': 'Contacto não encontrado',
-  'Die Datei ist leer': 'O ficheiro está vazio',
-  'Es wurde kein Schlüssel übergeben': 'Não foi fornecida nenhuma chave',
-  'Schlüssel nicht gefunden': 'Chave não encontrada',
-  'Es wurde keine Datei übergeben': 'Não foi entregue nenhum ficheiro',
-  'Zertifikat nicht gefunden': 'Certificado não encontrado',
-  'Ein leerer Vermerk hilft niemandem.': 'Uma anotação vazia não ajuda ninguém.',
-  'Unbekannte Aufbewahrungsart.': 'Categoria de conservação desconhecida.',
-  'Etikett nicht gefunden': 'Etiqueta não encontrada',
-  'Suche nicht gefunden': 'Pesquisa não encontrada',
+  'Konto nicht gefunden': 'Conta não encontrada',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'O início de sessão neste fornecedor é definido pela sua organização e não pode ser alterado aqui.',
   'Client-ID ist erforderlich': 'O ID de cliente é obrigatório',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'Esta conta inicia sessão com palavra-passe; não existe um novo início de sessão através do fornecedor.',
@@ -1340,6 +1329,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Não está disponível uma única chave pública.',
   'Keine Unterschrift gefunden.': 'Nenhuma assinatura encontrada.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'A chave do signatário não está disponível.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Contacto não encontrado',
+  'Die Datei ist leer': 'O ficheiro está vazio',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Uma anotação vazia não ajuda ninguém.',
+  'Unbekannte Aufbewahrungsart.': 'Categoria de conservação desconhecida.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Etiqueta não encontrada',
+  'Suche nicht gefunden': 'Pesquisa não encontrada',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Falta o campo «{feld}».',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '«{feld}» tem de ser um número inteiro entre {von} e {bis}.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Não foi fornecida nenhuma chave',
+  'Schlüssel nicht gefunden': 'Chave não encontrada',
+  'Es wurde keine Datei übergeben': 'Não foi entregue nenhum ficheiro',
+  'Zertifikat nicht gefunden': 'Certificado não encontrado',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Sem cifra configurada, a chave privada ficaria em texto simples: isso é recusado.',

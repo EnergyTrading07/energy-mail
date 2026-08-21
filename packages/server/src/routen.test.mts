@@ -630,6 +630,44 @@ await pruefe('ein Konto, das es nicht gibt, ergibt 404', async () => {
   assert.equal(a.statusCode, 404);
 });
 
+/*
+ * Ob OAuth angeboten werden darf - und warum das der Server entscheidet.
+ *
+ * Der OAuth-Ablauf oeffnet einen kurzlebigen Horcher auf 127.0.0.1 und gibt dem Anbieter
+ * genau diese Adresse als Rueckleitung mit (oauthFlow.ts). Das geht auf, solange Browser
+ * und Dienst auf demselben Rechner laufen. Im Serverbetrieb tun sie das nicht: 127.0.0.1
+ * ist dann der Rechner des BENUTZERS, dort horcht niemand, und die Anmeldung endet in
+ * einer Fehlerseite.
+ *
+ * Die Oberflaeche blendet die beiden Knoepfe deshalb aus - aber nur, wenn der Server es
+ * ihr sagt. Diese Pruefung haelt fest, dass er es richtig sagt: Sobald eine oeffentliche
+ * Adresse gesetzt ist, ist der Dienst fuer andere Rechner gedacht, und damit ist der
+ * Rueckweg tot.
+ */
+console.log('\nOAuth im Serverbetrieb:');
+
+const { setzeOeffentlicheAdresse } = await import('./zugang.js');
+
+await pruefe('ohne oeffentliche Adresse wird OAuth angeboten', async () => {
+  setzeOeffentlicheAdresse(null);
+  const antwort = await app.inject({ method: 'GET', url: '/ich' });
+  assert.equal(antwort.statusCode, 200);
+  assert.equal(antwort.json().oauthMoeglich, true);
+});
+
+await pruefe('mit oeffentlicher Adresse nicht mehr', async () => {
+  setzeOeffentlicheAdresse('https://mail.beispiel.de');
+  const antwort = await app.inject({ method: 'GET', url: '/ich' });
+  assert.equal(antwort.statusCode, 200);
+  assert.equal(
+    antwort.json().oauthMoeglich,
+    false,
+    'Der Server bietet OAuth an, obwohl der Rueckweg auf 127.0.0.1 ins Leere fuehrt',
+  );
+  // Nicht auf die naechste Pruefung abfaerben lassen - der Wert steht im Modul.
+  setzeOeffentlicheAdresse(null);
+});
+
 await app.close();
 try {
   fs.rmSync(ORDNER, { recursive: true, force: true });

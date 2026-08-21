@@ -2039,6 +2039,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
           selectedCategory={selectedCategory}
           loadingFolders={loadingFolders}
           oauthClients={oauthClients}
+          oauthMoeglich={ich?.oauthMoeglich !== false}
           oauthBusy={oauthBusy}
           reauthBusy={reauthBusy}
           onReauth={(id) => void handleReauth(id)}

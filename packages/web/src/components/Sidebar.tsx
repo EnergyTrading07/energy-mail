@@ -34,6 +34,13 @@ interface Props {
   selectedCategory: GmailCategory | null;
   loadingFolders: boolean;
   oauthClients: OAuthClients | null;
+  /**
+   * Ob der OAuth-Weg hier ueberhaupt zu Ende gehen kann - siehe /ich.
+   *
+   * Im Serverbetrieb kann er das nicht: Der Rueckweg zeigt auf 127.0.0.1, und das
+   * ist aus Sicht des Browsers der Rechner des Benutzers, nicht der des Dienstes.
+   */
+  oauthMoeglich: boolean;
   oauthBusy: OAuthProvider | null;
   /** Kennung des Kontos, dessen Neuanmeldung gerade läuft. */
   reauthBusy: string | null;
@@ -230,6 +237,7 @@ export function Sidebar({
   selectedCategory,
   loadingFolders,
   oauthClients,
+  oauthMoeglich,
   oauthBusy,
   reauthBusy,
   onReauth,
@@ -726,7 +734,20 @@ export function Sidebar({
 
         {formSichtbar && (
           <div className="add-account">
-            {(['google', 'microsoft'] as OAuthProvider[]).map((provider) => {
+            {/*
+              Die beiden Knoepfe nur dort, wo der Weg auch zu Ende geht.
+
+              Im Serverbetrieb fuehrt er in eine Sackgasse: Der Dienst oeffnet einen
+              kurzlebigen Horcher auf 127.0.0.1 und gibt ihn Google als Rueckleitung mit
+              (oauthFlow.ts). Sitzt der Browser auf einem anderen Rechner - und das ist im
+              Serverbetrieb der Regelfall -, zeigt diese Adresse auf SEINEN Rechner. Dort
+              horcht niemand, und die Anmeldung endet in einer Fehlerseite.
+
+              Einen Knopf anzubieten, der nicht ans Ziel fuehrt, ist schlimmer als keiner:
+              Wer ihn drueckt, sucht den Fehler bei sich.
+            */}
+            {oauthMoeglich &&
+              (['google', 'microsoft'] as OAuthProvider[]).map((provider) => {
               const eingerichtet = oauthClients?.[provider]?.configured;
               const label = provider === 'google' ? 'Google / Gmail' : 'Microsoft / Outlook';
               return (
@@ -743,8 +764,16 @@ export function Sidebar({
                   {!eingerichtet && <span className="badge-setup">{t('Einrichtung nötig')}</span>}
                 </button>
               );
-            })}
-            <div className="oauth-divider">{t('oder mit Passwort')}</div>
+              })}
+            {oauthMoeglich ? (
+              <div className="oauth-divider">{t('oder mit Passwort')}</div>
+            ) : (
+              <p className="hint">
+                {t(
+                  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.',
+                )}
+              </p>
+            )}
 
             <form onSubmit={hinzufuegen}>
               <div className="form-row">

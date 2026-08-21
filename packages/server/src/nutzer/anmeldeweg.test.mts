@@ -233,6 +233,19 @@ await pruefe('/ich nennt den angemeldeten Nutzer', async () => {
     nutzer: { id: 'anna', email: 'anna@beispiel.de' },
     // Hier haengt die Sitzung an einem Keks - also gibt es etwas abzumelden.
     abmeldbar: true,
+    /*
+     * Ob OAuth angeboten werden darf.
+     *
+     * Diese Zeile ist beim Hinzufuegen des Feldes durchgefallen, und genau dafuer ist der
+     * Feld-fuer-Feld-Vergleich da: Er zwingt zu der Frage, ob die Auskunft hier
+     * hinausgehen darf. Sie darf. Sie sagt aus, ob eine oeffentliche Adresse eingetragen
+     * ist - und wer den Dienst ueber eine solche Adresse erreicht, weiss das ohnehin.
+     * Ueber Nutzer, Konten oder Zugangsdaten sagt sie nichts.
+     *
+     * Hier "true", weil diese Pruefung keine oeffentliche Adresse setzt - also der Fall
+     * des Einzelplatzes, in dem der Rueckweg auf 127.0.0.1 tatsaechlich ankommt.
+     */
+    oauthMoeglich: true,
   });
 });
 

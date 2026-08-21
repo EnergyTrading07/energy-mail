@@ -841,6 +841,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Se connecter avec {anbieter}',
   'Einrichtung nötig': 'Configuration requise',
   'oder mit Passwort': 'ou avec un mot de passe',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google et Microsoft ne peuvent pas être configurés ici via « Se connecter avec » : le fournisseur renvoie pour cela le navigateur vers l’ordinateur sur lequel tourne le service — et ce n’est pas le vôtre. Utilisez un mot de passe d’application ; l’aide de votre fournisseur explique comment.',
   'Passwort / App-Passwort': 'Mot de passe / mot de passe d\'application',
   'Prüfe Verbindung…': 'Vérification de la connexion…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'Les serveurs sont déduits de l\'adresse. Chez la plupart des fournisseurs, il faut un mot de passe d\'application, pas le mot de passe de connexion.',
@@ -1215,25 +1216,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Les messages chiffrés ne peuvent pas encore porter de pièces jointes. La signature fonctionne avec des pièces jointes ; pour chiffrer, envoyez sans.',
   'Der Datenordner ist nicht beschreibbar.': 'Le dossier de données n\'est pas accessible en écriture.',
-  'Konto nicht gefunden': 'Compte introuvable',
-  'Feld „{feld}“ fehlt.': 'Le champ « {feld} » est manquant.',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '« {feld} » doit être un nombre entier compris entre {von} et {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'La boîte aux lettres est momentanément injoignable. Vérifiez la connexion réseau ; dès qu\'elle est rétablie, vous pouvez recharger.',
   'Interner Fehler': 'Erreur interne',
   'Feld "email" ist erforderlich': 'Le champ « email » est obligatoire',
   'E-Mail und Passwort sind erforderlich': 'L\'adresse et le mot de passe sont obligatoires',
   'An wen soll freigegeben werden?': 'Avec qui faut-il partager ?',
   'Diese Freigabe gibt es nicht.': 'Ce partage n\'existe pas.',
-  'Kontakt nicht gefunden': 'Contact introuvable',
-  'Die Datei ist leer': 'Le fichier est vide',
-  'Es wurde kein Schlüssel übergeben': 'Aucune clé n\'a été fournie',
-  'Schlüssel nicht gefunden': 'Clé introuvable',
-  'Es wurde keine Datei übergeben': 'Aucun fichier n\'a été fourni',
-  'Zertifikat nicht gefunden': 'Certificat introuvable',
-  'Ein leerer Vermerk hilft niemandem.': 'Une annotation vide n\'aide personne.',
-  'Unbekannte Aufbewahrungsart.': 'Catégorie de conservation inconnue.',
-  'Etikett nicht gefunden': 'Étiquette introuvable',
-  'Suche nicht gefunden': 'Recherche introuvable',
+  'Konto nicht gefunden': 'Compte introuvable',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'La connexion à ce fournisseur est imposée par votre organisation et ne peut pas être modifiée ici.',
   'Client-ID ist erforderlich': 'L\'identifiant client est obligatoire',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'Ce compte se connecte avec un mot de passe ; il n\'y a pas de reconnexion via le fournisseur.',
@@ -1340,6 +1329,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Aucune clé publique n\'est disponible.',
   'Keine Unterschrift gefunden.': 'Aucune signature trouvée.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'La clé du signataire n\'est pas disponible.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Contact introuvable',
+  'Die Datei ist leer': 'Le fichier est vide',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Une annotation vide n\'aide personne.',
+  'Unbekannte Aufbewahrungsart.': 'Catégorie de conservation inconnue.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Étiquette introuvable',
+  'Suche nicht gefunden': 'Recherche introuvable',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Le champ « {feld} » est manquant.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '« {feld} » doit être un nombre entier compris entre {von} et {bis}.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Aucune clé n\'a été fournie',
+  'Schlüssel nicht gefunden': 'Clé introuvable',
+  'Es wurde keine Datei übergeben': 'Aucun fichier n\'a été fourni',
+  'Zertifikat nicht gefunden': 'Certificat introuvable',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Sans chiffrement configuré, la clé privée serait en clair : c\'est refusé.',

@@ -392,6 +392,14 @@ export interface IchAuskunft {
   zweiFaktor?: boolean;
   /** Wie viele Wiederherstellungscodes noch übrig sind - zum Warnen, bevor keiner mehr da ist. */
   codesUebrig?: number;
+  /**
+   * Ob sich ein Konto über OAuth einrichten lässt.
+   *
+   * Der Ablauf schickt den Browser auf 127.0.0.1 zurück - das geht nur auf, solange
+   * Browser und Dienst auf demselben Rechner laufen. Der Server beantwortet die Frage
+   * (siehe /ich); die Oberfläche blendet danach nur ein oder aus.
+   */
+  oauthMoeglich?: boolean;
 }
 
 /**

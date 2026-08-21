@@ -1353,6 +1353,23 @@ von der Organisation vorgegeben wird, und nennt den hinterlegten Ansprechpartner
 
 Ehrlich benannt, damit niemand es für erledigt hält:
 
+- **OAuth („Anmelden mit Google/Microsoft") geht im Serverbetrieb nicht.** Der Ablauf ist
+  darauf gebaut, dass Browser und Dienst auf demselben Rechner laufen: Der Dienst öffnet
+  einen kurzlebigen Horcher auf `127.0.0.1` und gibt dem Anbieter genau diese Adresse als
+  Rückleitung mit. In der Desktop-Hülle geht das auf. Wird der Dienst dagegen von einem
+  anderen Rechner aus bedient — also im Regelfall —, zeigt `127.0.0.1` auf den Rechner des
+  **Benutzers**. Dort horcht niemand, und die Anmeldung endet in einer Fehlerseite.
+
+  Die beiden Knöpfe werden deshalb im Serverbetrieb gar nicht erst angeboten (der Server
+  entscheidet das, siehe `/ich` → `oauthMoeglich`), und an ihrer Stelle steht der Hinweis
+  auf das anwendungsspezifische Kennwort. Gmail und Outlook lassen sich damit
+  einrichten — es ist ohnehin der Weg, den die Anleitung empfiehlt.
+
+  Damit OAuth auch hier ginge, müsste die Rückleitung auf die öffentliche Adresse zeigen
+  (`https://mail.beispiel.de/oauth/callback`), der Dienst einen dauerhaften Weg dafür
+  anbieten, und jeder Betreiber müsste genau diese Adresse bei Google bzw. Microsoft
+  eintragen. Das ist ein eigener Umbau und keine Kleinigkeit.
+
 - **Das Firmenverzeichnis wird nur gelesen.** Ein Nutzer, der dort steht, bekommt davon
   kein Postfach — angelegt wird weiterhin von Hand oder in der Verwaltung. Und die
   Anmeldung läuft nicht über LDAP: Wer sich hier anmeldet, tut das mit dem Kennwort

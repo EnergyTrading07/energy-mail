@@ -841,6 +841,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Accedi con {anbieter}',
   'Einrichtung nötig': 'Configurazione necessaria',
   'oder mit Passwort': 'oppure con una password',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google e Microsoft non si possono configurare qui tramite «Accedi con»: per farlo il provider rimanda il browser al computer su cui gira il servizio, e non è il suo. Usi una password specifica per l’applicazione; come si fa è spiegato nella guida del suo provider.',
   'Passwort / App-Passwort': 'Password / password per app',
   'Prüfe Verbindung…': 'Verifica della connessione…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'I server vengono dedotti dall\'indirizzo. Presso la maggior parte dei provider serve una password per app, non quella di accesso.',
@@ -1215,25 +1216,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'I messaggi cifrati non possono ancora contenere allegati. La firma funziona con gli allegati; per cifrare, invii senza.',
   'Der Datenordner ist nicht beschreibbar.': 'La cartella dei dati non è scrivibile.',
-  'Konto nicht gefunden': 'Account non trovato',
-  'Feld „{feld}“ fehlt.': 'Manca il campo «{feld}».',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '«{feld}» deve essere un numero intero compreso tra {von} e {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'La casella non è raggiungibile in questo momento. Controlli la connessione di rete: appena torna, potrà ricaricare.',
   'Interner Fehler': 'Errore interno',
   'Feld "email" ist erforderlich': 'Il campo «email» è obbligatorio',
   'E-Mail und Passwort sind erforderlich': 'Indirizzo e password sono obbligatori',
   'An wen soll freigegeben werden?': 'Con chi va condivisa?',
   'Diese Freigabe gibt es nicht.': 'Questa condivisione non esiste.',
-  'Kontakt nicht gefunden': 'Contatto non trovato',
-  'Die Datei ist leer': 'Il file è vuoto',
-  'Es wurde kein Schlüssel übergeben': 'Non è stata fornita alcuna chiave',
-  'Schlüssel nicht gefunden': 'Chiave non trovata',
-  'Es wurde keine Datei übergeben': 'Non è stato fornito alcun file',
-  'Zertifikat nicht gefunden': 'Certificato non trovato',
-  'Ein leerer Vermerk hilft niemandem.': 'Un\'annotazione vuota non aiuta nessuno.',
-  'Unbekannte Aufbewahrungsart.': 'Categoria di conservazione sconosciuta.',
-  'Etikett nicht gefunden': 'Etichetta non trovata',
-  'Suche nicht gefunden': 'Ricerca non trovata',
+  'Konto nicht gefunden': 'Account non trovato',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'L\'accesso a questo provider è stabilito dalla sua organizzazione e non può essere modificato qui.',
   'Client-ID ist erforderlich': 'L\'ID client è obbligatorio',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'Questo account accede con una password: non esiste un nuovo accesso tramite il provider.',
@@ -1340,6 +1329,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Non è disponibile nemmeno una chiave pubblica.',
   'Keine Unterschrift gefunden.': 'Nessuna firma trovata.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'La chiave del firmatario non è disponibile.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Contatto non trovato',
+  'Die Datei ist leer': 'Il file è vuoto',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Un\'annotazione vuota non aiuta nessuno.',
+  'Unbekannte Aufbewahrungsart.': 'Categoria di conservazione sconosciuta.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Etichetta non trovata',
+  'Suche nicht gefunden': 'Ricerca non trovata',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Manca il campo «{feld}».',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '«{feld}» deve essere un numero intero compreso tra {von} e {bis}.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Non è stata fornita alcuna chiave',
+  'Schlüssel nicht gefunden': 'Chiave non trovata',
+  'Es wurde keine Datei übergeben': 'Non è stato fornito alcun file',
+  'Zertifikat nicht gefunden': 'Certificato non trovato',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Senza cifratura configurata la chiave privata resterebbe in chiaro: viene rifiutato.',

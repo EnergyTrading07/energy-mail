@@ -916,6 +916,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Zaloguj się przez {anbieter}',
   'Einrichtung nötig': 'Wymagana konfiguracja',
   'oder mit Passwort': 'albo hasłem',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google i Microsoft nie dają się tu skonfigurować przez „Zaloguj się przez”: dostawca odsyła w tym celu przeglądarkę na komputer, na którym działa usługa — a to nie jest Twój komputer. Użyj hasła do aplikacji; jak to zrobić, znajdziesz w pomocy swojego dostawcy.',
   'Passwort / App-Passwort': 'Hasło / hasło aplikacji',
   'Prüfe Verbindung…': 'Sprawdzanie połączenia…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'Serwery są rozpoznawane na podstawie adresu. U większości dostawców potrzebne jest hasło aplikacji, a nie hasło do logowania.',
@@ -1302,25 +1303,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Zaszyfrowane wiadomości nie mogą jeszcze zawierać załączników. Podpisywanie działa z załącznikami; aby zaszyfrować, wyślij bez nich.',
   'Der Datenordner ist nicht beschreibbar.': 'Folder danych nie jest zapisywalny.',
-  'Konto nicht gefunden': 'Nie znaleziono konta',
-  'Feld „{feld}“ fehlt.': 'Brakuje pola „{feld}”.',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '„{feld}” musi być liczbą całkowitą z zakresu od {von} do {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'Skrzynka jest w tej chwili nieosiągalna. Sprawdź połączenie sieciowe – gdy tylko wróci, można odświeżyć.',
   'Interner Fehler': 'Błąd wewnętrzny',
   'Feld "email" ist erforderlich': 'Pole "email" jest wymagane',
   'E-Mail und Passwort sind erforderlich': 'Adres e-mail i hasło są wymagane',
   'An wen soll freigegeben werden?': 'Komu udostępnić?',
   'Diese Freigabe gibt es nicht.': 'Takiego udostępnienia nie ma.',
-  'Kontakt nicht gefunden': 'Nie znaleziono kontaktu',
-  'Die Datei ist leer': 'Plik jest pusty',
-  'Es wurde kein Schlüssel übergeben': 'Nie przekazano żadnego klucza',
-  'Schlüssel nicht gefunden': 'Nie znaleziono klucza',
-  'Es wurde keine Datei übergeben': 'Nie przekazano żadnego pliku',
-  'Zertifikat nicht gefunden': 'Nie znaleziono certyfikatu',
-  'Ein leerer Vermerk hilft niemandem.': 'Pusta adnotacja nikomu nie pomoże.',
-  'Unbekannte Aufbewahrungsart.': 'Nieznany rodzaj przechowywania.',
-  'Etikett nicht gefunden': 'Nie znaleziono etykiety',
-  'Suche nicht gefunden': 'Nie znaleziono wyszukiwania',
+  'Konto nicht gefunden': 'Nie znaleziono konta',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'Sposób logowania u tego dostawcy narzuca Twoja organizacja i nie można go tu zmienić.',
   'Client-ID ist erforderlich': 'Identyfikator klienta jest wymagany',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'To konto loguje się hasłem – nie ma dla niego ponownego logowania przez dostawcę.',
@@ -1427,6 +1416,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Nie ma ani jednego klucza publicznego.',
   'Keine Unterschrift gefunden.': 'Nie znaleziono podpisu.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'Brak klucza osoby podpisującej.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Nie znaleziono kontaktu',
+  'Die Datei ist leer': 'Plik jest pusty',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Pusta adnotacja nikomu nie pomoże.',
+  'Unbekannte Aufbewahrungsart.': 'Nieznany rodzaj przechowywania.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Nie znaleziono etykiety',
+  'Suche nicht gefunden': 'Nie znaleziono wyszukiwania',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Brakuje pola „{feld}”.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '„{feld}” musi być liczbą całkowitą z zakresu od {von} do {bis}.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Nie przekazano żadnego klucza',
+  'Schlüssel nicht gefunden': 'Nie znaleziono klucza',
+  'Es wurde keine Datei übergeben': 'Nie przekazano żadnego pliku',
+  'Zertifikat nicht gefunden': 'Nie znaleziono certyfikatu',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Bez skonfigurowanego szyfrowania klucz prywatny leżałby otwartym tekstem – na to nie ma zgody.',

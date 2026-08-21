@@ -28,6 +28,7 @@ import {
   offeneCodes,
   pruefeZweitenFaktor,
 } from './zweiFaktor.js';
+import { oeffentlicheAdressen } from '../zugang.js';
 import { t } from '@energy-mail/mail-core/sprache';
 
 /**
@@ -335,6 +336,27 @@ export function registriereAnmeldung(
        * Abmelden-Knopf führte dort ins Leere.
        */
       abmeldbar: Boolean(request.cookies[KEKS_NAME]),
+      /**
+       * Ob sich ein Konto über OAuth einrichten lässt.
+       *
+       * Der Ablauf verlangt, dass der BROWSER den Rückweg erreicht: Der Dienst öffnet
+       * einen kurzlebigen Horcher auf 127.0.0.1 und gibt Google bzw. Microsoft genau
+       * diese Adresse als Rückleitung mit (siehe oauthFlow.ts). Das geht auf, solange
+       * Browser und Dienst auf demselben Rechner laufen - in der Desktop-Hülle also
+       * immer, und bei einem Server, den man von ebendiesem Rechner aus bedient, auch.
+       *
+       * Sobald der Dienst aber von woanders benutzt wird, zeigt "127.0.0.1" auf den
+       * Rechner des BENUTZERS. Dort horcht niemand, und der Vorgang kann nicht zu Ende
+       * gehen - er läuft in eine Fehlerseite oder in die Zeitüberschreitung.
+       *
+       * Entschieden wird an der öffentlichen Adresse, weil sie genau diese Frage
+       * beantwortet: Sie ist gesetzt, wenn der Dienst für andere Rechner erreichbar sein
+       * soll (index.ts verlangt sie, sobald nach außen gehorcht wird), und leer, wenn
+       * nicht. Und hier entscheidet sie der Server und nicht die Oberfläche anhand von
+       * window.energyMail - dasselbe Prinzip wie bei /ich überhaupt: eine Abfrage, zwei
+       * Betriebsarten.
+       */
+      oauthMoeglich: oeffentlicheAdressen().length === 0,
     };
   });
 

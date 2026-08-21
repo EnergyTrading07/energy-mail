@@ -920,6 +920,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Войти через {anbieter}',
   'Einrichtung nötig': 'Нужна настройка',
   'oder mit Passwort': 'или по паролю',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google и Microsoft здесь нельзя настроить через «Войти через»: провайдер возвращает для этого браузер на компьютер, где работает служба, — а это не ваш компьютер. Используйте пароль приложения; как это сделать, написано в справке вашего провайдера.',
   'Passwort / App-Passwort': 'Пароль / пароль приложения',
   'Prüfe Verbindung…': 'Проверка связи…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'Серверы определяются по адресу. У большинства провайдеров нужен пароль приложения, а не пароль от учётной записи.',
@@ -1306,25 +1307,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Зашифрованные сообщения пока не могут содержать вложения. Подпись работает с вложениями; для шифрования отправьте без них.',
   'Der Datenordner ist nicht beschreibbar.': 'Папка данных недоступна для записи.',
-  'Konto nicht gefunden': 'Аккаунт не найден',
-  'Feld „{feld}“ fehlt.': 'Отсутствует поле «{feld}».',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '«{feld}» должно быть целым числом от {von} до {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'Почтовый ящик сейчас недоступен. Проверьте сетевое подключение — как только оно вернётся, можно обновить.',
   'Interner Fehler': 'Внутренняя ошибка',
   'Feld "email" ist erforderlich': 'Поле "email" обязательно',
   'E-Mail und Passwort sind erforderlich': 'Нужны адрес почты и пароль',
   'An wen soll freigegeben werden?': 'Кому открыть доступ?',
   'Diese Freigabe gibt es nicht.': 'Такого доступа нет.',
-  'Kontakt nicht gefunden': 'Контакт не найден',
-  'Die Datei ist leer': 'Файл пуст',
-  'Es wurde kein Schlüssel übergeben': 'Ключ не передан',
-  'Schlüssel nicht gefunden': 'Ключ не найден',
-  'Es wurde keine Datei übergeben': 'Файл не передан',
-  'Zertifikat nicht gefunden': 'Сертификат не найден',
-  'Ein leerer Vermerk hilft niemandem.': 'Пустая пометка никому не поможет.',
-  'Unbekannte Aufbewahrungsart.': 'Неизвестный вид хранения.',
-  'Etikett nicht gefunden': 'Метка не найдена',
-  'Suche nicht gefunden': 'Поиск не найден',
+  'Konto nicht gefunden': 'Аккаунт не найден',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'Способ входа у этого провайдера задан вашей организацией, и здесь его изменить нельзя.',
   'Client-ID ist erforderlich': 'Идентификатор клиента обязателен',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'Этот аккаунт входит по паролю — повторного входа через провайдера для него нет.',
@@ -1431,6 +1420,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Нет ни одного открытого ключа.',
   'Keine Unterschrift gefunden.': 'Подпись не найдена.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'Ключа подписавшего нет.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Контакт не найден',
+  'Die Datei ist leer': 'Файл пуст',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Пустая пометка никому не поможет.',
+  'Unbekannte Aufbewahrungsart.': 'Неизвестный вид хранения.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Метка не найдена',
+  'Suche nicht gefunden': 'Поиск не найден',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Отсутствует поле «{feld}».',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '«{feld}» должно быть целым числом от {von} до {bis}.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Ключ не передан',
+  'Schlüssel nicht gefunden': 'Ключ не найден',
+  'Es wurde keine Datei übergeben': 'Файл не передан',
+  'Zertifikat nicht gefunden': 'Сертификат не найден',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Без настроенного шифрования закрытый ключ лежал бы открытым текстом — на это нет согласия.',

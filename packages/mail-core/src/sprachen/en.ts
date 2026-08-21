@@ -840,6 +840,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Sign in with {anbieter}',
   'Einrichtung nötig': 'Setup required',
   'oder mit Passwort': 'or with a password',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google and Microsoft cannot be set up here via “Sign in with”: for that the provider sends the browser back to the computer the service runs on — and that is not yours. Use an app-specific password; your provider’s help pages explain how.',
   'Passwort / App-Passwort': 'Password / app password',
   'Prüfe Verbindung…': 'Checking connection…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'Servers are detected from the address. Most providers need an app password, not your login password.',
@@ -1214,25 +1215,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Encrypted messages cannot carry attachments yet. Signing works with attachments; to encrypt, please send without.',
   'Der Datenordner ist nicht beschreibbar.': 'The data folder is not writable.',
-  'Konto nicht gefunden': 'Account not found',
-  'Feld „{feld}“ fehlt.': 'Field “{feld}” is missing.',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” must be a whole number between {von} and {bis}.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'The mailbox cannot be reached right now. Check your network connection – once it is back, you can reload.',
   'Interner Fehler': 'Internal error',
   'Feld "email" ist erforderlich': 'Field "email" is required',
   'E-Mail und Passwort sind erforderlich': 'Email and password are required',
   'An wen soll freigegeben werden?': 'Who should it be shared with?',
   'Diese Freigabe gibt es nicht.': 'There is no such share.',
-  'Kontakt nicht gefunden': 'Contact not found',
-  'Die Datei ist leer': 'The file is empty',
-  'Es wurde kein Schlüssel übergeben': 'No key was supplied',
-  'Schlüssel nicht gefunden': 'Key not found',
-  'Es wurde keine Datei übergeben': 'No file was supplied',
-  'Zertifikat nicht gefunden': 'Certificate not found',
-  'Ein leerer Vermerk hilft niemandem.': 'An empty note helps no one.',
-  'Unbekannte Aufbewahrungsart.': 'Unknown retention category.',
-  'Etikett nicht gefunden': 'Label not found',
-  'Suche nicht gefunden': 'Search not found',
+  'Konto nicht gefunden': 'Account not found',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'Sign-in for this provider is set by your organisation and cannot be changed here.',
   'Client-ID ist erforderlich': 'Client ID is required',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'This account signs in with a password – there is no provider sign-in to renew.',
@@ -1339,6 +1328,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Not a single public key is available.',
   'Keine Unterschrift gefunden.': 'No signature found.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'The signer\'s key is not available.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Contact not found',
+  'Die Datei ist leer': 'The file is empty',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'An empty note helps no one.',
+  'Unbekannte Aufbewahrungsart.': 'Unknown retention category.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Label not found',
+  'Suche nicht gefunden': 'Search not found',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Field “{feld}” is missing.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” must be a whole number between {von} and {bis}.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'No key was supplied',
+  'Schlüssel nicht gefunden': 'Key not found',
+  'Es wurde keine Datei übergeben': 'No file was supplied',
+  'Zertifikat nicht gefunden': 'Certificate not found',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Without encryption set up, the private key would sit in plain text – that is refused.',

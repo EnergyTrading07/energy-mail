@@ -841,6 +841,7 @@ export const KATALOG: Katalog = {
   'Mit {anbieter} anmelden': 'Aanmelden met {anbieter}',
   'Einrichtung nötig': 'Instellen vereist',
   'oder mit Passwort': 'of met een wachtwoord',
+  'Google und Microsoft lassen sich hier nicht über „Anmelden mit“ einrichten: Der Anbieter schickt den Browser dafür an den Rechner zurück, auf dem der Dienst läuft - und das ist nicht Ihrer. Nehmen Sie ein anwendungsspezifisches Kennwort; wie das geht, steht in der Hilfe Ihres Anbieters.': 'Google en Microsoft kunnen hier niet via “Aanmelden met” worden ingesteld: de provider stuurt de browser daarvoor terug naar de computer waarop de dienst draait — en dat is niet de uwe. Gebruik een app-specifiek wachtwoord; hoe dat gaat, staat in de help van uw provider.',
   'Passwort / App-Passwort': 'Wachtwoord / app-wachtwoord',
   'Prüfe Verbindung…': 'Verbinding controleren…',
   'Server werden aus der Adresse erkannt. Bei den meisten Anbietern wird ein App-Passwort benötigt, nicht das Login-Passwort.': 'De servers worden uit het adres afgeleid. Bij de meeste providers is een app-wachtwoord nodig, niet uw aanmeldwachtwoord.',
@@ -1215,25 +1216,13 @@ export const KATALOG: Katalog = {
   // --- packages/server/src/app.ts ---
   'Verschlüsselte Nachrichten können noch keine Anhänge tragen. Unterschreiben geht mit Anhang; zum Verschlüsseln bitte ohne senden.': 'Versleutelde berichten kunnen nog geen bijlagen bevatten. Ondertekenen werkt wel met bijlagen; verstuur zonder bijlage om te versleutelen.',
   'Der Datenordner ist nicht beschreibbar.': 'De gegevensmap is niet beschrijfbaar.',
-  'Konto nicht gefunden': 'Account niet gevonden',
-  'Feld „{feld}“ fehlt.': 'Het veld “{feld}” ontbreekt.',
-  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” moet een geheel getal tussen {von} en {bis} zijn.',
   'Das Postfach ist gerade nicht erreichbar. Prüfen Sie die Netzwerkverbindung – sobald sie wieder steht, lässt sich neu laden.': 'De postbus is op dit moment niet bereikbaar. Controleer de netwerkverbinding; zodra die er weer is, kunt u opnieuw laden.',
   'Interner Fehler': 'Interne fout',
   'Feld "email" ist erforderlich': 'Het veld “email” is verplicht',
   'E-Mail und Passwort sind erforderlich': 'E-mailadres en wachtwoord zijn verplicht',
   'An wen soll freigegeben werden?': 'Met wie moet worden gedeeld?',
   'Diese Freigabe gibt es nicht.': 'Deze deling bestaat niet.',
-  'Kontakt nicht gefunden': 'Contact niet gevonden',
-  'Die Datei ist leer': 'Het bestand is leeg',
-  'Es wurde kein Schlüssel übergeben': 'Er is geen sleutel meegegeven',
-  'Schlüssel nicht gefunden': 'Sleutel niet gevonden',
-  'Es wurde keine Datei übergeben': 'Er is geen bestand aangeleverd',
-  'Zertifikat nicht gefunden': 'Certificaat niet gevonden',
-  'Ein leerer Vermerk hilft niemandem.': 'Een lege aantekening helpt niemand.',
-  'Unbekannte Aufbewahrungsart.': 'Onbekende bewaarcategorie.',
-  'Etikett nicht gefunden': 'Label niet gevonden',
-  'Suche nicht gefunden': 'Zoekopdracht niet gevonden',
+  'Konto nicht gefunden': 'Account niet gevonden',
   'Die Anmeldung bei diesem Anbieter wird von Ihrer Organisation vorgegeben und lässt sich hier nicht ändern.': 'Het aanmelden bij deze provider wordt door uw organisatie bepaald en kan hier niet worden gewijzigd.',
   'Client-ID ist erforderlich': 'Client-ID is verplicht',
   'Dieses Konto meldet sich mit Passwort an - eine Neuanmeldung über den Anbieter gibt es dafür nicht.': 'Dit account meldt zich aan met een wachtwoord; opnieuw aanmelden via de provider bestaat daarvoor niet.',
@@ -1340,6 +1329,28 @@ export const KATALOG: Katalog = {
   'Es liegt kein einziger öffentlicher Schlüssel vor.': 'Er is geen enkele openbare sleutel beschikbaar.',
   'Keine Unterschrift gefunden.': 'Geen handtekening gevonden.',
   'Der Schlüssel des Unterzeichners liegt nicht vor.': 'De sleutel van de ondertekenaar is niet beschikbaar.',
+
+  // --- packages/server/src/routen/adressbuch.ts ---
+  'Kontakt nicht gefunden': 'Contact niet gevonden',
+  'Die Datei ist leer': 'Het bestand is leeg',
+
+  // --- packages/server/src/routen/archiv.ts ---
+  'Ein leerer Vermerk hilft niemandem.': 'Een lege aantekening helpt niemand.',
+  'Unbekannte Aufbewahrungsart.': 'Onbekende bewaarcategorie.',
+
+  // --- packages/server/src/routen/etikettenUndSuchen.ts ---
+  'Etikett nicht gefunden': 'Label niet gevonden',
+  'Suche nicht gefunden': 'Zoekopdracht niet gevonden',
+
+  // --- packages/server/src/routen/gemeinsam.ts ---
+  'Feld „{feld}“ fehlt.': 'Het veld “{feld}” ontbreekt.',
+  '„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.': '“{feld}” moet een geheel getal tussen {von} en {bis} zijn.',
+
+  // --- packages/server/src/routen/schluessel.ts ---
+  'Es wurde kein Schlüssel übergeben': 'Er is geen sleutel meegegeven',
+  'Schlüssel nicht gefunden': 'Sleutel niet gevonden',
+  'Es wurde keine Datei übergeben': 'Er is geen bestand aangeleverd',
+  'Zertifikat nicht gefunden': 'Certificaat niet gevonden',
 
   // --- packages/server/src/schluesselbund.ts ---
   'Ohne eingerichtete Verschlüsselung würde der geheime Schlüssel im Klartext liegen - das wird abgelehnt.': 'Zonder ingestelde versleuteling zou de privésleutel in leesbare vorm worden opgeslagen; dat wordt geweigerd.',
