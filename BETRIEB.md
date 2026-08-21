@@ -965,6 +965,35 @@ nach einer Aktualisierung sein Postfach neu laden.
 
 Vor größeren Sprüngen: einmal `./betrieb/sicherung.sh`.
 
+### Die Fassungsnummer mitziehen
+
+`FASSUNG` in der `.env` bestimmt zweierlei: die Marke des gebauten Abbilds und das, was
+`/gesundheit` als `fassung` meldet. Sie wird **nicht** von selbst nachgezogen — nach einem
+`git pull` meldet der Dienst weiterhin die alte Zahl. Bei einer Störung ist die erste
+Frage aber immer, welcher Stand dort eigentlich läuft, und dann ist eine Zahl, die nicht
+stimmt, schlimmer als keine.
+
+Deshalb aus dem Stand selbst ableiten:
+
+```bash
+FASSUNG=$(git describe --tags --always --dirty)   # z. B. v0.4.0-1-gd9c235c
+sed -i "s|^FASSUNG=.*|FASSUNG=$FASSUNG|" .env
+docker compose up -d --build
+```
+
+Die Angabe nennt dann die letzte Marke, wie viele Commits seitdem dazugekommen sind und
+welcher es ist — eine Auskunft statt einer Behauptung.
+
+**Ein Nebeneffekt, den man kennen sollte:** Damit bekommt jeder Stand seine eigene Marke,
+und die vorige wird nicht mehr überschrieben. Die Abbilder häufen sich also, rund 500 MB
+je Auslieferung. Ein `docker image rm energy-mail:<alte-marke>` von Zeit zu Zeit räumt
+auf; die letzten zwei sind es wert, aufgehoben zu werden, denn damit ist ein Rückweg ein
+Eintrag in der `.env` und ein `docker compose up -d` — ohne neu zu bauen.
+
+> Auf dem Zielrechner erledigt das ein Skript, das die Sicherung vorweg zieht, die Fassung
+> setzt, wartet bis der Dienst gesund ist und die alten Abbilder bis auf drei wegräumt.
+> Es liegt bewusst außerhalb des Git-Arbeitsbaums, damit ein Zweigwechsel es nicht berührt.
+
 ---
 
 ## 8. Nachsehen, ob alles läuft
