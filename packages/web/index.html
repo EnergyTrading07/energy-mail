@@ -25,6 +25,20 @@
                            Grenze, die nach einem Fehler anderswo noch greifen müsste,
                            war damit offen. Der Kommentar behauptete bereits das
                            Richtige, die Zeile darunter tat es nicht.
+
+      Zu den 4000ern in connect-src: Sie sind NICHT die Bedingung dafür, dass die
+      ausgelieferte Anwendung mit ihrem Server sprechen kann. Das leistet 'self', und
+      zwar auch für die WebSocket-Verbindung - 'self' deckt ws:// auf derselben Herkunft
+      mit ab. Das ist keine Vermutung: Seit die Hülle einen belegten Port 4000 nicht mehr
+      als Startfehler behandelt, sondern ausweicht (siehe sucheFreienPort in
+      desktop/src/main.ts), läuft die Anwendung regelmäßig auf einem anderen Port.
+      Nachgemessen an einem Lauf auf Port 65061: Oberfläche, alle Abrufe und /ws kamen
+      durch, ohne eine einzige Meldung über eine verletzte Richtlinie.
+
+      Stehen bleiben die Einträge für den Entwicklungsbetrieb: Dort liegt die Oberfläche
+      auf 5173 und der Server auf 4000 - zwei verschiedene Herkünfte, und da hilft 'self'
+      nicht. Wer hier aufräumt, nimmt der Entwicklung den Zugriff, ohne dass es der
+      ausgelieferten Anwendung auffiele.
         script-src 'self'  ausdrücklich, statt es nur von default-src zu erben
         object-src 'none'  keine eingebetteten Fremdformate
         base-uri 'none'    kein Umbiegen relativer Adressen
