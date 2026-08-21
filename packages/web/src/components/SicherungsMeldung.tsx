@@ -54,7 +54,7 @@ export function SicherungsMeldung({ accountId, ordner, onFertig }: Props) {
         <strong>{fertig ? `„${ordner}" gesichert` : `„${ordner}" wird gesichert`}</strong>
         <span>
           {fertig
-            ? t('Die Datei liegt in deinem Download-Ordner.')
+            ? t('Die Datei liegt in Ihrem Download-Ordner.')
             : (stand?.text ?? t('Nachrichten werden geholt…'))}
         </span>
       </div>

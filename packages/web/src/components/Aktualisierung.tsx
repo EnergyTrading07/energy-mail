@@ -82,7 +82,7 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
         <p>{t('Diese Fassung ({fassung}) ist die neueste.', { fassung: stand.fassung })}</p>
       )}
 
-      {stand.phase === 'gefunden' && <p>{t('Wird im Hintergrund geladen – du kannst weiterarbeiten.')}</p>}
+      {stand.phase === 'gefunden' && <p>{t('Wird im Hintergrund geladen – Sie können weiterarbeiten.')}</p>}
 
       {stand.phase === 'laedt' && (
         <>
@@ -96,7 +96,7 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
             <span>{Math.round(stand.prozent)} %</span>
             <span>{proSekunde(stand.proSekunde)}</span>
           </div>
-          <p>{t('Du kannst weiterarbeiten – eingespielt wird erst beim Beenden.')}</p>
+          <p>{t('Sie können weiterarbeiten – eingespielt wird erst beim Beenden.')}</p>
         </>
       )}
 
@@ -111,8 +111,9 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
             </div>
           )}
           <p>
-            Eingespielt wird beim nächsten Beenden – oder sofort, wenn du jetzt neu
-            startest. Es geht nichts verloren.
+            {t(
+              'Eingespielt wird beim nächsten Beenden – oder sofort, wenn Sie jetzt neu starten. Es geht nichts verloren.',
+            )}
           </p>
           <div className="aktualisierung-fuss">
             <button className="btn" onClick={onNeuStarten}>{t('Jetzt neu starten')}</button>
@@ -124,8 +125,8 @@ export function Aktualisierung({ stand, onNeuStarten, onSchliessen }: Props) {
       {stand.phase === 'fehler' && (
         <p>
           {stand.grund}
-          {'\n\n'}Das hat keine Folgen für den Mailabruf – beim nächsten Start wird es
-          erneut versucht.
+          {'\n\n'}
+          {t('Das hat keine Folgen für den Mailabruf – beim nächsten Start wird es erneut versucht.')}
         </p>
       )}
     </div>

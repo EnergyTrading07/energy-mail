@@ -16,7 +16,7 @@ import { EtikettMarken } from './Etiketten.js';
 import { Monogramm } from './Monogramm.js';
 import { SearchBar, type SucheEingabe } from './SearchBar.js';
 import { Klammer, LeererKorb, Winkel } from './Symbole.js';
-import { datum, t, uhrzeit, zahl } from '../sprache.js';
+import { datum, t, tp, uhrzeit, zahl } from '../sprache.js';
 
 // Weitergereicht, damit Aufrufer den Typ nicht aus zwei Modulen holen müssen.
 export type { Listeneintrag };
@@ -128,9 +128,10 @@ function LokalHinweis({
         über den Anbieter rechts daneben, und der reicht ohnehin weiter.
       */}
       <span>
-        Sofort gefunden ({stand.dauerMs} ms) — in Betreff, Absender und Empfänger von{' '}
-        {zahl(stand.bestand.kopfdaten)} Nachrichten. Im Nachrichtentext
-        sucht nur der Anbieter.
+        {t(
+          'Sofort gefunden ({dauer} ms) — in Betreff, Absender und Empfänger von {anzahl} Nachrichten. Im Nachrichtentext sucht nur der Anbieter.',
+          { dauer: stand.dauerMs, anzahl: zahl(stand.bestand.kopfdaten) },
+        )}
       </span>
       <button className="link-btn" onClick={onVollstaendig}>{t('Beim Anbieter vollständig suchen')}</button>
     </div>
@@ -236,7 +237,7 @@ const MessageRow = memo(function MessageRow({
         <div className="row-top">
           <span className="row-sender">{absender(message)}</span>
           {message.hasAttachments && (
-            <span className="row-clip" title="Enthält Anhänge">
+            <span className="row-clip" title={t('Enthält Anhänge')}>
               <Klammer groesse={13} />
             </span>
           )}
@@ -427,11 +428,11 @@ export function MessageList({
           <div className="row-body">
             <div className="row-top">
               <span className="row-sender">{gruppe.beteiligte.join(', ')}</span>
-              <span className="gespraech-anzahl" title={`${gruppe.nachrichten.length} Nachrichten`}>
+              <span className="gespraech-anzahl" title={tp(gruppe.nachrichten.length, '{anzahl} Nachricht', '{anzahl} Nachrichten')}>
                 {gruppe.nachrichten.length}
               </span>
               {gruppe.mitAnhang && (
-                <span className="row-clip" title="Enthält Anhänge">
+                <span className="row-clip" title={t('Enthält Anhänge')}>
                   <Klammer groesse={13} />
                 </span>
               )}
@@ -463,7 +464,7 @@ export function MessageList({
     <section
       className={`message-pane dichte-${dichte}`}
       id="nachrichtenliste"
-      aria-label="Nachrichtenliste"
+      aria-label={t('Nachrichtenliste')}
     >
       <div className="list-head">
         {/* In der Gesamtliste gibt es kein Ankreuzen. Eine UID gilt nur innerhalb
@@ -471,10 +472,10 @@ export function MessageList({
             Nachrichten, und eine Sammelaktion traefe die falsche. Lieber gar nicht
             anbieten als im Postfach eines anderen Kontos etwas loeschen. */}
         {!gesamtAnsicht && (
-          <label className="select-all" title="Alle auf dieser Seite auswählen">
+          <label className="select-all" title={t('Alle auf dieser Seite auswählen')}>
             <input
               type="checkbox"
-              aria-label="Alle Nachrichten auf dieser Seite auswählen"
+              aria-label={t('Alle Nachrichten auf dieser Seite auswählen')}
               checked={alleAngekreuzt}
               disabled={messages.length === 0}
               onChange={(e) => onToggleAll(e.target.checked)}
@@ -525,9 +526,9 @@ export function MessageList({
           className="link-btn neu-laden"
           onClick={onNeuLaden}
           disabled={loading}
-          title="Nach neuen Nachrichten sehen"
+          title={t('Nach neuen Nachrichten sehen')}
         >
-          {loading ? t('Lädt…') : '↻ Neu laden'}
+          {loading ? t('Lädt…') : `↻ ${t('Neu laden')}`}
         </button>
 
         <label className="steuerung-feld">
@@ -575,7 +576,10 @@ export function MessageList({
             einen oben nach etwas suchen, das weiter unten steht. */}
         {!umfasstAlles(sortierung) && messages.length < total && (
           <span className="steuerung-hinweis">
-            sortiert die {messages.length} geladenen von {zahl(total)}
+            {t('sortiert die {geladen} geladenen von {gesamt}', {
+              geladen: messages.length,
+              gesamt: zahl(total),
+            })}
           </span>
         )}
       </div>
@@ -583,8 +587,9 @@ export function MessageList({
       {gesamtAnsicht && (fehlendeKonten?.length ?? 0) > 0 && (
         <div className="ohne-verbindung" role="status">
           <span>
-            {fehlendeKonten!.map((k) => k.email).join(', ')} antwortet nicht – die Liste ist
-            unvollständig.
+            {t('{konten} antwortet nicht – die Liste ist unvollständig.', {
+              konten: fehlendeKonten!.map((k) => k.email).join(', '),
+            })}
           </span>
         </div>
       )}
@@ -592,8 +597,10 @@ export function MessageList({
       {ohneVerbindung && (
         <div className="ohne-verbindung" role="status">
           <span>
-            <strong>{t('Keine Verbindung.')}</strong> Gezeigt wird der zuletzt geholte Stand von
-            deinem Rechner. Gelesen werden kann alles, was schon einmal offen war.
+            <strong>{t('Keine Verbindung.')}</strong>{' '}
+            {t(
+              'Gezeigt wird der zuletzt geholte Stand von Ihrem Rechner. Gelesen werden kann alles, was schon einmal offen war.',
+            )}
           </span>
         </div>
       )}
@@ -612,7 +619,9 @@ export function MessageList({
         className="message-scroll"
         role="listbox"
         tabIndex={0}
-        aria-label={searchActive ? 'Suchergebnisse' : `Nachrichten in ${folderLabel}`}
+        aria-label={
+          searchActive ? t('Suchergebnisse') : t('Nachrichten in {ordner}', { ordner: folderLabel })
+        }
         aria-busy={loading || undefined}
         aria-activedescendant={aktiveZeile}
       >
@@ -637,8 +646,8 @@ export function MessageList({
               rechnete mit einer langen Wartezeit und bekam 25 Zeilen.
             */}
             {loadingMore
-              ? 'Lade…'
-              : `Mehr laden (noch ${zahl(total - messages.length)})`}
+              ? t('Lade…')
+              : t('Mehr laden (noch {rest})', { rest: zahl(total - messages.length) })}
           </button>
         )}
       </div>

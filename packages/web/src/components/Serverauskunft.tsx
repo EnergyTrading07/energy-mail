@@ -155,7 +155,7 @@ export function Serverauskunft({ email, vonHand, onVonHand, werte, onWert }: Pro
         <span className="server-status server-fehlt">
           {t('Für {domain} ist nichts hinterlegt', { domain: domain ?? '' })}
           <span className="server-details">
-            {t('Die Adressen stehen in der Hilfe deines Anbieters, meist unter „IMAP“.')}
+            {t('Die Adressen stehen in der Hilfe Ihres Anbieters, meist unter „IMAP“.')}
           </span>
         </span>
       )}

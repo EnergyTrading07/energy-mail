@@ -126,7 +126,7 @@ export function OAuthSetupModal({ onClose, onChanged }: Props) {
       setClients(aktualisiert);
       onChanged(aktualisiert);
       setHinweis(
-        t('{anbieter} ist eingerichtet. Du kannst dich jetzt anmelden.', {
+        t('{anbieter} ist eingerichtet. Sie können sich jetzt anmelden.', {
           anbieter: anleitung.titel,
         }),
       );
@@ -166,7 +166,7 @@ export function OAuthSetupModal({ onClose, onChanged }: Props) {
 
       <p className="hint" style={{ padding: '0 0 12px' }}>
         {t(
-          'Google und Microsoft lassen IMAP nur noch mit OAuth zu. Dafür braucht jede Anwendung eigene Zugangsdaten, die du selbst beim Anbieter anlegen musst – das kann kein Programm für dich tun. Es ist einmalig pro Anbieter nötig.',
+          'Google und Microsoft lassen IMAP nur noch mit OAuth zu. Dafür braucht jede Anwendung eigene Zugangsdaten, die Sie selbst beim Anbieter anlegen müssen – das kann kein Programm für Sie tun. Es ist einmalig pro Anbieter nötig.',
         )}
       </p>
 

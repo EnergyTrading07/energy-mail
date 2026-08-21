@@ -133,8 +133,8 @@ export function SearchBar({
         <Lupe groesse={14} />
         <input
           type="search"
-          aria-label="Nachrichten durchsuchen"
-          placeholder="Suchen…"
+          aria-label={t('Nachrichten durchsuchen')}
+          placeholder={t('Suchen…')}
           value={eingabe.text}
           onChange={(e) => setze('text', e.target.value)}
         />
@@ -149,8 +149,8 @@ export function SearchBar({
             setEingabe((v) => ({ ...v, bereich }));
             if (hatEinschraenkung(eingabe)) onSearch({ ...eingabe, bereich });
           }}
-          aria-label="Wo gesucht wird"
-          title="Wo gesucht wird"
+          aria-label={t('Wo gesucht wird')}
+          title={t('Wo gesucht wird')}
         >
           <option value="ordner">{t('Dieser Ordner')}</option>
           <option value="konto">{t('Alle Ordner')}</option>
@@ -185,7 +185,7 @@ export function SearchBar({
             <span>Von</span>
             <input
               type="text"
-              placeholder="Absender"
+              placeholder={t('Absender')}
               value={eingabe.from}
               onChange={(e) => setze('from', e.target.value)}
             />
@@ -194,7 +194,7 @@ export function SearchBar({
             <span>{t('Betreff')}</span>
             <input
               type="text"
-              placeholder="enthält…"
+              placeholder={t('enthält…')}
               value={eingabe.subject}
               onChange={(e) => setze('subject', e.target.value)}
             />
@@ -224,7 +224,7 @@ export function SearchBar({
                 checked={eingabe.unreadOnly}
                 onChange={(e) => setze('unreadOnly', e.target.checked)}
               />
-              nur ungelesen
+              {t('nur ungelesen')}
             </label>
             <label
               title={
@@ -241,13 +241,13 @@ export function SearchBar({
                 checked={eingabe.withAttachment}
                 onChange={(e) => setze('withAttachment', e.target.checked)}
               />
-              nur mit Anhang
+              {t('nur mit Anhang')}
             </label>
           </div>
           <label className="such-etikett">
             <span>{t('Etikett')}</span>
             <select value={eingabe.etikett} onChange={(e) => setze('etikett', e.target.value)}>
-              <option value="">alle</option>
+              <option value="">{t('alle')}</option>
               {etiketten.map((etikett) => (
                 <option key={etikett.schluessel} value={etikett.schluessel}>
                   {etikett.name}
@@ -263,7 +263,7 @@ export function SearchBar({
                 className="link-btn"
                 disabled={!hatEinschraenkung(eingabe)}
                 onClick={() => onSpeichern(eingabe)}
-                title="Diese Suche in der Seitenleiste ablegen"
+                title={t('Diese Suche in der Seitenleiste ablegen')}
               >{t('Suche merken')}</button>
             )}
           </div>

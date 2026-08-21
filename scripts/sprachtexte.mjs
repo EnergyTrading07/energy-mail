@@ -145,3 +145,144 @@ export function entmaskiere(roh) {
     .replace(/\\'/g, "'")
     .replace(/\\\\/g, '\\');
 }
+
+/**
+ * Deutscher Text, der in der Oberflaeche steht, ohne durch t() zu gehen.
+ *
+ * ## Warum das eine eigene Pruefung braucht
+ *
+ * alleTexte() oben findet, was uebersetzbar IST. Es kann nicht finden, was uebersetzbar
+ * sein MUESSTE und es nicht ist - und genau das faellt niemandem auf: Die Oberflaeche
+ * sieht auf Deutsch tadellos aus, die Sprachpruefung meldet "kein Befund", und auf
+ * Tuerkisch steht mitten im Satz ein deutsches Wort. Gefunden wurden so 79 Stellen, davon
+ * eine, die einen Satz zur Haelfte uebersetzte:
+ *
+ *     <strong>{t('Keine Verbindung.')}</strong> Gezeigt wird der zuletzt geholte Stand …
+ *
+ * Der uebersetzte Anfang und der deutsche Rest standen unmittelbar nebeneinander.
+ *
+ * ## Warum der TypeScript-Zerleger und kein Muster
+ *
+ * Mit einem Muster ueber den rohen Text ging es nicht, und zwar nicht wegen der Sorgfalt:
+ * Ein t()-Aufruf ueber mehrere Zeilen laesst sich zeilenweise nicht als versorgt
+ * erkennen, und JavaScript-Quelltext (`const [von, setVon] = useState('')`) sieht in
+ * jedem hinreichend groben Muster wie Fliesstext aus. Der erste Versuch meldete 176
+ * Stellen, von denen zwei Drittel Fehltreffer waren - eine Pruefung, der man nicht
+ * glaubt, ist keine. Der Zerleger liefert die JSX-Knoten selbst; danach ist die Frage
+ * nicht mehr "sieht das nach Text aus", sondern "IST das ein Textknoten".
+ *
+ * ## Was als deutsch gilt
+ *
+ * Umlaute, ein Funktionswort oder schlicht ein Leerzeichen. Ausgenommen sind
+ * Beispielwerte, die in einem Eingabefeld stehen und in jeder Sprache gleich lauten -
+ * Rechnernamen, Mailadressen, LDAP-Namen, ein PGP-Block. Sie zu uebersetzen waere kein
+ * Gewinn, sondern eine Fehlerquelle.
+ */
+
+/** Attribute, deren Inhalt ein Mensch zu sehen oder zu hoeren bekommt. */
+const SICHTBARE_ATTRIBUTE = new Set([
+  'aria-label',
+  'aria-description',
+  'aria-valuetext',
+  'aria-placeholder',
+  'aria-roledescription',
+  'title',
+  'placeholder',
+  'alt',
+]);
+
+const FUNKTIONSWOERTER =
+  /\b(der|die|das|den|dem|des|und|oder|nicht|ist|sind|wird|werden|war|ein|eine|einen|einem|einer|kein|keine|keinen|mit|von|vom|für|auf|aus|sich|noch|schon|nur|auch|wenn|dann|hier|dort|alle|alles|was|wer|wie|wo|sie|ihre|ihren|ihr|du|dein|deinem|deiner|dich|bitte|mehr|beim|zum|zur|im|am|es|als|bis|nach|vor|über|unter|ohne|gegen|um|damit|weil|dass|man|hat|haben|kann|können|muss|soll|wurde|bleibt|steht|geht|gibt|lässt)\b/i;
+
+/** Ein Beispielwert in einem Eingabefeld - der bleibt in jeder Sprache derselbe. */
+function istBeispielwert(text) {
+  if (/^[\w.@:/-]+$/.test(text)) return true;
+  if (/^-----BEGIN/.test(text)) return true;
+  if (/\b(dc|cn|ou)=/.test(text)) return true;
+  return /^[\w.-]+@[\w.-]+/.test(text);
+}
+
+function siehtDeutschAus(text) {
+  if (!/[A-Za-zÄÖÜäöüß]/.test(text)) return false;
+  if (istBeispielwert(text)) return false;
+  return /[ÄÖÜäöüß]/.test(text) || FUNKTIONSWOERTER.test(text) || /\s/.test(text);
+}
+
+/**
+ * Alle Stellen, an denen deutscher Text ohne t() in der Oberflaeche landet.
+ *
+ * Liefert eine Liste aus { text, ort }. Nur .tsx - dort steht das Markup.
+ */
+export async function festeTexte() {
+  const ts = (await import('typescript')).default;
+  const treffer = [];
+
+  /** Steckt der Knoten in einem t()- oder tp()-Aufruf? Dann ist er versorgt. */
+  const imUebersetzer = (knoten) => {
+    for (let p = knoten.parent; p; p = p.parent) {
+      if (ts.isCallExpression(p) && ts.isIdentifier(p.expression)) {
+        if (p.expression.text === 't' || p.expression.text === 'tp') return true;
+      }
+    }
+    return false;
+  };
+
+  for (const bereich of BEREICHE) {
+    for (const voll of dateien(bereich.ordner)) {
+      if (!/\.tsx$/.test(voll)) continue;
+      const kurz = path.relative(WURZEL, voll).split(path.sep).join('/');
+      const quelle = ts.createSourceFile(
+        voll,
+        fs.readFileSync(voll, 'utf-8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX,
+      );
+      const ortVon = (k) =>
+        `${kurz}:${quelle.getLineAndCharacterOfPosition(k.getStart(quelle)).line + 1}`;
+
+      const gehe = (knoten) => {
+        if (ts.isJsxAttribute(knoten) && knoten.initializer) {
+          if (SICHTBARE_ATTRIBUTE.has(knoten.name.getText(quelle))) {
+            const wert = knoten.initializer;
+            if (ts.isStringLiteral(wert) && siehtDeutschAus(wert.text)) {
+              treffer.push({ text: wert.text, ort: ortVon(knoten) });
+            } else if (ts.isJsxExpression(wert) && wert.expression) {
+              /*
+               * Auch Ausdruecke - aria-label={'…'} und aria-label={`… ${x}`}.
+               *
+               * Diese Klasse fehlte im ersten Anlauf und ist die unauffaelligste: eine
+               * Vorlage mit eingesetztem Wert sieht nach Code aus, steht aber woertlich
+               * in der Oberflaeche. `aria-label={`Nachrichten in ${ordner}`}` war so ein
+               * Fall - die Liste kuendigte sich einem Vorleseprogramm auf Deutsch an,
+               * gleich welche Sprache eingestellt war.
+               */
+              const drin = (k) => {
+                const roh =
+                  ts.isStringLiteral(k) || ts.isNoSubstitutionTemplateLiteral(k)
+                    ? k.text
+                    : ts.isTemplateExpression(k)
+                      ? k.getText(quelle).slice(1, -1).replace(/\$\{[^}]*\}/g, '…')
+                      : null;
+                if (roh !== null && siehtDeutschAus(roh) && !imUebersetzer(k)) {
+                  treffer.push({ text: roh, ort: ortVon(k) });
+                }
+                ts.forEachChild(k, drin);
+              };
+              drin(wert.expression);
+            }
+          }
+        }
+        if (ts.isJsxText(knoten)) {
+          const text = knoten.text.replace(/\s+/g, ' ').trim();
+          if (text.length >= 4 && siehtDeutschAus(text)) {
+            treffer.push({ text, ort: ortVon(knoten) });
+          }
+        }
+        ts.forEachChild(knoten, gehe);
+      };
+      gehe(quelle);
+    }
+  }
+  return treffer;
+}

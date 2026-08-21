@@ -99,8 +99,9 @@ export function AccountSettingsModal({ account, onClose, onSave }: Props) {
             disabled={busy}
           />
           <p className="hint">
-            Empfänger sehen diesen Namen statt der nackten Adresse. Leer lassen, um nur die
-            Adresse anzuzeigen.
+            {t(
+              'Empfänger sehen diesen Namen statt der nackten Adresse. Leer lassen, um nur die Adresse anzuzeigen.',
+            )}
           </p>
         </div>
 
@@ -113,8 +114,9 @@ export function AccountSettingsModal({ account, onClose, onSave }: Props) {
             beschriftung="Signatur"
           />
           <p className="hint">
-            Wird beim Verfassen automatisch eingesetzt – bei Antworten oberhalb des zitierten
-            Verlaufs, damit sie nicht darunter verschwindet.
+            {t(
+              'Wird beim Verfassen automatisch eingesetzt – bei Antworten oberhalb des zitierten Verlaufs, damit sie nicht darunter verschwindet.',
+            )}
           </p>
         </div>
 
@@ -136,28 +138,35 @@ export function AccountSettingsModal({ account, onClose, onSave }: Props) {
             autoComplete="off"
             spellCheck={false}
           />
+          {/*
+            Die Beispielwerte stehen als Platzhalter im Satz und nicht mehr als eigene
+            <code>-Elemente darin. Der Grund ist nicht Bequemlichkeit: Ein Satz, der um
+            drei Elemente herumgebaut ist, zerfaellt beim Uebersetzen in fuenf Bruchstuecke
+            ("Moeglich sind", "und", ", bei Bedarf mit Anmeldung") - und aus Bruchstuecken
+            laesst sich in keiner Sprache ein richtiger Satz bauen, weil die Wortstellung
+            eine andere ist. Der Preis ist die Schreibmaschinenschrift an drei Stellen.
+          */}
           <p className="hint">
-            Nur nötig, wenn dieses Postfach nicht unmittelbar erreichbar ist – in
-            Firmennetzen der Regelfall. Leer heißt nicht „direkt“, sondern „wie überall
-            sonst“: dann gilt die Einstellung von Windows. Möglich sind{' '}
-            <code>proxy.firma.de:3128</code> und <code>socks5://…</code>, bei Bedarf mit
-            Anmeldung (<code>name:kennwort@…</code>).
-            {account.proxy ? (
-              <>
-                {' '}
-                Eingetragen ist derzeit <strong>{account.proxy}</strong>; eine etwaige
-                Anmeldung wird hier nicht angezeigt.
-              </>
-            ) : null}
+            {t(
+              'Nur nötig, wenn dieses Postfach nicht unmittelbar erreichbar ist – in Firmennetzen der Regelfall. Leer heißt nicht „direkt“, sondern „wie überall sonst“: dann gilt die Einstellung von Windows.',
+            )}{' '}
+            {t('Möglich sind {beispiel} und {socks}, bei Bedarf mit Anmeldung ({anmeldung}).', {
+              beispiel: 'proxy.firma.de:3128',
+              socks: 'socks5://…',
+              anmeldung: 'name:kennwort@…',
+            })}
+            {account.proxy
+              ? ` ${t('Eingetragen ist derzeit {proxy}; eine etwaige Anmeldung wird hier nicht angezeigt.', { proxy: account.proxy })}`
+              : null}
           </p>
         </div>
 
         <div className="form-row">
           <span className="feld-titel">{t('Weitere Absenderadressen')}</span>
           <p className="hint">
-            Aliase und Adressen, die auf dasselbe Postfach zeigen. Verschickt wird immer über
-            denselben Server – nur der Absender ist ein anderer. Auf Post an eine dieser
-            Adressen antwortet Energy Mail von selbst unter ihr.
+            {t(
+              'Aliase und Adressen, die auf dasselbe Postfach zeigen. Verschickt wird immer über denselben Server – nur der Absender ist ein anderer. Auf Post an eine dieser Adressen antwortet Energy Mail von selbst unter ihr.',
+            )}
           </p>
 
           {identitaeten.map((i) => (

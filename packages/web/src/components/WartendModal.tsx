@@ -193,7 +193,10 @@ export function WartendModal({
               <div className="wartend-text">
                 <strong>{s.betreff || t('(kein Betreff)')}</strong>
                 <span>
-                  an {s.empfaenger.join(', ') || '(niemand)'} · geht {wann(s.faellig)} raus
+                  {t('an {empfaenger} · geht {zeitpunkt} raus', {
+                    empfaenger: s.empfaenger.join(', ') || t('(niemand)'),
+                    zeitpunkt: wann(s.faellig),
+                  })}
                 </span>
               </div>
               <button className="link-btn" onClick={() => void zurueckholen(s.id)}>{t('Zurückholen')}</button>
@@ -210,7 +213,10 @@ export function WartendModal({
               <div className="wartend-text">
                 <strong>{w.betreff || t('(kein Betreff)')}</strong>
                 <span>
-                  kommt {wann(w.faellig)} zurück nach „{w.ursprung}"
+                  {t('kommt {zeitpunkt} zurück nach „{ordner}“', {
+                    zeitpunkt: wann(w.faellig),
+                    ordner: w.ursprung,
+                  })}
                   {w.uidImOrdner === undefined &&
                     t(' · Achtung: der Server hat keine Kennung gemeldet')}
                 </span>
@@ -247,7 +253,7 @@ export function WartendModal({
 
       {wartetAufAntwort.length > 0 && (
         <>
-          <div className="wartend-untertitel">{t('Du wartest auf Antwort')}</div>
+          <div className="wartend-untertitel">{t('Sie warten auf Antwort')}</div>
           {wartetAufAntwort.map((v) =>
             vorgangsZeile(v, 'Nachfassen', () => {
               onNachfassen(v.gegenueber, v.betreff);
@@ -259,7 +265,7 @@ export function WartendModal({
 
       {nichtBeantwortet.length > 0 && (
         <>
-          <div className="wartend-untertitel">{t('Du hast noch nicht geantwortet')}</div>
+          <div className="wartend-untertitel">{t('Sie haben noch nicht geantwortet')}</div>
           {nichtBeantwortet.map((v) =>
             vorgangsZeile(v, 'Öffnen', () => {
               onOeffnen(v.ordner, v.uid);

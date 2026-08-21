@@ -167,8 +167,7 @@ export function EtikettMenue({
     <div className="etikett-menue" ref={kasten} role="menu">
       {dauerhaft === false && (
         <p className="hint etikett-warnung">
-          Dieser Ordner behält eigene Etiketten nicht – der Server vergisst sie beim
-          Schließen wieder.
+          {t('Dieser Ordner behält eigene Etiketten nicht – der Server vergisst sie beim Schließen wieder.')}
         </p>
       )}
 
@@ -186,8 +185,8 @@ export function EtikettMenue({
           <button
             className="link-btn gefaehrlich"
             onClick={() => void entfernen(etikett)}
-            aria-label={`Etikett ${etikett.name} löschen`}
-            title="Etikett aus dem Verzeichnis nehmen"
+            aria-label={t('Etikett {name} löschen', { name: etikett.name })}
+            title={t('Etikett aus dem Verzeichnis nehmen')}
           >
             ×
           </button>
@@ -204,12 +203,12 @@ export function EtikettMenue({
         <input
           value={neu}
           onChange={(e) => setNeu(e.target.value)}
-          placeholder="Neues Etikett"
-          aria-label="Name des neuen Etiketts"
+          placeholder={t('Neues Etikett')}
+          aria-label={t('Name des neuen Etiketts')}
           disabled={busy}
         />
         <button className="link-btn" type="submit" disabled={busy || !neu.trim()}>
-          Anlegen
+          {t('Anlegen')}
         </button>
       </form>
     </div>
