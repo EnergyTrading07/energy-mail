@@ -14,6 +14,13 @@ import {
   registriereZugangspruefung,
 } from './zugang.js';
 import { getWurzelDir } from './paths.js';
+import { registriereAdressbuch } from './routen/adressbuch.js';
+import { registriereArchiv } from './routen/archiv.js';
+import { requireAccount, uidAus, zahlAus } from './routen/gemeinsam.js';
+import { registriereSchluessel } from './routen/schluessel.js';
+import { registriereSicherung } from './routen/sicherung.js';
+import { registriereEtikettenUndSuchen } from './routen/etikettenUndSuchen.js';
+import { HttpError } from './routen/fehler.js';
 import {
   alleNutzer,
   findeNutzer,
@@ -44,7 +51,6 @@ import {
 } from './nutzer/freigaben.js';
 import { registriereFreigabeWechsel } from './nutzer/freigabeHaken.js';
 import { protokolliere } from './protokollDatei.js';
-import { sucheImVerzeichnis } from './verzeichnis.js';
 import {
   entscheidungZu,
   merkeEntscheidung,
@@ -102,10 +108,8 @@ import {
   baueSigniertePost,
   baueUmschlag,
   besteVerschluesselung,
-  erzeugeSchluesselpaar,
   signiereAbgetrennt,
   verschluessle,
-  getBodyStructure,
   pruefeEtikettenUnterstuetzung,
   senderUebersicht,
   setzeEtiketten,
@@ -137,7 +141,6 @@ import {
   getAccount,
   listAccounts,
   saveAccount,
-  setAuthExpired,
   updateAccountAuth,
   updateAccountSettings,
 } from './accountStore.js';
@@ -184,44 +187,12 @@ import {
   wendeRegelnAn,
 } from './rules.js';
 import {
-  alleSchluessel,
-  entferneSchluessel,
-  fuegeSchluesselHinzu,
   geheimeFuer,
-  hatGeheimen,
-  kennwortStimmt,
   oeffentlicheFuer,
-  oeffentlicherText,
-  SchluesselFehler,
 } from './schluesselbund.js';
-import { pruefePgp } from './pgpNachricht.js';
-import { pruefeSmime } from './smimeNachricht.js';
-import {
-  alleEintraege as alleArchivEintraege,
-  archivEinstellungen,
-  original as archivOriginal,
-  siegel as archivSiegel,
-  pruefeBestand as pruefeArchivBestand,
-  raeumeAuf as raeumeArchivAuf,
-  setzeArchivEinstellungen,
-  suche as sucheImArchiv,
-  trageUm as trageArchivUm,
-  vermerke as vermerkeImArchiv,
-  type ArchivEinstellungen,
-} from './archiv/archiv.js';
 import { erfasseVersand } from './archiv/erfassen.js';
-import { erzeugeAusfuhr as erzeugeArchivAusfuhr } from './archiv/ausfuhr.js';
-import { verfahrensdokumentation } from './archiv/verfahrensdokumentation.js';
-import type { Aufbewahrungsart } from './archiv/fristen.js';
 import {
-  ZertifikatsspeicherFehler,
-  alleZertifikate,
-  alsPem as smimeAlsPem,
   eigeneFuer,
-  entferneZertifikat,
-  fuegeSchluesseldateiHinzu,
-  fuegeZertifikatHinzu,
-  kennwortStimmt as smimeKennwortStimmt,
   zertifikateFuer,
 } from './smimeStore.js';
 import {
@@ -230,37 +201,14 @@ import {
   markeAusText,
 } from './gesamtPosteingang.js';
 import {
-  alleEtiketten,
-  loescheEtikett,
-  speichereEtikett,
-  EtikettFehler,
-  type EtikettEingabe,
-} from './etikettenStore.js';
-import {
-  alleSuchen,
-  loescheSuche,
-  speichereSuche,
-  SucheFehler,
-  type GespeicherteSuche,
-} from './gespeicherteSuchen.js';
-import {
-  einfuhrVisitenkarten,
-  kontakteAlsVcf,
-  listeKontakte,
-  loescheKontakt,
   merkeAusListe,
   rememberAddresses,
-  searchContacts,
-  speichereKontakt,
-  type KontaktEingabe,
 } from './contactStore.js';
 import { istVerbindungsfehler } from './verbindungsfehler.js';
 import {
-  ablageGroesse,
   anzahlAbgelegt,
   holeInhalt,
   holeSeite,
-  leereAblage,
   merkeInhalt,
   merkeKopfdaten,
   pruefeUidGueltigkeit,
@@ -295,13 +243,6 @@ import {
 } from './oauthStore.js';
 import { installTokenRefresh } from './tokenRefresh.js';
 import { fastifyProtokollZiel } from './protokollDatei.js';
-import {
-  hinweis as sicherungsHinweis,
-  SICHERUNG_FASSUNG,
-  nurNeue,
-  ohneGeheimnisse,
-  pruefeSicherung,
-} from './sicherung.js';
 import {
   meldeAktualisierung,
   meldeFortschritt,
@@ -376,15 +317,6 @@ function publicAccount(account: AccountConfig) {
     canReauth: account.auth.type === 'oauth2',
     needsReauth: Boolean(account.authExpired),
   };
-}
-
-class HttpError extends Error {
-  constructor(
-    public statusCode: number,
-    message: string,
-  ) {
-    super(message);
-  }
 }
 
 export type ServerOptionen = {
@@ -785,68 +717,6 @@ export async function buildServer(optionen: ServerOptionen = {}) {
 
   await app.register(websocketPlugin);
 
-  function requireAccount(id: string): AccountConfig {
-    const account = getAccount(id);
-    if (!account) throw new HttpError(404, t('Konto nicht gefunden'));
-    return account;
-  }
-
-  /**
-   * Eine Zahl aus einer Anfrage - geprüft und nicht geraten.
-   *
-   * ## Warum es diese Zeilen gibt
-   *
-   * `Number('abc')` ist NaN, und NaN ist die gefährlichste Zahl in JavaScript: Sie
-   * verhält sich in keinem Vergleich wie eine Zahl, wirft aber auch nicht. Sie wandert
-   * unbemerkt weiter, bis sie irgendwo unten in `slice(-n)` steckt - und dort bedeutet
-   * sie das Gegenteil dessen, was sie sollte: keine Begrenzung.
-   *
-   * Gefunden wurde das an fünf Wegen. Der schlimmste war `apply-rules`: mit einer
-   * unbrauchbaren Seitengröße wurden die Regeln nicht auf die neuesten zweihundert
-   * Nachrichten angewandt, sondern auf den gesamten Ordner - und Regeln verschieben und
-   * löschen. Ein Tippfehler in einer Adresszeile hätte damit ein Postfach umgeräumt.
-   *
-   * ## Warum 400 und nicht die Voreinstellung
-   *
-   * Weil eine stillschweigend eingesetzte Voreinstellung dem Aufrufer etwas anderes tut,
-   * als er verlangt hat, ohne es zu sagen. Wer `pageSize=abc` schickt, hat einen Fehler
-   * im Programm oder in der Adresse - und den soll er sehen. Die Bibliothek darunter
-   * fängt denselben Fall zusätzlich ab (siehe `brauchbareAnzahl` in imapClient.ts); zwei
-   * Sicherungen, weil eine davon irgendwann bei einem Umbau wegfällt.
-   */
-  function zahlAus(
-    roh: unknown,
-    feld: string,
-    grenzen: { von: number; bis: number; standard?: number },
-  ): number {
-    if (roh === undefined || roh === null || roh === '') {
-      if (grenzen.standard !== undefined) return grenzen.standard;
-      throw new HttpError(400, t('Feld „{feld}“ fehlt.', { feld }));
-    }
-    const wert = Number(roh);
-    if (!Number.isInteger(wert) || wert < grenzen.von || wert > grenzen.bis) {
-      throw new HttpError(
-        400,
-        t('„{feld}“ muss eine ganze Zahl zwischen {von} und {bis} sein.', {
-          feld,
-          von: String(grenzen.von),
-          bis: String(grenzen.bis),
-        }),
-      );
-    }
-    return wert;
-  }
-
-  /**
-   * Die Nummer einer Nachricht.
-   *
-   * Eigener Weg, weil die Obergrenze hier keine Frage des Geschmacks ist: IMAP-UIDs sind
-   * vorzeichenlose 32-Bit-Zahlen (RFC 3501). Was darüber liegt, kann keine Nachricht sein.
-   */
-  const UID_HOECHSTENS = 4_294_967_295;
-  function uidAus(roh: unknown, feld = 'uid'): number {
-    return zahlAus(roh, feld, { von: 1, bis: UID_HOECHSTENS });
-  }
 
   app.setErrorHandler((err: unknown, _request, reply) => {
     if (err instanceof HttpError) {
@@ -1100,80 +970,14 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     },
   );
 
-  /**
-   * Vorschläge beim Tippen eines Empfängers - aus dem eigenen Adressbuch und dem
-   * Firmenverzeichnis.
+  /*
+   * Adressbuch, Vervollstaendigung und Firmenverzeichnis - siehe routen/adressbuch.ts.
    *
-   * Das eigene zuerst, und das ist keine Geschmacksfrage: Wer eine Adresse schon einmal
-   * benutzt hat, meint mit hoher Wahrscheinlichkeit genau die. Das Verzeichnis liefert die
-   * Kollegen, an die man noch nie geschrieben hat - wertvoll, aber die zweite Wahl.
-   *
-   * Wer schon im Adressbuch steht, kommt nicht doppelt: verglichen wird über die Adresse.
+   * Sie stehen dort und nicht mehr hier, weil sie mit dem Postfach nichts zu tun haben:
+   * zwei Speicher, kein IMAP, keine Konten. In einer Datei mit hundert Wegen findet man
+   * sie zwischen den Nachrichtenwegen nicht wieder.
    */
-  app.get<{ Querystring: { q?: string } }>('/contacts', async (request) => {
-    const suchtext = request.query.q ?? '';
-    const eigene = searchContacts(suchtext);
-    const ausVerzeichnis = await sucheImVerzeichnis(suchtext, 15);
-    if (ausVerzeichnis.length === 0) return eigene;
-
-    const bekannt = new Set(eigene.map((k) => k.address.toLowerCase()));
-    return [...eigene, ...ausVerzeichnis.filter((e) => !bekannt.has(e.address.toLowerCase()))];
-  });
-
-  /** Nur das Firmenverzeichnis - für die eigene Ansicht im Adressbuch. */
-  app.get<{ Querystring: { q?: string } }>('/verzeichnis/suche', async (request) => {
-    return { treffer: await sucheImVerzeichnis(request.query.q ?? '', 50) };
-  });
-
-  // --- Das Adressbuch ---
-
-  app.get<{ Querystring: { q?: string; alle?: string } }>('/adressbuch', async (request) => {
-    return listeKontakte({
-      suche: request.query.q,
-      auchAufgelesene: request.query.alle === '1',
-    });
-  });
-
-  app.put<{ Body: KontaktEingabe & { vorherigeAdresse?: string } }>(
-    '/adressbuch',
-    async (request) => {
-      const { vorherigeAdresse, ...eingabe } = request.body ?? ({} as KontaktEingabe);
-      try {
-        return speichereKontakt(eingabe, vorherigeAdresse);
-      } catch (err) {
-        throw new HttpError(400, (err as Error).message);
-      }
-    },
-  );
-
-  app.delete<{ Params: { adresse: string } }>('/adressbuch/:adresse', async (request) => {
-    const weg = loescheKontakt(decodeURIComponent(request.params.adresse));
-    if (!weg) throw new HttpError(404, t('Kontakt nicht gefunden'));
-    return { ok: true };
-  });
-
-  /**
-   * Das Adressbuch als vCard-Datei. Der Weg hinaus - ohne ihn wären die Kontakte hier
-   * gefangen, und ein Adressbuch, aus dem man nicht herauskommt, ist keins.
-   */
-  app.get('/adressbuch/ausfuhr', async (_request, reply) => {
-    const heute = new Date().toISOString().slice(0, 10);
-    reply.type('text/vcard; charset=utf-8');
-    reply.header('content-disposition', `attachment; filename="Adressbuch-${heute}.vcf"`);
-    return kontakteAlsVcf();
-  });
-
-  /**
-   * Eine vCard-Datei einlesen. Der Inhalt kommt als Text im Rumpf - die Datei wird im
-   * Fenster gelesen, damit hier kein Pfad und keine Dateiablage nötig ist.
-   */
-  app.post<{ Body: { inhalt?: string } }>('/adressbuch/einfuhr', async (request) => {
-    const inhalt = request.body?.inhalt;
-    if (typeof inhalt !== 'string' || !inhalt.trim()) {
-      throw new HttpError(400, t('Die Datei ist leer'));
-    }
-    return einfuhrVisitenkarten(inhalt);
-  });
+  registriereAdressbuch(app);
 
   /**
    * Der Posteingang aller Konten in einer Liste.
@@ -1198,389 +1002,31 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     },
   );
 
-  // --- OpenPGP: der Schluesselbund ---
-
-  app.get('/schluessel', async () => alleSchluessel());
-
-  app.post<{ Body: { armored?: string; fuerKonto?: string } }>('/schluessel', async (request) => {
-    const armored = request.body?.armored;
-    if (typeof armored !== 'string' || !armored.trim()) {
-      throw new HttpError(400, t('Es wurde kein Schlüssel übergeben'));
-    }
-    try {
-      return await fuegeSchluesselHinzu(armored, request.body?.fuerKonto);
-    } catch (err) {
-      if (err instanceof SchluesselFehler) throw new HttpError(400, err.message);
-      throw new HttpError(400, (err as Error).message);
-    }
-  });
-
-  app.delete<{ Params: { fingerabdruck: string }; Querystring: { geheim?: string } }>(
-    '/schluessel/:fingerabdruck',
-    async (request) => {
-      const weg = entferneSchluessel(
-        request.params.fingerabdruck.toUpperCase(),
-        request.query.geheim === '1',
-      );
-      if (!weg) throw new HttpError(404, t('Schlüssel nicht gefunden'));
-      return { ok: true };
-    },
-  );
-
-  /** Den eigenen oeffentlichen Schluessel zum Weitergeben. */
-  app.get<{ Params: { fingerabdruck: string } }>(
-    '/schluessel/:fingerabdruck/ausfuhr',
-    async (request, reply) => {
-      const text = oeffentlicherText(request.params.fingerabdruck.toUpperCase());
-      if (!text) throw new HttpError(404, t('Schlüssel nicht gefunden'));
-      reply.type('application/pgp-keys; charset=utf-8');
-      reply.header(
-        'content-disposition',
-        `attachment; filename="${request.params.fingerabdruck.slice(-16)}.asc"`,
-      );
-      return text;
-    },
-  );
-
-  /** Ein neues Schluesselpaar. Der geheime Teil landet gleich im Bund. */
-  app.post<{ Params: { id: string }; Body: { kennwort?: string; art?: 'curve25519' | 'rsa4096' } }>(
-    '/accounts/:id/schluesselpaar',
-    async (request) => {
-      const account = requireAccount(request.params.id);
-      const erzeugt = await erzeugeSchluesselpaar({
-        name: account.displayName,
-        adresse: account.email,
-        kennwort: request.body?.kennwort,
-        art: request.body?.art,
-      });
-      await fuegeSchluesselHinzu(erzeugt.geheim, account.id);
-      await fuegeSchluesselHinzu(erzeugt.oeffentlich);
-      return { angaben: erzeugt.angaben, oeffentlich: erzeugt.oeffentlich };
-    },
-  );
-
-  /**
-   * Was fuer ein Konto moeglich ist: eigener Schluessel vorhanden, und fuer welche
-   * Empfaenger einer vorliegt. Danach richtet sich, was die Oberflaeche anbietet.
-   */
-  app.get<{ Params: { id: string }; Querystring: { an?: string } }>(
-    '/accounts/:id/pgp-lage',
-    async (request) => {
-      const account = requireAccount(request.params.id);
-      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
-      const empfaenger = (request.query.an ?? '')
-        .split(',')
-        .map((a) => a.trim())
-        .filter(Boolean);
-
-      return {
-        kannSignieren: hatGeheimen(account.id, adressen),
-        // Verschluesselt wird nur, wenn fuer JEDEN Empfaenger ein Schluessel vorliegt -
-        // einen zu uebergehen hiesse, ihm eine unlesbare Nachricht zu schicken.
-        kannVerschluesseln:
-          empfaenger.length > 0 && empfaenger.every((a) => oeffentlicheFuer(a).length > 0),
-        ohneSchluessel: empfaenger.filter((a) => oeffentlicheFuer(a).length === 0),
-      };
-    },
-  );
-
-  app.post<{ Params: { id: string }; Body: { kennwort?: string } }>(
-    '/accounts/:id/pgp-kennwort',
-    async (request) => {
-      const account = requireAccount(request.params.id);
-      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
-      return { stimmt: await kennwortStimmt(account.id, adressen, request.body?.kennwort ?? '') };
-    },
-  );
-
-  /**
-   * Prueft und oeffnet, was an einer Nachricht mit OpenPGP geschuetzt ist.
+  /*
+   * OpenPGP und S/MIME - siehe routen/schluessel.ts.
    *
-   * Eigener Aufruf statt Teil des Nachrichtenabrufs: das Pruefen holt die Nachricht ein
-   * zweites Mal im Original und kann bei einem verschlossenen Schluessel nach dem
-   * Kennwort verlangen. Beides gehoert nicht in den Weg, den jede Nachricht nimmt.
+   * Zwei Schluesselspeicher und die Beurteilung des kryptografischen Befunds einer
+   * Nachricht. Standen hier mitten zwischen den Postfachwegen, ohne mit dem Abrufen von
+   * Post etwas zu tun zu haben.
    */
-  app.post<{
-    Params: { id: string; folder: string; uid: string };
-    Body: { kennwort?: string };
-  }>('/accounts/:id/folders/:folder/messages/:uid/pgp', async (request) => {
-    const account = requireAccount(request.params.id);
-    const ordner = decodeURIComponent(request.params.folder);
-    const uid = uidAus(request.params.uid);
+  registriereSchluessel(app);
 
-    const nachricht = await getMessage(account, ordner, uid);
-    const struktur = await getBodyStructure(account, ordner, uid);
-    const befund = await pruefePgp(account, ordner, nachricht, struktur, request.body?.kennwort);
-    return befund ?? { verschluesselt: false, geoeffnet: true, ohnePgp: true };
-  });
-
-  // --- S/MIME: der Zertifikatsspeicher ---
-
-  app.get('/smime', async () => alleZertifikate());
-
-  /**
-   * Eine Schluesseldatei einlesen.
+  /*
+   * Das GoBD-Archiv - siehe routen/archiv.ts.
    *
-   * Die Datei kommt als Base64 herein und nicht als Datei-Upload: Der Server nimmt sonst
-   * nirgends Dateien entgegen, und eine zweite Art, Daten hereinzureichen, waere eine
-   * zweite Stelle, an der man sich vertun kann. Das Kennwort geht denselben Weg und wird
-   * nirgends abgelegt - es dient nur zum Oeffnen.
+   * Der Inhalt lag seit jeher in archiv/; nur die Wege dorthin standen hier. Damit war
+   * die Aufteilung halb.
    */
-  app.post<{
-    Body: {
-      dateiBase64?: string;
-      kennwort?: string;
-      /** Kennwort, mit dem der Schluessel hier abgelegt wird. Leer = nur Windows-Schutz. */
-      neuesKennwort?: string;
-      fuerKonto?: string;
-    };
-  }>('/smime/schluesseldatei', async (request) => {
-    const roh = request.body?.dateiBase64;
-    if (typeof roh !== 'string' || !roh.trim()) {
-      throw new HttpError(400, t('Es wurde keine Datei übergeben'));
-    }
-    try {
-      return fuegeSchluesseldateiHinzu(Buffer.from(roh, 'base64'), request.body?.kennwort ?? '', {
-        fuerKonto: request.body?.fuerKonto,
-        neuesKennwort: request.body?.neuesKennwort || undefined,
-      });
-    } catch (err) {
-      if (err instanceof ZertifikatsspeicherFehler) throw new HttpError(400, err.message);
-      throw new HttpError(400, (err as Error).message);
-    }
-  });
-
-  /** Ein einzelnes Zertifikat - der Weg fuer jemanden, der noch nie unterschrieben schrieb. */
-  app.post<{ Body: { dateiBase64?: string } }>('/smime/zertifikat', async (request) => {
-    const roh = request.body?.dateiBase64;
-    if (typeof roh !== 'string' || !roh.trim()) {
-      throw new HttpError(400, t('Es wurde keine Datei übergeben'));
-    }
-    try {
-      return fuegeZertifikatHinzu(Buffer.from(roh, 'base64'));
-    } catch (err) {
-      throw new HttpError(400, (err as Error).message);
-    }
-  });
-
-  app.delete<{ Params: { fingerabdruck: string } }>('/smime/:fingerabdruck', async (request) => {
-    if (!entferneZertifikat(request.params.fingerabdruck.toUpperCase())) {
-      throw new HttpError(404, t('Zertifikat nicht gefunden'));
-    }
-    return { ok: true };
-  });
-
-  app.get<{ Params: { fingerabdruck: string } }>(
-    '/smime/:fingerabdruck/ausfuhr',
-    async (request, reply) => {
-      const text = smimeAlsPem(request.params.fingerabdruck.toUpperCase());
-      if (!text) throw new HttpError(404, t('Zertifikat nicht gefunden'));
-      reply.type('application/x-pem-file; charset=utf-8');
-      reply.header(
-        'content-disposition',
-        `attachment; filename="${request.params.fingerabdruck.slice(0, 16)}.pem"`,
-      );
-      return text;
-    },
-  );
-
-  app.get<{ Params: { id: string }; Querystring: { an?: string } }>(
-    '/accounts/:id/smime-lage',
-    async (request) => {
-      const account = requireAccount(request.params.id);
-      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
-      const empfaenger = (request.query.an ?? '')
-        .split(',')
-        .map((a) => a.trim())
-        .filter(Boolean);
-      const eigene = eigeneFuer(account.id, adressen);
-
-      return {
-        kannSignieren: eigene.length > 0,
-        /** Ob beim Unterschreiben nach einem Kennwort gefragt werden muss. */
-        brauchtKennwort: eigene.some((e) => e.mitKennwort),
-        kannVerschluesseln:
-          eigene.length > 0 &&
-          empfaenger.length > 0 &&
-          empfaenger.every((a) => zertifikateFuer(a).length > 0),
-        ohneZertifikat: empfaenger.filter((a) => zertifikateFuer(a).length === 0),
-      };
-    },
-  );
-
-  app.post<{ Params: { id: string }; Body: { kennwort?: string } }>(
-    '/accounts/:id/smime-kennwort',
-    async (request) => {
-      const account = requireAccount(request.params.id);
-      const adressen = [account.email, ...(account.identitaeten ?? []).map((i) => i.email)];
-      return { stimmt: smimeKennwortStimmt(account.id, adressen, request.body?.kennwort ?? '') };
-    },
-  );
-
-  /** Prueft und oeffnet, was an einer Nachricht mit S/MIME geschuetzt ist. */
-  app.post<{
-    Params: { id: string; folder: string; uid: string };
-    Body: { kennwort?: string };
-  }>('/accounts/:id/folders/:folder/messages/:uid/smime', async (request) => {
-    const account = requireAccount(request.params.id);
-    const ordner = decodeURIComponent(request.params.folder);
-    const nachricht = await getMessage(account, ordner, uidAus(request.params.uid));
-    const befund = await pruefeSmime(account, ordner, nachricht, request.body?.kennwort);
-    return befund ?? { verschluesselt: false, geoeffnet: true, ohneSmime: true };
-  });
-
-  // --- Das GoBD-Archiv ---
-
-  app.get('/archiv/stand', async () => {
-    const eintraege = alleArchivEintraege();
-    const nachrichten = eintraege.filter((e) => e.bezugAuf === undefined && e.datei);
-    const faellig = raeumeArchivAuf(new Date(), false);
-    return {
-      einstellungen: archivEinstellungen(),
-      anzahl: nachrichten.length,
-      kettenlaenge: eintraege.length,
-      siegel: archivSiegel(),
-      aeltesteAm: nachrichten[0]?.entstandenAm,
-      juengsteAm: nachrichten.at(-1)?.entstandenAm,
-      bytes: nachrichten.reduce((s, e) => s + e.groesse, 0),
-      /** Wie viel die Frist hinter sich hat - angezeigt, aber nicht von selbst entfernt. */
-      freigegeben: faellig.anzahl,
-    };
-  });
-
-  app.put<{ Body: ArchivEinstellungen }>('/archiv/einstellungen', async (request) => {
-    const koerper = request.body ?? { konten: [], vorgabe: 'geschaeftsbrief' as const };
-    // Nur Konten, die es auch gibt - sonst zeichnete eine Einstellung ins Leere auf.
-    const vorhanden = new Set(listAccounts().map((k) => k.id));
-    return setzeArchivEinstellungen({
-      ...koerper,
-      konten: (koerper.konten ?? []).filter((k) => vorhanden.has(k)),
-    });
-  });
-
-  app.get<{
-    Querystring: {
-      text?: string;
-      von?: string;
-      bis?: string;
-      richtung?: 'empfangen' | 'gesendet';
-      art?: Aufbewahrungsart;
-      konto?: string;
-    };
-  }>('/archiv/suche', async (request) => {
-    const q = request.query;
-    return sucheImArchiv({
-      text: q.text,
-      von: q.von,
-      bis: q.bis,
-      richtung: q.richtung,
-      art: q.art,
-      kontoId: q.konto,
-    });
-  });
-
-  /** Die Nachricht im Original. Der Abdruck wird dabei nachgerechnet - siehe original(). */
-  app.get<{ Params: { nr: string } }>('/archiv/:nr/original', async (request, reply) => {
-    try {
-      const { bytes, eintrag } = archivOriginal(zahlAus(request.params.nr, 'nr', { von: 1, bis: Number.MAX_SAFE_INTEGER }));
-      reply.type('message/rfc822');
-      reply.header(
-        'content-disposition',
-        `attachment; filename="archiv-${String(eintrag.nr).padStart(7, '0')}.eml"`,
-      );
-      return bytes;
-    } catch (err) {
-      throw new HttpError(404, (err as Error).message);
-    }
-  });
-
-  app.post<{ Params: { nr: string }; Body: { text?: string } }>(
-    '/archiv/:nr/vermerk',
-    async (request) => {
-      const text = request.body?.text?.trim();
-      if (!text) throw new HttpError(400, t('Ein leerer Vermerk hilft niemandem.'));
-      try {
-        return vermerkeImArchiv(zahlAus(request.params.nr, 'nr', { von: 1, bis: Number.MAX_SAFE_INTEGER }), text);
-      } catch (err) {
-        throw new HttpError(400, (err as Error).message);
-      }
-    },
-  );
-
-  app.post<{ Params: { nr: string }; Body: { art?: Aufbewahrungsart } }>(
-    '/archiv/:nr/art',
-    async (request) => {
-      const art = request.body?.art;
-      if (art !== 'geschaeftsbrief' && art !== 'buchungsbeleg' && art !== 'ohne-pflicht') {
-        throw new HttpError(400, t('Unbekannte Aufbewahrungsart.'));
-      }
-      try {
-        return trageArchivUm(zahlAus(request.params.nr, 'nr', { von: 1, bis: Number.MAX_SAFE_INTEGER }), art);
-      } catch (err) {
-        throw new HttpError(400, (err as Error).message);
-      }
-    },
-  );
-
-  /** Rechnet den ganzen Bestand nach - dauert bei einem grossen Archiv Minuten. */
-  app.post('/archiv/pruefen', async () => pruefeArchivBestand());
-
-  app.post<{ Body: { von?: string; bis?: string } }>('/archiv/ausfuhr', async (request) =>
-    erzeugeArchivAusfuhr(undefined, { von: request.body?.von, bis: request.body?.bis }),
-  );
-
-  /**
-   * Entfernt, was seine Frist hinter sich hat.
-   *
-   * Ohne "wirklich" wird nur gezaehlt. Zwei Schritte, weil hier etwas verschwindet, das
-   * per Gesetz aufzubewahren WAR - wer sich vertut, kann es nicht zurueckholen.
-   */
-  app.post<{ Body: { wirklich?: boolean } }>('/archiv/aufraeumen', async (request) =>
-    raeumeArchivAuf(new Date(), request.body?.wirklich === true),
-  );
-
-  app.get('/archiv/verfahrensdokumentation', async (_request, reply) => {
-    reply.type('text/markdown; charset=utf-8');
-    reply.header('content-disposition', 'attachment; filename="Verfahrensdokumentation.md"');
-    return verfahrensdokumentation();
-  });
+  registriereArchiv(app);
 
   // --- Etiketten: das Verzeichnis von Namen und Farben ---
 
-  app.get('/etiketten', async () => alleEtiketten());
-
-  app.put<{ Body: EtikettEingabe }>('/etiketten', async (request) => {
-    try {
-      return speichereEtikett(request.body ?? ({} as EtikettEingabe));
-    } catch (err) {
-      if (err instanceof EtikettFehler) throw new HttpError(400, err.message);
-      throw err;
-    }
-  });
-
-  app.delete<{ Params: { schluessel: string } }>('/etiketten/:schluessel', async (request) => {
-    const weg = loescheEtikett(decodeURIComponent(request.params.schluessel));
-    if (!weg) throw new HttpError(404, t('Etikett nicht gefunden'));
-    return { ok: true };
-  });
-
-  // --- Gespeicherte Suchen ---
-
-  app.get('/suchen', async () => alleSuchen());
-
-  app.put<{ Body: Omit<GespeicherteSuche, 'id'> & { id?: string } }>('/suchen', async (request) => {
-    try {
-      return speichereSuche(request.body ?? ({} as GespeicherteSuche));
-    } catch (err) {
-      if (err instanceof SucheFehler) throw new HttpError(400, err.message);
-      throw err;
-    }
-  });
-
-  app.delete<{ Params: { id: string } }>('/suchen/:id', async (request) => {
-    if (!loescheSuche(request.params.id)) throw new HttpError(404, t('Suche nicht gefunden'));
-    return { ok: true };
-  });
+  /*
+   * Etiketten und gemerkte Suchen - siehe routen/etikettenUndSuchen.ts.
+   *
+   * Zwei Verzeichnisse derselben Bauart, die hier zwischen S/MIME und OAuth standen.
+   */
+  registriereEtikettenUndSuchen(app);
 
   // --- OAuth: Einrichtung der Anbieter-Zugangsdaten ---
 
@@ -3658,7 +3104,17 @@ export async function buildServer(optionen: ServerOptionen = {}) {
     Body: SendBody & { draftFolder?: string; draftUid?: number };
   }>('/accounts/:id/send', async (request, reply) => {
     const account = requireAccount(request.params.id);
-    const { attachOriginal, attachments: wire, draftFolder, draftUid, ...message } = request.body;
+
+    /*
+     * Hier stand eine Zerlegung des Rumpfes, deren Ergebnis niemand mehr benutzte:
+     * `const { attachOriginal, attachments: wire, draftFolder, draftUid, ...message }`.
+     * Sie stammte aus einer früheren Fassung, in der die Nachricht daraus zusammengesetzt
+     * wurde; heute geht durchweg `request.body` weiter - an pruefeVersandVorab, an
+     * planeSendung und an fuehreVersandAus.
+     *
+     * Weg damit, und zwar nicht nur der Ordnung halber: Die Zeile las sich, als würden
+     * draftFolder und draftUid vom Versand ferngehalten. Sie werden es nicht.
+     */
 
     // Mit Verzögerung: nicht senden, sondern vormerken. Der Körper wandert unverändert
     // in die Warteschlange - Anhänge werden erst beim tatsächlichen Versand aus dem
@@ -3942,181 +3398,11 @@ export async function buildServer(optionen: ServerOptionen = {}) {
   }
 
   /*
-   * Der zwischengespeicherte Nachrichtenbestand - nachsehen und wegwerfen.
+   * Sicherung und Ablage - siehe routen/sicherung.ts.
    *
-   * Die beiden Wege gehören zusammen und beantworten eine Frage, auf die die Anwendung
-   * bisher keine Antwort hatte: was liegt eigentlich auf dieser Platte, und wie werde ich
-   * es wieder los? Verschlüsselt sind die Zugangsdaten, nicht der Nachrichtenbestand -
-   * wer an einem entsperrten Rechner sitzt, kann ihn lesen. Solange das so ist, gehört
-   * zumindest ein Knopf dazu, der ihn wegräumt.
+   * Beides betrifft nicht das Postfach, sondern was auf dieser Platte liegt.
    */
-  app.get('/ablage', async () => ablageGroesse());
-
-  app.delete('/ablage', async () => leereAblage());
-
-  /*
-   * Sicherung der Einstellungen.
-   *
-   * Im Benutzerordner liegen zwoelf Dateien, und wer den Rechner wechselt, weiss nicht,
-   * welche davon er braucht: die 4,3 MB grosse ablage.db sieht wichtig aus und ist es
-   * nicht, die 48 Byte kleine regeln.json sieht nach nichts aus und enthaelt Arbeit von
-   * Stunden. Was mitkommt und was nicht, steht in sicherung.ts - mit Begruendung.
-   */
-  app.get('/sicherung', async () => {
-    const konten = listAccounts();
-    const regeln: Record<string, unknown[]> = {};
-    for (const k of konten) {
-      const eigene = regelnFuer(k.id);
-      if (eigene.length > 0) regeln[k.email] = eigene;
-    }
-    return {
-      fassung: SICHERUNG_FASSUNG,
-      erstelltAm: new Date().toISOString(),
-      programm: 'Energy Mail',
-      konten: konten.map(ohneGeheimnisse),
-      etiketten: alleEtiketten(),
-      // Regeln haengen am Konto, aber dessen Kennung wird auf dem neuen Rechner eine
-      // andere sein - deshalb ueber die Adresse zugeordnet.
-      regeln,
-      /*
-       * Auch die nebenbei aufgelesenen Adressen.
-       *
-       * Zuerst hatte ich nur die gepflegten genommen - mit dem Gedanken, die anderen
-       * bauten sich von selbst wieder auf. Gemessen waren das 269 gegen 0: die
-       * Vervollstaendigung waere auf dem neuen Rechner leer, und zwar so lange, bis
-       * wieder hunderte Nachrichten gelesen sind. Das ist ein spuerbarer Verlust fuer
-       * eine Ersparnis von wenigen Kilobyte.
-       *
-       * Dafuer enthaelt die Datei nun Mailadressen, und der Hinweis beim Sichern sagt
-       * das auch - statt Unbedenklichkeit zu versprechen, die nicht mehr gilt.
-       */
-      kontakte: listeKontakte({ limit: 100_000, auchAufgelesene: true }).eintraege,
-      suchen: alleSuchen(),
-      hinweis: sicherungsHinweis(),
-    };
-  });
-
-  app.post<{ Body: unknown }>('/sicherung', async (request) => {
-    const gepruef = pruefeSicherung(request.body);
-    if (!gepruef.ok) throw new HttpError(400, gepruef.grund);
-    const daten = gepruef.daten;
-
-    const bericht = {
-      konten: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.konten ?? 0 },
-      etiketten: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.etiketten ?? 0 },
-      kontakte: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.kontakte ?? 0 },
-      suchen: { uebernommen: 0, schonDa: 0, uebergangen: gepruef.uebergangen.suchen ?? 0 },
-      regeln: { uebernommen: 0 },
-      /** Was im Einzelnen nicht ging - der Nutzer soll es benennen können. */
-      hinweise: [] as string[],
-    };
-
-    /*
-     * Jeder Eintrag für sich.
-     *
-     * Vorher lief die ganze Schleife ungeschützt: warf ein einziger Eintrag - ein Konto,
-     * zu dem sich keine Serveradressen ermitteln ließen, ein Kontakt ohne "@" -, brach
-     * die Route mit 500 ab. Der Nutzer hatte danach die halbe Sicherung eingelesen und
-     * erfuhr nicht, welche Hälfte. Jetzt wird der einzelne Fehlschlag vermerkt, und der
-     * Rest kommt an.
-     */
-    function versuche(was: string, tue: () => void): boolean {
-      try {
-        tue();
-        return true;
-      } catch (err) {
-        bericht.hinweise.push(`${was}: ${(err as Error).message}`);
-        app.log.warn(`Sicherung einlesen - ${was}: ${(err as Error).message}`);
-        return false;
-      }
-    }
-
-    /*
-     * Konten ohne Zugangsdaten: sie stehen danach in der Liste und sind gekennzeichnet,
-     * bis sie einmal angemeldet wurden. Das ist besser, als sie wegzulassen - so sieht
-     * der Nutzer, was ihn erwartet, statt jedes Konto von Hand nachzubauen.
-     */
-    const vorhandeneKonten = listAccounts();
-    const neueKonten = nurNeue(
-      vorhandeneKonten.map((k) => k.email),
-      daten.konten,
-      (k) => k.email,
-    );
-    bericht.konten.schonDa = neueKonten.schonDa;
-    for (const k of neueKonten.neue) {
-      versuche(`Konto ${k.email}`, () => {
-        const angelegt = buildPasswordAccount({
-          email: k.email,
-          password: '',
-          overrides: {
-            imapHost: k.imapHost,
-            imapPort: k.imapPort,
-            imapSecure: k.imapSecure,
-            smtpHost: k.smtpHost,
-            smtpPort: k.smtpPort,
-            smtpSecure: k.smtpSecure,
-          },
-        });
-        saveAccount({ ...angelegt, displayName: k.displayName, signature: k.signature } as never);
-        if (Array.isArray(k.identitaeten)) {
-          updateAccountSettings(angelegt.id, { identitaeten: k.identitaeten } as never);
-        }
-        // Ohne Zugangsdaten kommt das Konto nirgendwohin - der Nutzer wird zum Anmelden
-        // aufgefordert, wie nach einer abgelaufenen Marke.
-        setAuthExpired(angelegt.id, true);
-
-        const ausSicherung = daten.regeln?.[k.email];
-        if (Array.isArray(ausSicherung)) {
-          for (const regel of ausSicherung) {
-            if (!regel || typeof regel !== 'object') continue;
-            if (versuche(`Regel in ${k.email}`, () => regelSpeichern(angelegt.id, regel as never))) {
-              bericht.regeln.uebernommen++;
-            }
-          }
-        }
-        bericht.konten.uebernommen++;
-      });
-    }
-
-    const neueEtiketten = nurNeue(
-      alleEtiketten().map((e) => e.name),
-      daten.etiketten as { name: string }[],
-      (e) => e.name,
-    );
-    bericht.etiketten.schonDa = neueEtiketten.schonDa;
-    for (const e of neueEtiketten.neue) {
-      if (versuche(`Etikett "${e.name}"`, () => speichereEtikett(e as never))) {
-        bericht.etiketten.uebernommen++;
-      }
-    }
-
-    const neueKontakte = nurNeue(
-      listeKontakte({ limit: 100_000, auchAufgelesene: true }).eintraege.map((k) => k.address),
-      daten.kontakte as { address: string }[],
-      (k) => k.address,
-    );
-    bericht.kontakte.schonDa = neueKontakte.schonDa;
-    for (const k of neueKontakte.neue) {
-      if (versuche(`Kontakt ${k.address}`, () => speichereKontakt(k as never))) {
-        bericht.kontakte.uebernommen++;
-      }
-    }
-
-    const neueSuchen = nurNeue(
-      alleSuchen().map((s2) => s2.name),
-      daten.suchen as { name: string }[],
-      (s2) => s2.name,
-    );
-    bericht.suchen.schonDa = neueSuchen.schonDa;
-    for (const s2 of neueSuchen.neue) {
-      if (versuche(`Suche "${s2.name}"`, () => speichereSuche(s2 as never))) {
-        bericht.suchen.uebernommen++;
-      }
-    }
-
-    syncWatchers();
-    return bericht;
-  });
+  registriereSicherung(app);
 
   return app;
 }
