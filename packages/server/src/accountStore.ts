@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import type { AccountAuth, AccountConfig } from '@energy-mail/mail-core';
 import { getProviderPreset, type GefundeneEinstellungen } from '@energy-mail/mail-core';

@@ -207,7 +207,9 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
           )}
           {liste.gesamt > liste.eintraege.length && (
             <p className="hint adressbuch-rest">
-              {liste.gesamt - liste.eintraege.length} weitere – bitte suchen.
+              {t('{anzahl} weitere – bitte suchen.', {
+                anzahl: liste.gesamt - liste.eintraege.length,
+              })}
             </p>
           )}
         </div>
@@ -293,7 +295,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
                   <select
                     value={telefon.art ?? 'Privat'}
                     onChange={(e) => setzeTelefon(i, { art: e.target.value })}
-                    aria-label={`Art der ${i + 1}. Nummer`}
+                    aria-label={t('Art der {nummer}. Nummer', { nummer: i + 1 })}
                   >
                     {TELEFONARTEN.map((art) => (
                       <option key={art}>{art}</option>
@@ -325,7 +327,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
                     setzeFeld('weitereAdressen', [...(entwurf.weitereAdressen ?? []), ''])
                   }
                 >
-                  + Weitere Adresse
+                  {t('+ Weitere Adresse')}
                 </button>
                 <button
                   className="link-btn"
@@ -336,7 +338,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
                     ])
                   }
                 >
-                  + Telefonnummer
+                  {t('+ Telefonnummer')}
                 </button>
               </div>
 
@@ -413,7 +415,7 @@ export function AdressbuchModal({ onClose, vorgabe }: Props) {
           disabled={busy}
           title={t('Eine vCard-Datei aus einem anderen Programm einlesen')}
         >
-          vCard einlesen
+          {t('vCard einlesen')}
         </button>
         <button
           className="btn secondary"

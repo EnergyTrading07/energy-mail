@@ -298,7 +298,7 @@ export async function startOAuthFlow(
       antwortSeite(
         t('Anmeldung erfolgreich'),
         t(
-          'Du kannst dieses Fenster schließen und zu Energy Mail zurückkehren – das Konto wird dort gerade eingerichtet.',
+          'Sie können dieses Fenster schließen und zu Energy Mail zurückkehren – das Konto wird dort gerade eingerichtet.',
         ),
       ),
     );

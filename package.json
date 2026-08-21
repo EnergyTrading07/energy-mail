@@ -9,7 +9,7 @@
     "url": "https://github.com/EnergyTrading07/energy-mail.git"
   },
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "license": "MIT",
   "main": "packages/desktop/dist/main.js",
   "//type": "Muss gesetzt sein, sonst startet die paketierte Anwendung nicht: Electron entscheidet anhand DIESER Datei, ob der Einstiegspunkt als ES-Modul oder als CommonJS geladen wird - nicht anhand der package.json daneben. Aus dem Quellbaum gestartet ist packages/desktop das Wurzelverzeichnis (dort steht type bereits), paketiert dagegen dieses hier. Ohne die Angabe scheitert der Start mit ERR_REQUIRE_ESM.",
@@ -23,9 +23,15 @@
     "test": "node --import tsx --test \"packages/*/src/**/*.test.mts\"",
     "test:abdeckung": "node --import tsx --test --experimental-test-coverage \"packages/*/src/**/*.test.mts\"",
     "//pruefe": "Was die CI macht, in einem Aufruf - damit sich lokal derselbe Stand pruefen laesst, ohne drei Befehle zu merken.",
-    "pruefe": "npm run typecheck && npm run build && npm test && npm run sprachpruefung",
+    "pruefe": "npm run typecheck && npm run lint && npm run build && npm test && npm run sprachpruefung",
+    "//lint": "Findet, was uebersetzt und trotzdem falsch ist - eine vergessene Abhaengigkeit in einem useEffect vor allem. Steht VOR dem Bau: Er braucht keine zehn Sekunden, und wer einen Fehler darin hat, soll nicht erst zwei Minuten bauen. Was geprueft wird und was ausdruecklich nicht, steht in eslint.config.js.",
+    "lint": "eslint .",
+    "//lint:beheben": "Dasselbe, aber es raeumt weg, was sich maschinell wegraeumen laesst. Getrennt, weil ein Werkzeug, das beim blossen Nachsehen Dateien aendert, irgendwann etwas aendert, das niemand nachgesehen hat.",
+    "lint:beheben": "eslint . --fix",
+    "//pruefe:oberflaeche": "Faehrt die fertige Anwendung hoch und sieht nach, ob ein benutzbares Fenster dasteht. Getrennt vom gewoehnlichen Prueflauf, weil sie die Electron-Binaerdatei braucht und ein echtes Fenster oeffnet - das gehoert nicht in einen Lauf, den man zwanzigmal am Tag anstoesst. Sie legt sich einen eigenen Datenordner an und fasst die Konten des Menschen nicht an; die Begruendung dazu steht in e2e/huelle.ts.",
+    "pruefe:oberflaeche": "playwright test",
     "build": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run build -w packages/web && npm run build -w packages/desktop",
-    "typecheck": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run build -w packages/mail-core && npm run build -w packages/server && npm run typecheck --workspaces --if-present && tsc -p e2e/tsconfig.json --noEmit",
     "dist": "npm run build && electron-builder",
     "//veroeffentlichen": "Prueft den Stand und setzt die Marke - mehr nicht. Gebaut und hochgeladen wird danach in der CI (.github/workflows/veroeffentlichen.yml). Vorher lief beides hier: die ausgelieferte Datei war damit das Ergebnis eines Rechners, dessen Zustand niemand nachvollziehen kann, und bei einer Anwendung mit Selbstaktualisierung ist der Bauplatz die empfindlichste Stelle der Kette. Es wird kein GitHub-Schluessel mehr gebraucht - gepusht wird ueber die gewoehnlichen Git-Zugangsdaten, und den Schluessel zum Hochladen stellt GitHub in der CI selbst.",
     "veroeffentlichen": "node scripts/pruefe-veroeffentlichung.mjs && node scripts/marke-setzen.mjs",
@@ -50,11 +56,22 @@
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@types/jsdom": "^30.0.0",
     "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.11.0",
     "jsdom": "^29.1.1",
     "tsx": "^4.23.11",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.67.0"
+  },
+  "//overrides": "Fassungen, die tiefer im Baum erzwungen werden - gegen gemeldete Luecken, die der Zwischenhaendler noch nicht nachgezogen hat. Jeder Eintrag braucht eine Begruendung darunter und gehoert wieder weg, sobald die Abhaengigkeit von selbst nachzieht: ein Override, an den sich niemand mehr erinnert, haelt eine Fassung fest, die laengst ueberholt ist. ACHTUNG: Ein Override wirkt nur, wenn npm den Baum ueberhaupt neu rechnen kann. Anzeige und Sperrdatei liegen hier auseinander (vite ^8.2.1 gegen einen festgehaltenen Stand mit vite 7.3.6 in der Wurzel); npm bricht ein Aufloesen von Grund auf deshalb mit ERESOLVE ab und faellt stillschweigend auf den festgehaltenen Stand zurueck - der Eintrag hier tut dann NICHTS. Solange das so ist, steht die erzwungene Fassung zusaetzlich unmittelbar in der Sperrdatei. Wird die Abweichung bereinigt, traegt dieser Eintrag allein.",
+  "//overrides.html-to-text": "GHSA-ggr8-5vv4-36mx (hoch): deepmerge-ts unter 8.0.0 laeuft beim Zusammenfuehren rekursiver Objektgraphen den Stapel leer. Der Weg dorthin: mailparser -> html-to-text -> deepmerge-ts, und mailparser verarbeitet fremde Post - also genau Eingaben, denen nicht zu trauen ist. 'npm audit fix' kommt hier nicht durch: mailparser nagelt html-to-text auf genau 10.0.0 fest, auch in der neuesten 3.9.15. Die 10.0.1 ist ein Patch-Sprung und verlangt deepmerge-ts ^8.0.1 - deshalb wird sie hier erzwungen und nicht deepmerge-ts unmittelbar: ein Hauptsprung unter einem Paket, das ihn nicht angefordert hat, waere geraten statt geprueft.",
+  "overrides": {
+    "html-to-text": "10.0.1"
   }
 }

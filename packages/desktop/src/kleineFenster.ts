@@ -126,7 +126,25 @@ const gemeinsam = {
   resizable: false,
   minimizable: false,
   maximizable: false,
-  webPreferences: { contextIsolation: true, nodeIntegration: false },
+  /*
+   * Dieselben Zusicherungen wie im Hauptfenster - siehe main.ts.
+   *
+   * Diese Fenster zeigen ausschliesslich selbst erzeugtes Markup (Startbild, Ueber-
+   * Fenster); heute kommt dort nichts Fremdes an. `sandbox` fehlte hier trotzdem, und
+   * das ist der Unterschied zwischen "ist gerade ungefaehrlich" und "kann nicht
+   * gefaehrlich werden": Die Begruendung in main.ts - wer etwas aendert, soll sehen, was
+   * er aufgibt, statt es einer Voreinstellung zu ueberlassen - gilt fuer diese Fenster
+   * genauso. Ein spaeterer Umbau, der hier eine Adresse oder einen Text von aussen
+   * hereinreicht, faende sonst einen Anzeigeprozess ohne Sandkasten vor.
+   */
+  webPreferences: {
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webviewTag: false,
+    allowRunningInsecureContent: false,
+    nodeIntegrationInSubFrames: false,
+  },
 } as const;
 
 /**

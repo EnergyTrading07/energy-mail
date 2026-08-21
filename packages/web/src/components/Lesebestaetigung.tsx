@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../api.js';
 import { t } from '../sprache.js';
 
@@ -45,17 +45,29 @@ export function Lesebestaetigung({ accountId, ordner, uid, an, fragen, abweichen
   /** Damit die automatische Bestätigung bei einem zweiten Zeichnen nicht noch einmal geht. */
   const losgeschickt = useRef('');
 
-  const entscheide = async (senden: boolean) => {
-    setStand('laeuft');
-    setFehler(null);
-    try {
-      await api.sendeLesebestaetigung(accountId, ordner, uid, senden);
-      setStand(senden ? 'gesendet' : 'abgelehnt');
-    } catch (err) {
-      setFehler((err as Error).message);
-      setStand('offen');
-    }
-  };
+  /*
+   * Gemerkt, damit der Effekt darunter sie als Abhaengigkeit nennen kann.
+   *
+   * Ohne useCallback entstuende bei jedem Zeichnen eine neue Funktion. Der Effekt muesste
+   * sie dann entweder verschweigen - und liefe damit womoeglich gegen einen alten Stand
+   * von accountId/ordner/uid - oder bei jedem Zeichnen neu laufen. Gemerkt an genau den
+   * drei Werten, aus denen sie besteht, ist beides gelöst: Sie bleibt dieselbe, solange
+   * es dieselbe Nachricht ist.
+   */
+  const entscheide = useCallback(
+    async (senden: boolean) => {
+      setStand('laeuft');
+      setFehler(null);
+      try {
+        await api.sendeLesebestaetigung(accountId, ordner, uid, senden);
+        setStand(senden ? 'gesendet' : 'abgelehnt');
+      } catch (err) {
+        setFehler((err as Error).message);
+        setStand('offen');
+      }
+    },
+    [accountId, ordner, uid],
+  );
 
   useEffect(() => {
     const schluessel = `${accountId}:${ordner}:${uid}`;
@@ -63,8 +75,9 @@ export function Lesebestaetigung({ accountId, ordner, uid, an, fragen, abweichen
     losgeschickt.current = schluessel;
     void entscheide(true);
     // Die Kennung der Nachricht ist die Abhängigkeit; `fragen` gehört dazu, weil sich
-    // daran entscheidet, ob überhaupt etwas von selbst geschieht.
-  }, [accountId, ordner, uid, fragen]);
+    // daran entscheidet, ob überhaupt etwas von selbst geschieht. `entscheide` hängt
+    // seinerseits an derselben Kennung und ändert sich damit im Gleichschritt.
+  }, [accountId, ordner, uid, fragen, entscheide]);
 
   if (stand === 'gesendet') {
     return (

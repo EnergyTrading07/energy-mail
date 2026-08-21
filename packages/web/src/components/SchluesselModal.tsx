@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.js';
 import type { Account } from '../api.js';
 import { bestaetige, frage } from '../dialoge.js';
-import { meldeErfolg, meldeFehler, meldeWarnung } from '../meldungen.js';
+import { meldeErfolg, meldeWarnung } from '../meldungen.js';
 import { Fenster } from './Fenster.js';
 import { t } from '../sprache.js';
 
@@ -170,9 +170,7 @@ export function SchluesselModal({ accounts, onClose }: Props) {
   return (
     <Fenster titel="OpenPGP-Schlüssel" onClose={onClose} klasse="modal-wide schluesselbund">
       <p className="hint">
-        Mit OpenPGP lässt sich Post unterschreiben und verschlüsseln. Ihr geheimer Schlüssel
-        bleibt auf diesem Rechner und liegt verschlüsselt – die öffentlichen der anderen sind
-        zur Weitergabe gemacht.
+        {t('Mit OpenPGP lässt sich Post unterschreiben und verschlüsseln. Ihr geheimer Schlüssel bleibt auf diesem Rechner und liegt verschlüsselt – die öffentlichen der anderen sind zur Weitergabe gemacht.')}
       </p>
 
       {fehler && <div className="error-banner">{fehler}</div>}
@@ -193,7 +191,7 @@ export function SchluesselModal({ accounts, onClose }: Props) {
               disabled={busy}
               onClick={() => void neuesPaar(konto)}
             >
-              Paar für {konto.email} erzeugen
+              {t('Paar für {adresse} erzeugen', { adresse: konto.email })}
             </button>
           ))}
         </div>
@@ -217,8 +215,7 @@ export function SchluesselModal({ accounts, onClose }: Props) {
           disabled={busy}
         />
         <p className="hint">
-          Einen Schlüssel hier einfügen oder eine Datei wählen. Geheime Schlüssel werden
-          verschlüsselt abgelegt; ihr Kennwort wird nicht gespeichert.
+          {t('Einen Schlüssel hier einfügen oder eine Datei wählen. Geheime Schlüssel werden verschlüsselt abgelegt; ihr Kennwort wird nicht gespeichert.')}
         </p>
       </div>
 

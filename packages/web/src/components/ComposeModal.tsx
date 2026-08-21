@@ -167,7 +167,6 @@ export function ComposeModal({
         .catch(() => setSmimeLage(null));
     }, 300);
     return () => clearTimeout(uhr);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, to, cc, bcc]);
 
   /**
@@ -502,7 +501,7 @@ export function ComposeModal({
                 aria-expanded={false}
                 onClick={() => setShowCopyFields(true)}
               >
-                + Kopie / Blindkopie
+                {t('+ Kopie / Blindkopie')}
               </button>
             )}
           </div>
@@ -579,7 +578,12 @@ export function ComposeModal({
 
         <div className="form-row">
           <label htmlFor={`${felder}-anhaenge`}>
-            Anhänge{attachments.length > 0 && ` (${attachments.length}, ${formatSize(totalBytes)})`}
+            {attachments.length > 0
+              ? t('Anhänge ({anzahl}, {groesse})', {
+                  anzahl: attachments.length,
+                  groesse: formatSize(totalBytes),
+                })
+              : t('Anhänge')}
           </label>
           <input
             id={`${felder}-anhaenge`}
@@ -596,7 +600,7 @@ export function ComposeModal({
               {initial.attachOriginal.filenames.map((name, i) => (
                 <li key={`orig-${i}`}>
                   <span className="draft-attachment-name">{name}</span>
-                  <span className="attachment-size">aus der Originalnachricht</span>
+                  <span className="attachment-size">{t('aus der Originalnachricht')}</span>
                 </li>
               ))}
             </ul>
@@ -775,8 +779,8 @@ export function ComposeModal({
                   {b.name}
                 </option>
               ))}
-              <option value="__sichern">— Text als Baustein sichern</option>
-              {bausteine.length > 0 && <option value="__loeschen">— Baustein löschen</option>}
+              <option value="__sichern">{t('— Text als Baustein sichern')}</option>
+              {bausteine.length > 0 && <option value="__loeschen">{t('— Baustein löschen')}</option>}
             </select>
             <button
               type="button"

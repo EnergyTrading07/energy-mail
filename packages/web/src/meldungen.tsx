@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Achtung, Haken, Hinweiszeichen, Warnzeichen } from './components/Symbole.js';
+import { t } from './sprache.js';
 
 /**
  * Kurze Rückmeldungen am oberen Rand.
@@ -171,7 +172,12 @@ function Kasten({ meldung, weg }: { meldung: Meldung; weg: () => void }) {
           {meldung.zurueck.text}
         </button>
       )}
-      <button className="icon-btn" onClick={schliessen} title="Schließen" aria-label="Schließen">
+      <button
+        className="icon-btn"
+        onClick={schliessen}
+        title={t('Schließen')}
+        aria-label={t('Schließen')}
+      >
         ×
       </button>
       {meldung.dauer > 0 && (

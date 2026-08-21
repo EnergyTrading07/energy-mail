@@ -207,7 +207,9 @@ function CategoryRow({
       onClick={() => onSelect(info.id)}
       aria-label={ordnerBeschriftung(categoryLabel(info.id), info.unseen)}
       aria-current={active ? 'true' : undefined}
-      title={`${categoryDescription(info.id)} · ${info.total} Nachrichten`}
+      title={tp(info.total, '{beschreibung} · {anzahl} Nachricht', '{beschreibung} · {anzahl} Nachrichten', {
+        beschreibung: categoryDescription(info.id),
+      })}
     >
       <FolderIcon role={info.id} />
       <span className={info.unseen ? 'folder-name unread' : 'folder-name'}>
@@ -418,7 +420,7 @@ export function Sidebar({
   };
 
   return (
-    <nav className="sidebar" aria-label="Konten und Ordner">
+    <nav className="sidebar" aria-label={t('Konten und Ordner')}>
       {menue && (
         <FolderMenu
           x={menue.x}
@@ -463,7 +465,7 @@ export function Sidebar({
             className={`folder-row gesamt-zeile${gesamtAnsicht ? ' active' : ''}`}
             onClick={onGesamtAnsicht}
             aria-current={gesamtAnsicht ? 'true' : undefined}
-            title="Die Posteingänge aller Konten in einer Liste"
+            title={t('Die Posteingänge aller Konten in einer Liste')}
           >
             <FolderIcon role="\Inbox" />
             <span className="folder-name">{t('Alle Posteingänge')}</span>
@@ -517,12 +519,12 @@ export function Sidebar({
                 {account.needsReauth && (
                   <span
                     className="auth-warn"
-                    title="Die Anmeldung wird vom Anbieter nicht mehr anerkannt – Konto neu anmelden."
+                    title={t('Die Anmeldung wird vom Anbieter nicht mehr anerkannt – Konto neu anmelden.')}
                   >
                     !
                   </span>
                 )}
-                {accountsWithNewMail.has(account.id) && <span className="new-mail-dot" title="Neue Nachrichten" />}
+                {accountsWithNewMail.has(account.id) && <span className="new-mail-dot" title={t('Neue Nachrichten')} />}
                 {/* Bei zugeklapptem Konto den Posteingangszähler zeigen, sonst wüsste man
                     nicht, dass dort Post liegt. */}
                 {!aktiv && posteingang?.folder.unseen ? (
@@ -538,7 +540,7 @@ export function Sidebar({
                 {!account.freigabe && (
                 <button
                   className="icon-btn"
-                  title="Einstellungen (Name, Signatur)"
+                  title={t('Einstellungen (Name, Signatur)')}
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenSettings(account);
@@ -684,19 +686,19 @@ export function Sidebar({
                     className="link-btn folder-toggle"
                     onClick={() => {
                       const delimiter = ordner[0]?.delimiter ?? '/';
-                      void frageName('Name des neuen Ordners', '', delimiter).then(
+                      void frageName(t('Name des neuen Ordners'), '', delimiter).then(
                         (name) => name && ordnerAktionen.anlegen(account.id, name),
                       );
                     }}
-                    title="Weitere Aktionen erreichst du mit einem Rechtsklick auf einen Ordner"
+                    title={t('Weitere Aktionen erreichen Sie mit einem Rechtsklick auf einen Ordner')}
                   >
-                    + Ordner anlegen
+                    {t('+ Ordner anlegen')}
                   </button>
                   {(ansicht.ausgeblendet > 0 || alleOrdner) && (
                     <button className="link-btn folder-toggle" onClick={() => setAlleOrdner((v) => !v)}>
                       {alleOrdner
-                        ? 'Leere Doppel-Ordner ausblenden'
-                        : `${ansicht.ausgeblendet} leere Doppel-Ordner anzeigen`}
+                        ? t('Leere Doppel-Ordner ausblenden')
+                        : t('{anzahl} leere Doppel-Ordner anzeigen', { anzahl: ansicht.ausgeblendet })}
                     </button>
                   )}
                 </div>

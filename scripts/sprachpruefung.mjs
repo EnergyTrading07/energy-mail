@@ -27,7 +27,7 @@
  *
  * Aufruf: npm run sprachpruefung
  */
-import { alleTexte, platzhalter } from './sprachtexte.mjs';
+import { alleTexte, festeTexte, platzhalter } from './sprachtexte.mjs';
 
 const SPRACHEN = ['en', 'fr', 'es', 'it', 'nl', 'pl', 'pt', 'tr', 'ru'];
 
@@ -206,6 +206,22 @@ for (const kennung of SPRACHEN) {
         `(z. B. "${kuerze(gleich[0][0])}").`,
     );
   }
+}
+
+/*
+ * Und zuletzt die Gegenprobe: deutscher Text, der gar nicht erst durch t() geht.
+ *
+ * Alles darueber prueft die Kataloge gegen den Quelltext - also das, was uebersetzbar
+ * IST. Die haeufigere Luecke liegt davor: ein Satz, der nie beim Uebersetzer ankommt.
+ * Er faellt in keiner der obigen Pruefungen auf, denn wo kein Schluessel ist, fehlt auch
+ * keine Uebersetzung; die Oberflaeche sieht auf Deutsch tadellos aus und meldet "kein
+ * Befund", waehrend auf Tuerkisch ein deutscher Halbsatz mitten im Text steht.
+ *
+ * Ein Befund und kein Hinweis: Ein Hinweis waechst mit, bis ihn niemand mehr liest -
+ * genau so sind die 79 Stellen entstanden, mit denen diese Pruefung eingefuehrt wurde.
+ */
+for (const { text, ort } of await festeTexte()) {
+  befunde.push(`${ort}: "${kuerze(text)}" steht fest im Quelltext - gehoert durch t().`);
 }
 
 function kuerze(text) {

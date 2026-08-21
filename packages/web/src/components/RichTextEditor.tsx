@@ -135,7 +135,13 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung }: Props
 
   return (
     <div className="editor">
-      <div className="editor-toolbar" role="toolbar" aria-label={`Formatierung: ${beschriftung}`}>
+      <div
+        className="editor-toolbar"
+        role="toolbar"
+        aria-label={
+          beschriftung ? t('Formatierung: {bereich}', { bereich: beschriftung }) : t('Formatierung')
+        }
+      >
         {werkzeuge().map((gruppe, i) => (
           <div className="werkzeug-gruppe" key={i}>
             {gruppe.map((w) => (
@@ -161,8 +167,8 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung }: Props
         <div className="werkzeug-gruppe">
           <button
             type="button"
-            title="Link einfügen"
-            aria-label="Link einfügen"
+            title={t('Link einfügen')}
+            aria-label={t('Link einfügen')}
             disabled={disabled}
             onMouseDown={(e) => e.preventDefault()}
             onClick={linkEinfuegen}
@@ -174,8 +180,8 @@ export function RichTextEditor({ html, onChange, disabled, beschriftung }: Props
               key={farbe.wert}
               type="button"
               className="farbknopf"
-              title={`Textfarbe ${farbe.name}`}
-              aria-label={`Textfarbe ${farbe.name}`}
+              title={t('Textfarbe {farbe}', { farbe: farbe.name })}
+              aria-label={t('Textfarbe {farbe}', { farbe: farbe.name })}
               disabled={disabled}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => fuehreAus('foreColor', farbe.wert)}

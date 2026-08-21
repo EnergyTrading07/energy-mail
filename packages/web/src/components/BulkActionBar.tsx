@@ -1,6 +1,6 @@
 import type { FolderInfo } from '@energy-mail/mail-core';
 import { moveTargets } from '../folderTargets.js';
-import { t } from '../sprache.js';
+import { t, tp } from '../sprache.js';
 
 interface Props {
   count: number;
@@ -35,7 +35,7 @@ export function BulkActionBar({
   return (
     <div className="bulk-bar">
       <span className="bulk-count">
-        {count} {count === 1 ? 'Nachricht' : 'Nachrichten'} ausgewählt
+        {tp(count, '{anzahl} Nachricht ausgewählt', '{anzahl} Nachrichten ausgewählt')}
       </span>
       {archiveLabel && (
         <button className="btn secondary" disabled={busy} onClick={onArchive} title={archiveLabel}>{t('Archivieren')}</button>

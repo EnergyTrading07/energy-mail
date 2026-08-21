@@ -20,7 +20,7 @@
       ((!wahl || wahl === 'system') &&
         window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.thema = dunkel ? 'dunkel' : 'hell';
-  } catch (e) {
+  } catch {
     // Ohne lesbaren Speicher bleibt es bei hell - kein Grund, den Start abzubrechen.
   }
 })();

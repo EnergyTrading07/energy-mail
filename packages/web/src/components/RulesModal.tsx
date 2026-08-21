@@ -247,7 +247,7 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
               <span>{t('Betreff')}</span>
               <input
                 type="text"
-                placeholder="enthält…"
+                placeholder={t('enthält…')}
                 value={entwurf.bedingungen.betreff ?? ''}
                 onChange={(e) => setzeBedingung('betreff', e.target.value)}
               />
@@ -256,7 +256,7 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
               <span>{t('Empfänger')}</span>
               <input
                 type="text"
-                placeholder="enthält…"
+                placeholder={t('enthält…')}
                 value={entwurf.bedingungen.an ?? ''}
                 onChange={(e) => setzeBedingung('an', e.target.value)}
               />
@@ -267,20 +267,20 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
                 checked={Boolean(entwurf.bedingungen.nurRundmail)}
                 onChange={(e) => setzeBedingung('nurRundmail', e.target.checked)}
               />
-              nur Rundmails (erkennbar an der Abmelde-Kopfzeile)
+              {t('nur Rundmails (erkennbar an der Abmelde-Kopfzeile)')}
             </label>
             <p className="hint">{t('Alles Angegebene muss zutreffen.')}</p>
           </div>
 
           <div className="regel-block">
-            <strong>… dann</strong>
+            <strong>{t('… dann')}</strong>
             <label>
               <span>{t('Verschieben')}</span>
               <select
                 value={entwurf.aktionen.verschiebeNach ?? ''}
                 onChange={(e) => setzeAktion('verschiebeNach', e.target.value)}
               >
-                <option value="">(nicht verschieben)</option>
+                <option value="">{t('(nicht verschieben)')}</option>
                 {ziele.map((f) => (
                   <option key={f.path} value={f.path}>
                     {f.name}
@@ -294,7 +294,7 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
                 checked={Boolean(entwurf.aktionen.alsGelesen)}
                 onChange={(e) => setzeAktion('alsGelesen', e.target.checked)}
               />
-              als gelesen markieren
+              {t('als gelesen markieren')}
             </label>
             <label className="regel-kasten">
               <input
@@ -310,15 +310,17 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
                 checked={Boolean(entwurf.aktionen.inDenPapierkorb)}
                 onChange={(e) => setzeAktion('inDenPapierkorb', e.target.checked)}
               />
-              in den Papierkorb
+              {t('in den Papierkorb')}
             </label>
           </div>
 
           {vorschau && (
             <div className="regel-vorschau">
               <strong>
-                {vorschau.treffer} von {vorschau.geprueft} geprüften Nachrichten würden
-                zutreffen
+                {t('{treffer} von {geprueft} geprüften Nachrichten würden zutreffen', {
+                  treffer: vorschau.treffer,
+                  geprueft: vorschau.geprueft,
+                })}
               </strong>
               {vorschau.beispiele.map((b, i) => (
                 <div key={i}>
@@ -343,7 +345,7 @@ export function RulesModal({ account, folders, onClose, onGeaendert, vorgabe }: 
       ) : (
         <div className="form-row regel-knoepfe">
           <button className="btn" onClick={() => setEntwurf({ ...LEER })}>
-            + Regel anlegen
+            {t('+ Regel anlegen')}
           </button>
           {regeln.some((r) => r.aktiv) && (
             <button className="btn secondary" disabled={busy} onClick={() => void anwenden()}>{t('Auf Posteingang anwenden')}</button>

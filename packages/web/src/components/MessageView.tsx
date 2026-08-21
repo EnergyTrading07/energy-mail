@@ -315,12 +315,12 @@ function ExterneLeiste({
           '{anzahl} Inhalte von fremden Servern wurden nicht geladen',
           { anzahl },
         )}
-        <span className="externe-grund">{t('Geladen melden sie dem Absender, dass du die Nachricht gerade liest.')}</span>
+        <span className="externe-grund">{t('Geladen melden sie dem Absender, dass Sie die Nachricht gerade lesen.')}</span>
       </span>
       <span className="externe-knoepfe">
         <button className="btn secondary" onClick={onLaden}>{t('Einmal laden')}</button>
         {absender && onVertrauen && (
-          <button className="link-btn" onClick={onVertrauen} title={`Gilt künftig für ${absender}`}>{t('Absender immer erlauben')}</button>
+          <button className="link-btn" onClick={onVertrauen} title={t('Gilt künftig für {absender}', { absender })}>{t('Absender immer erlauben')}</button>
         )}
       </span>
     </div>
@@ -410,7 +410,7 @@ export function MessageView({
             <button
               className="link-btn zum-adressbuch"
               onClick={() => onZumAdressbuch(absender.address, absender.name)}
-              title={`${absender.address} ins Adressbuch aufnehmen`}
+              title={t('{adresse} ins Adressbuch aufnehmen', { adresse: absender.address })}
             >{t('Ins Adressbuch')}</button>
           )}
           <span className="mail-date">
@@ -418,8 +418,10 @@ export function MessageView({
           </span>
         </div>
         <div className="mail-to" title={formatAddresses(message.to)}>
-          an {formatAddresses(message.to) || '(unbekannt)'}
-          {message.cc.length > 0 && <> · Kopie: {formatAddresses(message.cc)}</>}
+          {t('an {empfaenger}', { empfaenger: formatAddresses(message.to) || t('(unbekannt)') })}
+          {message.cc.length > 0 && (
+            <>{t(' · Kopie: {kopie}', { kopie: formatAddresses(message.cc) })}</>
+          )}
         </div>
         <div className="mail-etiketten">
           <EtikettMarken flags={message.flags} bekannte={etiketten} />
@@ -468,7 +470,9 @@ export function MessageView({
           ersatz={(fehler) => (
             <div className="pgp-band warnung">
               <span className="pgp-wort">
-                Der OpenPGP-Befund liess sich nicht darstellen ({fehler.message}).
+                {t('Der OpenPGP-Befund ließ sich nicht darstellen ({grund}).', {
+                  grund: fehler.message,
+                })}
               </span>
             </div>
           )}
@@ -488,7 +492,9 @@ export function MessageView({
           ersatz={(fehler) => (
             <div className="pgp-band warnung">
               <span className="pgp-wort">
-                Der S/MIME-Befund liess sich nicht darstellen ({fehler.message}).
+                {t('Der S/MIME-Befund ließ sich nicht darstellen ({grund}).', {
+                  grund: fehler.message,
+                })}
               </span>
             </div>
           )}
@@ -511,8 +517,9 @@ export function MessageView({
             <div className="einladung">
               <span className="einladung-art">{t('Einladung')}</span>
               <p className="hint einladung-hinweis">
-                Diese Einladung liess sich nicht darstellen ({fehler.message}). Die Nachricht
-                selbst steht unten; die Kalenderdatei laesst sich als Anhang oeffnen.
+                {t('Diese Einladung ließ sich nicht darstellen ({grund}). Die Nachricht selbst steht unten; die Kalenderdatei lässt sich als Anhang öffnen.', {
+                  grund: fehler.message,
+                })}
               </p>
             </div>
           )}
@@ -621,16 +628,16 @@ export function MessageView({
       )}
       {message.attachments.length > 0 && (
         <div className="attachments">
-          <strong>Anhänge ({message.attachments.length})</strong>
+          <strong>{t('Anhänge ({anzahl})', { anzahl: message.attachments.length })}</strong>
           <ul>
             {message.attachments.map((att, i) => (
               <li key={att.partId ?? i}>
                 {att.partId ? (
                   <a href={attachmentUrl(att.partId)} download={att.filename ?? undefined}>
-                    {att.filename ?? 'Anhang'}
+                    {att.filename ?? t('Anhang')}
                   </a>
                 ) : (
-                  <span>{att.filename ?? 'Anhang'} (nicht abrufbar)</span>
+                  <span>{t('{name} (nicht abrufbar)', { name: att.filename ?? t('Anhang') })}</span>
                 )}
                 <span className="attachment-size">{formatSize(att.size)}</span>
               </li>

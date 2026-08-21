@@ -5993,6 +5993,23 @@ input[type='file']::file-selector-button:hover {
 }
 
 /*
+ * Der Rahmen eines Fensters traegt keinen Fokusring.
+ *
+ * Er bekommt den Fokus, wenn darin kein Textfeld steht (siehe ersterFokus in
+ * barrierefrei.ts) - damit eine Vorlesesoftware seinen Namen nennt und die Tabulatortaste
+ * darin beginnt. Ein Bedienelement ist er deswegen nicht: Ein Ring um ein neunhundert
+ * Pixel breites Fenster sagt niemandem, wo er steht, und sieht aus wie eine Fehlermeldung.
+ * Aufgefallen beim Oeffnen mit Strg+, - nach einer Tastenbedienung greift :focus-visible.
+ */
+.modal:focus-visible {
+  /* Beides: Der Ring kommt an zwei Stellen her - als Schatten aus der allgemeinen Regel
+     fuer :focus-visible und als Umriss aus der Regel darunter, die auch im Kontrastmodus
+     von Windows traegt. Nur eines zurueckzunehmen laesst das andere stehen. */
+  outline: none;
+  box-shadow: var(--glanz), var(--schatten-3);
+}
+
+/*
  * Ein Fenster, das als Tafel steht.
  *
  * Alles, was es zum schwebenden Fenster machte, wird zurückgenommen: Maß, Rahmen,
@@ -6045,6 +6062,19 @@ input[type='file']::file-selector-button:hover {
 .tafel-kontowahl select {
   flex: 1;
   min-width: 0;
+}
+
+/*
+ * Auswahllisten bleiben in Lesebreite.
+ *
+ * Die Tafeln sind rund siebenhundert Pixel breit - die Fenster, aus denen sie hervorgingen,
+ * waren vierhundertachtzig. Eine Auswahlliste mit "Deutsch" darin, die ueber die ganze
+ * Breite laeuft, sieht nicht grosszuegig aus, sondern kaputt: Der Pfeil steht dann einen
+ * halben Bildschirm vom Text entfernt.
+ */
+.einstellungen-tafel select,
+.tafel-kontowahl select {
+  max-width: 28rem;
 }
 
 /* ==========================================================================
@@ -6119,6 +6149,13 @@ input[type='file']::file-selector-button:hover {
  */
 .wahlreihe {
   display: inline-flex;
+  /*
+   * Ohne das lief der Rahmen ueber die ganze Breite der Tafel, waehrend die drei Knoepfe
+   * links darin sassen - siebenhundert Pixel Kasten fuer dreihundert Pixel Inhalt.
+   * `inline-flex` allein genuegt nicht: In einer Spalte aus Flex-Elementen (.form-row)
+   * werden Kinder von sich aus auf volle Breite gezogen.
+   */
+  align-self: flex-start;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--rand);

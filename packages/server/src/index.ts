@@ -267,6 +267,9 @@ if (viteErlauben) {
  * einer eigenen Wurzel neu unterschreibt. Ohne diese Zeile bräche dort jede IMAP- und
  * SMTP-Verbindung ab. Einzelheiten in mail-core/zertifikate.ts.
  */
+// Hier gibt es noch kein Protokoll: Der Logger entsteht erst in buildServer() weiter
+// unten, und diese Auskunft muss davor stehen - sie betrifft die erste Verbindung.
+// eslint-disable-next-line no-console
 console.log(`[energy-mail] ${beschreibeZertifikate(nutzeSystemZertifikate())}`);
 
 const app = await buildServer({ port, proxyVertrauen: proxyVertrauen(), viteErlauben });

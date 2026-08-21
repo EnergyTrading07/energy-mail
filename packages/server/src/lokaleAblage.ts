@@ -401,9 +401,12 @@ function wendeMigrationenAn(d: DatabaseSync): void {
       } catch {
         // Keine Transaktion mehr offen - dann ist ohnehin nichts zurückzunehmen.
       }
+      // Die Ursache haengt daran: Die Meldung nennt die Umstellung, der urspruengliche
+      // Fehler nennt die Zeile in SQLite, an der es scheiterte - und die braucht man.
       throw new Error(
         `Umstellung auf Fassung ${migration.fassung} (${migration.beschreibung}) ` +
           `fehlgeschlagen: ${(err as Error).message}`,
+        { cause: err },
       );
     }
 

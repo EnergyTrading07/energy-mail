@@ -54,6 +54,16 @@ jobs:
       - name: Typen
         run: npm run typecheck
 
+      # Vor dem Bau, und das ist keine Sortierfrage: Der Prüfer braucht ein paar Sekunden,
+      # der Bau ein Vielfaches davon. Wer eine vergessene Abhängigkeit in einem useEffect
+      # hat, soll das erfahren, bevor die CI zwei Minuten lang etwas baut, das ohnehin
+      # verworfen wird.
+      #
+      # Was er beanstandet, steht in eslint.config.js - bewusst wenig, dafür jedes davon
+      # ein echter Befund.
+      - name: Prüfer
+        run: npm run lint
+
       - name: Bau
         # Getrennt vom Typcheck: Vite wirft Typen weg und baut auch dann, wenn welche
         # nicht stimmen. Umgekehrt findet der Typcheck keine Fehler in der Bauwerkstatt.
@@ -81,6 +91,27 @@ jobs:
       # scheitert einer, wurden die hundert Megabyte gar nicht erst geladen.
       - name: Electron-Binärdatei holen
         run: node node_modules/electron/install.js
+
+      # Die Anwendung wirklich starten und nachsehen, ob ein benutzbares Fenster dasteht.
+      #
+      # Hier stehen die Fehler, die bisher keine Prüfung gesehen hat: ein fehlendes
+      # `type` in der package.json, das den Start abbrach; eine Eingangskontrolle, die dem
+      # eigenen Fenster eine 401 schickte, sodass die Anwendung die JSON-Meldung ihres
+      # eigenen Servers anzeigte; ein Vorschaltskript, das nicht ankam. Alle drei sind in
+      # Typen, Bau und Prüfungen unsichtbar und in einem einzigen Start offensichtlich.
+      #
+      # An dieser Stelle, weil sie die Electron-Binärdatei braucht - die wurde eine Zeile
+      # weiter oben geholt. Vor dem Paketieren: Sie dauert Sekunden, das Paketieren Minuten.
+      - name: Oberfläche am laufenden Programm prüfen
+        run: npm run pruefe:oberflaeche
+
+      - name: Spuren der Oberflächenprüfung aufheben
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: oberflaechenpruefung
+          path: test-results/
+          if-no-files-found: ignore
 
       # Das Paket wirklich bauen. Alles, was sich erst am fertigen Paket zeigt - ob das
       # Programmsymbol enthalten ist, ob Prüfdateien mitgehen, ob app-update.yml stimmt -

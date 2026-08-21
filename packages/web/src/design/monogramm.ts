@@ -77,7 +77,7 @@ function ersterBuchstabe(wort: string): string {
 export function kuerzel(name: string | undefined, adresse: string | undefined): string {
   const woerter = (name ?? '')
     // Anführungszeichen und Klammern kommen aus fremden Kopfzeilen und sind kein Name.
-    .replace(/["'<>()\[\]]/g, ' ')
+    .replace(/["'<>()[\]]/g, ' ')
     .split(/[\s,]+/)
     .map(ersterBuchstabe)
     .filter(Boolean);

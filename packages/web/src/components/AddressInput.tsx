@@ -108,7 +108,7 @@ export function AddressInput({ value, onChange, placeholder, required, disabled,
         }}
       />
       {sichtbar && (
-        <ul className="suggestions" id={listeId} role="listbox" aria-label="Vorschläge">
+        <ul className="suggestions" id={listeId} role="listbox" aria-label={t('Vorschläge')}>
           {vorschlaege.map((contact, i) => (
             <li
               key={contact.address}

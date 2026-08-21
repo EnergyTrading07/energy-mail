@@ -1,3 +1,4 @@
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, dialog, ipcMain, nativeImage, powerMonitor, session, shell } from 'electron';
 import {
@@ -49,10 +50,38 @@ import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 import { horcheAufFensterfehler, richteAbsturzbehandlungEin } from './diagnose.js';
 import { protokolliere } from '@energy-mail/server/protokoll';
 
-// Gleicher Port wie der Standalone-Server (siehe packages/server), damit der ohne
-// zusätzliche Konfiguration gebaute Web-Client (Default VITE_API_URL) auch hier passt.
-const LOCAL_PORT = 4000;
-const LOCAL_URL = `http://127.0.0.1:${LOCAL_PORT}`;
+/**
+ * Der Port, auf dem der eingebettete Server am liebsten horcht.
+ *
+ * Derselbe wie beim Standalone-Server (siehe packages/server), damit der ohne
+ * zusätzliche Konfiguration gebaute Web-Client (Default VITE_API_URL) auch hier passt.
+ *
+ * "Am liebsten" und nicht "immer": Er ist nur ein Wunsch. Ist er belegt, wird
+ * ausgewichen - siehe sucheFreienPort().
+ */
+const BEVORZUGTER_PORT = 4000;
+
+/**
+ * Der Port, auf dem tatsächlich gehorcht wird - steht erst nach startLocalServer() fest.
+ *
+ * ## Warum das nicht mehr fest verdrahtet ist
+ *
+ * Vorher stand hier eine Konstante, und ein belegter Port 4000 bedeutete: Die Anwendung
+ * startet nicht. Sie zeigte ein Fehlerfenster und war damit fertig - kein Ausweg, keine
+ * Einstellung, nichts. Die 4000 ist ein ausgesprochen gebräuchlicher Port für
+ * Entwicklungsserver; wer einen laufen hat, bekam ein Mailprogramm, das sich nicht mehr
+ * öffnen ließ, mit einer Meldung, die nach einem Fehler im Programm aussieht.
+ *
+ * Der Doppelstart war dabei nie das Problem - den fängt das Instanzschloss weiter unten
+ * ab, und zwar bevor überhaupt ein Server hochgefahren wird. Übrig blieb genau der Fall,
+ * in dem ein FREMDES Programm den Port hält, und für den ist Ausweichen die richtige
+ * Antwort: Auf welchem Port die Anwendung mit sich selbst spricht, geht niemanden etwas
+ * an - am wenigsten den Nutzer.
+ */
+let localPort = BEVORZUGTER_PORT;
+
+/** Die Adresse des eingebetteten Servers. Erst nach startLocalServer() verlässlich. */
+const localUrl = () => `http://127.0.0.1:${localPort}`;
 
 /**
  * Name, unter dem Electron seinen Benutzerordner anlegt.
@@ -104,7 +133,7 @@ const eigeneAnzeigeprozesse = new Set<number>();
 let beendenGewollt = false;
 
 /** Die Adresse der Oberfläche - das Infobereichsmenü braucht sie, um neu zu öffnen. */
-let oberflaechenAdresse = LOCAL_URL;
+let oberflaechenAdresse = localUrl();
 
 /**
  * Holt die Anwendung nach vorn - aus dem Infobereich, aus der Taskleiste, von überall.
@@ -202,10 +231,56 @@ function zeigeInfobereichHinweis(): void {
   }
 }
 
+/**
+ * Sucht einen Port, auf dem sich horchen lässt - bevorzugt den gewünschten.
+ *
+ * Probiert wird mit einem nackten Netz-Server und nicht mit dem fertigen: Der Port muss
+ * VOR buildServer() feststehen. Der Zugangsriegel bekommt ihn mit (siehe zugang.ts) und
+ * baut daraus die erlaubte Herkunft - stimmte er nicht mit dem überein, auf dem später
+ * wirklich gehorcht wird, wiese der Riegel die eigene Oberfläche mit 403 ab. Der Dienst
+ * liefe dann, wäre aber unbedienbar.
+ *
+ * Port 0 heißt: das Betriebssystem sucht einen freien aus.
+ *
+ * Zwischen dieser Probe und dem endgültigen Horchen liegt ein Augenblick, in dem sich
+ * ein anderes Programm den Port nehmen könnte. Das bleibt so - dagegen hilft nur, den
+ * Port nie wieder loszulassen, und dann wäre die Probe der Server. Geht es doch schief,
+ * greift der Weg, den es vorher schon gab: das Startfehlerfenster.
+ */
+async function sucheFreienPort(bevorzugt: number): Promise<number> {
+  const probiere = (port: number) =>
+    new Promise<number | null>((fertig) => {
+      const probe = net.createServer();
+      probe.once('error', () => fertig(null));
+      probe.listen({ port, host: '127.0.0.1' }, () => {
+        const adresse = probe.address();
+        const gefunden = typeof adresse === 'object' && adresse ? adresse.port : null;
+        probe.close(() => fertig(gefunden));
+      });
+    });
+
+  const gewuenscht = await probiere(bevorzugt);
+  if (gewuenscht !== null) return gewuenscht;
+
+  const ersatz = await probiere(0);
+  if (ersatz === null) {
+    throw new Error(
+      `Port ${bevorzugt} ist belegt, und das Betriebssystem gab auch keinen anderen her.`,
+    );
+  }
+  protokolliere(
+    'warnung',
+    'start',
+    `Port ${bevorzugt} ist belegt - der eingebettete Server horcht stattdessen auf ${ersatz}.`,
+  );
+  return ersatz;
+}
+
 async function startLocalServer() {
   setzeZugangsgeheimnis(ZUGANG);
-  const server = await buildServer({ port: LOCAL_PORT });
-  await server.listen({ port: LOCAL_PORT, host: '127.0.0.1' });
+  localPort = await sucheFreienPort(BEVORZUGTER_PORT);
+  const server = await buildServer({ port: localPort });
+  await server.listen({ port: localPort, host: '127.0.0.1' });
   laufenderServer = server;
   return server;
 }
@@ -739,12 +814,6 @@ app.whenReady().then(async () => {
   // faengt diese Zeile alles ab, was danach kaeme.
   if (!alleinig) return;
 
-  // Der lokale Server liefert auch das gebaute Frontend aus, daher wird die UI über
-  // http:// geladen (nicht file://) - der Vite-Build referenziert /assets absolut.
-  // ENERGY_MAIL_WEB_URL zeigt bei Bedarf stattdessen auf den Vite-Dev-Server.
-  const url = process.env.ENERGY_MAIL_WEB_URL ?? LOCAL_URL;
-  oberflaechenAdresse = url;
-
   // Konten, Schlüssel und Kontakte in den Benutzerordner. Paketiert liegt der
   // Programmcode in einem schreibgeschützten Archiv - der Standardort neben dem
   // Servercode wäre dort nicht beschreibbar.
@@ -825,11 +894,26 @@ app.whenReady().then(async () => {
       (err as Error).message,
       t(
         'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.',
-        { port: LOCAL_PORT },
+        { port: localPort },
       ),
     );
     return;
   }
+
+  /*
+   * Die Adresse der Oberfläche - erst hier, und das ist der Grund für die Verschiebung.
+   *
+   * Der lokale Server liefert auch das gebaute Frontend aus, daher wird die UI über
+   * http:// geladen (nicht file://) - der Vite-Build referenziert /assets absolut.
+   * ENERGY_MAIL_WEB_URL zeigt bei Bedarf stattdessen auf den Vite-Dev-Server.
+   *
+   * Vorher stand das ein paar Dutzend Zeilen weiter oben, VOR dem Serverstart. Das ging,
+   * solange der Port eine Konstante war; seit er gesucht wird, steht er zu diesem
+   * Zeitpunkt noch gar nicht fest, und das Fenster lüde eine Adresse, an der niemand
+   * horcht.
+   */
+  const url = process.env.ENERGY_MAIL_WEB_URL ?? localUrl();
+  oberflaechenAdresse = url;
 
   /*
    * Die Sprache VOR dem Menü.
@@ -885,8 +969,8 @@ app.whenReady().then(async () => {
   // aufhalten. Ohne Internet passiert schlicht nichts.
   starteAktualisierungspruefung(
     {
-      info: (msg) => console.log(msg),
-      warn: (msg) => console.warn(msg),
+      info: (msg) => protokolliere('info', 'aktualisierung', msg),
+      warn: (msg) => protokolliere('warnung', 'aktualisierung', msg),
     },
     (stand) => {
       if (hauptfenster && !hauptfenster.isDestroyed()) {

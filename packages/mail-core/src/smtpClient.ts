@@ -101,7 +101,6 @@ export async function verifySmtpConnection(config: AccountConfig): Promise<void>
  */
 function kodiereKopfzeile(text: string): string {
   const sicher = sichereKopfzeile(text);
-  // eslint-disable-next-line no-control-regex
   if (!/[^\x20-\x7E]/.test(sicher)) return sicher;
   /*
    * Kodierte Wörter sind auf 75 Zeichen begrenzt (RFC 2047). Ein langer Betreff mit

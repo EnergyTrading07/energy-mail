@@ -98,80 +98,100 @@ function setzeKeks(reply: FastifyReply, request: FastifyRequest, kennung: string
 }
 
 /**
+ * Wie gross der Rumpf einer Anfrage hier hoechstens sein darf.
+ *
+ * Der Server erlaubt sonst 40 MB - richtig fuer einen Anhang, der versendet werden soll,
+ * und unsinnig fuer eine Anmeldung. Der Unterschied zaehlt, weil diese Wege die einzigen
+ * sind, die OHNE Sitzung erreichbar sein muessen: Wer hier anklopft, hat sich noch mit
+ * nichts ausgewiesen. Ohne eigene Grenze darf er trotzdem 40 MB schicken, und zwar so
+ * oft er will - der Rumpf wird eingelesen, bevor die Anmeldebremse ueberhaupt gefragt
+ * wird, denn die haengt an der Adresse im Rumpf.
+ *
+ * 4 KB sind grosszuegig: Adresse und Kennwort zusammen sind ein paar hundert Byte, und
+ * die laengste Marke der zweiten Stufe ist 64 Zeichen lang. Wer mehr schickt, meint
+ * nicht diese Route.
+ */
+const ANMELDUNG_RUMPF_MAX = 4 * 1024;
+
+/**
  * @param ermittle Derselbe Ermittler, den auch der Nutzerkontext verwendet - siehe /ich.
  */
 export function registriereAnmeldung(
   app: FastifyInstance,
   ermittle: (request: FastifyRequest) => string | null,
 ): void {
-  app.post<{ Body: { email?: string; kennwort?: string } }>('/anmelden', async (request, reply) => {
-    const email = typeof request.body?.email === 'string' ? request.body.email : '';
-    const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
+  app.post<{ Body: { email?: string; kennwort?: string } }>(
+    '/anmelden',
+    { bodyLimit: ANMELDUNG_RUMPF_MAX },
+    async (request, reply) => {
+      const email = typeof request.body?.email === 'string' ? request.body.email : '';
+      const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
 
-    if (!email || !kennwort) {
-      return reply.code(400).send({ error: t('Adresse und Kennwort werden gebraucht.') });
-    }
+      if (!email || !kennwort) {
+        return reply.code(400).send({ error: t('Adresse und Kennwort werden gebraucht.') });
+      }
 
-    const gesperrt = istGesperrt(request.ip, email);
-    if (gesperrt) {
-      /*
-       * Gekürzt, nicht vollständig.
-       *
-       * Wozu die Zeile da ist - zu erkennen, dass hier jemand durchprobiert -, leistet
-       * das Netz genauso wie der einzelne Anschluss. Was darüber hinausgeht, ist die
-       * Anschlusskennung eines Menschen in einer Datei, die "Fehlerbericht erzeugen" zum
-       * Verschicken anbietet. Der Betreiber eines Servers für den Bekanntenkreis schickte
-       * damit die Adressen seiner Bekannten mit.
-       */
-      protokolliere(
-        'warnung',
-        'anmeldung',
-        gesperrt === 'netz'
-          ? `Zu viele Versuche aus ${kuerzeIpAdresse(request.ip)} gegen mehrere Adressen.`
-          : `Zu viele Versuche für ${email} aus ${kuerzeIpAdresse(request.ip)}.`,
-      );
-      return reply.code(429).send({
-        error:
+      const gesperrt = istGesperrt(request.ip, email);
+      if (gesperrt) {
+        /*
+         * Gekürzt, nicht vollständig.
+         *
+         * Wozu die Zeile da ist - zu erkennen, dass hier jemand durchprobiert -, leistet
+         * das Netz genauso wie der einzelne Anschluss. Was darüber hinausgeht, ist die
+         * Anschlusskennung eines Menschen in einer Datei, die "Fehlerbericht erzeugen" zum
+         * Verschicken anbietet. Der Betreiber eines Servers für den Bekanntenkreis schickte
+         * damit die Adressen seiner Bekannten mit.
+         */
+        protokolliere(
+          'warnung',
+          'anmeldung',
           gesperrt === 'netz'
-            ? t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.')
-            : t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
-      });
-    }
+            ? `Zu viele Versuche aus ${kuerzeIpAdresse(request.ip)} gegen mehrere Adressen.`
+            : `Zu viele Versuche für ${email} aus ${kuerzeIpAdresse(request.ip)}.`,
+        );
+        return reply.code(429).send({
+          error:
+            gesperrt === 'netz'
+              ? t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.')
+              : t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
+        });
+      }
 
-    const nutzer = pruefeAnmeldung(email, kennwort);
-    if (!nutzer) {
-      merkeFehlversuch(request.ip, email);
-      /*
-       * Eine Meldung für beide Fälle.
+      const nutzer = pruefeAnmeldung(email, kennwort);
+      if (!nutzer) {
+        merkeFehlversuch(request.ip, email);
+        /*
+         * Eine Meldung für beide Fälle.
+         *
+         * "Diese Adresse kennen wir nicht" wäre freundlicher und verriete zugleich, wer
+         * hier ein Konto hat. Bei einem Mailprogramm ist das eine Auskunft, die niemanden
+         * etwas angeht.
+         */
+        return reply.code(401).send({ error: t('Adresse oder Kennwort stimmen nicht.') });
+      }
+
+      /**
+       * Das Kennwort stimmt - und jetzt kommt die Frage, ob das schon reicht.
        *
-       * "Diese Adresse kennen wir nicht" wäre freundlicher und verriete zugleich, wer
-       * hier ein Konto hat. Bei einem Mailprogramm ist das eine Auskunft, die niemanden
-       * etwas angeht.
+       * Ist ein zweiter Faktor eingerichtet, wird hier KEINE Sitzung eröffnet. Zurück geht
+       * eine Marke, die fünf Minuten gilt und genau einen Weg öffnet: /anmelden/code. Erst
+       * dort entsteht der Keks.
+       *
+       * Auch die Anmeldebremse bleibt bis dahin stehen. Sie erst hier zurückzusetzen wäre
+       * bequem und falsch: Wer das Kennwort hat, könnte sonst beliebig viele Codes
+       * durchprobieren, indem er zwischendurch immer wieder das Kennwort schickt.
        */
-      return reply.code(401).send({ error: t('Adresse oder Kennwort stimmen nicht.') });
-    }
+      if (hatZweiFaktor(nutzer.id)) {
+        protokolliere('info', 'anmeldung', `${nutzer.id}: Kennwort stimmt, zweiter Faktor fehlt noch.`);
+        return { zweiFaktor: true as const, marke: beginneZweiteStufe(nutzer.id, email) };
+      }
 
-    /**
-     * Das Kennwort stimmt - und jetzt kommt die Frage, ob das schon reicht.
-     *
-     * Ist ein zweiter Faktor eingerichtet, wird hier KEINE Sitzung eröffnet. Zurück geht
-     * eine Marke, die fünf Minuten gilt und genau einen Weg öffnet: /anmelden/code. Erst
-     * dort entsteht der Keks.
-     *
-     * Auch die Anmeldebremse bleibt bis dahin stehen. Sie erst hier zurückzusetzen wäre
-     * bequem und falsch: Wer das Kennwort hat, könnte sonst beliebig viele Codes
-     * durchprobieren, indem er zwischendurch immer wieder das Kennwort schickt.
-     */
-    if (hatZweiFaktor(nutzer.id)) {
-      protokolliere('info', 'anmeldung', `${nutzer.id}: Kennwort stimmt, zweiter Faktor fehlt noch.`);
-      return { zweiFaktor: true as const, marke: beginneZweiteStufe(nutzer.id, email) };
-    }
-
-    merkeErfolg(request.ip, email);
-    setzeKeks(reply, request, eroeffneSitzung(nutzer.id));
-    protokolliere('info', 'anmeldung', `${nutzer.id} angemeldet.`);
-    return { nutzer: oeffentlich(nutzer) };
-  });
+      merkeErfolg(request.ip, email);
+      setzeKeks(reply, request, eroeffneSitzung(nutzer.id));
+      protokolliere('info', 'anmeldung', `${nutzer.id} angemeldet.`);
+      return { nutzer: oeffentlich(nutzer) };
+    },
+  );
 
   /**
    * Die zweite Stufe: das Einmalkennwort.
@@ -186,6 +206,7 @@ export function registriereAnmeldung(
    */
   app.post<{ Body: { marke?: string; code?: string } }>(
     '/anmelden/code',
+    { bodyLimit: ANMELDUNG_RUMPF_MAX },
     async (request, reply) => {
       const marke = typeof request.body?.marke === 'string' ? request.body.marke : '';
       const offen = halbeAnmeldung(marke);
@@ -349,40 +370,44 @@ export function registriereAnmeldung(
    * hervorholen müsste, stellte die Sperre nach dem dritten Mal ab - und dann schützt sie
    * gar nichts mehr.
    */
-  app.post<{ Body: { kennwort?: string } }>('/sperre/oeffnen', async (request, reply) => {
-    const kennung = request.cookies[KEKS_NAME];
-    const stand = sitzungsstand(kennung);
-    if (!stand.nutzerId) return reply.code(401).send({ error: t('Nicht angemeldet.') });
+  app.post<{ Body: { kennwort?: string } }>(
+    '/sperre/oeffnen',
+    { bodyLimit: ANMELDUNG_RUMPF_MAX },
+    async (request, reply) => {
+      const kennung = request.cookies[KEKS_NAME];
+      const stand = sitzungsstand(kennung);
+      if (!stand.nutzerId) return reply.code(401).send({ error: t('Nicht angemeldet.') });
 
-    const nutzer = findeNutzer(stand.nutzerId);
-    if (!nutzer) return reply.code(401).send({ error: t('Nicht angemeldet.') });
+      const nutzer = findeNutzer(stand.nutzerId);
+      if (!nutzer) return reply.code(401).send({ error: t('Nicht angemeldet.') });
 
-    const gesperrt = istGesperrt(request.ip, nutzer.email);
-    if (gesperrt) {
-      protokolliere(
-        'warnung',
-        'sitzung',
-        `Zu viele Versuche beim Entsperren aus ${kuerzeIpAdresse(request.ip)}.`,
-      );
-      return reply.code(429).send({
-        error:
-          gesperrt === 'netz'
-            ? t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.')
-            : t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
-      });
-    }
+      const gesperrt = istGesperrt(request.ip, nutzer.email);
+      if (gesperrt) {
+        protokolliere(
+          'warnung',
+          'sitzung',
+          `Zu viele Versuche beim Entsperren aus ${kuerzeIpAdresse(request.ip)}.`,
+        );
+        return reply.code(429).send({
+          error:
+            gesperrt === 'netz'
+              ? t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.')
+              : t('Zu viele Versuche. Bitte in einer Viertelstunde noch einmal probieren.'),
+        });
+      }
 
-    const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
-    if (!pruefeAnmeldung(nutzer.email, kennwort)) {
-      merkeFehlversuch(request.ip, nutzer.email);
-      return reply.code(401).send({ error: t('Das Kennwort stimmt nicht.') });
-    }
+      const kennwort = typeof request.body?.kennwort === 'string' ? request.body.kennwort : '';
+      if (!pruefeAnmeldung(nutzer.email, kennwort)) {
+        merkeFehlversuch(request.ip, nutzer.email);
+        return reply.code(401).send({ error: t('Das Kennwort stimmt nicht.') });
+      }
 
-    merkeErfolg(request.ip, nutzer.email);
-    entsperreSitzung(kennung);
-    protokolliere('info', 'sitzung', `${stand.nutzerId} hat entsperrt.`);
-    return { gesperrt: false };
-  });
+      merkeErfolg(request.ip, nutzer.email);
+      entsperreSitzung(kennung);
+      protokolliere('info', 'sitzung', `${stand.nutzerId} hat entsperrt.`);
+      return { gesperrt: false };
+    },
+  );
 
   /**
    * Kennwort ändern - und dabei überall abmelden.
@@ -393,6 +418,7 @@ export function registriereAnmeldung(
    */
   app.post<{ Body: { alt?: string; neu?: string } }>(
     '/ich/kennwort',
+    { bodyLimit: ANMELDUNG_RUMPF_MAX },
     async (request, reply) => {
       const nutzerId = nutzerZurSitzung(request.cookies[KEKS_NAME]);
       if (!nutzerId) return reply.code(401).send({ error: t('Nicht angemeldet.') });

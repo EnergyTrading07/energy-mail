@@ -44,7 +44,7 @@ const REGELN: { was: string; muster: RegExp; ersatz: string }[] = [
     ersatz: `$1${UNKENNTLICH}`,
   },
   // Marken von Google und Microsoft, auch wenn sie ohne Feldnamen dastehen.
-  { was: 'Google-Marke', muster: /\bya29\.[\w.\-]{10,}/g, ersatz: UNKENNTLICH },
+  { was: 'Google-Marke', muster: /\bya29\.[\w.-]{10,}/g, ersatz: UNKENNTLICH },
   { was: 'JSON Web Token', muster: /\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, ersatz: UNKENNTLICH },
   // Die IMAP-Anmeldung im Klartext, wie sie in einem Mitschnitt stünde.
   {

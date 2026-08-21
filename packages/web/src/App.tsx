@@ -368,6 +368,21 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
   const arbeitsKonto = gesamtAnsicht ? (gesamtHerkunft?.accountId ?? null) : selectedAccountId;
   const arbeitsOrdner = gesamtAnsicht ? (gesamtHerkunft?.folder ?? null) : selectedFolder;
 
+  /**
+   * Von welchem Ende der Server blättert - und "egal", wenn es ihn nichts angeht.
+   *
+   * Die Datumsrichtung entscheidet, welche Seite der Anbieter liefert; dafür muss neu
+   * geladen werden. Bei Absender und Betreff nicht: Dort wird nur das bereits Geladene
+   * umsortiert, und ein Neuladen ließe bloß warten.
+   *
+   * Als eigener Wert und nicht als Ausdruck in den Abhängigkeitslisten. Dort stand er
+   * zweimal wörtlich, und ein Ausdruck an dieser Stelle lässt sich nicht mehr prüfen:
+   * Der Prüfer kann nicht sehen, woraus er sich zusammensetzt, und schweigt deshalb auch
+   * dann, wenn eine Abhängigkeit fehlt. Als benannter Wert wird er wieder nachvollziehbar
+   * - und die zweite Fassung kann nicht mehr von der ersten abweichen.
+   */
+  const blaetterRichtung = sortierung.schluessel === 'datum' ? sortierung.richtung : 'egal';
+
   // Beim Kontowechsel die Ordnerauswahl verwerfen, damit unten wieder der Posteingang
   // des neuen Kontos gewählt wird.
   useEffect(() => {
@@ -561,13 +576,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
     // Liste eingefuegt statt sie zu ersetzen, und weil das Zusammenfuehren nach Datum
     // absteigend ordnet, stuenden weiter die neuesten oben. "Aelteste zuerst" aenderte
     // dann sichtbar gar nichts.
-  }, [
-    gesamtAnsicht,
-    selectedAccountId,
-    selectedFolder,
-    selectedCategory,
-    sortierung.schluessel === 'datum' ? sortierung.richtung : 'egal',
-  ]);
+  }, [gesamtAnsicht, selectedAccountId, selectedFolder, selectedCategory, blaetterRichtung]);
 
   /**
    * Der Posteingang aller Konten. Eigener Effekt, weil er weder Ordner noch Kategorie
@@ -629,10 +638,7 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
     selectedCategory,
     reloadCounter,
     offeneSuche,
-    // Die Datumsrichtung entscheidet, von welchem Ende der Server blaettert - dafuer
-    // muss neu geladen werden. Bei Absender und Betreff nicht: dort wird nur das
-    // Geladene umsortiert, und ein Neuladen wuerde nur warten lassen.
-    sortierung.schluessel === 'datum' ? sortierung.richtung : 'egal',
+    blaetterRichtung,
   ]);
 
   /**
@@ -813,8 +819,22 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
    * unmittelbar folgende - beim Lesen geht man der Reihe nach vor, und jede weitere wäre
    * geraten und würde den Anbieter unnötig belasten.
    */
+  /*
+   * Geprüft und abgerufen wird DASSELBE Postfach - vorher waren es zwei verschiedene.
+   *
+   * Die Bedingung fragte nach selectedAccountId/selectedFolder, der Abruf darunter nahm
+   * arbeitsKonto/arbeitsOrdner. In der gewöhnlichen Ansicht ist das dasselbe, in der
+   * Gesamtansicht nicht: dort kommen die Arbeitswerte aus der Herkunft der gerade
+   * gelesenen Nachricht (siehe oben), die ausgewählten dagegen aus dem zuletzt
+   * angeklickten Konto. Steht die Herkunft noch nicht, während eine Auswahl schon steht,
+   * ging ein Abruf auf `/accounts/null/...` hinaus - die beiden Ausrufezeichen haben
+   * genau das zugedeckt.
+   *
+   * Die Abhängigkeiten nennen jetzt ebenfalls die Arbeitswerte. Ohne sie lief der Effekt
+   * unter Umständen mit einem Stand, der eine Nachricht alt war.
+   */
   useEffect(() => {
-    if (!selectedAccountId || !selectedFolder || selectedUid === null) return;
+    if (!arbeitsKonto || !arbeitsOrdner || selectedUid === null) return;
     const stelle = messages.findIndex((m) => m.uid === selectedUid);
     const naechste = stelle >= 0 ? messages[stelle + 1] : undefined;
     if (!naechste) return;
@@ -823,14 +843,14 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
     // Kurz warten: wer schnell durchklickt, soll nicht für jede übersprungene Nachricht
     // einen Abruf auslösen.
     const timer = setTimeout(() => {
-      void api.prefetchMessage(arbeitsKonto!, arbeitsOrdner!, naechste.uid, abbruch.signal);
+      void api.prefetchMessage(arbeitsKonto, arbeitsOrdner, naechste.uid, abbruch.signal);
     }, 400);
 
     return () => {
       clearTimeout(timer);
       abbruch.abort();
     };
-  }, [selectedAccountId, selectedFolder, selectedUid, messages]);
+  }, [arbeitsKonto, arbeitsOrdner, selectedUid, messages]);
 
   /**
    * Setzt den Gelesen-Status. Die Anzeige wird sofort umgestellt und bei einem Fehler
@@ -1263,7 +1283,6 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
     }
   };
 
-  const allMailFolder = folders.find((folder) => folder.isAllMail);
 
   // Überschrift der Nachrichtenliste - mit dem vereinheitlichten Namen der Seitenleiste.
   /**
@@ -2146,7 +2165,12 @@ export default function App({ ich, onAbgemeldet, onSperren }: AppProps = {}) {
           onSearch={handleSearch}
           onClear={() => void handleSearchClear()}
         />
-        <main className="reader-pane" id="nachricht" tabIndex={-1} aria-label="Geöffnete Nachricht">
+        <main
+          className="reader-pane"
+          id="nachricht"
+          tabIndex={-1}
+          aria-label={t('Geöffnete Nachricht')}
+        >
           <BulkActionBar
             count={checkedUids.size}
             folders={folders}

@@ -73,15 +73,16 @@ function Absturzseite(fehler: Error, nochmal: () => void) {
       </pre>
       <div style={{ display: 'flex', gap: '10px' }}>
         <button type="button" onClick={nochmal} style={knopf}>
-          Nochmal versuchen
+          {t('Nochmal versuchen')}
         </button>
         <button type="button" onClick={() => window.location.reload()} style={knopf}>
-          Neu laden
+          {t('Neu laden')}
         </button>
       </div>
       <p style={{ margin: 0, fontSize: '13px', opacity: 0.75, maxWidth: '52ch' }}>
-        Bleibt es dabei, erzeugt „Hilfe → Fehlerbericht erzeugen“ eine Datei mit dem
-        Protokoll – Kennwörter und Adressen sind darin bereits unkenntlich gemacht.
+        {t(
+          'Bleibt es dabei, erzeugt „Hilfe → Fehlerbericht erzeugen“ eine Datei mit dem Protokoll – Kennwörter und Adressen sind darin bereits unkenntlich gemacht.',
+        )}
       </p>
     </div>
   );

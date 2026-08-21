@@ -9,7 +9,67 @@ was sich geändert hat.
 
 ---
 
-## Unveröffentlicht
+## 0.4.0
+
+### Sicherheit
+
+**Eine gemeldete Lücke in einer Abhängigkeit ist überbrückt.** `deepmerge-ts` unter 8.0.0
+läuft beim Zusammenführen rekursiver Objektgraphen den Stapel leer (GHSA-ggr8-5vv4-36mx).
+Der Weg dorthin führt über `mailparser` — also über das, was fremde Post verarbeitet.
+
+**Der Anfragerumpf ist an den offenen Wegen begrenzt.** Anmelden, zweite Stufe und
+Entsperren nahmen bis zu 40 MB entgegen, obwohl Adresse und Kennwort ein paar hundert Byte
+sind. Der Rumpf wird eingelesen, *bevor* die Anmeldebremse greifen kann — die hängt an der
+Adresse darin. Jetzt 4 KB.
+
+**Ein dritter Riegel gegen Anfragen von fremden Seiten.** Der Herkunftsriegel muss
+Anfragen ohne `Origin` durchlassen, weil das eigene Fenster seine Seite genauso lädt.
+Unterscheiden ließ sich beides bisher nicht; jetzt über `Sec-Fetch-Site`.
+
+### Ein belegter Port hält die Anwendung nicht mehr auf
+
+Port 4000 war fest verdrahtet. Hielt ihn ein anderes Programm — und 4000 ist ein
+ausgesprochen gebräuchlicher Port für Entwicklungsserver —, zeigte Energy Mail ein
+Fehlerfenster und war damit fertig: kein Ausweg, keine Einstellung. Jetzt wird ein freier
+Port gesucht. Auf welchem die Anwendung mit sich selbst spricht, geht niemanden etwas an.
+
+### Neunundsiebzig deutsche Reste in den fremdsprachigen Oberflächen
+
+Die Sprachprüfung meldete „kein Befund", und die Kataloge waren vollständig — nur prüfte
+sie das Falsche. Sie sieht, was übersetzbar *ist*; was übersetzbar sein *müsste* und es
+nicht ist, kann sie nicht sehen.
+
+Am auffälligsten waren 27 Attribute — `aria-label`, `title`, `placeholder` —, also
+ausgerechnet das, was ein Vorleseprogramm vorliest: Die Nachrichtenliste kündigte sich auf
+Türkisch als „Nachrichtenliste" an. Und ein Satz stand halb übersetzt da: „No connection.
+Gezeigt wird der zuletzt geholte Stand von deinem Rechner."
+
+**Die Anrede ist vereinheitlicht.** Es standen 43 siezende Meldungen neben 6 duzenden,
+beide im selben Fenster. Jetzt siezt alles.
+
+1218 Texte in neun vollständigen Katalogen, vorher 1131. Damit es nicht nachwächst, bricht
+die Sprachprüfung jetzt bei deutschem Text, der gar nicht erst durch den Übersetzer geht.
+
+### Ein Fehler, den die Gesamtansicht verbarg
+
+Der Vorabruf der nächsten Nachricht prüfte auf das eine Postfach und arbeitete mit dem
+anderen. In der gewöhnlichen Ansicht ist das dasselbe; in der Gesamtansicht nicht — dort
+kommt das Postfach aus der Herkunft der gelesenen Nachricht. Stand die noch nicht, ging
+ein Abruf ins Leere.
+
+### Unter der Haube
+
+- **Ein Prüfer** (ESLint) läuft jetzt bei jedem Bau mit. Er hat den Fehler oben gefunden,
+  dazu vier unsichtbare Zeichen im Quelltext, fünf tote Einbindungen und zwei Fehler, die
+  ihre Ursache fallen ließen.
+- **Neun Prüfungen am laufenden Programm.** Sie starten die fertige Anwendung und sehen
+  nach, ob ein benutzbares Fenster dasteht — genau die Sorte Fehler, die weder Typen noch
+  Bau noch Prüfungen sehen, und an der dieses Programm bisher am häufigsten gestolpert ist.
+- **Fünf Routengruppen** sind aus der 4132 Zeilen langen `app.ts` ausgezogen. Beim Archiv
+  war die Aufteilung vorher halb: der Inhalt lag längst getrennt, nur die Wege dorthin
+  nicht.
+
+---
 
 ### Ein Ort für Einstellungen
 

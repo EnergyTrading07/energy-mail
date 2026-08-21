@@ -291,7 +291,10 @@ export async function verifyImapConnection(config: AccountConfig): Promise<void>
     // hängen bleiben.
     await withThrowawayClient(config, async () => undefined);
   } catch (err) {
-    throw new Error(describeImapError(err));
+    // Die Ursache bleibt daran haengen: describeImapError macht daraus einen Satz fuer
+    // den Nutzer, und der urspruengliche Fehler samt Stapel waere sonst weg - genau das,
+    // was man bei einer Stoerung beim Anbieter braucht.
+    throw new Error(describeImapError(err), { cause: err });
   }
 }
 

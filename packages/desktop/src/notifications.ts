@@ -1,6 +1,7 @@
 import { BrowserWindow, Notification } from 'electron';
 import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/events';
 import { t, tp } from '@energy-mail/mail-core/sprache';
+import { protokolliere } from '@energy-mail/server/protokoll';
 import { einstellungen } from './einstellungen.js';
 import { programmSymbolPfad } from './programmSymbol.js';
 
@@ -76,10 +77,10 @@ export function starteBenachrichtigungen(
   fensterHolen: () => BrowserWindow | null,
 ): () => void {
   if (!Notification.isSupported()) {
-    console.warn('Benachrichtigungen: vom System nicht unterstützt.');
+    protokolliere('warnung', 'benachrichtigung', 'Vom System nicht unterstützt.');
     return () => {};
   }
-  console.log('Benachrichtigungen: aktiv.');
+  protokolliere('info', 'benachrichtigung', 'Benachrichtigungen sind aktiv.');
 
   return subscribe(nutzerId, (event: MailEvent) => {
     if (event.type !== 'new-mail') return;
@@ -88,7 +89,7 @@ export function starteBenachrichtigungen(
     // wäre unsinnig - gemeldet wird nur, was tatsächlich ankommt.
     if (event.folder !== POSTEINGANG) return;
     if (event.neue.length === 0) {
-      console.log('Benachrichtigung entfällt: keine Kopfdaten zur neuen Nachricht.');
+      protokolliere('info', 'benachrichtigung', 'Entfällt: keine Kopfdaten zur Nachricht.');
       return;
     }
 
@@ -102,7 +103,7 @@ export function starteBenachrichtigungen(
     const imBlick =
       Boolean(fenster) && fenster!.isFocused() && fenster!.isVisible() && !fenster!.isMinimized();
     if (imBlick) {
-      console.log('Benachrichtigung entfällt: Fenster ist im Vordergrund.');
+      protokolliere('info', 'benachrichtigung', 'Entfällt: Fenster ist im Vordergrund.');
       return;
     }
     /*
@@ -113,7 +114,7 @@ export function starteBenachrichtigungen(
      * Für die Frage, die diese Zeile beantworten soll ("kam die Meldung überhaupt?"),
      * genügt die Anzahl.
      */
-    console.log(`Benachrichtigung: ${event.neue.length} neue Nachricht(en).`);
+    protokolliere('info', 'benachrichtigung', `${event.neue.length} neue Nachricht(en) gemeldet.`);
 
     /**
      * Öffnet beim Klick die gemeldete Nachricht - für jede Meldung derselbe Weg.

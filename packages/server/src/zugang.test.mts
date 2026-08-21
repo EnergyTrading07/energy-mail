@@ -279,6 +279,73 @@ await pruefe('oeffnet aber sonst nichts', async () => {
   await app.close();
 });
 
+console.log('\nSec-Fetch-Site - der Riegel dort, wo keine Origin mitkommt:');
+
+await pruefe('eine Anfrage von einer fremden Seite wird abgewiesen', async () => {
+  /*
+   * Der Fall, den der Herkunftsriegel nicht sieht: Eine Navigation von einer fremden
+   * Seite traegt KEINE Origin-Kopfzeile - bei einem GET durch Anklicken schickt der
+   * Browser keine. Der Riegel darueber laesst sie deshalb durch, und muss das auch: das
+   * eigene Fenster laedt seine Seite genauso. Unterscheiden laesst sich beides allein an
+   * Sec-Fetch-Site.
+   */
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/accounts',
+    headers: { [ZUGANG_KOPFZEILE]: GEHEIM, 'sec-fetch-site': 'cross-site' },
+  });
+  assert.equal(antwort.statusCode, 403);
+  assert.ok(!antwort.body.includes('a@b.de'), 'und gibt nichts aus dem Postfach heraus');
+  await app.close();
+});
+
+await pruefe('das gilt auch fuer einen schreibenden Weg', async () => {
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({
+    method: 'POST',
+    url: '/accounts/1/send',
+    headers: { [ZUGANG_KOPFZEILE]: GEHEIM, 'sec-fetch-site': 'cross-site' },
+  });
+  assert.equal(antwort.statusCode, 403);
+  await app.close();
+});
+
+await pruefe('die eigene Seite (same-origin) geht durch', async () => {
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/accounts',
+    headers: { [ZUGANG_KOPFZEILE]: GEHEIM, 'sec-fetch-site': 'same-origin' },
+  });
+  assert.equal(antwort.statusCode, 200);
+  await app.close();
+});
+
+await pruefe('ein Lesezeichen oder die Adresszeile (none) ebenfalls', async () => {
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/accounts',
+    headers: { [ZUGANG_KOPFZEILE]: GEHEIM, 'sec-fetch-site': 'none' },
+  });
+  assert.equal(antwort.statusCode, 200);
+  await app.close();
+});
+
+await pruefe('ohne die Kopfzeile bleibt es beim Geheimnis als Riegel', async () => {
+  // Ein Werkzeug ohne Browser kennt sie nicht. Sie ist eine Zugabe, keine Bedingung -
+  // sonst waeren jeder Abruf von Hand und jede Ueberwachung ausgesperrt.
+  const app = baueProbe(GEHEIM);
+  const antwort = await app.inject({
+    method: 'GET',
+    url: '/accounts',
+    headers: { [ZUGANG_KOPFZEILE]: GEHEIM },
+  });
+  assert.equal(antwort.statusCode, 200);
+  await app.close();
+});
+
 console.log('\nDas Geheimnis selbst:');
 
 await pruefe('ist lang genug und bei jedem Aufruf ein anderes', () => {
