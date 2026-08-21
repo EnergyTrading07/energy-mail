@@ -141,7 +141,8 @@ export function oeffentlicheAdressen(): readonly string[] {
  */
 function herkunftErlaubt(origin: string | undefined, port: number): boolean {
   // Keine Origin-Kopfzeile: eine Navigation des Fensters selbst, ein Bildabruf oder ein
-  // Programm ohne Browser. Hier entscheidet allein das Geheimnis.
+  // Programm ohne Browser. Hier entscheidet allein das Geheimnis - und, sofern der
+  // Browser sie mitschickt, die Auskunft in Sec-Fetch-Site (siehe unten).
   if (!origin) return true;
   const erlaubt = [
     `http://127.0.0.1:${port}`,
@@ -197,6 +198,34 @@ export function registriereZugangspruefung(app: FastifyInstance, port: number): 
   app.addHook('onRequest', (request: FastifyRequest, reply: FastifyReply, fertig: () => void) => {
     const origin = request.headers.origin;
     if (!herkunftErlaubt(typeof origin === 'string' ? origin : undefined, port)) {
+      reply.code(403).send({ error: t('Anfrage aus fremder Herkunft') });
+      return;
+    }
+
+    /*
+     * Der dritte Riegel, dort wo der zweite nichts sieht.
+     *
+     * Der Herkunftsriegel oben laesst jede Anfrage OHNE Origin-Kopfzeile durch, und das
+     * muss er auch: eine Navigation des Fensters, ein Bildabruf, ein Programm ohne
+     * Browser - keines davon setzt eine. Nur schickt der Browser bei genau diesen
+     * Anfragen etwas anderes mit, naemlich Sec-Fetch-Site. Steht dort "cross-site", kam
+     * die Anfrage nachweislich von einer fremden Seite, und dann ist sie abzuweisen -
+     * auch wenn keine Origin dabeisteht.
+     *
+     * Damit ist der haeufigste Rest gedeckt, den der Origin-Riegel nicht sieht: die
+     * Navigation von einer fremden Seite auf einen Weg dieses Servers.
+     *
+     * "same-site" gilt als in Ordnung und nicht nur "same-origin": hinter einem Vorbau
+     * kann die Oberflaeche auf mail.beispiel.de und ein Teil davon auf einer
+     * Unterdomaene liegen. "none" heisst, dass es keinen Ausloeser gab - eine
+     * Adresszeile, ein Lesezeichen -, und das ist ausdruecklich erlaubt.
+     *
+     * Wer keine Kopfzeile schickt, wird nicht abgewiesen. Sie ist eine Zugabe des
+     * Browsers, keine Bedingung: ein Werkzeug wie curl kennt sie nicht, und fuer den
+     * gilt weiterhin das Geheimnis als Riegel.
+     */
+    const auslaeser = request.headers['sec-fetch-site'];
+    if (typeof auslaeser === 'string' && auslaeser === 'cross-site') {
       reply.code(403).send({ error: t('Anfrage aus fremder Herkunft') });
       return;
     }
