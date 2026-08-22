@@ -203,7 +203,10 @@ export const KATALOG: Katalog = {
   'Zurück': 'Retour',
   'Adresse': 'Adresse',
   'Kennwort': 'Mot de passe',
+  'Angemeldet bleiben': 'Rester connecté',
   'Anmelden': 'Se connecter',
+  'Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.': 'Cet appareil reste connecté pendant un an, même après un redémarrage – et l\'écran ne se verrouille plus tout seul. Uniquement sur un appareil auquel personne d\'autre n\'a accès.',
+  'Kennwort vergessen?': 'Mot de passe oublié ?',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.': 'C\'est le mot de passe d\'Energy Mail, pas celui de votre boîte aux lettres.',
 
   // --- packages/web/src/components/ArchivModal.tsx ---
@@ -379,6 +382,32 @@ export const KATALOG: Katalog = {
   'Unterlagen erzeugen': 'Créer les documents',
   'Kein Rechtsrat. Die Regelfälle sind abgedeckt; bei Beschäftigtendaten, einem Betriebsrat und Übermittlungen in Drittländer gehört ein Mensch darüber, bevor etwas unterschrieben wird.': 'Pas un conseil juridique. Les cas ordinaires sont couverts ; s\'il s\'agit de données de salariés, d\'un comité d\'entreprise ou de transferts hors UE, une personne doit relire avant toute signature.',
 
+  // --- packages/web/src/components/DownloadTeil.tsx ---
+  'Windows': 'Windows',
+  'macOS': 'macOS',
+  'Linux': 'Linux',
+  'Unbekanntes System': 'Système inconnu',
+  'Energy Mail auf dem Rechner': 'Energy Mail sur votre ordinateur',
+  'Dieselbe Anwendung als Programm für Ihren Rechner: Sie meldet sich an diesem Server an und zeigt dieselben Postfächer. Benachrichtigungen und der Infobereich kommen dazu.': 'La même application en programme pour votre ordinateur : elle se connecte à ce serveur et affiche les mêmes boîtes aux lettres. Les notifications et la zone de notification viennent en plus.',
+  'Der Betreiber dieses Dienstes hat noch keine Fassung hinterlegt. Fragen Sie ihn danach.': 'L\'exploitant de ce service n\'a pas encore déposé de version. Demandez-la-lui.',
+  'Stand': 'État',
+  'Herunterladen': 'Télécharger',
+
+  // --- packages/web/src/components/DownloadVerwaltungTeil.tsx ---
+  'Desktop-Fassung bereitstellen': 'Mettre à disposition la version bureau',
+  'Legen Sie die Installationsdatei in diesen Ordner. Ihre Nutzer finden sie danach unter Einstellungen → Für den Rechner und laden sie von hier statt aus dem Netz.': 'Placez le fichier d\'installation dans ce dossier. Vos utilisateurs le trouveront ensuite sous Réglages → Pour l\'ordinateur et le téléchargeront d\'ici plutôt que depuis Internet.',
+  'Dieser Server nennt keinen Ordner – vermutlich ist er älter als diese Oberfläche.': 'Ce serveur n\'indique aucun dossier – il est probablement plus ancien que cette interface.',
+  'Kopiert': 'Copié',
+  'Pfad kopieren': 'Copier le chemin',
+  'Diesen Ordner gibt es noch nicht – legen Sie ihn an und kopieren Sie die Datei hinein.': 'Ce dossier n\'existe pas encore – créez-le et copiez-y le fichier.',
+  'Ausgeliefert wird nur, was auf eine dieser Endungen lautet: {endungen}': 'Seuls les fichiers portant l\'une de ces extensions sont fournis : {endungen}',
+  'Datei': 'Fichier',
+  'System': 'Système',
+  'Größe': 'Taille',
+  'Der Ordner ist leer – es wird nichts angeboten.': 'Le dossier est vide – rien n\'est proposé.',
+  'Neu einlesen': 'Relire',
+  'Hochladen geht hier bewusst nicht: Ein Weg, über den sich ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes Programm zu verteilen.': 'Le téléversement est volontairement impossible ici : une voie permettant d\'écrire des fichiers exécutables sur le serveur serait, depuis un compte d\'administrateur compromis, l\'autorisation de distribuer un programme étranger à tous les postes de travail.',
+
   // --- packages/web/src/components/Einladung.tsx ---
   '{tag}, {tage} Tage (ganztägig)': '{tag}, {tage} jours (journée entière)',
   '{tag} (ganztägig)': '{tag} (journée entière)',
@@ -445,6 +474,7 @@ export const KATALOG: Katalog = {
   'Programm': 'Programme',
   'Nutzer': 'Utilisateurs',
   'Anmeldung': 'Connexion',
+  'Für den Rechner': 'Pour l\'ordinateur',
   'Noch kein Postfach eingerichtet – es kommt über die Seitenleiste hinzu.': 'Aucune boîte aux lettres configurée pour l\'instant – elle s\'ajoute depuis la barre latérale.',
   'Einstellungen': 'Réglages',
   'Bereiche der Einstellungen': 'Sections des réglages',
@@ -473,12 +503,38 @@ export const KATALOG: Katalog = {
   'Rechte': 'Droits',
   'Es geht nur um dieses Postfach – nicht um Ihre anderen Konten, Ihr Adressbuch oder Ihre Einstellungen. Jede Freigabe steht im Protokoll.': 'Il s\'agit uniquement de cette boîte – pas de vos autres comptes, de votre carnet d\'adresses ni de vos réglages. Chaque partage figure dans le journal.',
 
+  // --- packages/web/src/components/KennwortVergessen.tsx ---
+  'Noch ein Zeichen.': 'Encore un caractère.',
+  'Noch {anzahl} Zeichen.': {
+    one: 'Encore {anzahl} caractère.',
+    other: 'Encore {anzahl} caractères.',
+  },
+  'Sehen Sie in Ihr Postfach': 'Consultez votre boîte aux lettres',
+  'Besteht zu dieser Adresse ein Zugang, ist eine Nachricht unterwegs. Der Link darin gilt eine Stunde.': 'Si un accès existe pour cette adresse, un message est en route. Le lien qu\'il contient est valable une heure.',
+  'Kommt nichts an, sehen Sie im Spam-Ordner nach oder wenden Sie sich an den Betreiber.': 'Si rien n\'arrive, regardez dans les indésirables ou adressez-vous à l\'exploitant du service.',
+  'Zur Anmeldung': 'Vers la connexion',
+  'Kennwort vergessen': 'Mot de passe oublié',
+  'Geben Sie Ihre Adresse ein. Sie bekommen einen Link, mit dem Sie ein neues Kennwort vergeben.': 'Saisissez votre adresse. Vous recevrez un lien permettant de définir un nouveau mot de passe.',
+  'Wird gesendet…': 'Envoi en cours…',
+  'Link anfordern': 'Demander un lien',
+  'Ein zweiter Faktor bleibt davon unberührt. Ist Ihr Telefon abhandengekommen, hilft nur der Betreiber.': 'Un deuxième facteur n\'est pas concerné. Si vous avez perdu votre téléphone, seul l\'exploitant peut vous aider.',
+  'Zurück zur Anmeldung': 'Retour à la connexion',
+  'Die beiden Kennwörter stimmen nicht überein.': 'Les deux mots de passe ne correspondent pas.',
+  'Das Kennwort steht': 'Le mot de passe est défini',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem neuen Kennwort an. Alle offenen Sitzungen wurden dabei beendet.': 'Connectez-vous maintenant avec votre adresse et le nouveau mot de passe. Toutes les sessions ouvertes ont été fermées.',
+  'Ihr zweiter Faktor gilt unverändert weiter – halten Sie Ihre App bereit.': 'Votre deuxième facteur reste inchangé – gardez votre application à portée de main.',
+  'Neues Kennwort': 'Nouveau mot de passe',
+  'Mindestens {anzahl} Zeichen. Länge zählt mehr als Sonderzeichen.': 'Au moins {anzahl} caractères. La longueur compte plus que les caractères spéciaux.',
+  'Kennwort wiederholen': 'Répéter le mot de passe',
+  'Die beiden Kennwörter stimmen noch nicht überein.': 'Les deux mots de passe ne correspondent pas encore.',
+  'Wird gesetzt…': 'Définition en cours…',
+  'Kennwort setzen': 'Définir le mot de passe',
+
   // --- packages/web/src/components/KontoModal.tsx ---
   '{anzahl} Wiederherstellungscode übrig': '{anzahl} code de secours restant',
   '{anzahl} Wiederherstellungscodes übrig': '{anzahl} codes de secours restants',
   'Ihre Wiederherstellungscodes': 'Vos codes de secours',
   'Drucken Sie sie aus oder legen Sie sie an einen sicheren Ort. Jeder Code lässt sich genau einmal benutzen – und ersetzt Ihr Telefon, wenn es einmal nicht zur Hand ist.': 'Imprimez-les ou rangez-les en lieu sûr. Chaque code ne sert qu\'une seule fois – et remplace votre téléphone lorsqu\'il n\'est pas à portée de main.',
-  'Kopiert': 'Copié',
   'Kopieren': 'Copier',
   'Ich habe sie notiert': 'Je les ai notés',
   'Die beiden neuen Kennwörter stimmen nicht überein.': 'Les deux nouveaux mots de passe ne concordent pas.',
@@ -492,7 +548,6 @@ export const KATALOG: Katalog = {
   'Kennwort ändern': 'Changer le mot de passe',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs. Nach der Änderung müssen Sie sich überall neu anmelden.': 'Il s\'agit du mot de passe d\'Energy Mail – pas de celui de votre boîte aux lettres. Après le changement, vous devrez vous reconnecter partout.',
   'Bisheriges Kennwort': 'Mot de passe actuel',
-  'Neues Kennwort': 'Nouveau mot de passe',
   'Noch einmal': 'Encore une fois',
   'Mindestens zehn Zeichen. Ein Satz ist besser als ein Wort.': 'Dix caractères au minimum. Une phrase vaut mieux qu\'un mot.',
   'Zwei-Faktor-Anmeldung': 'Connexion à deux facteurs',
@@ -656,6 +711,70 @@ export const KATALOG: Katalog = {
   'Wird geholt…': 'Récupération…',
   'Kopfzeilen': 'En-têtes',
   'Als Datei sichern': 'Enregistrer dans un fichier',
+
+  // --- packages/web/src/components/Registrierung.tsx ---
+  'Das Kennwort muss mindestens {anzahl} Zeichen haben.': 'Le mot de passe doit compter au moins {anzahl} caractères.',
+  'Ihr Antrag ist da': 'Votre demande est enregistrée',
+  'Wir haben Ihnen eine Nachricht geschickt. Klicken Sie auf den Link darin – erst dann geht es weiter. Der Link gilt 24 Stunden.': 'Nous vous avons envoyé un message. Suivez le lien qu\'il contient – rien ne se passe avant. Le lien est valable 24 heures.',
+  'Ein Verwalter sieht sich Ihren Antrag an und schaltet den Zugang frei. Sobald das geschehen ist, können Sie sich hier anmelden.': 'Un administrateur examinera votre demande et activera l\'accès. Dès que ce sera fait, vous pourrez vous connecter ici.',
+  'Legen Sie hier Ihren Zugang an. Freigeschaltet wird er von einem Verwalter.': 'Créez ici votre accès. Il sera activé par un administrateur.',
+  'Legen Sie hier Ihren Zugang an.': 'Créez ici votre accès.',
+  'Möglich sind nur Adressen dieser Domänen: {domaenen}': 'Seules les adresses de ces domaines sont acceptées : {domaenen}',
+  'Bemerkung (freiwillig)': 'Remarque (facultative)',
+  'z. B. Ihre Abteilung': 'p. ex. votre service',
+  'Ich habe die Hinweise zum Datenschutz gelesen.': 'J\'ai lu les informations relatives à la protection des données.',
+  'Zugang beantragen': 'Demander un accès',
+  'Das Kennwort gilt für Energy Mail – nicht für Ihr Postfach. Das tragen Sie später ein.': 'Ce mot de passe est celui d\'Energy Mail – pas celui de votre boîte aux lettres. Vous saisirez ce dernier plus tard.',
+  'Ihr Zugang steht': 'Votre accès est prêt',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem Kennwort an, das Sie gewählt haben.': 'Connectez-vous maintenant avec votre adresse et le mot de passe que vous avez choisi.',
+  'Danke – Adresse bestätigt': 'Merci – adresse confirmée',
+  'Ein Verwalter schaltet Ihren Zugang frei. Sobald das geschehen ist, können Sie sich anmelden.': 'Un administrateur activera votre accès. Dès que ce sera fait, vous pourrez vous connecter.',
+
+  // --- packages/web/src/components/RegistrierungTeil.tsx ---
+  'Konten legt allein ein Verwalter an. Im Anmeldefenster steht kein Weg zur Anmeldung.': 'Seul un administrateur crée les comptes. La fenêtre de connexion ne propose aucune inscription.',
+  'Wer will, stellt einen Antrag. Hereinkommen tut er erst, wenn Sie ihn freigeben.': 'Qui le souhaite dépose une demande. Il n\'entre qu\'une fois que vous l\'avez approuvée.',
+  'Wer seine Mailadresse über den Bestätigungslink nachweist, ist damit angemeldet. Sie erfahren davon nur über die Nutzerliste.': 'Quiconque prouve son adresse par le lien de confirmation est inscrit. Vous ne l\'apprenez que par la liste des utilisateurs.',
+  'Selbstanmeldung': 'Inscription autonome',
+  'Ob sich Menschen hier selbst ein Konto anlegen können – und unter welchen Bedingungen.': 'Si les gens peuvent créer eux-mêmes un compte ici – et à quelles conditions.',
+  'Aus': 'Désactivée',
+  'Antrag mit Freigabe': 'Demande avec approbation',
+  'Offen mit Mailbestätigung': 'Ouverte avec confirmation par courriel',
+  'Eingestellt ist „offen“, es gilt aber „Antrag mit Freigabe“: Ohne Systemversand gibt es keine Bestätigungsmail. Richten Sie ihn weiter unten ein.': '« Ouverte » est configurée, mais c\'est « Demande avec approbation » qui s\'applique : sans envoi système, il n\'y a pas de message de confirmation. Configurez-le ci-dessous.',
+  '„Offen“ verlangt einen Systemversand – ohne Bestätigungsmail könnte sich jeder ein Konto auf eine fremde Adresse anlegen.': '« Ouverte » exige un envoi système – sans message de confirmation, n\'importe qui pourrait créer un compte sur l\'adresse d\'autrui.',
+  'Nur diese Mail-Domänen': 'Uniquement ces domaines de messagerie',
+  'firma.de, tochter.de': 'societe.fr, filiale.fr',
+  'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Vide signifie : toute adresse. Pour une entreprise, c\'est le réglage le plus efficace à lui seul – les personnes extérieures n\'atteignent même pas l\'étape de la demande.',
+  'Datenschutzhinweis auf dem Formular': 'Mention de protection des données sur le formulaire',
+  'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Elle figure au-dessus du bouton d\'envoi et doit être cochée. Indiquez qui traite les données et comment les faire supprimer ; renvoyez à votre politique de confidentialité si vous en avez une.',
+  'Wird gesichert…': 'Enregistrement…',
+  'Gesichert.': 'Enregistré.',
+  'Offene Anträge': 'Demandes en attente',
+  'Gestellt': 'Déposée le',
+  'Adresse bestätigt': 'Adresse confirmée',
+  'noch nicht': 'pas encore',
+  'Antrag von {name} annehmen?': 'Accepter la demande de {name} ?',
+  'Das Konto entsteht sofort. Das Kennwort hat dieser Mensch selbst gewählt – Sie bekommen es nicht zu sehen und brauchen es nicht.': 'Le compte est créé immédiatement. Cette personne a choisi son mot de passe elle-même – vous ne le voyez pas et n\'en avez pas besoin.',
+  'Diese Adresse ist NICHT bestätigt: Es ist nicht nachgewiesen, dass sie dem Antragsteller gehört. Geben Sie nur frei, wenn Sie wissen, wer das ist.': 'Cette adresse n\'est PAS confirmée : rien ne prouve qu\'elle appartient au demandeur. N\'approuvez que si vous savez de qui il s\'agit.',
+  'Annehmen': 'Accepter',
+  'Antrag von {name} ablehnen?': 'Refuser la demande de {name} ?',
+  'Der Antrag wird gelöscht – nicht vermerkt. Eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.': 'La demande est supprimée, pas consignée. Ce service ne tient volontairement aucune liste des demandes refusées.',
+  'Ablehnen': 'Refuser',
+  'Ablehnung mitteilen?': 'Informer du refus ?',
+  'Der Antragsteller bekommt eine kurze Nachricht ohne Begründung. Bei einem Antrag, den offensichtlich niemand gestellt hat, lassen Sie es besser.': 'Le demandeur reçoit un court message sans motif. Pour une demande que manifestement personne n\'a déposée, mieux vaut s\'abstenir.',
+  'Mitteilen': 'Informer',
+  'Ohne Nachricht': 'Sans message',
+  'Die Verbindung steht und die Anmeldung wird angenommen.': 'La connexion fonctionne et les identifiants sont acceptés.',
+  'Absender des Dienstes': 'Expéditeur du service',
+  'Über dieses Postfach verschickt der Dienst seine eigenen Nachrichten – den Bestätigungslink vor allem. Nehmen Sie ein eigenes Postfach dafür, kein persönliches.': 'Le service envoie ses propres messages par cette boîte aux lettres – le lien de confirmation avant tout. Utilisez une boîte dédiée, pas une boîte personnelle.',
+  'Systemversand benutzen': 'Utiliser l\'envoi système',
+  'Sendeserver (SMTP)': 'Serveur d\'envoi (SMTP)',
+  'Port': 'Port',
+  'Verschlüsselt ab Verbindungsaufbau (Port 465)': 'Chiffré dès l\'établissement de la connexion (port 465)',
+  'Aus heißt STARTTLS auf Port 587 – ebenfalls verschlüsselt. Unverschlüsselt versendet dieser Dienst nicht.': 'Désactivé signifie STARTTLS sur le port 587 – également chiffré. Ce service n\'envoie jamais en clair.',
+  'Benutzername': 'Nom d\'utilisateur',
+  'Kennwort (hinterlegt)': 'Mot de passe (déjà enregistré)',
+  'Absenderadresse': 'Adresse d\'expéditeur',
+  'Verbindung prüfen': 'Tester la connexion',
 
   // --- packages/web/src/components/RichTextEditor.tsx ---
   'Link einfügen': 'Insérer un lien',
@@ -899,7 +1018,6 @@ export const KATALOG: Katalog = {
   'Adresse des neuen Nutzers': 'Adresse du nouvel utilisateur',
   'Darf verwalten': 'Peut administrer',
   'Angelegt': 'Créé le',
-  'Stand': 'État',
   'Verwalter': 'Administrateur',
   'Zwei-Faktor-Anmeldung eingeschaltet': 'Connexion à deux facteurs activée',
   '2 Faktoren': '2 facteurs',
@@ -932,7 +1050,6 @@ export const KATALOG: Katalog = {
   'Vorlage:': 'Modèle :',
   'Active Directory': 'Active Directory',
   'OpenLDAP': 'OpenLDAP',
-  'Port': 'Port',
   'Verschlüsselung': 'Chiffrement',
   'LDAPS (verschlüsselt ab Verbindungsaufbau)': 'LDAPS (chiffré dès la connexion)',
   'StartTLS (schaltet um)': 'StartTLS (bascule ensuite)',
@@ -940,7 +1057,6 @@ export const KATALOG: Katalog = {
   'Ohne Verschlüsselung geht das Kennwort des Dienstkontos im Klartext über die Leitung. Nur vertretbar, wenn diese Leitung den Rechner nie verlässt.': 'Sans chiffrement, le mot de passe du compte de service circule en clair. Acceptable uniquement si cette liaison ne quitte jamais la machine.',
   'Zertifikat prüfen': 'Vérifier le certificat',
   'Anmelde-DN des Dienstkontos': 'DN de connexion du compte de service',
-  'Kennwort (hinterlegt)': 'Mot de passe (déjà enregistré)',
   'Ein Konto, das im Verzeichnis nur lesen darf – kein Administratorkonto. Es steht verschlüsselt auf dem Server und geht nie wieder heraus.': 'Un compte qui n\'a que le droit de lecture dans l\'annuaire – pas un compte administrateur. Il est stocké chiffré sur le serveur et n\'en ressort jamais.',
   'Suchbereich (Basis-DN)': 'Zone de recherche (DN de base)',
   'Grundfilter': 'Filtre de base',
@@ -949,7 +1065,6 @@ export const KATALOG: Katalog = {
   'Anzeigename': 'Nom affiché',
   'Mobil': 'Mobile',
   'Abteilung': 'Service',
-  'Verbindung prüfen': 'Tester la connexion',
 
   // --- packages/web/src/components/WartendModal.tsx ---
   'Nichts geplant und nichts zurückgestellt.': 'Rien de programmé ni de reporté.',
@@ -994,6 +1109,10 @@ export const KATALOG: Katalog = {
   'Noch keine. Sie erscheinen von selbst, sobald Ihnen jemand unterschrieben schreibt.': 'Aucun pour l\'instant. Ils apparaissent d\'eux-mêmes dès que quelqu\'un vous écrit en signant.',
   'Eigene Schlüsseldatei einlesen (.p12)': 'Importer votre fichier de clé (.p12)',
   'Fremdes Zertifikat aufnehmen': 'Ajouter le certificat d\'un tiers',
+
+  // --- packages/web/src/components/Zugangsteile.tsx ---
+  'Anmelden oder Konto anlegen': 'Se connecter ou créer un compte',
+  'Konto anlegen': 'Créer un compte',
 
   // --- packages/web/src/composeHelpers.ts ---
   'Nachfrage': 'Relance',
@@ -1137,7 +1256,6 @@ export const KATALOG: Katalog = {
   'Jetzt abrufen': 'Relever maintenant',
 
   // --- packages/desktop/src/kennwortFenster.ts ---
-  'Kennwort wiederholen': 'Répéter le mot de passe',
   'Bitte mindestens acht Zeichen.': 'Au moins huit caractères.',
   'Die beiden Eingaben stimmen nicht überein.': 'Les deux saisies ne concordent pas.',
   'Kennwort für die Sicherung': 'Mot de passe pour la sauvegarde',
@@ -1162,7 +1280,6 @@ export const KATALOG: Katalog = {
   'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.': 'Si vous ne le souhaitez pas, désactivez-le dans Outils → « Réduire dans la zone de notification ».',
   'Lieber beenden': 'Préférer quitter',
   'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.': 'L\'interface n\'a pas pu être chargée. Le plus souvent, le serveur local n\'est plus joignable ; redémarrer l\'application y remédie.',
-  'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.': 'Le serveur local sur le port {port} n\'a pas pu démarrer. Le plus souvent, une deuxième instance d\'Energy Mail tourne déjà – ou un « npm run dev:server » lancé depuis les sources.',
 
   // --- packages/desktop/src/menu.ts ---
   '&Nachricht': '&Message',
@@ -1187,6 +1304,7 @@ export const KATALOG: Katalog = {
   'Einstellungen…': 'Réglages…',
   'Einstellungen sichern…': 'Sauvegarder les réglages…',
   'Sicherung einlesen…': 'Restaurer une sauvegarde…',
+  'Server wechseln…': 'Changer de serveur…',
   '&Hilfe': '&Aide',
   'Projektseite öffnen': 'Ouvrir la page du projet',
   'Fehlerbericht erzeugen…': 'Créer un rapport d\'incident…',
@@ -1203,7 +1321,25 @@ export const KATALOG: Katalog = {
   'Keine Vorschläge': 'Aucune suggestion',
 
   // --- packages/desktop/src/safeStorageKey.ts ---
-  'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.': 'Le système d\'exploitation ne fournit pas de chiffrement pour l\'instant (safeStorage indisponible). Les identifiants ne seront pas enregistrés.',
+
+  // --- packages/desktop/src/serverFenster.ts ---
+  'Energy Mail einrichten': 'Configurer Energy Mail',
+  'Mit welchem Server arbeiten Sie?': 'Avec quel serveur travaillez-vous ?',
+  'Energy Mail holt Ihre Postfächer von einem Server. Fragen Sie die Adresse bei dem, der ihn betreibt – es ist dieselbe, unter der Sie im Browser arbeiten.': 'Energy Mail récupère vos boîtes aux lettres sur un serveur. Demandez l\'adresse à celui qui l\'exploite – c\'est la même que celle que vous utilisez dans le navigateur.',
+  'Adresse des Servers': 'Adresse du serveur',
+  'Verbinden': 'Se connecter',
+  'Verbunden – Energy Mail {fassung}': 'Connecté – Energy Mail {fassung}',
+  'Ohne Adresse geht es nicht.': 'Une adresse est indispensable.',
+
+  // --- packages/desktop/src/serverwahl.ts ---
+  '„{eingabe}“ ist keine brauchbare Adresse. Erwartet wird etwas wie https://mail.firma.de': '« {eingabe} » n\'est pas une adresse utilisable. On attend quelque chose comme https://mail.societe.fr',
+  'Nur http und https sind hier vorgesehen.': 'Seuls http et https sont prévus ici.',
+  'Ohne Verschlüsselung (http://) geht das nur zu einem Server auf diesem Rechner. Über eine Leitung ginge Ihr Kennwort im Klartext – tragen Sie https:// ein.': 'Sans chiffrement (http://), cela ne fonctionne qu\'avec un serveur sur cet ordinateur. Sur une liaison, votre mot de passe circulerait en clair – saisissez https://.',
+  'Der Server antwortet nicht. Stimmt die Adresse, und ist der Rechner erreichbar?': 'Le serveur ne répond pas. L\'adresse est-elle correcte et la machine est-elle joignable ?',
+  'Dort antwortet etwas, aber kein Energy Mail (Status {status}).': 'Quelque chose répond là-bas, mais ce n\'est pas Energy Mail (statut {status}).',
+  'Der Server meldet, dass er gerade nicht arbeiten kann.': 'Le serveur signale qu\'il ne peut pas travailler pour le moment.',
+  'Dort antwortet etwas, aber kein Energy Mail.': 'Quelque chose répond là-bas, mais ce n\'est pas Energy Mail.',
+  'Keine Verbindung: {grund}': 'Pas de connexion : {grund}',
 
   // --- packages/desktop/src/updateSignatur.ts ---
   'Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.': 'La publication concerne la version {freigegeben}, mais {geladen} a été téléchargée.',
@@ -1277,6 +1413,9 @@ export const KATALOG: Katalog = {
   'Zu dieser Nummer gibt es keinen Eintrag.': 'Aucune entrée ne porte ce numéro.',
   'Diese Nachricht stimmt nicht mehr mit ihrem Abdruck überein - sie wurde verändert.': 'Ce message ne correspond plus à son empreinte – il a été modifié.',
 
+  // --- packages/server/src/download.ts ---
+  'Diese Datei gibt es hier nicht.': 'Ce fichier n\'existe pas ici.',
+
   // --- packages/server/src/etikettenStore.ts ---
   'Dieses Etikett gibt es nicht mehr.': 'Cette étiquette n\'existe plus.',
 
@@ -1302,6 +1441,41 @@ export const KATALOG: Katalog = {
 
   // --- packages/server/src/nutzer/haken.ts ---
   'Kein Nutzer zugeordnet': 'Aucun utilisateur associé',
+
+  // --- packages/server/src/nutzer/kennwortVergessen.ts ---
+  'Neues Kennwort für Energy Mail': 'Nouveau mot de passe pour Energy Mail',
+  'Guten Tag,': 'Bonjour,',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Mit diesem Link vergeben Sie eines:': 'un nouveau mot de passe a été demandé pour ce compte. Utilisez ce lien pour en définir un :',
+  'Der Link gilt eine Stunde und lässt sich nur einmal verwenden.': 'Le lien est valable une heure et ne peut servir qu\'une seule fois.',
+  'Ihr zweiter Faktor bleibt unverändert - Sie werden beim Anmelden weiterhin nach Ihrem Code gefragt.': 'Votre deuxième facteur reste inchangé - le code vous sera toujours demandé à la connexion.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne diesen Link ändert sich an Ihrem Kennwort nichts, und der Link verfällt von selbst.': 'Ce n\'était pas vous ? Alors ne faites rien. Sans ce lien, rien ne change à votre mot de passe, et le lien expire de lui-même.',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Der Zugang ist allerdings gesperrt - ein neues Kennwort würde daran nichts ändern.': 'un nouveau mot de passe a été demandé pour ce compte. L\'accès est toutefois bloqué - un nouveau mot de passe n\'y changerait rien.',
+  'Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Veuillez vous adresser à l\'exploitant de ce service.',
+  'für diese Adresse wurde ein neues Kennwort angefordert. Zu ihr besteht hier allerdings kein Zugang - möglicherweise haben Sie eine andere Adresse verwendet.': 'un nouveau mot de passe a été demandé pour cette adresse. Aucun accès n\'existe ici pour elle - vous avez peut-être utilisé une autre adresse.',
+  'Waren Sie das nicht, brauchen Sie nichts zu tun. Es wurde nichts angelegt und nichts gespeichert.': 'Si ce n\'était pas vous, vous n\'avez rien à faire. Rien n\'a été créé et rien n\'a été enregistré.',
+  'An diesem Dienst lässt sich das Kennwort nicht selbst zurücksetzen. Bitte wenden Sie sich an den Betreiber.': 'Ce service ne permet pas de réinitialiser soi-même son mot de passe. Veuillez vous adresser à l\'exploitant.',
+  'Das ist keine brauchbare Mailadresse.': 'Ce n\'est pas une adresse de messagerie utilisable.',
+  'Die Nachricht konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Le message n\'a pas pu être envoyé. Veuillez vous adresser à l\'exploitant de ce service.',
+  'Dieser Link gilt nicht mehr. Fordern Sie bitte einen neuen an.': 'Ce lien n\'est plus valable. Veuillez en demander un nouveau.',
+
+  // --- packages/server/src/nutzer/registrierung.ts ---
+  'Ihre Anmeldung bei Energy Mail bestätigen': 'Confirmez votre inscription à Energy Mail',
+  'für diese Adresse wurde ein Zugang zu Energy Mail beantragt. Bestätigen Sie mit diesem Link, dass die Adresse Ihnen gehört:': 'un accès à Energy Mail a été demandé pour cette adresse. Confirmez avec ce lien que l\'adresse est bien la vôtre :',
+  'Der Link gilt 24 Stunden.': 'Le lien est valable 24 heures.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne Bestätigung entsteht kein Zugang, und der Antrag wird nach einer Woche von selbst gelöscht.': 'Ce n\'était pas vous ? Alors ne faites rien. Sans confirmation aucun accès n\'est créé, et la demande est supprimée d\'elle-même au bout d\'une semaine.',
+  'Zu dieser Adresse besteht bereits ein Zugang': 'Un accès existe déjà pour cette adresse',
+  'für diese Adresse wurde eben ein Zugang zu Energy Mail beantragt. Es besteht allerdings schon einer - melden Sie sich einfach wie gewohnt an.': 'un accès à Energy Mail vient d\'être demandé pour cette adresse. Il en existe pourtant déjà un - connectez-vous simplement comme d\'habitude.',
+  'Kennwort vergessen? Wenden Sie sich an den Betreiber dieses Dienstes; er kann es zurücksetzen.': 'Mot de passe oublié ? Adressez-vous à l\'exploitant du service ; il peut le réinitialiser.',
+  'Waren Sie das nicht, dann hat jemand Ihre Adresse eingetragen. An Ihrem Zugang ändert das nichts - Ihr Kennwort ist davon unberührt.': 'Si ce n\'était pas vous, quelqu\'un a saisi votre adresse. Cela ne change rien à votre accès - votre mot de passe n\'est pas touché.',
+  'An diesem Dienst kann man sich nicht selbst anmelden.': 'Ce service n\'autorise pas l\'inscription autonome.',
+  'Bitte bestätigen Sie, dass Sie die Datenschutzhinweise gelesen haben.': 'Veuillez confirmer que vous avez lu les informations relatives à la protection des données.',
+  'Die Bestätigungsmail konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Le message de confirmation n\'a pas pu être envoyé. Veuillez vous adresser à l\'exploitant de ce service.',
+  'Dieser Link gilt nicht mehr. Bitte melden Sie sich noch einmal an.': 'Ce lien n\'est plus valable. Veuillez refaire une demande.',
+  'Diesen Antrag gibt es nicht.': 'Cette demande n\'existe pas.',
+  'Ihr Zugang zu Energy Mail ist eingerichtet': 'Votre accès à Energy Mail est prêt',
+  'Ihr Zugang ist jetzt freigeschaltet. Sie können sich mit Ihrer Adresse und dem Kennwort anmelden, das Sie bei der Anmeldung gewählt haben.': 'Votre accès est désormais activé. Vous pouvez vous connecter avec votre adresse et le mot de passe choisi lors de la demande.',
+  'Ihr Antrag auf einen Zugang': 'Votre demande d\'accès',
+  'Ihr Antrag auf einen Zugang zu Energy Mail wurde nicht bewilligt. Bei Rückfragen wenden Sie sich bitte an den Betreiber dieses Dienstes.': 'Votre demande d\'accès à Energy Mail n\'a pas été accordée. Pour toute question, adressez-vous à l\'exploitant de ce service.',
 
   // --- packages/server/src/nutzer/verwaltung.ts ---
   'Dafür fehlt Ihnen die Berechtigung.': 'Vous n’avez pas l’autorisation nécessaire.',

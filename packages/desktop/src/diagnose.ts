@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { BrowserWindow, app, dialog, shell } from 'electron';
+import { BrowserWindow, app, dialog, session, shell } from 'electron';
 import { enthaeltGeheimnisse } from '@energy-mail/mail-core/protokoll';
 import {
   beschreibeProxy,
@@ -20,20 +20,36 @@ import { frageNeuesKennwort, frageVorhandenesKennwort } from './kennwortFenster.
 import { beschreibeRichtlinien } from './richtlinien.js';
 import { quellenFuer } from './proxyQuellen.js';
 import { lesProtokoll, protokolliere } from '@energy-mail/server/protokoll';
-import { ZUGANG_KOPFZEILE, holeZugangsgeheimnis } from '@energy-mail/server/zugang';
+import { KEKS_NAME } from '@energy-mail/server/app';
 import { t } from '@energy-mail/mail-core/sprache';
 
 /**
- * Auch die Hülle muss sich beim eigenen Server ausweisen.
+ * Auch die Hülle muss sich beim Server ausweisen - und zwar mit der ANMELDUNG.
  *
- * Sicherung und Einlesen gehen über HTTP, damit sie genau denselben Weg nehmen wie die
- * Oberfläche - dieselbe Prüfung, dieselben Fehlermeldungen. Seit der Server ein
- * Geheimnis verlangt, gehört es hier mit dazu; ohne dieses Zutun brächen die beiden
- * Menüpunkte mit "Kein Zugang".
+ * ## Was hier vorher stand und warum es nicht mehr trägt
+ *
+ * Bis zum Umbau reichte das Zugangsgeheimnis des Prozesses: Die Hülle brachte ihren
+ * eigenen Server mit, und der verlangte nichts anderes. Sie bringt keinen mehr mit. Am
+ * entfernten Server hängt jede Route hinter einer Sitzung, und die steckt in einem Keks,
+ * den das FENSTER bekommen hat - nicht der Hauptprozess.
+ *
+ * Ohne diese Funktion brächen "Einstellungen sichern" und "Sicherung einlesen" mit einer
+ * 401, und zwar für jeden, der sie benutzt: Es sind die beiden Menüpunkte für den Umzug
+ * auf einen neuen Rechner, also genau die, die man einmal braucht und dann sofort.
+ *
+ * Geholt wird der Keks aus der Sitzung, in der auch das Fenster läuft - `defaultSession`
+ * ist dieselbe. Damit gilt für diese Abrufe exakt das, was für die Oberfläche gilt: Wer
+ * angemeldet ist, kommt durch; wer nicht, bekommt dieselbe Meldung wie dort.
  */
-function zugangskopfzeile(): Record<string, string> {
-  const geheimnis = holeZugangsgeheimnis();
-  return geheimnis ? { [ZUGANG_KOPFZEILE]: geheimnis } : {};
+async function anmeldekopfzeile(basis: string): Promise<Record<string, string>> {
+  try {
+    const kekse = await session.defaultSession.cookies.get({ url: basis, name: KEKS_NAME });
+    const keks = kekse[0];
+    return keks ? { Cookie: `${keks.name}=${keks.value}` } : {};
+  } catch (err) {
+    protokolliere('warnung', 'diagnose', `Anmeldung nicht gefunden: ${(err as Error).message}`);
+    return {};
+  }
 }
 
 /**
@@ -311,7 +327,7 @@ export function horcheAufFensterfehler(fenster: BrowserWindow): void {
 export async function sichereEinstellungen(basis: string): Promise<void> {
   let offen: unknown;
   try {
-    const antwort = await fetch(`${basis}/sicherung`, { headers: zugangskopfzeile() });
+    const antwort = await fetch(`${basis}/sicherung`, { headers: await anmeldekopfzeile(basis) });
     if (!antwort.ok) {
       throw new Error(t('Der Server antwortete mit {status}.', { status: antwort.status }));
     }
@@ -450,7 +466,7 @@ export async function leseEinstellungen(basis: string): Promise<void> {
   try {
     const antwort = await fetch(`${basis}/sicherung`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...zugangskopfzeile() },
+      headers: { 'Content-Type': 'application/json', ...(await anmeldekopfzeile(basis)) },
       body: JSON.stringify(roh),
     });
     const ergebnis = (await antwort.json()) as

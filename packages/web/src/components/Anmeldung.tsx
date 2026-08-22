@@ -1,27 +1,43 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.js';
-import { Marke } from './Symbole.js';
+import { Sprachwahl, Zugangsmarke, Zugangsumschalter } from './Zugangsteile.js';
 import { t } from '../sprache.js';
 
 /**
  * Das Anmeldefenster.
  *
- * Erscheint nur im Browserbetrieb. In der Desktop-Hülle weist sich das Fenster über das
- * Zugangsgeheimnis des Prozesses aus - ein Rechner, ein Mensch; eine Anmeldung wäre dort
- * eine Hürde ohne Gegenwert, und dieses Fenster bekommt niemand zu sehen.
+ * Erscheint in beiden Betriebsarten - und das ist neu. Die Desktop-Hülle brachte einmal
+ * ihren eigenen Server mit und wies sich mit dem Zugangsgeheimnis des Prozesses aus: ein
+ * Rechner, ein Mensch, keine Anmeldung. Sie bringt keinen mehr mit; sie ist ein Fenster
+ * auf denselben Server, mit dem auch der Browser arbeitet. Damit meldet sie sich an wie
+ * jeder andere, und genau deshalb sehen beide dieselben Postfächer.
  *
  * Bewusst schmal gehalten: hier gibt es nichts zu entdecken. Wer hier steht, will nur
- * an seine Post.
+ * an seine Post. Was daneben steht - der Umschalter zum Anlegen, der Weg bei einem
+ * vergessenen Kennwort, die Sprachwahl -, erscheint nur dort, wo es auch irgendwohin
+ * führt; der Server sagt in `lage`, was an diesem Dienst tatsächlich geht.
  */
 
 interface Props {
   /** Wird gerufen, wenn die Anmeldung geklappt hat - die Anwendung darf dann starten. */
   onAngemeldet: () => void;
+  /**
+   * Was an diesem Dienst ohne Konto möglich ist - oder `null`, wenn nichts davon.
+   *
+   * Ob der Umschalter und der Weg zum Kennwort erscheinen, entscheidet also der SERVER und
+   * nicht dieses Fenster. Dieselbe Regel wie überall hier: Eine Oberfläche, die einen Knopf
+   * versteckt, hat nichts verboten - aber einer, den sie zeigt, obwohl der Weg zu ist,
+   * führt einen Menschen in eine Fehlermeldung, für die er nichts kann.
+   */
+  lage: api.Registrierungslage | null;
+  /** Umschalten auf Konto anlegen oder auf den Weg bei vergessenem Kennwort. */
+  onWechsel: (wohin: 'registrieren' | 'kennwort') => void;
 }
 
-export function Anmeldung({ onAngemeldet }: Props) {
+export function Anmeldung({ onAngemeldet, lage, onWechsel }: Props) {
   const [email, setEmail] = useState('');
   const [kennwort, setKennwort] = useState('');
+  const [bleiben, setBleiben] = useState(false);
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState('');
   const ersteEingabe = useRef<HTMLInputElement>(null);
@@ -54,7 +70,7 @@ export function Anmeldung({ onAngemeldet }: Props) {
     setFehler('');
     setLaeuft(true);
     try {
-      const befund = await api.anmelden(email, kennwort);
+      const befund = await api.anmelden(email, kennwort, bleiben);
       if (befund.zweiFaktor && befund.marke) {
         /*
          * Das Kennwort stimmt, die Anmeldung ist aber noch nicht fertig.
@@ -110,12 +126,7 @@ export function Anmeldung({ onAngemeldet }: Props) {
     return (
       <div className="anmeldung">
         <form className="anmeldung-karte" onSubmit={codeAbschicken}>
-          <div className="anmeldung-marke">
-            <Marke groesse={40} />
-            <h1>
-              Energy <span>Mail</span>
-            </h1>
-          </div>
+          <Zugangsmarke />
 
           <p className="anmeldung-hinweis">
             {t('Geben Sie den Code aus Ihrer Authenticator-App ein.')}
@@ -167,6 +178,12 @@ export function Anmeldung({ onAngemeldet }: Props) {
           >
             {t('Zurück')}
           </button>
+
+          {/*
+            Hier steht bewusst keine Sprachwahl. Sie lädt die Seite neu, und dabei ginge
+            die Marke verloren - der Mensch stünde mitten in der Anmeldung wieder am
+            Anfang, ohne zu verstehen warum. Umgestellt wird einen Schritt vorher.
+          */}
         </form>
       </div>
     );
@@ -175,13 +192,9 @@ export function Anmeldung({ onAngemeldet }: Props) {
   return (
     <div className="anmeldung">
       <form className="anmeldung-karte" onSubmit={abschicken}>
-        <div className="anmeldung-marke">
-          <Marke groesse={40} />
-          {/* Dasselbe Wortzeichen wie in der Titelleiste - siehe .marke-wort. */}
-          <h1>
-            Energy <span>Mail</span>
-          </h1>
-        </div>
+        <Zugangsmarke />
+
+        {lage && <Zugangsumschalter aktiv="anmelden" onWechsel={(w) => w === 'registrieren' && onWechsel(w)} />}
 
         <label htmlFor="anmeldung-email">{t('Adresse')}</label>
         <input
@@ -217,11 +230,50 @@ export function Anmeldung({ onAngemeldet }: Props) {
           </p>
         )}
 
+        {/*
+          Das Haekchen steht UEBER dem Knopf und nicht darunter.
+          Wer es darunter setzt, hat es schon abgeschickt, bevor er es gelesen hat - und
+          es ist die einzige Entscheidung auf diesem Formular, die etwas aufgibt.
+        */}
+        <label className="anmeldung-bleiben" htmlFor="anmeldung-bleiben">
+          <input
+            id="anmeldung-bleiben"
+            type="checkbox"
+            checked={bleiben}
+            onChange={(e) => setBleiben(e.target.checked)}
+            disabled={laeuft}
+          />
+          <span>{t('Angemeldet bleiben')}</span>
+        </label>
+
         <button type="submit" className="btn anmeldung-knopf" disabled={laeuft}>
           {laeuft ? t('Wird geprüft…') : t('Anmelden')}
         </button>
 
+        {/*
+          Der Hinweis erscheint erst, wenn das Haekchen gesetzt ist.
+          Dauerhaft danebenzustehen hiesse, ihn nach dem dritten Mal nicht mehr zu lesen -
+          und er betrifft nur den, der sich gerade dafuer entschieden hat.
+        */}
+        {bleiben && (
+          <p className="anmeldung-fussnote anmeldung-warnung">
+            {t('Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.')}
+          </p>
+        )}
+
+        {lage?.kennwortZuruecksetzbar && (
+          <button
+            type="button"
+            className="link-btn anmeldung-zurueck"
+            onClick={() => onWechsel('kennwort')}
+          >
+            {t('Kennwort vergessen?')}
+          </button>
+        )}
+
         <p className="anmeldung-fussnote">{t('Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.')}</p>
+
+        <Sprachwahl />
       </form>
     </div>
   );

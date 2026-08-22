@@ -120,6 +120,15 @@ interface EnergyMailBruecke {
 
   // --- Sonstiges ---
   ueberOeffnen(): void;
+
+  /**
+   * Neue Post melden, damit die Hülle eine Meldung des Betriebssystems zeigt.
+   *
+   * Nötig, seit die Hülle keinen eigenen Server mehr mitbringt: Die Ereignisse kommen
+   * über den WebSocket hier an und nicht mehr im Hauptprozess. Im Browser fehlt die
+   * Brücke - dort passiert nichts, und das ist richtig so.
+   */
+  neuePost(ereignis: unknown): void;
 }
 
 interface Window {

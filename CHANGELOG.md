@@ -9,6 +9,189 @@ was sich geändert hat.
 
 ---
 
+## Unveröffentlicht
+
+### Nutzer können sich selbst anmelden
+
+Bisher gab es genau einen Weg zu einem Konto: Ein Verwalter legt es an. Für einen Server
+mit acht Kollegen ist das richtig; sobald es mehr werden, ist es die Stelle, an der ein
+Mensch zum Flaschenhals wird.
+
+Jetzt entscheidet der Verwalter unter **Verwaltung → Selbstanmeldung** zwischen drei
+Betriebsarten:
+
+- **Aus** – wie bisher, und das bleibt die Vorgabe. Ein Server, der aktualisiert wird,
+  öffnet sich nicht von selbst.
+- **Antrag mit Freigabe** – wer will, trägt sich ein; hereinkommen tut er erst, wenn ein
+  Verwalter zustimmt. Die Bürgschaft bleibt, nur die Tipparbeit wandert.
+- **Offen mit Mailbestätigung** – wer seine Adresse über den Bestätigungslink nachweist,
+  ist angemeldet.
+
+Dazu ein Domänenfilter: Steht dort `firma.de`, kommt niemand von außen bis zum Antrag.
+
+**Die dritte Betriebsart ist ohne Systemversand nicht zu haben.** Ohne Bestätigungsmail
+hieße „offen" schlicht: jeder, der ein Formular ausfüllt – und der könnte sich ein Konto
+auf die Adresse eines anderen anlegen. Wird der Sendeserver später abgeschaltet, fällt der
+Dienst hörbar auf „Antrag mit Freigabe" zurück statt stillschweigend offen zu bleiben.
+
+### Die Desktop-Fassung arbeitet jetzt mit einem Server
+
+**Das ist die größte Änderung dieser Fassung, und sie ändert etwas Grundsätzliches.** Bis
+hierher brachte das Programm seinen eigenen Server mit: Es startete ihn auf 127.0.0.1,
+legte Konten, Schlüssel und Ablage in den Benutzerordner und meldete niemanden an – ein
+Rechner, ein Mensch. Wer daneben die Browser-Fassung benutzte, hatte einen zweiten,
+getrennten Bestand.
+
+Jetzt ist die Hülle ein Fenster auf einen Server. Beim ersten Start fragt sie nach dessen
+Adresse, danach meldet man sich an wie im Browser – und sieht dieselben Postfächer,
+dieselben Regeln, dieselben Etiketten. Es gibt nur noch einen Bestand, und er liegt dort,
+wo der Server liegt.
+
+> **Bestehende Einzelplatz-Installationen erreichen ihre Daten damit nicht mehr aus dem
+> Programm heraus.** Sie liegen weiterhin unter `%APPDATA%\@energy-mail\desktop\` und
+> lassen sich über „Extras → Einstellungen sichern" aus einer älteren Fassung mitnehmen;
+> eingelesen wird die Sicherung anschließend auf dem Server. Wer keinen Server hat, bleibt
+> auf der vorigen Fassung.
+
+Was die Hülle weiterhin selbst tut, ist alles, was ein Browser nicht kann:
+Benachrichtigungen des Betriebssystems, das Symbol im Infobereich, Autostart, das Fenster
+ohne Adressleiste, die Selbstaktualisierung, der Zertifikatsspeicher von Windows und der
+Weg durch den Firmenproxy.
+
+**Unverschlüsselt geht nur zum eigenen Rechner.** Über diese Verbindung läuft ein
+Anmeldekennwort und danach jede Nachricht; `http://` zu einem Server im Netz wird deshalb
+abgewiesen und nicht bloß angemerkt. Die Adresse aus der Einstellungsdatei wird bei jedem
+Start neu geprüft – sonst ließe sich das Programm durch das Ändern einer Zeile auf einen
+fremden Server umleiten, auf dem dann jemand ein Anmeldefenster zeichnet.
+
+Den Server wechselt man später über **Extras → Server wechseln…**.
+
+### „Angemeldet bleiben"
+
+Neu im Anmeldefenster. **Ohne Haken ist die Anmeldung jetzt an das Fenster gebunden** – der
+Keks bekommt kein Verfallsdatum mehr und ist weg, sobald der Browser schließt. Bisher
+bekam jede Anmeldung neunzig Tage mit, auch die an einem fremden Rechner.
+
+Mit Haken gilt sie ein Jahr und übersteht Neustarts. Dann entfällt für diese Sitzung
+allerdings auch die Bildschirmsperre nach Untätigkeit – sonst wäre es ein halbes
+Versprechen: Die Anmeldung überlebte, aber beim ersten Öffnen stünde die Kennwortabfrage
+da. Der Hinweis dazu erscheint, sobald der Haken gesetzt ist.
+
+### Die Desktop-Fassung zum Herunterladen – vom eigenen Server
+
+Unter **Einstellungen → Für den Rechner** steht die Installationsdatei bereit, sofern der
+Betreiber eine hinterlegt hat. Sie kommt vom eigenen Server und nicht von einer fremden
+Seite: Für einen Betrieb ist genau das meist der Grund, selbst zu betreiben.
+
+Bereitgestellt wird über einen Ordner im Datenverzeichnis (`downloads/`), den die
+Verwaltung mit Pfad und Inhalt anzeigt. **Einen Weg zum Hochladen gibt es bewusst nicht** –
+eine Route, über die sich ausführbare Dateien auf den Server schreiben lassen, wäre aus
+einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes
+Programm zu verteilen.
+
+### „Kennwort vergessen" – ohne Umweg über einen Menschen
+
+Sobald sich Leute selbst anmelden, vergessen sie ihre Kennwörter auch selbst. Bisher führte
+der einzige Weg zurück über einen Verwalter; jetzt fordert man im Anmeldefenster einen Link
+an und vergibt selbst ein neues.
+
+**Der zweite Faktor bleibt dabei stehen.** Das ist der wichtigste Satz dazu: Ein zweiter
+Faktor deckt gerade den Fall ab, dass jemand an das Kennwort gekommen ist. Ein Weg, der
+beides zugleich zurücksetzt, träfe ausgerechnet die Vorsichtigen – es genügte, einmal an ihr
+Postfach zu kommen. Wer sein Telefon verloren hat, geht weiterhin zum Verwalter.
+
+Der Link gilt **eine Stunde** (nicht 24 wie bei der Registrierung: Er öffnet ein Konto, das
+es schon gibt), lässt sich einmal verwenden und meldet niemanden an. Es gilt immer nur eine
+Marke je Konto – wer zehnmal klickt, hat nicht zehn Schlüssel in zehn Mails liegen. Beim
+Setzen werden alle offenen Sitzungen beendet.
+
+**Jeder Kennwortwechsel entwertet, was offensteht.** Ohne das überstünde eine Marke, die
+vorher angefordert wurde, genau diesen Wechsel: Der Angreifer bestellt sie, der
+Kontoinhaber merkt etwas und ändert sein Kennwort – und die alte Marke setzt das frische
+wieder außer Kraft. Das gilt für den eigenen Wechsel wie für das Zurücksetzen durch einen
+Verwalter.
+
+Auch hier verrät das Formular nichts: Die Antwort ist immer dieselbe, und es geht in **allen**
+Fällen eine Mail hinaus – bei einem gesperrten Konto („wenden Sie sich an den Betreiber"),
+bei einer unbekannten Adresse („hier besteht kein Zugang"). Das schließt den Zeitkanal und
+hilft nebenbei dem, der sich in der Adresse vertan hat. Der Einplatznutzer der Desktop-Hülle
+ist über diesen Weg nicht erreichbar.
+
+### Das Anmeldefenster hat einen Umschalter und eine Sprachwahl
+
+**Anmelden und Konto anlegen stehen nebeneinander**, statt dass das Anlegen als Link unter
+der Fußnote steht. Für jemanden, der zum ersten Mal vor diesem Fenster sitzt, ist das
+Anlegen der Regelfall. Der Umschalter erscheint nur, wo es tatsächlich zwei Wege gibt.
+
+**Ein Fehler, den erst die längere Karte sichtbar gemacht hat:** Die Zugangsfläche wuchs
+mit ihrem Inhalt über den Schirm hinaus, und weil `body` bei einem Programmfenster auf
+`overflow: hidden` steht, ließ sich nichts davon scrollen. Auf einem Bildschirm mit 700
+Punkten Höhe war der Knopf „Zugang beantragen" damit unerreichbar – mit der Maus wie mit dem
+Rad. Die Fläche ist jetzt selbst der Scrollbereich.
+
+**Die Sprache lässt sich jetzt vor der Anmeldung umstellen.** Bisher lag die Wahl in den
+Einstellungen – also hinter der Anmeldung. Wer vor einem Fenster sitzt, dessen Sprache er
+nicht liest, kommt genau deshalb nicht an die Stelle, an der er sie ändern könnte. Das
+trifft nicht den, der hier ein Konto hat, sondern den neuen Kollegen am ersten Tag.
+Gespeichert wird das wie bisher im Browser, ohne Kennung und ohne Serverbezug.
+
+### Der Dienst hat einen eigenen Absender
+
+Bisher verschickte Energy Mail ausschließlich im Auftrag eines angemeldeten Menschen, über
+dessen Postfach. Eine Bestätigungsmail geht aber an jemanden, der noch kein Konto hat – sie
+geht vom Dienst aus, und der war bisher kein Absender. Unter **Verwaltung → Absender des
+Dienstes** wird ein eigenes Postfach eingetragen (`noreply@firma.de` oder ähnlich); das
+Kennwort liegt verschlüsselt wie jedes andere. Unverschlüsselt versendet dieser Weg nicht:
+entweder TLS ab Verbindungsaufbau oder STARTTLS, das erzwungen wird.
+
+### Was daran Sicherheit ist
+
+**Das Formular verrät nicht, wer hier ein Konto hat.** Ob die Adresse schon vergeben ist,
+ob ein Antrag läuft – nach außen sieht alles gleich aus. Wer die Adresse wirklich besitzt,
+bekommt stattdessen eine Mail; die ist zugleich die Warnung, falls er es nicht selbst war.
+
+**Der Bestätigungslink wird aus der eingerichteten öffentlichen Adresse gebaut, nie aus der
+Anfrage.** Den Host-Kopf bestimmt der Anfragende; ein Link daraus wäre eine echte, vom
+richtigen Server verschickte Mail, deren Link auf den Rechner eines Angreifers zeigt.
+
+**Der Link meldet niemanden an.** Auch dann nicht, wenn das Konto in diesem Augenblick
+entsteht. Er liegt in einem Postfach, und wer darauf Zugriff hat, ist nicht zwangsläufig
+der, dem das Konto gehört – das Kennwort bleibt der zweite Nachweis.
+
+**Die Antwortzeit verrät auch nichts.** Die Kennwortprüfsumme wird immer gerechnet, auch
+wenn schon feststeht, dass gar kein Antrag entsteht. Sonst wäre die Dauer die Auskunft, die
+das Formular gerade nicht geben darf: eine fünftel Sekunde für eine unbekannte Adresse,
+nichts für eine bekannte. Dieselbe Vorkehrung hat die Anmeldung seit jeher.
+
+**Der Bestätigungslink steht hinter dem Doppelkreuz** (`…/#bestaetigung=…`) und nicht als
+Abfrageparameter. Ein Fragment verlässt den Browser nie: Die Marke landet damit in keinem
+Zugriffsprotokoll auf dem Weg – nicht im Vorbau, nicht im Dienst – und geht auch in keiner
+Referrer-Kopfzeile mit. Die Oberfläche nimmt sie zusätzlich sofort aus der Adresszeile.
+
+**Eine Bremse am Anschluss:** fünf Anträge je Stunde, zwanzig Einlöseversuche. Gezählt wird
+gesalzen und gehasht, wie bei der Anmeldebremse – die Anschlusskennung selbst steht
+nirgends.
+
+**Der Datenschutzhinweis ist auf 4.000 Zeichen begrenzt.** Er geht über einen Weg hinaus,
+der ohne Anmeldung erreichbar sein muss; ohne Grenze wäre ein versehentlich
+hineinkopiertes Dokument ein Abruf, den jeder beliebig oft auslösen kann.
+
+**Kein Kennwort im Klartext, zu keinem Zeitpunkt.** Zwischen Formular und Konto liegen
+Stunden bis Tage; der Antrag hält von der ersten Sekunde an nur die Prüfsumme.
+
+### Was daran Datenschutz ist
+
+Ein Antrag speichert Adresse, Zeitpunkt, Kennwortprüfsumme und den Nachweis, dass die
+Datenschutzhinweise angezeigt wurden – keine Netzadresse, kein Browserkennzeichen. Alles
+davon verfällt von selbst: unbestätigt nach einer Woche, unbeschieden nach dreißig Tagen.
+Ein abgelehnter Antrag wird gelöscht und nicht vermerkt; eine Liste abgelehnter Bewerber
+führt dieser Dienst bewusst nicht.
+
+Der Hinweis über dem Absendeknopf ist vom Betreiber änderbar und muss angehakt werden – am
+Server geprüft, nicht nur im Formular. Und die Datenschutzunterlagen (Verwaltung →
+Datenschutz) nennen die Betriebsart jetzt mit: Steht die Selbstanmeldung offen, stimmt die
+Angabe „unsere Nutzer sind unsere Beschäftigten" womöglich nicht mehr.
+
 ## 0.4.0
 
 ### Sicherheit

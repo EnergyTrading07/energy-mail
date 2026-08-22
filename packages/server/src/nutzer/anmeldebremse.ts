@@ -226,6 +226,64 @@ export function merkeErfolg(ip: string, email: string): void {
   if (uebrig.length !== eintraege.length) schreiben();
 }
 
+/**
+ * Ein Zähler für alles andere, was sich begrenzen lassen muss.
+ *
+ * ## Warum das hier steht und nicht als zweite Bremse daneben
+ *
+ * Weil die Buchführung dieselbe ist: gesalzene Prüfsummen statt Klartext, ein Ablaufdatum
+ * je Eintrag, eine Obergrenze gegen unbegrenztes Wachsen, und alles auf Platte, damit ein
+ * Neustart die Zählung nicht zurücksetzt. Ein zweites Modul mit denselben hundert Zeilen
+ * wäre die Sorte Verdopplung, bei der ein Jahr später nur eine von beiden repariert wird -
+ * und keiner merkt, welche.
+ *
+ * Was ANDERS ist als oben, und deshalb einen eigenen Weg braucht: Dort wird gezählt, was
+ * MISSLUNGEN ist. Eine Registrierung misslingt nicht - sie gelingt, und trotzdem darf sie
+ * nicht beliebig oft von derselben Leitung kommen. Deshalb zählt diese Funktion den
+ * Versuch selbst und beantwortet in einem Zug, ob die Grenze damit gerissen ist.
+ *
+ * @param bereich Ein eigener Namensraum je Verwendung. Getrennt zu zählen ist wesentlich:
+ *   Ein Mensch, der sich registriert hat, soll deswegen nicht bei der Anmeldung anstehen.
+ * @param roh Wonach gezählt wird - meist eine Anschlusskennung. Steht nie im Klartext in
+ *   der Datei, sondern geht durch dieselbe gesalzene Prüfsumme wie oben.
+ * @returns `true`, wenn dieser Versuch noch durchdarf.
+ */
+export function zaehleVersuch(
+  bereich: string,
+  roh: string,
+  max: number,
+  fensterMs: number,
+): boolean {
+  const jetzt = Date.now();
+  const eintraege = aufraeumen(jetzt);
+  const z = zeichen(`${bereich}:${roh}`);
+  const vorhanden = eintraege.find((e) => e.zeichen === z);
+
+  if (!vorhanden) {
+    eintraege.push({ zeichen: z, anzahl: 1, bis: jetzt + fensterMs });
+    geladen = eintraege;
+    schreiben();
+    return true;
+  }
+
+  if (vorhanden.anzahl >= max) {
+    /*
+     * Über der Grenze wird nicht mehr geschrieben - dieselbe Überlegung wie bei
+     * merkeFehlversuch: Wer ohnehin abgewiesen wird, soll uns nicht mit jedem weiteren
+     * Versuch den Datenträger beschäftigen. Die Frist läuft ab dem letzten GEZÄHLTEN
+     * Versuch, die Rate bleibt damit dieselbe.
+     */
+    geladen = eintraege;
+    return false;
+  }
+
+  vorhanden.anzahl += 1;
+  vorhanden.bis = jetzt + fensterMs;
+  geladen = eintraege;
+  schreiben();
+  return true;
+}
+
 /** Nur für Prüfungen: den Zwischenspeicher vergessen - wie ein Neustart des Servers. */
 export function vergissBremse(): void {
   geladen = null;

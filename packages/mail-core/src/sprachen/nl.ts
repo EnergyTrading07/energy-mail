@@ -203,7 +203,10 @@ export const KATALOG: Katalog = {
   'Zurück': 'Terug',
   'Adresse': 'Adres',
   'Kennwort': 'Wachtwoord',
+  'Angemeldet bleiben': 'Aangemeld blijven',
   'Anmelden': 'Aanmelden',
+  'Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.': 'Dit apparaat blijft een jaar lang aangemeld, ook na een herstart – en het scherm vergrendelt niet meer vanzelf. Alleen op een apparaat waar niemand anders bij kan.',
+  'Kennwort vergessen?': 'Wachtwoord vergeten?',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.': 'Dit is het wachtwoord voor Energy Mail, niet dat van uw postbus.',
 
   // --- packages/web/src/components/ArchivModal.tsx ---
@@ -379,6 +382,32 @@ export const KATALOG: Katalog = {
   'Unterlagen erzeugen': 'Documenten aanmaken',
   'Kein Rechtsrat. Die Regelfälle sind abgedeckt; bei Beschäftigtendaten, einem Betriebsrat und Übermittlungen in Drittländer gehört ein Mensch darüber, bevor etwas unterschrieben wird.': 'Geen juridisch advies. De gewone gevallen zijn gedekt; bij werknemersgegevens, een ondernemingsraad en doorgiften naar derde landen hoort er een mens overheen te kijken voordat er iets wordt getekend.',
 
+  // --- packages/web/src/components/DownloadTeil.tsx ---
+  'Windows': 'Windows',
+  'macOS': 'macOS',
+  'Linux': 'Linux',
+  'Unbekanntes System': 'Onbekend systeem',
+  'Energy Mail auf dem Rechner': 'Energy Mail op uw computer',
+  'Dieselbe Anwendung als Programm für Ihren Rechner: Sie meldet sich an diesem Server an und zeigt dieselben Postfächer. Benachrichtigungen und der Infobereich kommen dazu.': 'Dezelfde toepassing als programma voor uw computer: het meldt zich aan bij deze server en toont dezelfde postvakken. Meldingen en het systeemvak komen erbij.',
+  'Der Betreiber dieses Dienstes hat noch keine Fassung hinterlegt. Fragen Sie ihn danach.': 'De beheerder van deze dienst heeft nog geen versie klaargezet. Vraag ernaar.',
+  'Stand': 'Status',
+  'Herunterladen': 'Downloaden',
+
+  // --- packages/web/src/components/DownloadVerwaltungTeil.tsx ---
+  'Desktop-Fassung bereitstellen': 'Desktopversie beschikbaar stellen',
+  'Legen Sie die Installationsdatei in diesen Ordner. Ihre Nutzer finden sie danach unter Einstellungen → Für den Rechner und laden sie von hier statt aus dem Netz.': 'Plaats het installatiebestand in deze map. Uw gebruikers vinden het daarna onder Instellingen → Voor de computer en downloaden het hiervandaan in plaats van van internet.',
+  'Dieser Server nennt keinen Ordner – vermutlich ist er älter als diese Oberfläche.': 'Deze server noemt geen map – hij is waarschijnlijk ouder dan deze interface.',
+  'Kopiert': 'Gekopieerd',
+  'Pfad kopieren': 'Pad kopiëren',
+  'Diesen Ordner gibt es noch nicht – legen Sie ihn an und kopieren Sie die Datei hinein.': 'Deze map bestaat nog niet – maak hem aan en kopieer het bestand erin.',
+  'Ausgeliefert wird nur, was auf eine dieser Endungen lautet: {endungen}': 'Alleen wat op een van deze extensies eindigt wordt geleverd: {endungen}',
+  'Datei': 'Bestand',
+  'System': 'Systeem',
+  'Größe': 'Grootte',
+  'Der Ordner ist leer – es wird nichts angeboten.': 'De map is leeg – er wordt niets aangeboden.',
+  'Neu einlesen': 'Opnieuw inlezen',
+  'Hochladen geht hier bewusst nicht: Ein Weg, über den sich ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes Programm zu verteilen.': 'Uploaden kan hier bewust niet: een weg waarlangs uitvoerbare bestanden op de server geschreven kunnen worden, zou vanuit een overgenomen beheerdersaccount de toestemming zijn om aan alle werkplekken een vreemd programma uit te delen.',
+
   // --- packages/web/src/components/Einladung.tsx ---
   '{tag}, {tage} Tage (ganztägig)': '{tag}, {tage} dagen (hele dag)',
   '{tag} (ganztägig)': '{tag} (hele dag)',
@@ -445,6 +474,7 @@ export const KATALOG: Katalog = {
   'Programm': 'Programma',
   'Nutzer': 'Gebruikers',
   'Anmeldung': 'Aanmelding',
+  'Für den Rechner': 'Voor de computer',
   'Noch kein Postfach eingerichtet – es kommt über die Seitenleiste hinzu.': 'Nog geen postbus ingericht – die komt er via de zijbalk bij.',
   'Einstellungen': 'Instellingen',
   'Bereiche der Einstellungen': 'Onderdelen van de instellingen',
@@ -473,12 +503,38 @@ export const KATALOG: Katalog = {
   'Rechte': 'Rechten',
   'Es geht nur um dieses Postfach – nicht um Ihre anderen Konten, Ihr Adressbuch oder Ihre Einstellungen. Jede Freigabe steht im Protokoll.': 'Het gaat alleen om deze mailbox – niet om uw andere accounts, uw adresboek of uw instellingen. Elke deling staat in het logboek.',
 
+  // --- packages/web/src/components/KennwortVergessen.tsx ---
+  'Noch ein Zeichen.': 'Nog één teken.',
+  'Noch {anzahl} Zeichen.': {
+    one: 'Nog {anzahl} teken.',
+    other: 'Nog {anzahl} tekens.',
+  },
+  'Sehen Sie in Ihr Postfach': 'Kijk in uw postvak',
+  'Besteht zu dieser Adresse ein Zugang, ist eine Nachricht unterwegs. Der Link darin gilt eine Stunde.': 'Bestaat er toegang voor dit adres, dan is er een bericht onderweg. De koppeling erin is een uur geldig.',
+  'Kommt nichts an, sehen Sie im Spam-Ordner nach oder wenden Sie sich an den Betreiber.': 'Komt er niets aan, kijk dan in de map ongewenst of neem contact op met de beheerder van deze dienst.',
+  'Zur Anmeldung': 'Naar het inloggen',
+  'Kennwort vergessen': 'Wachtwoord vergeten',
+  'Geben Sie Ihre Adresse ein. Sie bekommen einen Link, mit dem Sie ein neues Kennwort vergeben.': 'Voer uw adres in. U krijgt een koppeling waarmee u een nieuw wachtwoord instelt.',
+  'Wird gesendet…': 'Bezig met verzenden…',
+  'Link anfordern': 'Koppeling aanvragen',
+  'Ein zweiter Faktor bleibt davon unberührt. Ist Ihr Telefon abhandengekommen, hilft nur der Betreiber.': 'Een tweede factor blijft hierbij ongemoeid. Bent u uw telefoon kwijt, dan kan alleen de beheerder helpen.',
+  'Zurück zur Anmeldung': 'Terug naar inloggen',
+  'Die beiden Kennwörter stimmen nicht überein.': 'De twee wachtwoorden komen niet overeen.',
+  'Das Kennwort steht': 'Het wachtwoord staat',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem neuen Kennwort an. Alle offenen Sitzungen wurden dabei beendet.': 'Log nu in met uw adres en het nieuwe wachtwoord. Alle openstaande sessies zijn daarbij beëindigd.',
+  'Ihr zweiter Faktor gilt unverändert weiter – halten Sie Ihre App bereit.': 'Uw tweede factor blijft ongewijzigd gelden – houd uw app bij de hand.',
+  'Neues Kennwort': 'Nieuw wachtwoord',
+  'Mindestens {anzahl} Zeichen. Länge zählt mehr als Sonderzeichen.': 'Minstens {anzahl} tekens. Lengte telt zwaarder dan speciale tekens.',
+  'Kennwort wiederholen': 'Wachtwoord herhalen',
+  'Die beiden Kennwörter stimmen noch nicht überein.': 'De twee wachtwoorden komen nog niet overeen.',
+  'Wird gesetzt…': 'Bezig met instellen…',
+  'Kennwort setzen': 'Wachtwoord instellen',
+
   // --- packages/web/src/components/KontoModal.tsx ---
   '{anzahl} Wiederherstellungscode übrig': 'Nog {anzahl} herstelcode over',
   '{anzahl} Wiederherstellungscodes übrig': 'Nog {anzahl} herstelcodes over',
   'Ihre Wiederherstellungscodes': 'Uw herstelcodes',
   'Drucken Sie sie aus oder legen Sie sie an einen sicheren Ort. Jeder Code lässt sich genau einmal benutzen – und ersetzt Ihr Telefon, wenn es einmal nicht zur Hand ist.': 'Druk ze af of bewaar ze op een veilige plek. Elke code werkt precies één keer – en vervangt uw telefoon wanneer die niet bij de hand is.',
-  'Kopiert': 'Gekopieerd',
   'Kopieren': 'Kopiëren',
   'Ich habe sie notiert': 'Ik heb ze genoteerd',
   'Die beiden neuen Kennwörter stimmen nicht überein.': 'De twee nieuwe wachtwoorden komen niet overeen.',
@@ -492,7 +548,6 @@ export const KATALOG: Katalog = {
   'Kennwort ändern': 'Wachtwoord wijzigen',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs. Nach der Änderung müssen Sie sich überall neu anmelden.': 'Dit is het wachtwoord voor Energy Mail – niet dat van uw mailbox. Na de wijziging moet u zich overal opnieuw aanmelden.',
   'Bisheriges Kennwort': 'Huidig wachtwoord',
-  'Neues Kennwort': 'Nieuw wachtwoord',
   'Noch einmal': 'Nog een keer',
   'Mindestens zehn Zeichen. Ein Satz ist besser als ein Wort.': 'Minimaal tien tekens. Een zin is beter dan een woord.',
   'Zwei-Faktor-Anmeldung': 'Aanmelden in twee stappen',
@@ -656,6 +711,70 @@ export const KATALOG: Katalog = {
   'Wird geholt…': 'Ophalen…',
   'Kopfzeilen': 'Kopregels',
   'Als Datei sichern': 'Opslaan als bestand',
+
+  // --- packages/web/src/components/Registrierung.tsx ---
+  'Das Kennwort muss mindestens {anzahl} Zeichen haben.': 'Het wachtwoord moet minstens {anzahl} tekens hebben.',
+  'Ihr Antrag ist da': 'Uw aanvraag is binnen',
+  'Wir haben Ihnen eine Nachricht geschickt. Klicken Sie auf den Link darin – erst dann geht es weiter. Der Link gilt 24 Stunden.': 'We hebben u een bericht gestuurd. Volg de koppeling erin – pas dan gaat het verder. De koppeling is 24 uur geldig.',
+  'Ein Verwalter sieht sich Ihren Antrag an und schaltet den Zugang frei. Sobald das geschehen ist, können Sie sich hier anmelden.': 'Een beheerder bekijkt uw aanvraag en zet de toegang open. Zodra dat is gebeurd, kunt u hier inloggen.',
+  'Legen Sie hier Ihren Zugang an. Freigeschaltet wird er von einem Verwalter.': 'Maak hier uw toegang aan. Een beheerder zet hem open.',
+  'Legen Sie hier Ihren Zugang an.': 'Maak hier uw toegang aan.',
+  'Möglich sind nur Adressen dieser Domänen: {domaenen}': 'Alleen adressen van deze domeinen zijn mogelijk: {domaenen}',
+  'Bemerkung (freiwillig)': 'Opmerking (vrijwillig)',
+  'z. B. Ihre Abteilung': 'bijv. uw afdeling',
+  'Ich habe die Hinweise zum Datenschutz gelesen.': 'Ik heb de informatie over gegevensbescherming gelezen.',
+  'Zugang beantragen': 'Toegang aanvragen',
+  'Das Kennwort gilt für Energy Mail – nicht für Ihr Postfach. Das tragen Sie später ein.': 'Dit wachtwoord geldt voor Energy Mail – niet voor uw postvak. Dat voert u later in.',
+  'Ihr Zugang steht': 'Uw toegang staat klaar',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem Kennwort an, das Sie gewählt haben.': 'Log nu in met uw adres en het wachtwoord dat u hebt gekozen.',
+  'Danke – Adresse bestätigt': 'Dank u – adres bevestigd',
+  'Ein Verwalter schaltet Ihren Zugang frei. Sobald das geschehen ist, können Sie sich anmelden.': 'Een beheerder zet uw toegang open. Zodra dat is gebeurd, kunt u inloggen.',
+
+  // --- packages/web/src/components/RegistrierungTeil.tsx ---
+  'Konten legt allein ein Verwalter an. Im Anmeldefenster steht kein Weg zur Anmeldung.': 'Accounts maakt alleen een beheerder aan. Het inlogvenster biedt geen weg tot aanmelden.',
+  'Wer will, stellt einen Antrag. Hereinkommen tut er erst, wenn Sie ihn freigeben.': 'Wie wil, dient een aanvraag in. Binnenkomen doet hij pas als u die goedkeurt.',
+  'Wer seine Mailadresse über den Bestätigungslink nachweist, ist damit angemeldet. Sie erfahren davon nur über die Nutzerliste.': 'Wie zijn mailadres via de bevestigingskoppeling aantoont, is daarmee aangemeld. U merkt dat alleen aan de gebruikerslijst.',
+  'Selbstanmeldung': 'Zelfaanmelding',
+  'Ob sich Menschen hier selbst ein Konto anlegen können – und unter welchen Bedingungen.': 'Of mensen hier zelf een account kunnen aanmaken – en onder welke voorwaarden.',
+  'Aus': 'Uit',
+  'Antrag mit Freigabe': 'Aanvraag met goedkeuring',
+  'Offen mit Mailbestätigung': 'Open met mailbevestiging',
+  'Eingestellt ist „offen“, es gilt aber „Antrag mit Freigabe“: Ohne Systemversand gibt es keine Bestätigungsmail. Richten Sie ihn weiter unten ein.': 'Ingesteld staat „open”, maar er geldt „aanvraag met goedkeuring”: zonder systeemverzending is er geen bevestigingsbericht. Richt dat hieronder in.',
+  '„Offen“ verlangt einen Systemversand – ohne Bestätigungsmail könnte sich jeder ein Konto auf eine fremde Adresse anlegen.': '„Open” vereist een systeemverzending – zonder bevestigingsbericht kan iedereen een account op andermans adres aanmaken.',
+  'Nur diese Mail-Domänen': 'Alleen deze maildomeinen',
+  'firma.de, tochter.de': 'bedrijf.nl, dochter.nl',
+  'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Leeg betekent: elk adres. Voor een bedrijf is dit op zichzelf de doeltreffendste instelling – wie er niet bij hoort, komt niet eens tot de aanvraag.',
+  'Datenschutzhinweis auf dem Formular': 'Privacyverklaring op het formulier',
+  'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Ze staat boven de verzendknop en moet worden aangevinkt. Vermeld wie de gegevens verwerkt en hoe men ze weer kwijtraakt; verwijs naar uw privacyverklaring als u er een hebt.',
+  'Wird gesichert…': 'Bezig met opslaan…',
+  'Gesichert.': 'Opgeslagen.',
+  'Offene Anträge': 'Openstaande aanvragen',
+  'Gestellt': 'Ingediend',
+  'Adresse bestätigt': 'Adres bevestigd',
+  'noch nicht': 'nog niet',
+  'Antrag von {name} annehmen?': 'Aanvraag van {name} aannemen?',
+  'Das Konto entsteht sofort. Das Kennwort hat dieser Mensch selbst gewählt – Sie bekommen es nicht zu sehen und brauchen es nicht.': 'Het account ontstaat meteen. Deze persoon heeft zelf een wachtwoord gekozen – u krijgt het niet te zien en hebt het niet nodig.',
+  'Diese Adresse ist NICHT bestätigt: Es ist nicht nachgewiesen, dass sie dem Antragsteller gehört. Geben Sie nur frei, wenn Sie wissen, wer das ist.': 'Dit adres is NIET bevestigd: er is niet aangetoond dat het van de aanvrager is. Keur alleen goed als u weet wie dit is.',
+  'Annehmen': 'Aannemen',
+  'Antrag von {name} ablehnen?': 'Aanvraag van {name} afwijzen?',
+  'Der Antrag wird gelöscht – nicht vermerkt. Eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.': 'De aanvraag wordt verwijderd, niet vastgelegd. Deze dienst houdt bewust geen lijst van afgewezen aanvragers bij.',
+  'Ablehnen': 'Afwijzen',
+  'Ablehnung mitteilen?': 'Afwijzing meedelen?',
+  'Der Antragsteller bekommt eine kurze Nachricht ohne Begründung. Bei einem Antrag, den offensichtlich niemand gestellt hat, lassen Sie es besser.': 'De aanvrager krijgt een kort bericht zonder motivering. Bij een aanvraag die duidelijk niemand heeft ingediend, kunt u dat beter laten.',
+  'Mitteilen': 'Meedelen',
+  'Ohne Nachricht': 'Zonder bericht',
+  'Die Verbindung steht und die Anmeldung wird angenommen.': 'De verbinding staat en de aanmelding wordt aanvaard.',
+  'Absender des Dienstes': 'Afzender van de dienst',
+  'Über dieses Postfach verschickt der Dienst seine eigenen Nachrichten – den Bestätigungslink vor allem. Nehmen Sie ein eigenes Postfach dafür, kein persönliches.': 'Via dit postvak verstuurt de dienst zijn eigen berichten – vooral de bevestigingskoppeling. Gebruik daarvoor een apart postvak, geen persoonlijk.',
+  'Systemversand benutzen': 'Systeemverzending gebruiken',
+  'Sendeserver (SMTP)': 'Uitgaande server (SMTP)',
+  'Port': 'Poort',
+  'Verschlüsselt ab Verbindungsaufbau (Port 465)': 'Versleuteld vanaf het opzetten van de verbinding (poort 465)',
+  'Aus heißt STARTTLS auf Port 587 – ebenfalls verschlüsselt. Unverschlüsselt versendet dieser Dienst nicht.': 'Uit betekent STARTTLS op poort 587 – eveneens versleuteld. Onversleuteld verstuurt deze dienst niet.',
+  'Benutzername': 'Gebruikersnaam',
+  'Kennwort (hinterlegt)': 'Wachtwoord (er is er een opgeslagen)',
+  'Absenderadresse': 'Afzenderadres',
+  'Verbindung prüfen': 'Verbinding testen',
 
   // --- packages/web/src/components/RichTextEditor.tsx ---
   'Link einfügen': 'Koppeling invoegen',
@@ -899,7 +1018,6 @@ export const KATALOG: Katalog = {
   'Adresse des neuen Nutzers': 'Adres van de nieuwe gebruiker',
   'Darf verwalten': 'Mag beheren',
   'Angelegt': 'Aangemaakt',
-  'Stand': 'Status',
   'Verwalter': 'Beheerder',
   'Zwei-Faktor-Anmeldung eingeschaltet': 'Aanmelden in twee stappen ingeschakeld',
   '2 Faktoren': '2 factoren',
@@ -932,7 +1050,6 @@ export const KATALOG: Katalog = {
   'Vorlage:': 'Sjabloon:',
   'Active Directory': 'Active Directory',
   'OpenLDAP': 'OpenLDAP',
-  'Port': 'Poort',
   'Verschlüsselung': 'Versleuteling',
   'LDAPS (verschlüsselt ab Verbindungsaufbau)': 'LDAPS (versleuteld vanaf het begin)',
   'StartTLS (schaltet um)': 'StartTLS (schakelt om)',
@@ -940,7 +1057,6 @@ export const KATALOG: Katalog = {
   'Ohne Verschlüsselung geht das Kennwort des Dienstkontos im Klartext über die Leitung. Nur vertretbar, wenn diese Leitung den Rechner nie verlässt.': 'Zonder versleuteling gaat het wachtwoord van het serviceaccount onversleuteld over de lijn. Alleen te verdedigen als die lijn de machine nooit verlaat.',
   'Zertifikat prüfen': 'Certificaat controleren',
   'Anmelde-DN des Dienstkontos': 'Aanmeld-DN van het serviceaccount',
-  'Kennwort (hinterlegt)': 'Wachtwoord (er is er een opgeslagen)',
   'Ein Konto, das im Verzeichnis nur lesen darf – kein Administratorkonto. Es steht verschlüsselt auf dem Server und geht nie wieder heraus.': 'Een account dat in het adresboek alleen mag lezen – geen beheerdersaccount. Het staat versleuteld op de server en verlaat die nooit meer.',
   'Suchbereich (Basis-DN)': 'Zoekgebied (basis-DN)',
   'Grundfilter': 'Basisfilter',
@@ -949,7 +1065,6 @@ export const KATALOG: Katalog = {
   'Anzeigename': 'Weergavenaam',
   'Mobil': 'Mobiel',
   'Abteilung': 'Afdeling',
-  'Verbindung prüfen': 'Verbinding testen',
 
   // --- packages/web/src/components/WartendModal.tsx ---
   'Nichts geplant und nichts zurückgestellt.': 'Niets ingepland en niets uitgesteld.',
@@ -994,6 +1109,10 @@ export const KATALOG: Katalog = {
   'Noch keine. Sie erscheinen von selbst, sobald Ihnen jemand unterschrieben schreibt.': 'Nog geen. Ze verschijnen vanzelf zodra iemand u ondertekend schrijft.',
   'Eigene Schlüsseldatei einlesen (.p12)': 'Eigen sleutelbestand inlezen (.p12)',
   'Fremdes Zertifikat aufnehmen': 'Certificaat van een ander toevoegen',
+
+  // --- packages/web/src/components/Zugangsteile.tsx ---
+  'Anmelden oder Konto anlegen': 'Inloggen of een account aanmaken',
+  'Konto anlegen': 'Account aanmaken',
 
   // --- packages/web/src/composeHelpers.ts ---
   'Nachfrage': 'Herinnering',
@@ -1137,7 +1256,6 @@ export const KATALOG: Katalog = {
   'Jetzt abrufen': 'Nu ophalen',
 
   // --- packages/desktop/src/kennwortFenster.ts ---
-  'Kennwort wiederholen': 'Wachtwoord herhalen',
   'Bitte mindestens acht Zeichen.': 'Minstens acht tekens.',
   'Die beiden Eingaben stimmen nicht überein.': 'De twee invoeren komen niet overeen.',
   'Kennwort für die Sicherung': 'Wachtwoord voor de back-up',
@@ -1162,7 +1280,6 @@ export const KATALOG: Katalog = {
   'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.': 'Wilt u dat niet, dan kunt u het uitschakelen via Extra → “Bij sluiten naar het systeemvak”.',
   'Lieber beenden': 'Liever afsluiten',
   'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.': 'De interface kon niet worden geladen. Meestal is de lokale server niet meer bereikbaar; de toepassing opnieuw starten lost dat op.',
-  'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.': 'De lokale server op poort {port} kon niet worden gestart. Meestal draait er al een tweede exemplaar van Energy Mail – of een “npm run dev:server” vanuit de broncode.',
 
   // --- packages/desktop/src/menu.ts ---
   '&Nachricht': '&Bericht',
@@ -1187,6 +1304,7 @@ export const KATALOG: Katalog = {
   'Einstellungen…': 'Instellingen…',
   'Einstellungen sichern…': 'Instellingen back-uppen…',
   'Sicherung einlesen…': 'Back-up terugzetten…',
+  'Server wechseln…': 'Server wijzigen…',
   '&Hilfe': '&Help',
   'Projektseite öffnen': 'Projectpagina openen',
   'Fehlerbericht erzeugen…': 'Foutrapport maken…',
@@ -1203,7 +1321,25 @@ export const KATALOG: Katalog = {
   'Keine Vorschläge': 'Geen suggesties',
 
   // --- packages/desktop/src/safeStorageKey.ts ---
-  'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.': 'Het besturingssysteem biedt op dit moment geen versleuteling (safeStorage niet beschikbaar). Inloggegevens worden niet opgeslagen.',
+
+  // --- packages/desktop/src/serverFenster.ts ---
+  'Energy Mail einrichten': 'Energy Mail instellen',
+  'Mit welchem Server arbeiten Sie?': 'Met welke server werkt u?',
+  'Energy Mail holt Ihre Postfächer von einem Server. Fragen Sie die Adresse bei dem, der ihn betreibt – es ist dieselbe, unter der Sie im Browser arbeiten.': 'Energy Mail haalt uw postvakken van een server. Vraag het adres aan degene die hem beheert – het is hetzelfde als waarmee u in de browser werkt.',
+  'Adresse des Servers': 'Adres van de server',
+  'Verbinden': 'Verbinden',
+  'Verbunden – Energy Mail {fassung}': 'Verbonden – Energy Mail {fassung}',
+  'Ohne Adresse geht es nicht.': 'Zonder adres gaat het niet.',
+
+  // --- packages/desktop/src/serverwahl.ts ---
+  '„{eingabe}“ ist keine brauchbare Adresse. Erwartet wird etwas wie https://mail.firma.de': '„{eingabe}” is geen bruikbaar adres. Verwacht wordt iets als https://mail.bedrijf.nl',
+  'Nur http und https sind hier vorgesehen.': 'Alleen http en https zijn hier voorzien.',
+  'Ohne Verschlüsselung (http://) geht das nur zu einem Server auf diesem Rechner. Über eine Leitung ginge Ihr Kennwort im Klartext – tragen Sie https:// ein.': 'Zonder versleuteling (http://) kan dat alleen naar een server op deze computer. Over een lijn zou uw wachtwoord onversleuteld gaan – vul https:// in.',
+  'Der Server antwortet nicht. Stimmt die Adresse, und ist der Rechner erreichbar?': 'De server antwoordt niet. Klopt het adres, en is de computer bereikbaar?',
+  'Dort antwortet etwas, aber kein Energy Mail (Status {status}).': 'Daar antwoordt iets, maar geen Energy Mail (status {status}).',
+  'Der Server meldet, dass er gerade nicht arbeiten kann.': 'De server meldt dat hij op dit moment niet kan werken.',
+  'Dort antwortet etwas, aber kein Energy Mail.': 'Daar antwoordt iets, maar geen Energy Mail.',
+  'Keine Verbindung: {grund}': 'Geen verbinding: {grund}',
 
   // --- packages/desktop/src/updateSignatur.ts ---
   'Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.': 'De release geldt voor versie {freigegeben}, maar er is {geladen} gedownload.',
@@ -1277,6 +1413,9 @@ export const KATALOG: Katalog = {
   'Zu dieser Nummer gibt es keinen Eintrag.': 'Bij dit nummer hoort geen regel.',
   'Diese Nachricht stimmt nicht mehr mit ihrem Abdruck überein - sie wurde verändert.': 'Dit bericht komt niet meer overeen met zijn afdruk – het is gewijzigd.',
 
+  // --- packages/server/src/download.ts ---
+  'Diese Datei gibt es hier nicht.': 'Dat bestand bestaat hier niet.',
+
   // --- packages/server/src/etikettenStore.ts ---
   'Dieses Etikett gibt es nicht mehr.': 'Dit label bestaat niet meer.',
 
@@ -1302,6 +1441,41 @@ export const KATALOG: Katalog = {
 
   // --- packages/server/src/nutzer/haken.ts ---
   'Kein Nutzer zugeordnet': 'Geen gebruiker toegewezen',
+
+  // --- packages/server/src/nutzer/kennwortVergessen.ts ---
+  'Neues Kennwort für Energy Mail': 'Nieuw wachtwoord voor Energy Mail',
+  'Guten Tag,': 'Goedendag,',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Mit diesem Link vergeben Sie eines:': 'voor dit account is een nieuw wachtwoord aangevraagd. Stel er met deze koppeling een in:',
+  'Der Link gilt eine Stunde und lässt sich nur einmal verwenden.': 'De koppeling is een uur geldig en kan maar één keer worden gebruikt.',
+  'Ihr zweiter Faktor bleibt unverändert - Sie werden beim Anmelden weiterhin nach Ihrem Code gefragt.': 'Uw tweede factor blijft ongewijzigd - bij het inloggen wordt nog steeds om uw code gevraagd.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne diesen Link ändert sich an Ihrem Kennwort nichts, und der Link verfällt von selbst.': 'Was u dat niet? Doe dan niets. Zonder deze koppeling verandert er niets aan uw wachtwoord, en de koppeling vervalt vanzelf.',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Der Zugang ist allerdings gesperrt - ein neues Kennwort würde daran nichts ändern.': 'voor dit account is een nieuw wachtwoord aangevraagd. De toegang is echter geblokkeerd - een nieuw wachtwoord zou daar niets aan veranderen.',
+  'Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Neem contact op met de beheerder van deze dienst.',
+  'für diese Adresse wurde ein neues Kennwort angefordert. Zu ihr besteht hier allerdings kein Zugang - möglicherweise haben Sie eine andere Adresse verwendet.': 'voor dit adres is een nieuw wachtwoord aangevraagd. Er bestaat hier echter geen toegang voor - mogelijk hebt u een ander adres gebruikt.',
+  'Waren Sie das nicht, brauchen Sie nichts zu tun. Es wurde nichts angelegt und nichts gespeichert.': 'Was u het niet, dan hoeft u niets te doen. Er is niets aangemaakt en niets opgeslagen.',
+  'An diesem Dienst lässt sich das Kennwort nicht selbst zurücksetzen. Bitte wenden Sie sich an den Betreiber.': 'Bij deze dienst kunt u het wachtwoord niet zelf opnieuw instellen. Neem contact op met de beheerder.',
+  'Das ist keine brauchbare Mailadresse.': 'Dat is geen bruikbaar mailadres.',
+  'Die Nachricht konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Het bericht kon niet worden verzonden. Neem contact op met de beheerder van deze dienst.',
+  'Dieser Link gilt nicht mehr. Fordern Sie bitte einen neuen an.': 'Deze koppeling geldt niet meer. Vraag een nieuwe aan.',
+
+  // --- packages/server/src/nutzer/registrierung.ts ---
+  'Ihre Anmeldung bei Energy Mail bestätigen': 'Bevestig uw aanmelding bij Energy Mail',
+  'für diese Adresse wurde ein Zugang zu Energy Mail beantragt. Bestätigen Sie mit diesem Link, dass die Adresse Ihnen gehört:': 'voor dit adres is toegang tot Energy Mail aangevraagd. Bevestig met deze koppeling dat het adres van u is:',
+  'Der Link gilt 24 Stunden.': 'De koppeling is 24 uur geldig.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne Bestätigung entsteht kein Zugang, und der Antrag wird nach einer Woche von selbst gelöscht.': 'Was u dat niet? Doe dan niets. Zonder bevestiging ontstaat er geen toegang, en de aanvraag wordt na een week vanzelf verwijderd.',
+  'Zu dieser Adresse besteht bereits ein Zugang': 'Voor dit adres bestaat al toegang',
+  'für diese Adresse wurde eben ein Zugang zu Energy Mail beantragt. Es besteht allerdings schon einer - melden Sie sich einfach wie gewohnt an.': 'voor dit adres is zojuist toegang tot Energy Mail aangevraagd. Die bestaat echter al - log gewoon in zoals u gewend bent.',
+  'Kennwort vergessen? Wenden Sie sich an den Betreiber dieses Dienstes; er kann es zurücksetzen.': 'Wachtwoord vergeten? Neem contact op met de beheerder van deze dienst; die kan het opnieuw instellen.',
+  'Waren Sie das nicht, dann hat jemand Ihre Adresse eingetragen. An Ihrem Zugang ändert das nichts - Ihr Kennwort ist davon unberührt.': 'Was u het niet, dan heeft iemand uw adres ingevoerd. Aan uw toegang verandert dat niets - uw wachtwoord blijft ongemoeid.',
+  'An diesem Dienst kann man sich nicht selbst anmelden.': 'Bij deze dienst kan men zich niet zelf aanmelden.',
+  'Bitte bestätigen Sie, dass Sie die Datenschutzhinweise gelesen haben.': 'Bevestig dat u de informatie over gegevensbescherming hebt gelezen.',
+  'Die Bestätigungsmail konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Het bevestigingsbericht kon niet worden verzonden. Neem contact op met de beheerder van deze dienst.',
+  'Dieser Link gilt nicht mehr. Bitte melden Sie sich noch einmal an.': 'Deze koppeling geldt niet meer. Meld u opnieuw aan.',
+  'Diesen Antrag gibt es nicht.': 'Die aanvraag bestaat niet.',
+  'Ihr Zugang zu Energy Mail ist eingerichtet': 'Uw toegang tot Energy Mail is klaar',
+  'Ihr Zugang ist jetzt freigeschaltet. Sie können sich mit Ihrer Adresse und dem Kennwort anmelden, das Sie bei der Anmeldung gewählt haben.': 'Uw toegang is nu opengezet. U kunt inloggen met uw adres en het wachtwoord dat u bij de aanmelding hebt gekozen.',
+  'Ihr Antrag auf einen Zugang': 'Uw aanvraag voor toegang',
+  'Ihr Antrag auf einen Zugang zu Energy Mail wurde nicht bewilligt. Bei Rückfragen wenden Sie sich bitte an den Betreiber dieses Dienstes.': 'Uw aanvraag voor toegang tot Energy Mail is niet toegekend. Neem bij vragen contact op met de beheerder van deze dienst.',
 
   // --- packages/server/src/nutzer/verwaltung.ts ---
   'Dafür fehlt Ihnen die Berechtigung.': 'Daarvoor hebt u geen rechten.',

@@ -202,7 +202,10 @@ export const KATALOG: Katalog = {
   'Zurück': 'Back',
   'Adresse': 'Address',
   'Kennwort': 'Password',
+  'Angemeldet bleiben': 'Stay signed in',
   'Anmelden': 'Sign in',
+  'Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.': 'This device stays signed in for a year, even after a restart – and the screen no longer locks by itself. Only on a device nobody else has access to.',
+  'Kennwort vergessen?': 'Forgotten your password?',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.': 'This is your Energy Mail password – not your mailbox password.',
 
   // --- packages/web/src/components/ArchivModal.tsx ---
@@ -378,6 +381,32 @@ export const KATALOG: Katalog = {
   'Unterlagen erzeugen': 'Create documents',
   'Kein Rechtsrat. Die Regelfälle sind abgedeckt; bei Beschäftigtendaten, einem Betriebsrat und Übermittlungen in Drittländer gehört ein Mensch darüber, bevor etwas unterschrieben wird.': 'Not legal advice. The ordinary cases are covered; where employee data, a works council or transfers to third countries are involved, a person should look over it before anything is signed.',
 
+  // --- packages/web/src/components/DownloadTeil.tsx ---
+  'Windows': 'Windows',
+  'macOS': 'macOS',
+  'Linux': 'Linux',
+  'Unbekanntes System': 'Unknown system',
+  'Energy Mail auf dem Rechner': 'Energy Mail on your computer',
+  'Dieselbe Anwendung als Programm für Ihren Rechner: Sie meldet sich an diesem Server an und zeigt dieselben Postfächer. Benachrichtigungen und der Infobereich kommen dazu.': 'The same application as a program for your computer: it signs in to this server and shows the same mailboxes. Notifications and the system tray come on top.',
+  'Der Betreiber dieses Dienstes hat noch keine Fassung hinterlegt. Fragen Sie ihn danach.': 'Whoever runs this service has not provided a version yet. Ask them for it.',
+  'Stand': 'State',
+  'Herunterladen': 'Download',
+
+  // --- packages/web/src/components/DownloadVerwaltungTeil.tsx ---
+  'Desktop-Fassung bereitstellen': 'Provide the desktop version',
+  'Legen Sie die Installationsdatei in diesen Ordner. Ihre Nutzer finden sie danach unter Einstellungen → Für den Rechner und laden sie von hier statt aus dem Netz.': 'Place the installer in this folder. Your users will then find it under Settings → For your computer and download it from here instead of from the internet.',
+  'Dieser Server nennt keinen Ordner – vermutlich ist er älter als diese Oberfläche.': 'This server does not name a folder – it is probably older than this interface.',
+  'Kopiert': 'Copied',
+  'Pfad kopieren': 'Copy path',
+  'Diesen Ordner gibt es noch nicht – legen Sie ihn an und kopieren Sie die Datei hinein.': 'This folder does not exist yet – create it and copy the file into it.',
+  'Ausgeliefert wird nur, was auf eine dieser Endungen lautet: {endungen}': 'Only files with one of these extensions are served: {endungen}',
+  'Datei': 'File',
+  'System': 'System',
+  'Größe': 'Size',
+  'Der Ordner ist leer – es wird nichts angeboten.': 'The folder is empty – nothing is offered.',
+  'Neu einlesen': 'Read again',
+  'Hochladen geht hier bewusst nicht: Ein Weg, über den sich ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes Programm zu verteilen.': 'Uploading is deliberately not possible here: a route that writes executable files onto the server would, from a compromised administrator account, be permission to distribute someone else\'s program to every workstation.',
+
   // --- packages/web/src/components/Einladung.tsx ---
   '{tag}, {tage} Tage (ganztägig)': '{tag}, {tage} days (all day)',
   '{tag} (ganztägig)': '{tag} (all day)',
@@ -444,6 +473,7 @@ export const KATALOG: Katalog = {
   'Programm': 'Program',
   'Nutzer': 'Users',
   'Anmeldung': 'Sign-in',
+  'Für den Rechner': 'For your computer',
   'Noch kein Postfach eingerichtet – es kommt über die Seitenleiste hinzu.': 'No mailbox set up yet – you add one from the sidebar.',
   'Einstellungen': 'Settings',
   'Bereiche der Einstellungen': 'Settings sections',
@@ -472,12 +502,38 @@ export const KATALOG: Katalog = {
   'Rechte': 'Rights',
   'Es geht nur um dieses Postfach – nicht um Ihre anderen Konten, Ihr Adressbuch oder Ihre Einstellungen. Jede Freigabe steht im Protokoll.': 'This is about this mailbox only – not your other accounts, your address book or your settings. Every share is recorded in the log.',
 
+  // --- packages/web/src/components/KennwortVergessen.tsx ---
+  'Noch ein Zeichen.': 'One more character.',
+  'Noch {anzahl} Zeichen.': {
+    one: '{anzahl} more character.',
+    other: '{anzahl} more characters.',
+  },
+  'Sehen Sie in Ihr Postfach': 'Check your mailbox',
+  'Besteht zu dieser Adresse ein Zugang, ist eine Nachricht unterwegs. Der Link darin gilt eine Stunde.': 'If this address has access, a message is on its way. The link in it is valid for one hour.',
+  'Kommt nichts an, sehen Sie im Spam-Ordner nach oder wenden Sie sich an den Betreiber.': 'If nothing arrives, check your spam folder or contact whoever runs this service.',
+  'Zur Anmeldung': 'Go to sign-in',
+  'Kennwort vergessen': 'Forgotten password',
+  'Geben Sie Ihre Adresse ein. Sie bekommen einen Link, mit dem Sie ein neues Kennwort vergeben.': 'Enter your address. You will receive a link for setting a new password.',
+  'Wird gesendet…': 'Sending…',
+  'Link anfordern': 'Request link',
+  'Ein zweiter Faktor bleibt davon unberührt. Ist Ihr Telefon abhandengekommen, hilft nur der Betreiber.': 'A second factor is not affected by this. If you have lost your phone, only the operator can help.',
+  'Zurück zur Anmeldung': 'Back to sign-in',
+  'Die beiden Kennwörter stimmen nicht überein.': 'The two passwords do not match.',
+  'Das Kennwort steht': 'Your password is set',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem neuen Kennwort an. Alle offenen Sitzungen wurden dabei beendet.': 'Sign in now with your address and the new password. All open sessions have been ended.',
+  'Ihr zweiter Faktor gilt unverändert weiter – halten Sie Ihre App bereit.': 'Your second factor still applies unchanged – have your app ready.',
+  'Neues Kennwort': 'New password',
+  'Mindestens {anzahl} Zeichen. Länge zählt mehr als Sonderzeichen.': 'At least {anzahl} characters. Length matters more than special characters.',
+  'Kennwort wiederholen': 'Repeat password',
+  'Die beiden Kennwörter stimmen noch nicht überein.': 'The two passwords do not match yet.',
+  'Wird gesetzt…': 'Setting…',
+  'Kennwort setzen': 'Set password',
+
   // --- packages/web/src/components/KontoModal.tsx ---
   '{anzahl} Wiederherstellungscode übrig': '{anzahl} recovery code left',
   '{anzahl} Wiederherstellungscodes übrig': '{anzahl} recovery codes left',
   'Ihre Wiederherstellungscodes': 'Your recovery codes',
   'Drucken Sie sie aus oder legen Sie sie an einen sicheren Ort. Jeder Code lässt sich genau einmal benutzen – und ersetzt Ihr Telefon, wenn es einmal nicht zur Hand ist.': 'Print them or keep them somewhere safe. Each code can be used exactly once – and stands in for your phone when it is not to hand.',
-  'Kopiert': 'Copied',
   'Kopieren': 'Copy',
   'Ich habe sie notiert': 'I have written them down',
   'Die beiden neuen Kennwörter stimmen nicht überein.': 'The two new passwords do not match.',
@@ -491,7 +547,6 @@ export const KATALOG: Katalog = {
   'Kennwort ändern': 'Change password',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs. Nach der Änderung müssen Sie sich überall neu anmelden.': 'This is the password for Energy Mail – not the one for your mailbox. After the change you will have to sign in again everywhere.',
   'Bisheriges Kennwort': 'Current password',
-  'Neues Kennwort': 'New password',
   'Noch einmal': 'Once more',
   'Mindestens zehn Zeichen. Ein Satz ist besser als ein Wort.': 'At least ten characters. A sentence beats a word.',
   'Zwei-Faktor-Anmeldung': 'Two-factor sign-in',
@@ -655,6 +710,70 @@ export const KATALOG: Katalog = {
   'Wird geholt…': 'Fetching…',
   'Kopfzeilen': 'Headers',
   'Als Datei sichern': 'Save as a file',
+
+  // --- packages/web/src/components/Registrierung.tsx ---
+  'Das Kennwort muss mindestens {anzahl} Zeichen haben.': 'The password must be at least {anzahl} characters long.',
+  'Ihr Antrag ist da': 'We have your request',
+  'Wir haben Ihnen eine Nachricht geschickt. Klicken Sie auf den Link darin – erst dann geht es weiter. Der Link gilt 24 Stunden.': 'We have sent you a message. Follow the link in it – nothing happens until you do. The link is valid for 24 hours.',
+  'Ein Verwalter sieht sich Ihren Antrag an und schaltet den Zugang frei. Sobald das geschehen ist, können Sie sich hier anmelden.': 'An administrator will review your request and enable your access. Once that has happened, you can sign in here.',
+  'Legen Sie hier Ihren Zugang an. Freigeschaltet wird er von einem Verwalter.': 'Create your access here. An administrator will enable it.',
+  'Legen Sie hier Ihren Zugang an.': 'Create your access here.',
+  'Möglich sind nur Adressen dieser Domänen: {domaenen}': 'Only addresses from these domains are accepted: {domaenen}',
+  'Bemerkung (freiwillig)': 'Note (optional)',
+  'z. B. Ihre Abteilung': 'e.g. your department',
+  'Ich habe die Hinweise zum Datenschutz gelesen.': 'I have read the privacy information.',
+  'Zugang beantragen': 'Request access',
+  'Das Kennwort gilt für Energy Mail – nicht für Ihr Postfach. Das tragen Sie später ein.': 'This password is for Energy Mail – not for your mailbox. You will enter that one later.',
+  'Ihr Zugang steht': 'Your access is ready',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem Kennwort an, das Sie gewählt haben.': 'Sign in now with your address and the password you chose.',
+  'Danke – Adresse bestätigt': 'Thank you – address confirmed',
+  'Ein Verwalter schaltet Ihren Zugang frei. Sobald das geschehen ist, können Sie sich anmelden.': 'An administrator will enable your access. Once that has happened, you can sign in.',
+
+  // --- packages/web/src/components/RegistrierungTeil.tsx ---
+  'Konten legt allein ein Verwalter an. Im Anmeldefenster steht kein Weg zur Anmeldung.': 'Only an administrator creates accounts. The sign-in window offers no way to register.',
+  'Wer will, stellt einen Antrag. Hereinkommen tut er erst, wenn Sie ihn freigeben.': 'Anyone can submit a request. They only get in once you approve it.',
+  'Wer seine Mailadresse über den Bestätigungslink nachweist, ist damit angemeldet. Sie erfahren davon nur über die Nutzerliste.': 'Anyone who proves their mail address via the confirmation link is signed up. You will only see it in the user list.',
+  'Selbstanmeldung': 'Self-registration',
+  'Ob sich Menschen hier selbst ein Konto anlegen können – und unter welchen Bedingungen.': 'Whether people can create an account here themselves – and on what terms.',
+  'Aus': 'Off',
+  'Antrag mit Freigabe': 'Request with approval',
+  'Offen mit Mailbestätigung': 'Open with mail confirmation',
+  'Eingestellt ist „offen“, es gilt aber „Antrag mit Freigabe“: Ohne Systemversand gibt es keine Bestätigungsmail. Richten Sie ihn weiter unten ein.': '„Open“ is configured, but „Request with approval“ applies: without system mail there is no confirmation message. Set it up below.',
+  '„Offen“ verlangt einen Systemversand – ohne Bestätigungsmail könnte sich jeder ein Konto auf eine fremde Adresse anlegen.': '„Open“ requires system mail – without a confirmation message anyone could create an account on someone else\'s address.',
+  'Nur diese Mail-Domänen': 'Only these mail domains',
+  'firma.de, tochter.de': 'example.com, subsidiary.com',
+  'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Empty means: any address. For a company this is the single most effective setting – outsiders never even reach the request stage.',
+  'Datenschutzhinweis auf dem Formular': 'Privacy notice on the form',
+  'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'It appears above the submit button and has to be ticked. State who processes the data and how to have it removed; link your privacy policy if you have one.',
+  'Wird gesichert…': 'Saving…',
+  'Gesichert.': 'Saved.',
+  'Offene Anträge': 'Pending requests',
+  'Gestellt': 'Submitted',
+  'Adresse bestätigt': 'Address confirmed',
+  'noch nicht': 'not yet',
+  'Antrag von {name} annehmen?': 'Accept the request from {name}?',
+  'Das Konto entsteht sofort. Das Kennwort hat dieser Mensch selbst gewählt – Sie bekommen es nicht zu sehen und brauchen es nicht.': 'The account is created immediately. This person chose their own password – you never see it and you do not need it.',
+  'Diese Adresse ist NICHT bestätigt: Es ist nicht nachgewiesen, dass sie dem Antragsteller gehört. Geben Sie nur frei, wenn Sie wissen, wer das ist.': 'This address is NOT confirmed: there is no proof that it belongs to the applicant. Only approve if you know who this is.',
+  'Annehmen': 'Accept',
+  'Antrag von {name} ablehnen?': 'Reject the request from {name}?',
+  'Der Antrag wird gelöscht – nicht vermerkt. Eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.': 'The request is deleted, not recorded. This service deliberately keeps no list of rejected applicants.',
+  'Ablehnen': 'Reject',
+  'Ablehnung mitteilen?': 'Notify about the rejection?',
+  'Der Antragsteller bekommt eine kurze Nachricht ohne Begründung. Bei einem Antrag, den offensichtlich niemand gestellt hat, lassen Sie es besser.': 'The applicant receives a short message without a reason. For a request that clearly nobody made, better not.',
+  'Mitteilen': 'Notify',
+  'Ohne Nachricht': 'Without a message',
+  'Die Verbindung steht und die Anmeldung wird angenommen.': 'The connection works and the credentials are accepted.',
+  'Absender des Dienstes': 'Sender used by the service',
+  'Über dieses Postfach verschickt der Dienst seine eigenen Nachrichten – den Bestätigungslink vor allem. Nehmen Sie ein eigenes Postfach dafür, kein persönliches.': 'The service sends its own messages through this mailbox – the confirmation link above all. Use a dedicated mailbox for it, not a personal one.',
+  'Systemversand benutzen': 'Use system mail',
+  'Sendeserver (SMTP)': 'Outgoing server (SMTP)',
+  'Port': 'Port',
+  'Verschlüsselt ab Verbindungsaufbau (Port 465)': 'Encrypted from the first moment (port 465)',
+  'Aus heißt STARTTLS auf Port 587 – ebenfalls verschlüsselt. Unverschlüsselt versendet dieser Dienst nicht.': 'Off means STARTTLS on port 587 – encrypted as well. This service never sends unencrypted.',
+  'Benutzername': 'User name',
+  'Kennwort (hinterlegt)': 'Password (one is stored)',
+  'Absenderadresse': 'Sender address',
+  'Verbindung prüfen': 'Test connection',
 
   // --- packages/web/src/components/RichTextEditor.tsx ---
   'Link einfügen': 'Insert link',
@@ -898,7 +1017,6 @@ export const KATALOG: Katalog = {
   'Adresse des neuen Nutzers': 'Address of the new user',
   'Darf verwalten': 'May manage',
   'Angelegt': 'Created',
-  'Stand': 'State',
   'Verwalter': 'Administrator',
   'Zwei-Faktor-Anmeldung eingeschaltet': 'Two-factor sign-in is on',
   '2 Faktoren': '2 factors',
@@ -931,7 +1049,6 @@ export const KATALOG: Katalog = {
   'Vorlage:': 'Template:',
   'Active Directory': 'Active Directory',
   'OpenLDAP': 'OpenLDAP',
-  'Port': 'Port',
   'Verschlüsselung': 'Encryption',
   'LDAPS (verschlüsselt ab Verbindungsaufbau)': 'LDAPS (encrypted from the start)',
   'StartTLS (schaltet um)': 'StartTLS (switches over)',
@@ -939,7 +1056,6 @@ export const KATALOG: Katalog = {
   'Ohne Verschlüsselung geht das Kennwort des Dienstkontos im Klartext über die Leitung. Nur vertretbar, wenn diese Leitung den Rechner nie verlässt.': 'Without encryption the service account\'s password travels in the clear. Only defensible if that line never leaves the machine.',
   'Zertifikat prüfen': 'Verify certificate',
   'Anmelde-DN des Dienstkontos': 'Bind DN of the service account',
-  'Kennwort (hinterlegt)': 'Password (one is stored)',
   'Ein Konto, das im Verzeichnis nur lesen darf – kein Administratorkonto. Es steht verschlüsselt auf dem Server und geht nie wieder heraus.': 'An account that may only read the directory – not an administrator account. It is stored encrypted on the server and never leaves it again.',
   'Suchbereich (Basis-DN)': 'Search base (base DN)',
   'Grundfilter': 'Base filter',
@@ -948,7 +1064,6 @@ export const KATALOG: Katalog = {
   'Anzeigename': 'Display name',
   'Mobil': 'Mobile',
   'Abteilung': 'Department',
-  'Verbindung prüfen': 'Test connection',
 
   // --- packages/web/src/components/WartendModal.tsx ---
   'Nichts geplant und nichts zurückgestellt.': 'Nothing scheduled and nothing snoozed.',
@@ -993,6 +1108,10 @@ export const KATALOG: Katalog = {
   'Noch keine. Sie erscheinen von selbst, sobald Ihnen jemand unterschrieben schreibt.': 'None yet. They appear by themselves as soon as someone writes to you with a signature.',
   'Eigene Schlüsseldatei einlesen (.p12)': 'Import your own key file (.p12)',
   'Fremdes Zertifikat aufnehmen': 'Add someone else\'s certificate',
+
+  // --- packages/web/src/components/Zugangsteile.tsx ---
+  'Anmelden oder Konto anlegen': 'Sign in or create an account',
+  'Konto anlegen': 'Create account',
 
   // --- packages/web/src/composeHelpers.ts ---
   'Nachfrage': 'Follow-up',
@@ -1136,7 +1255,6 @@ export const KATALOG: Katalog = {
   'Jetzt abrufen': 'Check now',
 
   // --- packages/desktop/src/kennwortFenster.ts ---
-  'Kennwort wiederholen': 'Repeat password',
   'Bitte mindestens acht Zeichen.': 'At least eight characters, please.',
   'Die beiden Eingaben stimmen nicht überein.': 'The two entries do not match.',
   'Kennwort für die Sicherung': 'Password for the backup',
@@ -1161,7 +1279,6 @@ export const KATALOG: Katalog = {
   'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.': 'If you would rather not have this, turn it off under Tools → “Close to notification area”.',
   'Lieber beenden': 'Quit instead',
   'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.': 'The interface could not be loaded. Usually the local server is no longer reachable – restarting the application fixes it.',
-  'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.': 'The local server on port {port} could not be started. Usually a second instance of Energy Mail is already running – or an "npm run dev:server" from the source tree.',
 
   // --- packages/desktop/src/menu.ts ---
   '&Nachricht': '&Message',
@@ -1186,6 +1303,7 @@ export const KATALOG: Katalog = {
   'Einstellungen…': 'Settings…',
   'Einstellungen sichern…': 'Back up settings…',
   'Sicherung einlesen…': 'Restore settings…',
+  'Server wechseln…': 'Change server…',
   '&Hilfe': '&Help',
   'Projektseite öffnen': 'Open project page',
   'Fehlerbericht erzeugen…': 'Create problem report…',
@@ -1202,7 +1320,25 @@ export const KATALOG: Katalog = {
   'Keine Vorschläge': 'No suggestions',
 
   // --- packages/desktop/src/safeStorageKey.ts ---
-  'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.': 'The operating system is not offering encryption right now (safeStorage unavailable). Credentials will not be stored.',
+
+  // --- packages/desktop/src/serverFenster.ts ---
+  'Energy Mail einrichten': 'Set up Energy Mail',
+  'Mit welchem Server arbeiten Sie?': 'Which server do you work with?',
+  'Energy Mail holt Ihre Postfächer von einem Server. Fragen Sie die Adresse bei dem, der ihn betreibt – es ist dieselbe, unter der Sie im Browser arbeiten.': 'Energy Mail fetches your mailboxes from a server. Ask whoever runs it for the address – it is the same one you use in the browser.',
+  'Adresse des Servers': 'Server address',
+  'Verbinden': 'Connect',
+  'Verbunden – Energy Mail {fassung}': 'Connected – Energy Mail {fassung}',
+  'Ohne Adresse geht es nicht.': 'An address is required.',
+
+  // --- packages/desktop/src/serverwahl.ts ---
+  '„{eingabe}“ ist keine brauchbare Adresse. Erwartet wird etwas wie https://mail.firma.de': '„{eingabe}“ is not a usable address. Something like https://mail.example.com is expected',
+  'Nur http und https sind hier vorgesehen.': 'Only http and https are provided for here.',
+  'Ohne Verschlüsselung (http://) geht das nur zu einem Server auf diesem Rechner. Über eine Leitung ginge Ihr Kennwort im Klartext – tragen Sie https:// ein.': 'Without encryption (http://) this only works with a server on this computer. Over a network your password would travel in plain text – enter https:// instead.',
+  'Der Server antwortet nicht. Stimmt die Adresse, und ist der Rechner erreichbar?': 'The server does not respond. Is the address correct, and is the machine reachable?',
+  'Dort antwortet etwas, aber kein Energy Mail (Status {status}).': 'Something answers there, but it is not Energy Mail (status {status}).',
+  'Der Server meldet, dass er gerade nicht arbeiten kann.': 'The server reports that it cannot work right now.',
+  'Dort antwortet etwas, aber kein Energy Mail.': 'Something answers there, but it is not Energy Mail.',
+  'Keine Verbindung: {grund}': 'No connection: {grund}',
 
   // --- packages/desktop/src/updateSignatur.ts ---
   'Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.': 'The release covers version {freigegeben}, but {geladen} was downloaded.',
@@ -1276,6 +1412,9 @@ export const KATALOG: Katalog = {
   'Zu dieser Nummer gibt es keinen Eintrag.': 'There is no entry under that number.',
   'Diese Nachricht stimmt nicht mehr mit ihrem Abdruck überein - sie wurde verändert.': 'This message no longer matches its digest – it has been altered.',
 
+  // --- packages/server/src/download.ts ---
+  'Diese Datei gibt es hier nicht.': 'That file does not exist here.',
+
   // --- packages/server/src/etikettenStore.ts ---
   'Dieses Etikett gibt es nicht mehr.': 'That label no longer exists.',
 
@@ -1301,6 +1440,41 @@ export const KATALOG: Katalog = {
 
   // --- packages/server/src/nutzer/haken.ts ---
   'Kein Nutzer zugeordnet': 'No user assigned',
+
+  // --- packages/server/src/nutzer/kennwortVergessen.ts ---
+  'Neues Kennwort für Energy Mail': 'New password for Energy Mail',
+  'Guten Tag,': 'Hello,',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Mit diesem Link vergeben Sie eines:': 'a new password has been requested for this account. Use this link to set one:',
+  'Der Link gilt eine Stunde und lässt sich nur einmal verwenden.': 'The link is valid for one hour and can only be used once.',
+  'Ihr zweiter Faktor bleibt unverändert - Sie werden beim Anmelden weiterhin nach Ihrem Code gefragt.': 'Your second factor stays unchanged - you will still be asked for your code when signing in.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne diesen Link ändert sich an Ihrem Kennwort nichts, und der Link verfällt von selbst.': 'Wasn\'t you? Then please do nothing. Without this link nothing about your password changes, and the link expires by itself.',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Der Zugang ist allerdings gesperrt - ein neues Kennwort würde daran nichts ändern.': 'a new password has been requested for this account. Access is blocked, however - a new password would not change that.',
+  'Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Please contact whoever runs this service.',
+  'für diese Adresse wurde ein neues Kennwort angefordert. Zu ihr besteht hier allerdings kein Zugang - möglicherweise haben Sie eine andere Adresse verwendet.': 'a new password has been requested for this address. There is no access for it here, however - you may have used a different address.',
+  'Waren Sie das nicht, brauchen Sie nichts zu tun. Es wurde nichts angelegt und nichts gespeichert.': 'If it wasn\'t you, there is nothing you need to do. Nothing was created and nothing was stored.',
+  'An diesem Dienst lässt sich das Kennwort nicht selbst zurücksetzen. Bitte wenden Sie sich an den Betreiber.': 'This service does not allow resetting your password yourself. Please contact the operator.',
+  'Das ist keine brauchbare Mailadresse.': 'That is not a usable mail address.',
+  'Die Nachricht konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'The message could not be sent. Please contact whoever runs this service.',
+  'Dieser Link gilt nicht mehr. Fordern Sie bitte einen neuen an.': 'This link is no longer valid. Please request a new one.',
+
+  // --- packages/server/src/nutzer/registrierung.ts ---
+  'Ihre Anmeldung bei Energy Mail bestätigen': 'Confirm your Energy Mail registration',
+  'für diese Adresse wurde ein Zugang zu Energy Mail beantragt. Bestätigen Sie mit diesem Link, dass die Adresse Ihnen gehört:': 'access to Energy Mail has been requested for this address. Use this link to confirm that the address is yours:',
+  'Der Link gilt 24 Stunden.': 'The link is valid for 24 hours.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne Bestätigung entsteht kein Zugang, und der Antrag wird nach einer Woche von selbst gelöscht.': 'Wasn\'t you? Then please do nothing. Without confirmation no access is created, and the request is deleted by itself after a week.',
+  'Zu dieser Adresse besteht bereits ein Zugang': 'This address already has access',
+  'für diese Adresse wurde eben ein Zugang zu Energy Mail beantragt. Es besteht allerdings schon einer - melden Sie sich einfach wie gewohnt an.': 'access to Energy Mail has just been requested for this address. One already exists, however - simply sign in as usual.',
+  'Kennwort vergessen? Wenden Sie sich an den Betreiber dieses Dienstes; er kann es zurücksetzen.': 'Forgotten your password? Contact whoever runs this service; they can reset it.',
+  'Waren Sie das nicht, dann hat jemand Ihre Adresse eingetragen. An Ihrem Zugang ändert das nichts - Ihr Kennwort ist davon unberührt.': 'If it wasn\'t you, someone entered your address. This does not affect your access - your password is untouched.',
+  'An diesem Dienst kann man sich nicht selbst anmelden.': 'This service does not allow self-registration.',
+  'Bitte bestätigen Sie, dass Sie die Datenschutzhinweise gelesen haben.': 'Please confirm that you have read the privacy information.',
+  'Die Bestätigungsmail konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'The confirmation message could not be sent. Please contact whoever runs this service.',
+  'Dieser Link gilt nicht mehr. Bitte melden Sie sich noch einmal an.': 'This link is no longer valid. Please register again.',
+  'Diesen Antrag gibt es nicht.': 'That request does not exist.',
+  'Ihr Zugang zu Energy Mail ist eingerichtet': 'Your Energy Mail access is ready',
+  'Ihr Zugang ist jetzt freigeschaltet. Sie können sich mit Ihrer Adresse und dem Kennwort anmelden, das Sie bei der Anmeldung gewählt haben.': 'Your access has been enabled. You can sign in with your address and the password you chose when registering.',
+  'Ihr Antrag auf einen Zugang': 'Your request for access',
+  'Ihr Antrag auf einen Zugang zu Energy Mail wurde nicht bewilligt. Bei Rückfragen wenden Sie sich bitte an den Betreiber dieses Dienstes.': 'Your request for access to Energy Mail was not granted. If you have questions, please contact whoever runs this service.',
 
   // --- packages/server/src/nutzer/verwaltung.ts ---
   'Dafür fehlt Ihnen die Berechtigung.': 'You do not have permission for that.',

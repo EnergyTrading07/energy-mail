@@ -70,7 +70,72 @@ g.fetch = async (url: string | URL, init?: { method?: string; body?: string }) =
   if (weg.endsWith('/verwaltung/nutzer') && init?.method === 'POST') {
     return antwort({ nutzer: NUTZER[1], kennwort: 'GeheimGeheim1234567' });
   }
+  if (weg.endsWith('/verwaltung/registrierung') && (init?.method ?? 'GET') === 'GET') {
+    return antwort(REGISTRIERUNG);
+  }
+  if (weg.endsWith('/verwaltung/download')) {
+    return antwort(DOWNLOAD);
+  }
   return antwort({});
+};
+
+/**
+ * Die Lage der Selbstanmeldung - mit Absicht ein Fall, der etwas zu sagen hat.
+ *
+ * Eingestellt ist "offen", wirksam ist "freigabe": genau die Lage, die entsteht, wenn
+ * jemand den Systemversand abschaltet, nachdem er geoeffnet hat. Sie darf nicht
+ * stillschweigend dastehen - sonst haelt der Betreiber eine Tuer fuer offen, die zu ist.
+ *
+ * Dazu zwei Antraege, einer bestaetigt und einer nicht. Der Unterschied entscheidet, was
+ * in der Rueckfrage steht: Bei einem unbestaetigten ist NICHT nachgewiesen, dass die
+ * Adresse dem Antragsteller gehoert.
+ */
+/**
+ * Der Ordner mit der Desktop-Fassung - mit einer Datei darin und einer, die es nicht
+ * hinein schafft.
+ *
+ * Die zweite steht bewusst nicht in der Antwort: Der Server liefert nur Dateien mit
+ * erlaubter Endung aus, und die Verwaltungsansicht zeigt genau das, was ausgeliefert
+ * wird. Was sie zusaetzlich sagen muss, ist WELCHE Endungen das sind - sonst legt jemand
+ * eine .7z hinein und wundert sich.
+ */
+const DOWNLOAD = {
+  // Ein Pfad ohne Trennzeichen-Maskierung: Der Test prueft die Anzeige und nicht Windows.
+  ordner: '/srv/energy-mail/downloads',
+  vorhanden: true,
+  endungen: ['.exe', '.msi', '.dmg', '.pkg', '.appimage', '.deb', '.rpm', '.zip'],
+  dateien: [
+    {
+      name: 'Energy-Mail-Setup-0.5.0.exe',
+      groesse: 92 * 1024 * 1024,
+      stand: '2026-08-20T08:00:00.000Z',
+      system: 'windows',
+    },
+  ],
+};
+
+const REGISTRIERUNG = {
+  einstellungen: { betriebsart: 'offen', domaenen: ['beispiel.de'], hinweis: 'Kurzer Hinweis.' },
+  wirksam: 'freigabe',
+  systemmail: {
+    aktiv: false,
+    host: '',
+    port: 587,
+    secure: false,
+    benutzer: '',
+    absender: '',
+    absenderName: 'Energy Mail',
+    kennwortHinterlegt: false,
+  },
+  antraege: [
+    {
+      id: 'a1',
+      email: 'neugier@beispiel.de',
+      angelegt: '2026-08-01T09:00:00.000Z',
+      bestaetigt: '2026-08-01T09:05:00.000Z',
+    },
+    { id: 'a2', email: 'ungeprueft@beispiel.de', angelegt: '2026-08-02T09:00:00.000Z' },
+  ],
 };
 
 const { createRoot } = await import('react-dom/client');
@@ -97,6 +162,13 @@ await act(async () => {
 });
 
 const text = () => document.body.textContent ?? '';
+/*
+ * Seit die Selbstanmeldung mit im Fenster steht, gibt es zwei Tabellen darin. Die
+ * Pruefungen unten meinen die NUTZER - ohne diese Einschraenkung zaehlten sie die
+ * Antragszeilen mit und meldeten fuenf statt drei.
+ */
+const nutzerZeilen = () =>
+  [...document.querySelectorAll('table:not(.anmeldeverwaltung-tabelle) tbody tr')] as HTMLElement[];
 const knoepfe = () => [...document.querySelectorAll('button')] as HTMLButtonElement[];
 
 console.log('\nDie Nutzerverwaltung zeichnet:');
@@ -113,7 +185,7 @@ await pruefe('alle drei Nutzer stehen da', () => {
 });
 
 await pruefe('die Marken sitzen richtig', () => {
-  const zeilen = [...document.querySelectorAll('tbody tr')] as HTMLElement[];
+  const zeilen = nutzerZeilen();
   assert.equal(zeilen.length, 3);
   // Der Chef ist Verwalter und man selbst; Bernd ist gesperrt.
   assert.ok(zeilen[0]!.querySelector('.marke-verwalter'), 'Verwaltermarke fehlt.');
@@ -127,7 +199,7 @@ await pruefe('an der eigenen Zeile fehlen Sperren, Rolle und Entfernen', () => {
    * Sonst sperrt sich ein Verwalter mit einem Fehlklick selbst aus. Der Server weist das
    * ohnehin ab - aber ein Knopf, der immer eine Fehlermeldung bringt, ist eine Falle.
    */
-  const eigene = [...document.querySelectorAll('tbody tr')][0] as HTMLElement;
+  const eigene = nutzerZeilen()[0]!;
   const beschriftungen = [...eigene.querySelectorAll('button')].map((b) => b.textContent);
   assert.ok(!beschriftungen.includes('Sperren'), 'Sperren steht an der eigenen Zeile.');
   assert.ok(!beschriftungen.includes('Entfernen'), 'Entfernen steht an der eigenen Zeile.');
@@ -142,7 +214,7 @@ await pruefe('den zweiten Faktor kann man nur dort zuruecksetzen, wo einer ist',
    * schaedlich: Er nimmt einem Konto genau den Schutz weg, fuer den es eingerichtet wurde,
    * und ein solcher Knopf soll nur dort stehen, wo er etwas zu tun hat.
    */
-  const zeilen = [...document.querySelectorAll('tbody tr')] as HTMLElement[];
+  const zeilen = nutzerZeilen();
   const knopf = (zeile: HTMLElement) =>
     [...zeile.querySelectorAll('button')].some((b) => b.textContent === '2FA zurücksetzen');
   assert.ok(!knopf(zeilen[0]!), 'Der Chef hat keinen zweiten Faktor.');
@@ -158,7 +230,7 @@ await pruefe('beim letzten Verwalter sind die gefaehrlichen Knoepfe gesperrt', (
    * geprueft wird deshalb, dass die Oberflaeche den Fall kennt: Bei Anna und Bernd, die
    * keine Verwalter sind, muessen die Knoepfe offen sein.
    */
-  const anna = [...document.querySelectorAll('tbody tr')][1] as HTMLElement;
+  const anna = nutzerZeilen()[1]!;
   const aus = [...anna.querySelectorAll('button')].filter((b) => b.disabled);
   assert.equal(aus.length, 0, 'An Annas Zeile ist etwas gesperrt, das offen sein muesste.');
 });
@@ -190,6 +262,89 @@ await pruefe('das Anlegen geht an den richtigen Weg und zeigt das Kennwort einma
 
   // Und das Kennwort steht sichtbar da - es erscheint nur dieses eine Mal.
   assert.ok(text().includes('GeheimGeheim1234567'), 'Das Kennwort wird nicht angezeigt.');
+});
+
+console.log('\nDie Selbstanmeldung:');
+
+await pruefe('sie holt ihre Lage unter /verwaltung/registrierung', () => {
+  assert.ok(
+    gerufen.some((g) => g.weg.endsWith('/verwaltung/registrierung') && g.art === 'GET'),
+    `Kein Abruf der Lage. Gerufen: ${JSON.stringify(gerufen.map((g) => g.weg))}`,
+  );
+});
+
+await pruefe('die drei Betriebsarten stehen mit ihrer Erklaerung da', () => {
+  /*
+   * Mit Erklaerung und nicht nur mit Namen. "Offen" und "Antrag mit Freigabe" sind zwei
+   * Woerter, hinter denen zwei sehr verschiedene Sicherheitslagen stehen - wer das aus dem
+   * Namen allein erraten muss, stellt es einmal falsch ein und merkt es nie.
+   */
+  for (const wort of ['Antrag mit Freigabe', 'Offen mit Mailbestätigung']) {
+    assert.ok(text().includes(wort), `"${wort}" fehlt.`);
+  }
+  assert.ok(
+    text().includes('Hereinkommen tut er erst, wenn Sie ihn freigeben'),
+    'Die Erklaerung zur Freigabe fehlt.',
+  );
+  const arten = [...document.querySelectorAll('input[type="radio"]')] as HTMLInputElement[];
+  assert.equal(arten.length, 3, 'Es sind nicht drei Betriebsarten.');
+  assert.ok(arten[2]!.checked, 'Angekreuzt ist nicht die eingestellte Betriebsart.');
+});
+
+await pruefe('faellt Eingestelltes und Geltendes auseinander, steht das da', () => {
+  // Der Fall, den niemand plant: erst oeffnen, spaeter den Sendeserver abschalten.
+  assert.ok(
+    text().includes('Ohne Systemversand gibt es keine Bestätigungsmail'),
+    'Der Hinweis auf den Rueckfall fehlt.',
+  );
+});
+
+await pruefe('beide Antraege stehen da - und der ungeprüfte ist als solcher erkennbar', () => {
+  assert.ok(text().includes('neugier@beispiel.de'), 'Der bestaetigte Antrag fehlt.');
+  assert.ok(text().includes('ungeprueft@beispiel.de'), 'Der unbestaetigte Antrag fehlt.');
+  assert.ok(text().includes('noch nicht'), 'Der fehlende Nachweis ist nicht ausgewiesen.');
+});
+
+await pruefe('zu jedem Antrag gibt es Freigeben und Ablehnen', () => {
+  const beschriftungen = knoepfe().map((b) => b.textContent);
+  assert.equal(
+    beschriftungen.filter((b) => b === 'Annehmen').length,
+    2,
+    'Nicht an jedem Antrag steht "Annehmen".',
+  );
+  assert.equal(
+    beschriftungen.filter((b) => b === 'Ablehnen').length,
+    2,
+    'Nicht an jedem Antrag steht "Ablehnen".',
+  );
+});
+
+await pruefe('der Absender des Dienstes laesst sich einrichten', () => {
+  assert.ok(text().includes('Absender des Dienstes'), 'Der Systemversand fehlt ganz.');
+  assert.ok(
+    text().includes('Nehmen Sie ein eigenes Postfach dafür, kein persönliches'),
+    'Der Rat zum eigenen Postfach fehlt.',
+  );
+});
+
+await pruefe('der Ordner fuer die Desktop-Fassung steht mit Pfad und Inhalt da', () => {
+  /*
+   * Der Pfad ist das Wesentliche: Hochladen gibt es hier bewusst nicht, also muss der
+   * Betreiber wissen, WOHIN die Datei gehoert. Ein Kasten, der nur sagt "es liegt nichts
+   * bereit", waere eine Sackgasse.
+   */
+  assert.ok(text().includes('/srv/energy-mail/downloads'), 'Der Pfad des Ordners fehlt.');
+  assert.ok(text().includes('Energy-Mail-Setup-0.5.0.exe'), 'Die hinterlegte Datei fehlt.');
+  assert.ok(text().includes('.msi'), 'Die erlaubten Endungen stehen nicht da.');
+});
+
+await pruefe('und der Grund, warum es kein Hochladen gibt', () => {
+  // Er steht in der Oberflaeche und nicht nur im Quelltext: Wer den Ordner sucht, fragt
+  // sich als Erstes, warum es keinen Knopf gibt.
+  assert.ok(
+    text().includes('Hochladen geht hier bewusst nicht'),
+    'Die Begruendung fehlt in der Ansicht.',
+  );
 });
 
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);

@@ -39,6 +39,9 @@ import {
 } from './nutzer/kontext.js';
 import { registriereNutzerkontext, type NutzerErmitteln } from './nutzer/haken.js';
 import { registriereVerwaltung } from './nutzer/verwaltung.js';
+import { registriereSelbstregistrierung } from './nutzer/registrierung.js';
+import { registriereKennwortVergessen } from './nutzer/kennwortVergessen.js';
+import { registriereDownload, registriereDownloadVerwaltung } from './download.js';
 import { registriereZweiFaktor } from './nutzer/zweiFaktor.js';
 import {
   FreigabeFehler,
@@ -361,6 +364,19 @@ export type ServerOptionen = {
 export { EINPLATZ_NUTZER } from './nutzer/kontext.js';
 
 /**
+ * Der Name des Sitzungskekses - fuer die Huelle.
+ *
+ * Sie braucht ihn, seit sie ein Fenster auf einen Server ist: Ihre beiden Menuepunkte
+ * "Einstellungen sichern" und "Sicherung einlesen" rufen Routen des Servers, und die
+ * haengen hinter der Anmeldung. Der Keks steckt in der Sitzung des Fensters; der
+ * Hauptprozess holt ihn dort heraus und schickt ihn mit (siehe diagnose.ts).
+ *
+ * Weitergereicht und nicht abgeschrieben: Ein zweiter Name neben dem ersten geht genau so
+ * lange gut, bis einer von beiden geaendert wird.
+ */
+export { KEKS_NAME } from './nutzer/anmelden.js';
+
+/**
  * Führt etwas im Namen des Einplatznutzers aus - für die Desktop-Hülle.
  *
  * Sie ruft Speicher unmittelbar auf, außerhalb jeder HTTP-Anfrage: beim Beenden
@@ -674,6 +690,36 @@ export async function buildServer(optionen: ServerOptionen = {}) {
    * sein, denn genau darum geht es dort.
    */
   registriereZweiFaktor(app);
+
+  /*
+   * Die Selbstregistrierung - offene Wege und Verwaltungswege in einer Datei.
+   *
+   * Hinter registriereVerwaltung, damit deren Riegel auch für die Wege unter
+   * /verwaltung/registrierung gilt. Das ist keine Frage der Reihenfolge von Routen,
+   * sondern der von preHandler-Haken: Fastify ruft sie in der Reihenfolge ihrer
+   * Anmeldung, und der Riegel muss stehen, bevor die erste Anfrage kommt.
+   *
+   * Die drei offenen Wege darin (/registrierung, /registrierung/bestaetigen) stehen
+   * ihrerseits in OFFENE_PFADE - ohne diesen Eintrag käme niemand daran vorbei, der noch
+   * kein Konto hat, also genau die Menschen, für die sie da sind.
+   */
+  registriereSelbstregistrierung(app);
+
+  /*
+   * Der Weg zurueck bei einem vergessenen Kennwort - ebenfalls mit zwei offenen Wegen,
+   * die in OFFENE_PFADE stehen muessen. Er setzt Kennwoerter und ruehrt den zweiten
+   * Faktor ausdruecklich NICHT an; warum, steht im Kopf von kennwortVergessen.ts.
+   */
+  registriereKennwortVergessen(app);
+
+  /*
+   * Die Desktop-Fassung zum Herunterladen.
+   *
+   * Hinter der Anmeldung - die Wege stehen nicht in OFFENE_PFADE. Wer das Programm
+   * braucht, hat ein Konto, sonst nuetzte es ihm nichts.
+   */
+  registriereDownload(app);
+  registriereDownloadVerwaltung(app);
 
   /*
    * Geordnet zumachen.

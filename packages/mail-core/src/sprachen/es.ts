@@ -203,7 +203,10 @@ export const KATALOG: Katalog = {
   'Zurück': 'Atrás',
   'Adresse': 'Dirección',
   'Kennwort': 'Contraseña',
+  'Angemeldet bleiben': 'Mantener la sesión iniciada',
   'Anmelden': 'Iniciar sesión',
+  'Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.': 'Este dispositivo permanece con la sesión iniciada durante un año, incluso tras reiniciar, y la pantalla ya no se bloquea sola. Solo en un dispositivo al que nadie más tenga acceso.',
+  'Kennwort vergessen?': '¿Ha olvidado la contraseña?',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.': 'Esta es la contraseña de Energy Mail, no la de su buzón.',
 
   // --- packages/web/src/components/ArchivModal.tsx ---
@@ -379,6 +382,32 @@ export const KATALOG: Katalog = {
   'Unterlagen erzeugen': 'Crear documentos',
   'Kein Rechtsrat. Die Regelfälle sind abgedeckt; bei Beschäftigtendaten, einem Betriebsrat und Übermittlungen in Drittländer gehört ein Mensch darüber, bevor etwas unterschrieben wird.': 'No es asesoramiento jurídico. Los casos habituales están cubiertos; con datos de empleados, un comité de empresa o transferencias a terceros países, alguien debe revisarlo antes de firmar nada.',
 
+  // --- packages/web/src/components/DownloadTeil.tsx ---
+  'Windows': 'Windows',
+  'macOS': 'macOS',
+  'Linux': 'Linux',
+  'Unbekanntes System': 'Sistema desconocido',
+  'Energy Mail auf dem Rechner': 'Energy Mail en su equipo',
+  'Dieselbe Anwendung als Programm für Ihren Rechner: Sie meldet sich an diesem Server an und zeigt dieselben Postfächer. Benachrichtigungen und der Infobereich kommen dazu.': 'La misma aplicación como programa para su equipo: inicia sesión en este servidor y muestra los mismos buzones. Además, notificaciones y área de notificación.',
+  'Der Betreiber dieses Dienstes hat noch keine Fassung hinterlegt. Fragen Sie ihn danach.': 'Quien gestiona este servicio todavía no ha depositado ninguna versión. Pregúntele por ella.',
+  'Stand': 'Estado',
+  'Herunterladen': 'Descargar',
+
+  // --- packages/web/src/components/DownloadVerwaltungTeil.tsx ---
+  'Desktop-Fassung bereitstellen': 'Poner a disposición la versión de escritorio',
+  'Legen Sie die Installationsdatei in diesen Ordner. Ihre Nutzer finden sie danach unter Einstellungen → Für den Rechner und laden sie von hier statt aus dem Netz.': 'Coloque el archivo de instalación en esta carpeta. Sus usuarios lo encontrarán después en Ajustes → Para el equipo y lo descargarán de aquí en lugar de internet.',
+  'Dieser Server nennt keinen Ordner – vermutlich ist er älter als diese Oberfläche.': 'Este servidor no indica ninguna carpeta: probablemente sea más antiguo que esta interfaz.',
+  'Kopiert': 'Copiado',
+  'Pfad kopieren': 'Copiar ruta',
+  'Diesen Ordner gibt es noch nicht – legen Sie ihn an und kopieren Sie die Datei hinein.': 'Esta carpeta todavía no existe: créela y copie el archivo dentro.',
+  'Ausgeliefert wird nur, was auf eine dieser Endungen lautet: {endungen}': 'Solo se entrega lo que termine en una de estas extensiones: {endungen}',
+  'Datei': 'Archivo',
+  'System': 'Sistema',
+  'Größe': 'Tamaño',
+  'Der Ordner ist leer – es wird nichts angeboten.': 'La carpeta está vacía: no se ofrece nada.',
+  'Neu einlesen': 'Volver a leer',
+  'Hochladen geht hier bewusst nicht: Ein Weg, über den sich ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes Programm zu verteilen.': 'Subir archivos aquí no es posible a propósito: una vía que permita escribir archivos ejecutables en el servidor sería, desde una cuenta de administrador comprometida, el permiso para distribuir un programa ajeno a todos los puestos de trabajo.',
+
   // --- packages/web/src/components/Einladung.tsx ---
   '{tag}, {tage} Tage (ganztägig)': '{tag}, {tage} días (todo el día)',
   '{tag} (ganztägig)': '{tag} (todo el día)',
@@ -445,6 +474,7 @@ export const KATALOG: Katalog = {
   'Programm': 'Programa',
   'Nutzer': 'Usuarios',
   'Anmeldung': 'Acceso',
+  'Für den Rechner': 'Para el equipo',
   'Noch kein Postfach eingerichtet – es kommt über die Seitenleiste hinzu.': 'Aún no hay ningún buzón configurado: se añade desde la barra lateral.',
   'Einstellungen': 'Ajustes',
   'Bereiche der Einstellungen': 'Secciones de los ajustes',
@@ -473,12 +503,38 @@ export const KATALOG: Katalog = {
   'Rechte': 'Permisos',
   'Es geht nur um dieses Postfach – nicht um Ihre anderen Konten, Ihr Adressbuch oder Ihre Einstellungen. Jede Freigabe steht im Protokoll.': 'Se trata solo de este buzón, no de sus otras cuentas, su libreta de direcciones o sus ajustes. Cada uso compartido queda en el registro.',
 
+  // --- packages/web/src/components/KennwortVergessen.tsx ---
+  'Noch ein Zeichen.': 'Un carácter más.',
+  'Noch {anzahl} Zeichen.': {
+    one: '{anzahl} carácter más.',
+    other: '{anzahl} caracteres más.',
+  },
+  'Sehen Sie in Ihr Postfach': 'Consulte su buzón',
+  'Besteht zu dieser Adresse ein Zugang, ist eine Nachricht unterwegs. Der Link darin gilt eine Stunde.': 'Si esta dirección tiene acceso, hay un mensaje en camino. El enlace que contiene es válido durante una hora.',
+  'Kommt nichts an, sehen Sie im Spam-Ordner nach oder wenden Sie sich an den Betreiber.': 'Si no llega nada, mire en la carpeta de correo no deseado o diríjase a quien gestiona el servicio.',
+  'Zur Anmeldung': 'Ir al inicio de sesión',
+  'Kennwort vergessen': 'Contraseña olvidada',
+  'Geben Sie Ihre Adresse ein. Sie bekommen einen Link, mit dem Sie ein neues Kennwort vergeben.': 'Introduzca su dirección. Recibirá un enlace con el que establecer una nueva contraseña.',
+  'Wird gesendet…': 'Enviando…',
+  'Link anfordern': 'Solicitar enlace',
+  'Ein zweiter Faktor bleibt davon unberührt. Ist Ihr Telefon abhandengekommen, hilft nur der Betreiber.': 'Un segundo factor no se ve afectado. Si ha perdido el teléfono, solo puede ayudarle quien gestiona el servicio.',
+  'Zurück zur Anmeldung': 'Volver al inicio de sesión',
+  'Die beiden Kennwörter stimmen nicht überein.': 'Las dos contraseñas no coinciden.',
+  'Das Kennwort steht': 'La contraseña está establecida',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem neuen Kennwort an. Alle offenen Sitzungen wurden dabei beendet.': 'Inicie sesión ahora con su dirección y la nueva contraseña. Todas las sesiones abiertas se han cerrado.',
+  'Ihr zweiter Faktor gilt unverändert weiter – halten Sie Ihre App bereit.': 'Su segundo factor sigue vigente sin cambios: tenga su aplicación a mano.',
+  'Neues Kennwort': 'Contraseña nueva',
+  'Mindestens {anzahl} Zeichen. Länge zählt mehr als Sonderzeichen.': 'Al menos {anzahl} caracteres. La longitud cuenta más que los caracteres especiales.',
+  'Kennwort wiederholen': 'Repetir la contraseña',
+  'Die beiden Kennwörter stimmen noch nicht überein.': 'Las dos contraseñas todavía no coinciden.',
+  'Wird gesetzt…': 'Estableciendo…',
+  'Kennwort setzen': 'Establecer contraseña',
+
   // --- packages/web/src/components/KontoModal.tsx ---
   '{anzahl} Wiederherstellungscode übrig': 'Queda {anzahl} código de recuperación',
   '{anzahl} Wiederherstellungscodes übrig': 'Quedan {anzahl} códigos de recuperación',
   'Ihre Wiederherstellungscodes': 'Sus códigos de recuperación',
   'Drucken Sie sie aus oder legen Sie sie an einen sicheren Ort. Jeder Code lässt sich genau einmal benutzen – und ersetzt Ihr Telefon, wenn es einmal nicht zur Hand ist.': 'Imprímalos o guárdelos en un lugar seguro. Cada código sirve exactamente una vez – y sustituye a su teléfono cuando no lo tenga a mano.',
-  'Kopiert': 'Copiado',
   'Kopieren': 'Copiar',
   'Ich habe sie notiert': 'Los he anotado',
   'Die beiden neuen Kennwörter stimmen nicht überein.': 'Las dos contraseñas nuevas no coinciden.',
@@ -492,7 +548,6 @@ export const KATALOG: Katalog = {
   'Kennwort ändern': 'Cambiar la contraseña',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs. Nach der Änderung müssen Sie sich überall neu anmelden.': 'Es la contraseña de Energy Mail – no la de su buzón. Tras el cambio tendrá que iniciar sesión de nuevo en todas partes.',
   'Bisheriges Kennwort': 'Contraseña actual',
-  'Neues Kennwort': 'Contraseña nueva',
   'Noch einmal': 'Otra vez',
   'Mindestens zehn Zeichen. Ein Satz ist besser als ein Wort.': 'Diez caracteres como mínimo. Una frase es mejor que una palabra.',
   'Zwei-Faktor-Anmeldung': 'Inicio de sesión en dos pasos',
@@ -656,6 +711,70 @@ export const KATALOG: Katalog = {
   'Wird geholt…': 'Obteniendo…',
   'Kopfzeilen': 'Cabeceras',
   'Als Datei sichern': 'Guardar en un archivo',
+
+  // --- packages/web/src/components/Registrierung.tsx ---
+  'Das Kennwort muss mindestens {anzahl} Zeichen haben.': 'La contraseña debe tener al menos {anzahl} caracteres.',
+  'Ihr Antrag ist da': 'Su solicitud está registrada',
+  'Wir haben Ihnen eine Nachricht geschickt. Klicken Sie auf den Link darin – erst dann geht es weiter. Der Link gilt 24 Stunden.': 'Le hemos enviado un mensaje. Siga el enlace que contiene: hasta entonces no ocurre nada. El enlace es válido durante 24 horas.',
+  'Ein Verwalter sieht sich Ihren Antrag an und schaltet den Zugang frei. Sobald das geschehen ist, können Sie sich hier anmelden.': 'Un administrador revisará su solicitud y habilitará el acceso. En cuanto lo haga, podrá iniciar sesión aquí.',
+  'Legen Sie hier Ihren Zugang an. Freigeschaltet wird er von einem Verwalter.': 'Cree aquí su acceso. Lo habilitará un administrador.',
+  'Legen Sie hier Ihren Zugang an.': 'Cree aquí su acceso.',
+  'Möglich sind nur Adressen dieser Domänen: {domaenen}': 'Solo se admiten direcciones de estos dominios: {domaenen}',
+  'Bemerkung (freiwillig)': 'Observación (opcional)',
+  'z. B. Ihre Abteilung': 'p. ej. su departamento',
+  'Ich habe die Hinweise zum Datenschutz gelesen.': 'He leído la información sobre protección de datos.',
+  'Zugang beantragen': 'Solicitar acceso',
+  'Das Kennwort gilt für Energy Mail – nicht für Ihr Postfach. Das tragen Sie später ein.': 'Esta contraseña es la de Energy Mail, no la de su buzón. Esa la introducirá más adelante.',
+  'Ihr Zugang steht': 'Su acceso está listo',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem Kennwort an, das Sie gewählt haben.': 'Inicie sesión ahora con su dirección y la contraseña que eligió.',
+  'Danke – Adresse bestätigt': 'Gracias: dirección confirmada',
+  'Ein Verwalter schaltet Ihren Zugang frei. Sobald das geschehen ist, können Sie sich anmelden.': 'Un administrador habilitará su acceso. En cuanto lo haga, podrá iniciar sesión.',
+
+  // --- packages/web/src/components/RegistrierungTeil.tsx ---
+  'Konten legt allein ein Verwalter an. Im Anmeldefenster steht kein Weg zur Anmeldung.': 'Solo un administrador crea cuentas. La ventana de inicio de sesión no ofrece ningún registro.',
+  'Wer will, stellt einen Antrag. Hereinkommen tut er erst, wenn Sie ihn freigeben.': 'Quien quiera presenta una solicitud. Solo entra cuando usted la aprueba.',
+  'Wer seine Mailadresse über den Bestätigungslink nachweist, ist damit angemeldet. Sie erfahren davon nur über die Nutzerliste.': 'Quien acredite su dirección mediante el enlace de confirmación queda registrado. Usted solo se entera por la lista de usuarios.',
+  'Selbstanmeldung': 'Registro autónomo',
+  'Ob sich Menschen hier selbst ein Konto anlegen können – und unter welchen Bedingungen.': 'Si las personas pueden crear aquí una cuenta por sí mismas y en qué condiciones.',
+  'Aus': 'Desactivado',
+  'Antrag mit Freigabe': 'Solicitud con aprobación',
+  'Offen mit Mailbestätigung': 'Abierto con confirmación por correo',
+  'Eingestellt ist „offen“, es gilt aber „Antrag mit Freigabe“: Ohne Systemversand gibt es keine Bestätigungsmail. Richten Sie ihn weiter unten ein.': 'Está configurado «abierto», pero rige «solicitud con aprobación»: sin envío del sistema no hay mensaje de confirmación. Configúrelo más abajo.',
+  '„Offen“ verlangt einen Systemversand – ohne Bestätigungsmail könnte sich jeder ein Konto auf eine fremde Adresse anlegen.': '«Abierto» exige un envío del sistema: sin mensaje de confirmación, cualquiera podría crear una cuenta con la dirección de otra persona.',
+  'Nur diese Mail-Domänen': 'Solo estos dominios de correo',
+  'firma.de, tochter.de': 'empresa.es, filial.es',
+  'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Vacío significa: cualquier dirección. Para una empresa este es, por sí solo, el ajuste más eficaz: quien no pertenece no llega ni a la solicitud.',
+  'Datenschutzhinweis auf dem Formular': 'Aviso de protección de datos en el formulario',
+  'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Aparece sobre el botón de envío y debe marcarse. Indique quién trata los datos y cómo se pueden eliminar; enlace su política de privacidad si tiene una.',
+  'Wird gesichert…': 'Guardando…',
+  'Gesichert.': 'Guardado.',
+  'Offene Anträge': 'Solicitudes pendientes',
+  'Gestellt': 'Presentada',
+  'Adresse bestätigt': 'Dirección confirmada',
+  'noch nicht': 'todavía no',
+  'Antrag von {name} annehmen?': '¿Aceptar la solicitud de {name}?',
+  'Das Konto entsteht sofort. Das Kennwort hat dieser Mensch selbst gewählt – Sie bekommen es nicht zu sehen und brauchen es nicht.': 'La cuenta se crea de inmediato. Esta persona eligió su propia contraseña: usted no la ve ni la necesita.',
+  'Diese Adresse ist NICHT bestätigt: Es ist nicht nachgewiesen, dass sie dem Antragsteller gehört. Geben Sie nur frei, wenn Sie wissen, wer das ist.': 'Esta dirección NO está confirmada: no se ha acreditado que pertenezca al solicitante. Apruebe solo si sabe de quién se trata.',
+  'Annehmen': 'Aceptar',
+  'Antrag von {name} ablehnen?': '¿Rechazar la solicitud de {name}?',
+  'Der Antrag wird gelöscht – nicht vermerkt. Eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.': 'La solicitud se elimina, no se anota. Este servicio no lleva deliberadamente ninguna lista de solicitudes rechazadas.',
+  'Ablehnen': 'Rechazar',
+  'Ablehnung mitteilen?': '¿Comunicar el rechazo?',
+  'Der Antragsteller bekommt eine kurze Nachricht ohne Begründung. Bei einem Antrag, den offensichtlich niemand gestellt hat, lassen Sie es besser.': 'El solicitante recibe un mensaje breve sin justificación. Si se trata de una solicitud que evidentemente nadie presentó, es mejor no hacerlo.',
+  'Mitteilen': 'Comunicar',
+  'Ohne Nachricht': 'Sin mensaje',
+  'Die Verbindung steht und die Anmeldung wird angenommen.': 'La conexión funciona y se aceptan las credenciales.',
+  'Absender des Dienstes': 'Remitente del servicio',
+  'Über dieses Postfach verschickt der Dienst seine eigenen Nachrichten – den Bestätigungslink vor allem. Nehmen Sie ein eigenes Postfach dafür, kein persönliches.': 'A través de este buzón el servicio envía sus propios mensajes, sobre todo el enlace de confirmación. Utilice un buzón propio para ello, no uno personal.',
+  'Systemversand benutzen': 'Usar el envío del sistema',
+  'Sendeserver (SMTP)': 'Servidor de salida (SMTP)',
+  'Port': 'Puerto',
+  'Verschlüsselt ab Verbindungsaufbau (Port 465)': 'Cifrado desde el establecimiento de la conexión (puerto 465)',
+  'Aus heißt STARTTLS auf Port 587 – ebenfalls verschlüsselt. Unverschlüsselt versendet dieser Dienst nicht.': 'Desactivado significa STARTTLS en el puerto 587, también cifrado. Este servicio nunca envía sin cifrar.',
+  'Benutzername': 'Nombre de usuario',
+  'Kennwort (hinterlegt)': 'Contraseña (ya guardada)',
+  'Absenderadresse': 'Dirección del remitente',
+  'Verbindung prüfen': 'Probar la conexión',
 
   // --- packages/web/src/components/RichTextEditor.tsx ---
   'Link einfügen': 'Insertar enlace',
@@ -899,7 +1018,6 @@ export const KATALOG: Katalog = {
   'Adresse des neuen Nutzers': 'Dirección del nuevo usuario',
   'Darf verwalten': 'Puede administrar',
   'Angelegt': 'Creado',
-  'Stand': 'Estado',
   'Verwalter': 'Administrador',
   'Zwei-Faktor-Anmeldung eingeschaltet': 'Inicio de sesión en dos pasos activado',
   '2 Faktoren': '2 factores',
@@ -932,7 +1050,6 @@ export const KATALOG: Katalog = {
   'Vorlage:': 'Plantilla:',
   'Active Directory': 'Active Directory',
   'OpenLDAP': 'OpenLDAP',
-  'Port': 'Puerto',
   'Verschlüsselung': 'Cifrado',
   'LDAPS (verschlüsselt ab Verbindungsaufbau)': 'LDAPS (cifrado desde el principio)',
   'StartTLS (schaltet um)': 'StartTLS (cambia después)',
@@ -940,7 +1057,6 @@ export const KATALOG: Katalog = {
   'Ohne Verschlüsselung geht das Kennwort des Dienstkontos im Klartext über die Leitung. Nur vertretbar, wenn diese Leitung den Rechner nie verlässt.': 'Sin cifrado, la contraseña de la cuenta de servicio viaja en claro. Solo es defendible si esa línea nunca sale de la máquina.',
   'Zertifikat prüfen': 'Comprobar el certificado',
   'Anmelde-DN des Dienstkontos': 'DN de conexión de la cuenta de servicio',
-  'Kennwort (hinterlegt)': 'Contraseña (ya guardada)',
   'Ein Konto, das im Verzeichnis nur lesen darf – kein Administratorkonto. Es steht verschlüsselt auf dem Server und geht nie wieder heraus.': 'Una cuenta que solo pueda leer el directorio, no una cuenta de administrador. Se guarda cifrada en el servidor y nunca vuelve a salir.',
   'Suchbereich (Basis-DN)': 'Ámbito de búsqueda (DN base)',
   'Grundfilter': 'Filtro base',
@@ -949,7 +1065,6 @@ export const KATALOG: Katalog = {
   'Anzeigename': 'Nombre mostrado',
   'Mobil': 'Móvil',
   'Abteilung': 'Departamento',
-  'Verbindung prüfen': 'Probar la conexión',
 
   // --- packages/web/src/components/WartendModal.tsx ---
   'Nichts geplant und nichts zurückgestellt.': 'Nada programado ni pospuesto.',
@@ -994,6 +1109,10 @@ export const KATALOG: Katalog = {
   'Noch keine. Sie erscheinen von selbst, sobald Ihnen jemand unterschrieben schreibt.': 'Todavía ninguno. Aparecen solos en cuanto alguien le escribe firmando.',
   'Eigene Schlüsseldatei einlesen (.p12)': 'Importar su archivo de clave (.p12)',
   'Fremdes Zertifikat aufnehmen': 'Añadir el certificado de otra persona',
+
+  // --- packages/web/src/components/Zugangsteile.tsx ---
+  'Anmelden oder Konto anlegen': 'Iniciar sesión o crear una cuenta',
+  'Konto anlegen': 'Crear cuenta',
 
   // --- packages/web/src/composeHelpers.ts ---
   'Nachfrage': 'Seguimiento',
@@ -1137,7 +1256,6 @@ export const KATALOG: Katalog = {
   'Jetzt abrufen': 'Consultar ahora',
 
   // --- packages/desktop/src/kennwortFenster.ts ---
-  'Kennwort wiederholen': 'Repetir la contraseña',
   'Bitte mindestens acht Zeichen.': 'Al menos ocho caracteres.',
   'Die beiden Eingaben stimmen nicht überein.': 'Las dos entradas no coinciden.',
   'Kennwort für die Sicherung': 'Contraseña para la copia de seguridad',
@@ -1162,7 +1280,6 @@ export const KATALOG: Katalog = {
   'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.': 'Si no lo desea, puede desactivarlo en Herramientas → «Al cerrar, ir al área de notificación».',
   'Lieber beenden': 'Prefiero salir',
   'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.': 'No se ha podido cargar la interfaz. Normalmente el servidor local ya no está accesible; reiniciar la aplicación lo soluciona.',
-  'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.': 'No se ha podido arrancar el servidor local en el puerto {port}. Normalmente ya hay una segunda instancia de Energy Mail en marcha, o un «npm run dev:server» lanzado desde el código fuente.',
 
   // --- packages/desktop/src/menu.ts ---
   '&Nachricht': '&Mensaje',
@@ -1187,6 +1304,7 @@ export const KATALOG: Katalog = {
   'Einstellungen…': 'Ajustes…',
   'Einstellungen sichern…': 'Guardar copia de los ajustes…',
   'Sicherung einlesen…': 'Restaurar una copia…',
+  'Server wechseln…': 'Cambiar de servidor…',
   '&Hilfe': 'A&yuda',
   'Projektseite öffnen': 'Abrir la página del proyecto',
   'Fehlerbericht erzeugen…': 'Crear informe de error…',
@@ -1203,7 +1321,25 @@ export const KATALOG: Katalog = {
   'Keine Vorschläge': 'Sin sugerencias',
 
   // --- packages/desktop/src/safeStorageKey.ts ---
-  'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.': 'El sistema operativo no ofrece cifrado en este momento (safeStorage no disponible). Las credenciales no se guardarán.',
+
+  // --- packages/desktop/src/serverFenster.ts ---
+  'Energy Mail einrichten': 'Configurar Energy Mail',
+  'Mit welchem Server arbeiten Sie?': '¿Con qué servidor trabaja?',
+  'Energy Mail holt Ihre Postfächer von einem Server. Fragen Sie die Adresse bei dem, der ihn betreibt – es ist dieselbe, unter der Sie im Browser arbeiten.': 'Energy Mail obtiene sus buzones de un servidor. Pida la dirección a quien lo gestiona: es la misma con la que trabaja en el navegador.',
+  'Adresse des Servers': 'Dirección del servidor',
+  'Verbinden': 'Conectar',
+  'Verbunden – Energy Mail {fassung}': 'Conectado: Energy Mail {fassung}',
+  'Ohne Adresse geht es nicht.': 'Sin dirección no es posible.',
+
+  // --- packages/desktop/src/serverwahl.ts ---
+  '„{eingabe}“ ist keine brauchbare Adresse. Erwartet wird etwas wie https://mail.firma.de': '«{eingabe}» no es una dirección utilizable. Se espera algo como https://mail.empresa.es',
+  'Nur http und https sind hier vorgesehen.': 'Aquí solo están previstos http y https.',
+  'Ohne Verschlüsselung (http://) geht das nur zu einem Server auf diesem Rechner. Über eine Leitung ginge Ihr Kennwort im Klartext – tragen Sie https:// ein.': 'Sin cifrado (http://) esto solo funciona con un servidor de este equipo. Por una línea su contraseña viajaría en texto claro: introduzca https://.',
+  'Der Server antwortet nicht. Stimmt die Adresse, und ist der Rechner erreichbar?': 'El servidor no responde. ¿Es correcta la dirección y está accesible el equipo?',
+  'Dort antwortet etwas, aber kein Energy Mail (Status {status}).': 'Allí responde algo, pero no es Energy Mail (estado {status}).',
+  'Der Server meldet, dass er gerade nicht arbeiten kann.': 'El servidor informa de que ahora mismo no puede trabajar.',
+  'Dort antwortet etwas, aber kein Energy Mail.': 'Allí responde algo, pero no es Energy Mail.',
+  'Keine Verbindung: {grund}': 'Sin conexión: {grund}',
 
   // --- packages/desktop/src/updateSignatur.ts ---
   'Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.': 'La publicación corresponde a la versión {freigegeben}, pero se ha descargado {geladen}.',
@@ -1277,6 +1413,9 @@ export const KATALOG: Katalog = {
   'Zu dieser Nummer gibt es keinen Eintrag.': 'No hay ningún asiento con ese número.',
   'Diese Nachricht stimmt nicht mehr mit ihrem Abdruck überein - sie wurde verändert.': 'Este mensaje ya no coincide con su huella: ha sido modificado.',
 
+  // --- packages/server/src/download.ts ---
+  'Diese Datei gibt es hier nicht.': 'Ese archivo no existe aquí.',
+
   // --- packages/server/src/etikettenStore.ts ---
   'Dieses Etikett gibt es nicht mehr.': 'Esta etiqueta ya no existe.',
 
@@ -1302,6 +1441,41 @@ export const KATALOG: Katalog = {
 
   // --- packages/server/src/nutzer/haken.ts ---
   'Kein Nutzer zugeordnet': 'Ningún usuario asignado',
+
+  // --- packages/server/src/nutzer/kennwortVergessen.ts ---
+  'Neues Kennwort für Energy Mail': 'Nueva contraseña para Energy Mail',
+  'Guten Tag,': 'Buenos días:',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Mit diesem Link vergeben Sie eines:': 'se ha solicitado una nueva contraseña para esta cuenta. Establézcala con este enlace:',
+  'Der Link gilt eine Stunde und lässt sich nur einmal verwenden.': 'El enlace es válido durante una hora y solo puede usarse una vez.',
+  'Ihr zweiter Faktor bleibt unverändert - Sie werden beim Anmelden weiterhin nach Ihrem Code gefragt.': 'Su segundo factor permanece sin cambios: al iniciar sesión se le seguirá pidiendo el código.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne diesen Link ändert sich an Ihrem Kennwort nichts, und der Link verfällt von selbst.': '¿No ha sido usted? Entonces no haga nada. Sin este enlace su contraseña no cambia, y el enlace caduca por sí solo.',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Der Zugang ist allerdings gesperrt - ein neues Kennwort würde daran nichts ändern.': 'se ha solicitado una nueva contraseña para esta cuenta. Sin embargo, el acceso está bloqueado: una nueva contraseña no cambiaría nada.',
+  'Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Diríjase a quien gestiona este servicio.',
+  'für diese Adresse wurde ein neues Kennwort angefordert. Zu ihr besteht hier allerdings kein Zugang - möglicherweise haben Sie eine andere Adresse verwendet.': 'se ha solicitado una nueva contraseña para esta dirección. Sin embargo, aquí no existe ningún acceso para ella: es posible que haya usado otra dirección.',
+  'Waren Sie das nicht, brauchen Sie nichts zu tun. Es wurde nichts angelegt und nichts gespeichert.': 'Si no ha sido usted, no tiene que hacer nada. No se ha creado ni almacenado nada.',
+  'An diesem Dienst lässt sich das Kennwort nicht selbst zurücksetzen. Bitte wenden Sie sich an den Betreiber.': 'En este servicio no es posible restablecer la contraseña uno mismo. Diríjase a quien lo gestiona.',
+  'Das ist keine brauchbare Mailadresse.': 'Esa no es una dirección de correo utilizable.',
+  'Die Nachricht konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'No se ha podido enviar el mensaje. Diríjase a quien gestiona este servicio.',
+  'Dieser Link gilt nicht mehr. Fordern Sie bitte einen neuen an.': 'Este enlace ya no es válido. Solicite uno nuevo.',
+
+  // --- packages/server/src/nutzer/registrierung.ts ---
+  'Ihre Anmeldung bei Energy Mail bestätigen': 'Confirme su registro en Energy Mail',
+  'für diese Adresse wurde ein Zugang zu Energy Mail beantragt. Bestätigen Sie mit diesem Link, dass die Adresse Ihnen gehört:': 'se ha solicitado un acceso a Energy Mail para esta dirección. Confirme con este enlace que la dirección le pertenece:',
+  'Der Link gilt 24 Stunden.': 'El enlace es válido durante 24 horas.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne Bestätigung entsteht kein Zugang, und der Antrag wird nach einer Woche von selbst gelöscht.': '¿No ha sido usted? Entonces no haga nada. Sin confirmación no se crea ningún acceso, y la solicitud se elimina por sí sola al cabo de una semana.',
+  'Zu dieser Adresse besteht bereits ein Zugang': 'Esta dirección ya tiene acceso',
+  'für diese Adresse wurde eben ein Zugang zu Energy Mail beantragt. Es besteht allerdings schon einer - melden Sie sich einfach wie gewohnt an.': 'acaba de solicitarse un acceso a Energy Mail para esta dirección. Sin embargo, ya existe uno: inicie sesión simplemente como de costumbre.',
+  'Kennwort vergessen? Wenden Sie sich an den Betreiber dieses Dienstes; er kann es zurücksetzen.': '¿Ha olvidado la contraseña? Diríjase a quien gestiona este servicio; puede restablecerla.',
+  'Waren Sie das nicht, dann hat jemand Ihre Adresse eingetragen. An Ihrem Zugang ändert das nichts - Ihr Kennwort ist davon unberührt.': 'Si no ha sido usted, alguien ha introducido su dirección. Eso no afecta a su acceso: su contraseña permanece intacta.',
+  'An diesem Dienst kann man sich nicht selbst anmelden.': 'Este servicio no permite el registro autónomo.',
+  'Bitte bestätigen Sie, dass Sie die Datenschutzhinweise gelesen haben.': 'Confirme que ha leído la información sobre protección de datos.',
+  'Die Bestätigungsmail konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'No se ha podido enviar el mensaje de confirmación. Diríjase a quien gestiona este servicio.',
+  'Dieser Link gilt nicht mehr. Bitte melden Sie sich noch einmal an.': 'Este enlace ya no es válido. Vuelva a solicitar el acceso.',
+  'Diesen Antrag gibt es nicht.': 'Esa solicitud no existe.',
+  'Ihr Zugang zu Energy Mail ist eingerichtet': 'Su acceso a Energy Mail está listo',
+  'Ihr Zugang ist jetzt freigeschaltet. Sie können sich mit Ihrer Adresse und dem Kennwort anmelden, das Sie bei der Anmeldung gewählt haben.': 'Su acceso ya está habilitado. Puede iniciar sesión con su dirección y la contraseña que eligió al solicitarlo.',
+  'Ihr Antrag auf einen Zugang': 'Su solicitud de acceso',
+  'Ihr Antrag auf einen Zugang zu Energy Mail wurde nicht bewilligt. Bei Rückfragen wenden Sie sich bitte an den Betreiber dieses Dienstes.': 'Su solicitud de acceso a Energy Mail no ha sido concedida. Si tiene preguntas, diríjase a quien gestiona este servicio.',
 
   // --- packages/server/src/nutzer/verwaltung.ts ---
   'Dafür fehlt Ihnen die Berechtigung.': 'No tiene permiso para eso.',

@@ -89,6 +89,15 @@ interface HalbeAnmeldung {
   email: string;
   bis: number;
   versuche: number;
+  /**
+   * Ob der Mensch im ERSTEN Schritt "angemeldet bleiben" verlangt hat.
+   *
+   * Er wandert hier mit, statt im Rumpf der zweiten Stufe zu stehen. Dort weist sich der
+   * Anfragende allein mit der Marke aus; alles Weitere, was er mitschickt, ist seine
+   * Behauptung. Eine Sitzung, die ein Jahr gilt, soll nicht aus einer Behauptung
+   * entstehen, sondern aus dem Schritt, in dem das Kennwort gezeigt wurde.
+   */
+  angemeldetBleiben?: boolean;
 }
 
 /**
@@ -110,13 +119,23 @@ function raeumeAuf(): void {
 }
 
 /** Beginnt die zweite Stufe und gibt die Marke zurück, mit der sie sich abschließen lässt. */
-export function beginneZweiteStufe(nutzerId: string, email: string): string {
+export function beginneZweiteStufe(
+  nutzerId: string,
+  email: string,
+  angemeldetBleiben = false,
+): string {
   raeumeAuf();
   // Ein Deckel gegen den Fall, dass jemand massenhaft richtige Kennwörter durchprobiert -
   // unwahrscheinlich, aber ein unbegrenzt wachsender Speicher ist es nicht wert.
   if (halbe.size >= MAX_MARKEN) halbe.clear();
   const marke = crypto.randomBytes(32).toString('base64url');
-  halbe.set(marke, { nutzerId, email, bis: Date.now() + MARKE_FRIST_MS, versuche: 0 });
+  halbe.set(marke, {
+    nutzerId,
+    email,
+    bis: Date.now() + MARKE_FRIST_MS,
+    versuche: 0,
+    ...(angemeldetBleiben ? { angemeldetBleiben: true } : {}),
+  });
   return marke;
 }
 

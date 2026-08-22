@@ -4920,13 +4920,42 @@ input[type='file']::file-selector-button:hover {
 .anmeldung {
   position: relative;
   display: flex;
-  align-items: center;
+  /*
+   * flex-start statt center, und die Karte zentriert sich selbst ueber margin:auto.
+   *
+   * Das ist kein Geschmack, sondern der Unterschied zwischen benutzbar und nicht: Ein
+   * mit align-items:center zentriertes Kind, das hoeher ist als sein Container, waechst
+   * nach OBEN aus ihm heraus - und der Bereich oberhalb des Anfangs laesst sich nicht
+   * scrollen. Die Anmeldekarte ist kurz genug dafuer, die Anlegekarte mit
+   * Datenschutzkasten und Haken nicht: Auf einem Laptop mit 768 Punkten Hoehe waere der
+   * Knopf "Zugang beantragen" damit unerreichbar gewesen.
+   */
+  align-items: flex-start;
   justify-content: center;
-  min-height: 100vh;
+  /*
+   * height und nicht min-height - und das ist der Kern der Sache.
+   *
+   * `body` steht auf `overflow: hidden`, weil die Anwendung ein Programmfenster ist und
+   * kein Dokument. Mit min-height waechst diese Flaeche einfach ueber den Schirm hinaus,
+   * und weil der body nichts scrollen laesst, ist alles darunter mit Maus und Rad
+   * unerreichbar - programmatisch scrollen laesst sich eine solche Seite noch, ein Mensch
+   * nicht. Mit einer festen Hoehe wird DIESE Flaeche zum Scrollbereich, unabhaengig vom
+   * body.
+   *
+   * Aufgefallen an der Anlegekarte auf einem Schirm mit 700 Punkten Hoehe: Der Knopf
+   * "Zugang beantragen" stand unterhalb der Kante und war nicht zu erreichen.
+   */
+  height: 100vh;
   padding: var(--a-5);
   background: var(--grund);
-  overflow: hidden;
+  /*
+   * Senkrecht scrollen, waagerecht nicht: Das Abschneiden brauchen nur die beiden
+   * Lichtscheine, die absichtlich ueber den Rand hinausragen.
+   */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
+
 
 /*
  * Zwei sehr weiche Lichtscheine hinter der Karte, in den beiden Farben der Marke.
@@ -4940,7 +4969,11 @@ input[type='file']::file-selector-button:hover {
  */
 .anmeldung::before {
   content: '';
-  position: absolute;
+  /*
+   * fixed statt absolute: Sonst wanderten die Scheine beim Scrollen mit der Karte, und
+   * unterhalb ihres Endes staende eine nackte Flaeche.
+   */
+  position: fixed;
   inset: -20%;
   background: radial-gradient(
       42vmax 42vmax at 28% 22%,
@@ -4959,6 +4992,10 @@ input[type='file']::file-selector-button:hover {
   position: relative;
   display: flex;
   flex-direction: column;
+  /* Zentriert die Karte, solange Platz ist - und laesst sie oben stehen, wenn nicht.
+     Siehe die Begruendung bei .anmeldung: mit align-items:center waere alles unterhalb
+     der oberen Kante unerreichbar. */
+  margin: auto;
   gap: var(--a-2);
   width: 100%;
   max-width: 356px;
@@ -5337,13 +5374,15 @@ input[type='file']::file-selector-button:hover {
  * Anzeigefeld anders als ein OpenLDAP. Ein Formular mit drei Feldern liesse die Haelfte
  * der Betreiber im Regen, und die merken es erst, wenn niemand gefunden wird.
  */
-.verzeichnis-teil {
+.verzeichnis-teil,
+.anmeldeverwaltung-teil {
   border-top: 1px solid var(--rand);
   padding-top: var(--a-3);
   margin-top: var(--a-4);
 }
 
-.verzeichnis-schalter {
+.verzeichnis-schalter,
+.anmeldeverwaltung-schalter {
   display: flex;
   align-items: center;
   gap: var(--a-2);
@@ -5358,14 +5397,16 @@ input[type='file']::file-selector-button:hover {
   margin: var(--a-2) 0;
 }
 
-.verzeichnis-zeile {
+.verzeichnis-zeile,
+.anmeldeverwaltung-zeile {
   display: flex;
   flex-wrap: wrap;
   gap: var(--a-3);
   margin: var(--a-2) 0;
 }
 
-.verzeichnis-zeile > div {
+.verzeichnis-zeile > div,
+.anmeldeverwaltung-zeile > div {
   display: flex;
   flex-direction: column;
   gap: var(--a-1);
@@ -5373,7 +5414,8 @@ input[type='file']::file-selector-button:hover {
   min-width: 12rem;
 }
 
-.verzeichnis-zeile > div.schmal {
+.verzeichnis-zeile > div.schmal,
+.anmeldeverwaltung-zeile > div.schmal {
   flex: 0 0 6rem;
   min-width: 6rem;
 }
@@ -6234,4 +6276,375 @@ input[type='file']::file-selector-button:hover {
   .einstellungen-tafel {
     padding: var(--a-5);
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Die Selbstregistrierung
+ *
+ * Dieselbe Karte wie die Anmeldung (.anmeldung-karte) - hier steht nur, was dort nicht
+ * vorkommt: der Datenschutzkasten, der Haken darunter und die kleinen Masszeilen unter
+ * den Kennwortfeldern.
+ * ------------------------------------------------------------------------ */
+
+.registrierung-fertig {
+  margin: 0 0 var(--a-3);
+  font-size: var(--t-l);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Die Zeile unter einem Feld: wie viele Zeichen noch fehlen, was noch nicht passt. */
+.registrierung-mass {
+  margin: var(--a-1) 0 0;
+  font-size: var(--t-s);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+.registrierung-mass-warn {
+  color: var(--warnung, var(--fehler));
+}
+
+.registrierung-domaenen {
+  font-weight: 600;
+}
+
+/*
+ * Der Datenschutzhinweis.
+ *
+ * Scrollbar statt gekuerzt: Der Text kommt vom Betreiber und kann drei Zeilen oder zwanzig
+ * lang sein. Ihn abzuschneiden waere das Gegenteil dessen, wozu er dasteht - und ein
+ * Formular, das mit dem Text mitwaechst, schoebe den Absendeknopf ausser Sicht.
+ */
+.registrierung-hinweis {
+  margin-top: var(--a-5);
+  max-height: 9.5rem;
+  overflow-y: auto;
+  padding: var(--a-3) var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+}
+
+.registrierung-hinweis p {
+  margin: 0;
+  font-size: var(--t-s);
+  line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+
+/*
+ * Der Selektor nennt die Karte ausdruecklich mit.
+ *
+ * `.anmeldung-karte label` setzt gesperrte Versalien - richtig fuer "ADRESSE" und
+ * "KENNWORT", falsch fuer einen ganzen Satz. Ohne die Karte im Selektor gewinnt jene
+ * Regel (zwei Klassen gegen eine), und der Einwilligungssatz stand in Grossbuchstaben da.
+ */
+.anmeldung-karte label.registrierung-haken {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-3);
+  /* Die Grossbuchstaben-Regel der uebrigen Beschriftungen gilt hier nicht: Das ist ein
+     Satz zum Lesen und keine Feldbezeichnung. */
+  margin-top: var(--a-4);
+  font-family: inherit;
+  font-size: var(--t-s);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.5;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.anmeldung-karte label.registrierung-haken input {
+  /* Ohne das erbt es .anmeldung-karte input - ein Kaestchen von Textfeldgroesse. */
+  flex: none;
+  width: auto;
+  margin: 2px 0 0;
+  padding: 0;
+  font-size: inherit;
+  border: none;
+  background: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Die Selbstanmeldung in der Verwaltung
+ *
+ * Grundgeruest (Rahmen, Zeilen, Schalter) teilt sich dieser Teil mit dem
+ * Firmenverzeichnis - siehe die Selektorlisten weiter oben. Hier steht nur, was
+ * eigen ist: die drei Betriebsarten zum Anklicken und der Kasten fuer den
+ * Absender des Dienstes.
+ * ------------------------------------------------------------------------ */
+
+.anmeldeverwaltung-arten {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-2);
+  margin: var(--a-3) 0;
+}
+
+/*
+ * Jede Betriebsart mit ihrer Erklaerung darunter - nicht nur mit ihrem Namen.
+ *
+ * "Offen" und "Antrag mit Freigabe" sind zwei Woerter, hinter denen zwei sehr
+ * verschiedene Sicherheitslagen stehen. Wer das aus dem Namen allein erraten
+ * muss, stellt es einmal falsch ein und merkt es nie.
+ */
+.anmeldeverwaltung-art {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--a-3);
+  padding: var(--a-3);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  cursor: pointer;
+}
+
+.anmeldeverwaltung-art:has(input:checked) {
+  border-color: var(--marke);
+  background: var(--flaeche-leise);
+}
+
+.anmeldeverwaltung-art > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.anmeldeverwaltung-art .hint {
+  margin: 0;
+}
+
+.anmeldeverwaltung-hinweistext {
+  width: 100%;
+  margin-top: var(--a-1);
+  padding: var(--a-2) var(--a-3);
+  font: inherit;
+  line-height: 1.5;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+  color: var(--text);
+  resize: vertical;
+}
+
+.anmeldeverwaltung-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin: var(--a-4) 0 var(--a-2);
+}
+
+.anmeldeverwaltung-antraege,
+.anmeldeverwaltung-systemmail {
+  margin-top: var(--a-5);
+  padding-top: var(--a-3);
+  border-top: 1px solid var(--rand);
+}
+
+.anmeldeverwaltung-antraege h4,
+.anmeldeverwaltung-systemmail h4 {
+  margin: 0 0 var(--a-2);
+  font-size: var(--t-n);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+ * Die Zugangskarte: Umschalter und Sprachwahl
+ *
+ * Beides erscheint nur vor der Anmeldung - also genau dort, wo jemand steht, der
+ * den Rest der Anwendung noch nicht erreichen kann.
+ * ------------------------------------------------------------------------ */
+
+/*
+ * Nur fuer die Vorlesesoftware sichtbar.
+ *
+ * Nicht display:none und nicht visibility:hidden - beides nimmt das Element auch
+ * aus der Vorlesereihenfolge, und dann sagt die Beschriftung niemandem mehr etwas.
+ * Der Umweg ueber ein Rechteck ohne Ausdehnung ist der einzige, der beides leistet:
+ * unsichtbar auf dem Bildschirm, vorhanden fuer die Ansage.
+ */
+.nur-vorlesen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.zugang-umschalter {
+  display: flex;
+  gap: 2px;
+  margin: var(--a-2) 0 var(--a-3);
+  padding: 3px;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+}
+
+.zugang-reiter {
+  flex: 1;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: var(--t-m);
+  font-weight: 600;
+  color: var(--text-3);
+  border: none;
+  border-radius: calc(var(--r-2) - 3px);
+  background: transparent;
+  cursor: pointer;
+}
+
+.zugang-reiter:hover {
+  color: var(--text);
+}
+
+.zugang-reiter.aktiv {
+  color: var(--text);
+  background: var(--flaeche);
+  box-shadow: var(--schatten-1, 0 1px 2px rgba(0, 0, 0, 0.12));
+}
+
+/*
+ * Die Sprachwahl sitzt am Fuss und traegt bewusst wenig auf: Wer seine Sprache liest,
+ * soll sie uebersehen. Gebraucht wird sie von dem, der sie NICHT liest - und der sucht
+ * ohnehin nach dem Weltkugel-Zeichen.
+ */
+.zugang-sprache {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--a-2);
+  margin-top: var(--a-5);
+  padding-top: var(--a-4);
+  border-top: 1px solid var(--rand);
+  color: var(--text-3);
+}
+
+.zugang-sprache select {
+  /* Die Regel fuer .anmeldung-karte input greift hier nicht, aber select erbt sonst
+     die Randlosigkeit des Browsers - also ausdruecklich zurueckgenommen. */
+  margin: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: var(--t-s);
+  color: var(--text-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-1);
+  background: transparent;
+  cursor: pointer;
+}
+
+.zugang-sprache select:hover,
+.zugang-sprache select:focus {
+  border-color: var(--rand);
+  color: var(--text);
+}
+
+/*
+ * "Angemeldet bleiben" - dieselbe Bauart wie der Einwilligungshaken beim Anlegen.
+ *
+ * Der Selektor nennt die Karte mit, sonst gewinnt `.anmeldung-karte label` mit seinen
+ * gesperrten Versalien: Das ist ein Satz und keine Feldbezeichnung.
+ */
+.anmeldung-karte label.anmeldung-bleiben {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin-top: var(--a-5);
+  font-family: inherit;
+  font-size: var(--t-s);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.anmeldung-karte label.anmeldung-bleiben input {
+  flex: none;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  border: none;
+  background: none;
+}
+
+/* Der Hinweis darunter warnt, statt nur zu erklaeren - also in der Warnfarbe. */
+.anmeldung-warnung {
+  margin-top: var(--a-4);
+  color: var(--warnung, var(--text-2));
+}
+
+/* ---------------------------------------------------------------------------
+ * Die Desktop-Fassung zum Herunterladen
+ * ------------------------------------------------------------------------ */
+
+.download-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--a-2);
+  margin: var(--a-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.download-liste li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a-4);
+  padding: var(--a-3) var(--a-4);
+  border: 1px solid var(--rand);
+  border-radius: var(--r-2);
+  background: var(--flaeche-leise);
+}
+
+.download-angaben {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Damit ein langer Dateiname die Zeile umbricht, statt den Knopf hinauszuschieben. */
+  min-width: 0;
+}
+
+.download-angaben .hint {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Der Knopf ist hier ein Link - `a.btn` erbt die Knopfform nicht von selbst. */
+.download-liste a.btn {
+  flex: none;
+  text-decoration: none;
+}
+
+/* Der Pfad des Download-Ordners - zum Ablesen und Kopieren, nicht zum Aendern. */
+.download-ordner {
+  display: flex;
+  align-items: center;
+  gap: var(--a-3);
+  margin: var(--a-2) 0;
+}
+
+.download-ordner code {
+  flex: 1;
+  min-width: 0;
+  padding: var(--a-2) var(--a-3);
+  font-family: var(--sf-fest, ui-monospace, monospace);
+  font-size: var(--t-s);
+  overflow-wrap: anywhere;
+  border: 1px solid var(--rand);
+  border-radius: var(--r-1);
+  background: var(--flaeche-leise);
+  /* Der Pfad wird kopiert - also muss er sich auch markieren lassen. */
+  user-select: text;
 }

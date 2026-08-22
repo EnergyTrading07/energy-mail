@@ -39,6 +39,24 @@ export interface Sitzung {
    * bekommt die Post ungehindert. Gesperrt ist nur, was der Server nicht mehr beantwortet.
    */
   gesperrtSeit?: number;
+  /**
+   * "Angemeldet bleiben" - der Mensch hat es ausdrücklich verlangt.
+   *
+   * ## Was daran anders ist, und warum es beides sein muss
+   *
+   * Eine dauerhafte Sitzung kennt **weder Ruhefrist noch Untätigkeitssperre**. Das zweite
+   * klingt nach zu viel und ist doch der Kern: Wer die Anwendung nach zwei Tagen wieder
+   * öffnet, hat länger nichts getan, als die Sperrfrist erlaubt - die Sitzung wäre beim
+   * Start zu, und er gäbe sein Kennwort ein. Genau das wollte er mit dem Häkchen
+   * vermeiden. Nur die Anmeldung zu erhalten und dann doch nach dem Kennwort zu fragen,
+   * wäre ein Versprechen, das die Sache nicht hält.
+   *
+   * Was BLEIBT: die Sperre auf Verlangen (der Knopf), das Abmelden, die Höchstdauer, und
+   * jeder Kennwortwechsel beendet weiterhin alles. Was hier aufgegeben wird, ist der
+   * Schutz gegen den, der an den unverschlossenen Rechner tritt - und das ist eine
+   * Entscheidung, die dem Menschen davor gehört. Die Oberfläche sagt es ihm daneben.
+   */
+  dauerhaft?: boolean;
 }
 
 type Ablage = { sitzungen: Sitzung[] };
@@ -50,6 +68,17 @@ const RUHE_FRIST_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Und spätestens dann in jedem Fall - auch bei täglicher Nutzung. */
 const HOECHSTDAUER_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * Die Höchstdauer einer dauerhaften Sitzung: ein Jahr.
+ *
+ * Nicht "unbegrenzt", und das ist mit Absicht so. Eine Sitzung, die nie abläuft, ist ein
+ * Schlüssel ohne Verfallsdatum - er überlebt den Wechsel des Arbeitsplatzes, das
+ * ausgemusterte Gerät und den Menschen, der den Betrieb verlassen hat. Ein Jahr ist lang
+ * genug, dass niemand es im Alltag bemerkt, und kurz genug, dass ein vergessenes Gerät
+ * nicht auf ewig hereinkommt.
+ */
+const DAUERHAFT_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** Damit ein voller Datenträger oder ein Fehler die Anmeldung nicht endlos wachsen lässt. */
 const MAX_SITZUNGEN = 10_000;
@@ -146,11 +175,25 @@ function hashe(kennung: string): string {
 }
 
 function abgelaufen(s: Sitzung, jetzt: number): boolean {
+  // Eine dauerhafte Sitzung kennt keine Ruhefrist - nur die Höchstdauer. Siehe `dauerhaft`.
+  if (s.dauerhaft) return jetzt - s.angelegt > DAUERHAFT_MS;
   return jetzt - s.zuletztGenutzt > RUHE_FRIST_MS || jetzt - s.angelegt > HOECHSTDAUER_MS;
 }
 
+/**
+ * Wie lange der Keks zu dieser Sitzung gelten soll - in Sekunden, oder `null`.
+ *
+ * `null` heißt: ein Sitzungskeks ohne Verfallsdatum, den der Browser beim Schließen
+ * wegwirft. Das ist die VORGABE und der wesentliche Unterschied zu vorher: Bisher bekam
+ * jede Anmeldung neunzig Tage mit, ob gewollt oder nicht - auch die an einem fremden
+ * Rechner, an dem jemand nur kurz seine Post lesen wollte.
+ */
+export function keksDauerSekunden(dauerhaft: boolean): number | null {
+  return dauerhaft ? Math.round(DAUERHAFT_MS / 1000) : null;
+}
+
 /** Legt eine Sitzung an und gibt die Kennung zurück - sie steht danach nirgends mehr. */
-export function eroeffneSitzung(nutzerId: string): string {
+export function eroeffneSitzung(nutzerId: string, dauerhaft = false): string {
   const sitzungen = lesen();
   const jetzt = Date.now();
 
@@ -163,7 +206,13 @@ export function eroeffneSitzung(nutzerId: string): string {
   }
 
   const kennung = crypto.randomBytes(32).toString('base64url');
-  uebrig.push({ kennungHash: hashe(kennung), nutzerId, angelegt: jetzt, zuletztGenutzt: jetzt });
+  uebrig.push({
+    kennungHash: hashe(kennung),
+    nutzerId,
+    angelegt: jetzt,
+    zuletztGenutzt: jetzt,
+    ...(dauerhaft ? { dauerhaft: true } : {}),
+  });
 
   geladen = uebrig;
   schreiben();
@@ -218,7 +267,15 @@ export function sitzungsstand(kennung: string | undefined): Sitzungsstand {
    * Prozess, der zwischendurch neu startet, und die Sperre hinge dann daran, ob er gerade
    * lief - genau der Fehler, den die Anmeldebremse hatte.
    */
-  const frist = sperrfristMs();
+  /*
+   * Die Untätigkeitssperre gilt für dauerhafte Sitzungen nicht.
+   *
+   * Sonst wäre "angemeldet bleiben" ein halbes Versprechen: Die Anmeldung überlebte den
+   * Neustart, aber beim ersten Öffnen stünde die Kennwortabfrage da - denn zwischen
+   * gestern Abend und heute früh liegt mehr Untätigkeit, als die Frist erlaubt. Die
+   * Begründung steht ausführlich am Feld `dauerhaft`.
+   */
+  const frist = sitzung.dauerhaft ? 0 : sperrfristMs();
   if (frist > 0 && jetzt - sitzung.zuletztGenutzt > frist) {
     sitzung.gesperrtSeit = jetzt;
     schreiben();

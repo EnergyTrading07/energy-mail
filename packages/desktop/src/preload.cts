@@ -106,4 +106,18 @@ contextBridge.exposeInMainWorld('energyMail', {
     ipcRenderer.send('taskleiste:ungelesen', anzahl, bild),
 
   ueberOeffnen: () => ipcRenderer.send('ueber:oeffnen'),
+
+  /**
+   * Neue Post melden - die Oberflaeche sagt es, die Huelle zeigt es an.
+   *
+   * Die Ereignisse kommen ueber den WebSocket vom Server bei der OBERFLAECHE an; der
+   * Hauptprozess hoert dort nicht mit. Frueher brauchte er das auch nicht - der Server
+   * lief in ihm. Seit die Huelle ein Fenster auf einen Server ist, fuehrt der Weg
+   * hierueber.
+   *
+   * Was drueben daraus wird, entscheidet notifications.ts: ob das Fenster im Vordergrund
+   * steht, ob eine Vorschau erlaubt ist, wie Windows die Meldung anzeigt. Diese Zeile
+   * reicht nur weiter.
+   */
+  neuePost: (ereignis: unknown) => ipcRenderer.send('post:neu', ereignis),
 });

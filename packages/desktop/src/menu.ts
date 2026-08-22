@@ -9,8 +9,27 @@ import {
   sichereEinstellungen,
 } from './diagnose.js';
 
-/** Der eingebettete Server - dieselbe Adresse, unter der auch die Oberfläche läuft. */
-const SERVER = 'http://127.0.0.1:4000';
+/**
+ * Der Server, mit dem gearbeitet wird - dieselbe Adresse, unter der auch die Oberflaeche
+ * laeuft.
+ *
+ * Hier stand `http://127.0.0.1:4000` fest verdrahtet: Die Huelle brachte ihren eigenen
+ * Server mit, und der horchte dort. Sie bringt keinen mehr mit, und damit ist die
+ * Adresse eine Angabe des Betreibers - sie kommt beim Start herein und aendert sich, wenn
+ * jemand den Server wechselt.
+ *
+ * Gebraucht wird sie fuer die beiden Wege, die Einstellungen sichern und einlesen: Die
+ * laufen ueber Routen des Servers, und die Huelle muss wissen, wen sie fragt. Stuende
+ * hier weiterhin die alte Konstante, zeigte "Einstellungen sichern" auf einen Rechner,
+ * auf dem nichts mehr horcht - und die Meldung dazu waere eine Verbindungsstoerung, die
+ * niemand einordnen kann.
+ */
+let SERVER = '';
+
+/** Setzt die Adresse - gerufen beim Start und nach einem Wechsel. */
+export function setzeMenueServer(adresse: string): void {
+  SERVER = adresse;
+}
 
 /**
  * Deutsches Anwendungsmenü.
@@ -25,6 +44,19 @@ const SERVER = 'http://127.0.0.1:4000';
  * Benachrichtigungen. Dadurch gibt es für jeden Befehl genau eine Umsetzung, gleich ob er
  * aus dem Menü, per Tastenkürzel oder per Mausklick kommt.
  */
+
+/**
+ * Was beim Klick auf "Server wechseln" geschieht - gesetzt von main.ts.
+ *
+ * Ueber einen Rueckruf und nicht als Import: Der Wechsel laedt das Fenster neu und
+ * schreibt die Einstellung, und beides gehoert in den Hauptprozess. Das Menue soll
+ * ausloesen und nicht ausfuehren - dieselbe Trennung wie bei allen uebrigen Eintraegen.
+ */
+let wechsleServer: (() => void) | null = null;
+
+export function setzeServerwechsel(fn: () => void): void {
+  wechsleServer = fn;
+}
 
 /** Befehle, die die Oberfläche versteht. Muss zu useBefehle.ts im Web-Paket passen. */
 type Befehl =
@@ -161,6 +193,19 @@ export function setzeMenue(): void {
         {
           label: t('Sicherung einlesen…'),
           click: () => void leseEinstellungen(SERVER),
+        },
+        { type: 'separator' },
+        /*
+         * Der Weg zu einem anderen Server.
+         *
+         * Ohne ihn waere die einmal eingetragene Adresse endgueltig: Wer den Server
+         * wechselt - eine neue Aufstellung, ein Umzug, ein Tippfehler beim ersten Mal -,
+         * muesste die huelle.json von Hand loeschen. Der Punkt steht in Extras und nicht
+         * prominenter, weil er im Alltag nie gebraucht wird.
+         */
+        {
+          label: t('Server wechseln…'),
+          click: () => wechsleServer?.(),
         },
         /*
          * Was zwischengespeichert auf der Platte liegt, steht nicht mehr hier.

@@ -295,6 +295,144 @@ Ordner bleibt liegen, bis Sie `--mit-daten` dazuschreiben.
 > alles, was er selbst auslöst. Nach dem Anlegen mehrerer Nutzer also einmal
 > `docker compose restart dienst`.
 
+### Die Selbstanmeldung
+
+Damit sich Menschen ihr Konto selbst anlegen können, ohne dass Sie für jedes eine Zeile
+tippen. **Sie ist ab Werk aus und bleibt es auch nach einer Aktualisierung** — eine
+Fähigkeit, die sich beim Einspielen von selbst einschaltet, wäre eine Lücke mit
+Änderungsvermerk.
+
+Einzurichten unter **Nutzer → Selbstanmeldung**. Drei Betriebsarten:
+
+| Betriebsart | Wer kommt herein | Wofür |
+|---|---|---|
+| **Aus** | Nur wen Sie anlegen | Der Regelfall für einen kleinen Betrieb |
+| **Antrag mit Freigabe** | Wer einen Antrag stellt und von Ihnen freigegeben wird | Sie behalten die Entscheidung, sparen aber die Tipparbeit |
+| **Offen mit Mailbestätigung** | Wer seine Adresse über den Bestätigungslink nachweist | Größere Aufstellungen, meist zusammen mit dem Domänenfilter |
+
+**Der Domänenfilter ist die wirksamste einzelne Einstellung.** Tragen Sie dort `firma.de`
+ein, kommt niemand von außen bis zum Antrag — auch bei offener Betriebsart nicht. Für einen
+Betrieb ist das fast immer die richtige Antwort; leer heißt: jede Adresse der Welt.
+
+**„Offen" gibt es nur mit Systemversand** (siehe unten). Ohne Bestätigungsmail hieße
+„offen" schlicht: jeder, der ein Formular ausfüllt, und der könnte sich ein Konto auf die
+Adresse eines Kollegen anlegen. Schalten Sie den Sendeserver später ab, fällt der Dienst
+auf „Antrag mit Freigabe" zurück und sagt Ihnen das im Verwaltungsfenster — er bleibt nicht
+stillschweigend offen.
+
+Ein Antrag speichert **Adresse, Zeitpunkt und die Prüfsumme des Kennworts** — keine
+Netzadresse. Unbestätigte Anträge verfallen nach sieben Tagen, bestätigte und unbeschiedene
+nach dreißig. Was Sie ablehnen, wird gelöscht und nicht vermerkt.
+
+> **Die Zahl am Verwaltungsknopf ist Ihre einzige Benachrichtigung.** Eine Mail an Sie wäre
+> der naheliegende Weg — und zugleich ein Werkzeug, mit dem sich Ihr Postfach von außen
+> fluten ließe. Sehen Sie also gelegentlich nach, wenn Sie „Antrag mit Freigabe" fahren.
+
+Beim Freigeben gilt das Kennwort, das der Antragsteller selbst gewählt hat. Sie bekommen es
+nicht zu sehen und brauchen es nicht — anders als beim Anlegen von Hand gibt es hier kein
+Kennwort, das zwei Menschen kennen.
+
+### Der Absender des Dienstes (Systemversand)
+
+Für alles, was der **Dienst selbst** verschickt: den Bestätigungslink vor allem. Bis hierher
+verschickte Energy Mail nur im Auftrag eines angemeldeten Menschen über dessen Postfach; eine
+Mail an jemanden, der noch kein Konto hat, geht von niemandem aus.
+
+Einzurichten unter **Nutzer → Absender des Dienstes**. Nehmen Sie ein **eigenes Postfach**
+(`noreply@firma.de` oder ähnlich) und kein persönliches: Sonst läge dessen Kennwort in der
+Servereinrichtung, und mit dem Ausscheiden dieses Menschen hörte die Registrierung auf zu
+funktionieren.
+
+- Port **587** mit STARTTLS ist die Vorgabe, **465** die Alternative. Beides ist
+  verschlüsselt; unverschlüsselt versendet dieser Weg nicht, auch dann nicht, wenn der
+  Server kein STARTTLS ankündigt — dann scheitert er sichtbar.
+- Das Kennwort geht nie wieder hinaus, auch nicht an Sie. Danebensteht nur, *ob* eines
+  hinterlegt ist.
+- **Verbindung prüfen** klopft mit den Angaben aus dem Formular an, bevor Sie sichern.
+
+> **Ohne `ENERGY_MAIL_OEFFENTLICHE_ADRESSE` geht kein Bestätigungslink hinaus.** Der Link
+> wird ausschließlich daraus gebaut und niemals aus der Anfrage: Den `Host`-Kopf bestimmt
+> der Anfragende, und ein Link daraus wäre eine echte, von Ihrem Server verschickte Mail,
+> deren Link auf den Rechner eines Angreifers zeigt. Wer eine Aufstellung nach Abschnitt 3
+> betreibt, hat die Variable ohnehin gesetzt.
+
+### Die Desktop-Fassung an Ihren Server hängen
+
+Ab dieser Fassung bringt die Desktop-Anwendung **keinen eigenen Server mehr mit**. Sie ist
+ein Fenster auf Ihren – und deshalb sehen Programm und Browser dieselben Postfächer.
+
+Beim ersten Start fragt sie nach der Adresse. Es ist dieselbe, unter der Ihre Leute im
+Browser arbeiten (`https://mail.firma.de`), und sie wird beim Eintragen geprüft: Die
+Anwendung ruft `/gesundheit` ab und zeigt die Fassung, die dort antwortet. Später zu
+wechseln geht über **Extras → Server wechseln…**.
+
+Was Sie dabei wissen sollten:
+
+- **`http://` wird abgewiesen**, außer zu `localhost`. Über diese Verbindung läuft ein
+  Anmeldekennwort und danach jede Nachricht — ein Server im Netz braucht ein Zertifikat.
+- **Die gespeicherte Adresse wird bei jedem Start neu geprüft.** Sie liegt in
+  `huelle.json` im Benutzerordner, und dort kann jedes Programm desselben Benutzers
+  hineinschreiben; ungeprüft wäre sie ein Weg, die Anwendung auf einen fremden Server
+  umzuleiten.
+- **Benachrichtigungen kommen weiterhin vom Betriebssystem.** Die Oberfläche meldet neue
+  Post über die Brücke an die Hülle — der Weg über den eingebetteten Server ist entfallen.
+- **OAuth-Konten richten Sie am Server ein.** Die Richtliniendatei unter `%PROGRAMDATA%`
+  gilt weiterhin für Proxy und Sprache; die Client-Kennungen gehören jetzt in die
+  Einrichtung des Servers, weil dort der Markentausch läuft.
+
+> **Für bestehende Einzelplatz-Installationen ist das ein Umzug.** Deren Daten liegen unter
+> `%APPDATA%\@energy-mail\desktop\` und sind aus der neuen Fassung heraus nicht mehr
+> erreichbar. Der Weg: in der **alten** Fassung „Extras → Einstellungen sichern…", dann die
+> neue installieren, mit dem Server verbinden und die Sicherung dort einlesen. Wer keinen
+> Server betreibt, bleibt auf der vorigen Fassung.
+
+### Die Desktop-Fassung zum Herunterladen bereitstellen
+
+Ihre Leute holen sich das Programm aus der Weboberfläche (**Einstellungen → Für den
+Rechner**) statt aus dem Netz. Dafür legen Sie die Installationsdatei in
+
+    <Datenordner>/downloads/
+
+Den genauen Pfad zeigt **Nutzer → Desktop-Fassung bereitstellen** mit einem Knopf zum
+Kopieren, dazu, was gerade darin liegt. Ausgeliefert wird nur, was auf `.exe`, `.msi`,
+`.dmg`, `.pkg`, `.AppImage`, `.deb`, `.rpm` oder `.zip` endet — alles andere im Ordner
+bleibt unsichtbar. Der Abruf verlangt eine Anmeldung.
+
+> **Hochladen über die Oberfläche gibt es bewusst nicht.** Eine Route, über die sich
+> ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen
+> Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze Ihres Betriebs ein fremdes
+> Programm zu verteilen. Aus einem Mailserver würde eine Softwareverteilung. Legen Sie die
+> Datei über den Weg dorthin, den Sie ohnehin haben.
+
+### Kennwort vergessen
+
+Steht ein Systemversand, kann sich jeder Nutzer selbst ein neues Kennwort geben: Im
+Anmeldefenster steht dann **„Kennwort vergessen?"**. Er bekommt einen Link, der eine Stunde
+gilt und sich einmal verwenden lässt.
+
+Ohne Systemversand gibt es diesen Weg nicht, und das Anmeldefenster zeigt ihn dann auch
+nicht an — es bleibt beim Zurücksetzen durch Sie.
+
+> **Der zweite Faktor bleibt dabei stehen.** Wer sein Kennwort über den Link neu setzt,
+> wird beim Anmelden weiterhin nach seinem Code gefragt. Für ein verlorenes Telefon ist
+> also weiterhin *Sie* zuständig — der Knopf „2FA zurücksetzen" in der Nutzerliste. Das ist
+> Absicht: Ein Weg, der beides zugleich zurücksetzt, machte den zweiten Faktor wertlos,
+> denn es genügte, einmal an das Postfach zu kommen.
+
+Was Sie darüber wissen sollten:
+
+- **Alle Sitzungen des Nutzers werden beendet**, sobald er das neue Kennwort setzt.
+- **Ihr Zurücksetzen entwertet seine Links** und umgekehrt. Wenn Sie also für jemanden ein
+  Kennwort setzen, kann eine ältere Mail in seinem Postfach das nicht mehr überschreiben.
+- **Gesperrte Nutzer bekommen keinen Link**, sondern die Nachricht, dass sie sich an Sie
+  wenden sollen — ein neues Kennwort würde an der Sperre ohnehin nichts ändern.
+- Der Einplatznutzer der Desktop-Hülle (`lokal`) ist über diesen Weg nicht erreichbar.
+- Auch hier gilt: **ohne `ENERGY_MAIL_OEFFENTLICHE_ADRESSE` kein Link.**
+
+Drei Anfragen je Stunde und Anschluss, zehn Einlöseversuche. Jede Anfrage löst genau eine
+Mail aus, auch bei einer unbekannten Adresse — das ist gewollt (siehe unten) und über die
+Bremse begrenzt.
+
 ### Die Anmeldebremse
 
 Gegen Durchprobieren zählt der Dienst Fehlversuche mit — in `anmeldebremse.json`, also

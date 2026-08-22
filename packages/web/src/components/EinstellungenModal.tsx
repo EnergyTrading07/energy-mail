@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { SPRACHWAHL } from '@energy-mail/mail-core/sprache';
 import type { FolderInfo } from '@energy-mail/mail-core';
+import * as api from '../api.js';
 import type { Account, Identitaet } from '../api.js';
 import type { Ansicht, Themawahl } from '../design/thema.js';
 import { gewaehlteSprache, t, waehleSpracheUndLadeNeu } from '../sprache.js';
@@ -13,11 +14,13 @@ import { ZertifikatModal } from './ZertifikatModal.js';
 import { ArchivModal } from './ArchivModal.js';
 import { AblageModal } from './AblageModal.js';
 import { VerwaltungModal } from './VerwaltungModal.js';
+import { DownloadTeil } from './DownloadTeil.js';
 import { KontoModal } from './KontoModal.js';
 import {
   Abwesend,
   Archivkasten,
   Bildschirm,
+  Herunterladen,
   Kontrast,
   Mond,
   Person,
@@ -74,7 +77,8 @@ export type Einstellungsbereich =
   | 'bestand'
   | 'programm'
   | 'nutzer'
-  | 'zugang';
+  | 'zugang'
+  | 'download';
 
 interface Eintrag {
   bereich: Einstellungsbereich;
@@ -390,6 +394,29 @@ export function EinstellungenModal({
 }: Props) {
   const bruecke = window.energyMail;
 
+  /**
+   * Wie viele Fassungen zum Herunterladen bereitliegen.
+   *
+   * Einmal beim Öffnen geholt, und nur im Browser: In der Hülle hat man das Programm
+   * schon, dort wäre der Abruf eine Anfrage für nichts. Bleibt es bei 0 - weil nichts
+   * hinterlegt ist oder weil der Abruf misslingt -, erscheint der Eintrag gar nicht
+   * erst.
+   */
+  const [zumLaden, setZumLaden] = useState(0);
+  useEffect(() => {
+    if (bruecke) return;
+    let abgebrochen = false;
+    api
+      .downloads()
+      .then((antwort) => {
+        if (!abgebrochen) setZumLaden(antwort.dateien?.length ?? 0);
+      })
+      .catch(() => undefined);
+    return () => {
+      abgebrochen = true;
+    };
+  }, [bruecke]);
+
   /*
    * Das Konto der kontobezogenen Tafeln.
    *
@@ -478,10 +505,22 @@ export function EinstellungenModal({
         ...(darfVerwalten
           ? [{ bereich: 'nutzer' as const, name: t('Nutzer'), zeichen: Personen }]
           : []),
-        // Nur wo es eine Anmeldung gibt: In der Hülle weist sich das Fenster über das
-        // Zugangsgeheimnis des Prozesses aus, dort gibt es kein Kennwort zu ändern.
+        // Nur wo die Sitzung an einem Keks hängt. Das ist seit dem Umbau der Hülle der
+        // Regelfall in beiden Betriebsarten - der Eintrag bleibt trotzdem bedingt: Er
+        // führt zum Ändern des Kennworts und zum Abmelden, und beides setzt voraus, dass
+        // es überhaupt eine Sitzung gibt, die man beenden kann.
         ...(abmeldbar
           ? [{ bereich: 'zugang' as const, name: t('Anmeldung'), zeichen: Person }]
+          : []),
+        /*
+         * Nur im Browser, und nur wenn der Betreiber etwas hinterlegt hat.
+         *
+         * In der Hülle hat man das Programm ja schon. Und ein Eintrag, hinter dem
+         * "es gibt hier nichts" steht, ist eine Enttäuschung mit Ankündigung - deshalb
+         * wird die Liste beim Öffnen einmal geholt und der Eintrag danach entschieden.
+         */
+        ...(!bruecke && zumLaden > 0
+          ? [{ bereich: 'download' as const, name: t('Für den Rechner'), zeichen: Herunterladen }]
           : []),
       ],
     },
@@ -500,6 +539,9 @@ export function EinstellungenModal({
 
   const tafel = (): ReactNode => {
     switch (offen) {
+      case 'download':
+        return <DownloadTeil />;
+
       case 'darstellung':
         return (
           <DarstellungTafel

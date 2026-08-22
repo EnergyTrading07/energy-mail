@@ -6,10 +6,11 @@ import {
   beendeSitzung,
   entsperreSitzung,
   eroeffneSitzung,
+  keksDauerSekunden,
   nutzerZurSitzung,
   sitzungsstand,
-  sperreSitzung,
   sperrfristMinuten,
+  sperreSitzung,
 } from './sitzung.js';
 import {
   findeNutzer,
@@ -29,6 +30,8 @@ import {
   pruefeZweitenFaktor,
 } from './zweiFaktor.js';
 import { oeffentlicheAdressen } from '../zugang.js';
+import { wartendeAntraege } from './registrierungSpeicher.js';
+import { entwerteKennwortmarken } from './kennwortVergessen.js';
 import { t } from '@energy-mail/mail-core/sprache';
 
 /**
@@ -60,6 +63,25 @@ export const OFFENE_PFADE = new Set([
   '/ich',
   '/sperre',
   '/sperre/oeffnen',
+  /*
+   * Die Selbstregistrierung ist notwendigerweise offen: Wer sich anmelden will, hat noch
+   * kein Konto - eine Anmeldepflicht davor wäre die Aufforderung, erst hineinzukommen, um
+   * hineinzukommen.
+   *
+   * Was das bedeutet, steht in registrierung.ts: Diese drei Wege sind die am stärksten
+   * ausgesetzten des Servers, und sie tragen ihre eigene Bremse.
+   *
+   * Die VERWALTUNGSwege der Registrierung stehen bewusst nicht hier. Sie liegen unter
+   * /verwaltung und hängen damit am Riegel dieses Präfixes.
+   */
+  '/registrierung',
+  '/registrierung/bestaetigen',
+  /*
+   * Und der Weg zurueck bei einem vergessenen Kennwort - aus demselben Grund offen: Wer
+   * sein Kennwort nicht mehr weiss, kann sich nicht erst anmelden, um es zu aendern.
+   */
+  '/kennwort/vergessen',
+  '/kennwort/neu',
 ]);
 
 /**
@@ -77,7 +99,16 @@ export function ueberTls(request: FastifyRequest): boolean {
   return typeof weiter === 'string' && weiter.split(',')[0]?.trim() === 'https';
 }
 
-function setzeKeks(reply: FastifyReply, request: FastifyRequest, kennung: string): void {
+/**
+ * @param dauerhaft Ob der Keks einen Neustart überleben soll ("angemeldet bleiben").
+ */
+function setzeKeks(
+  reply: FastifyReply,
+  request: FastifyRequest,
+  kennung: string,
+  dauerhaft: boolean,
+): void {
+  const dauer = keksDauerSekunden(dauerhaft);
   reply.setCookie(KEKS_NAME, kennung, {
     path: '/',
     // Für Skript unerreichbar: ein Fehler in der Oberfläche soll die Sitzung nicht
@@ -94,7 +125,16 @@ function setzeKeks(reply: FastifyReply, request: FastifyRequest, kennung: string
      */
     sameSite: 'strict',
     secure: ueberTls(request),
-    maxAge: 90 * 24 * 60 * 60,
+    /*
+     * Ohne "angemeldet bleiben" gibt es KEIN Verfallsdatum - und das ist der Unterschied
+     * zu vorher.
+     *
+     * Ein Keks ohne maxAge ist ein Sitzungskeks: Der Browser wirft ihn weg, sobald er
+     * schliesst. Bisher bekam jede Anmeldung neunzig Tage mit, auch die an einem fremden
+     * Rechner, an dem jemand nur eben seine Post lesen wollte - er ging, das Fenster
+     * blieb, und der Naechste war angemeldet. Wer laenger bleiben will, sagt es jetzt.
+     */
+    ...(dauer === null ? {} : { maxAge: dauer }),
   });
 }
 
@@ -121,7 +161,7 @@ export function registriereAnmeldung(
   app: FastifyInstance,
   ermittle: (request: FastifyRequest) => string | null,
 ): void {
-  app.post<{ Body: { email?: string; kennwort?: string } }>(
+  app.post<{ Body: { email?: string; kennwort?: string; angemeldetBleiben?: boolean } }>(
     '/anmelden',
     { bodyLimit: ANMELDUNG_RUMPF_MAX },
     async (request, reply) => {
@@ -182,13 +222,26 @@ export function registriereAnmeldung(
        * bequem und falsch: Wer das Kennwort hat, könnte sonst beliebig viele Codes
        * durchprobieren, indem er zwischendurch immer wieder das Kennwort schickt.
        */
+      const bleiben = request.body?.angemeldetBleiben === true;
+
       if (hatZweiFaktor(nutzer.id)) {
         protokolliere('info', 'anmeldung', `${nutzer.id}: Kennwort stimmt, zweiter Faktor fehlt noch.`);
-        return { zweiFaktor: true as const, marke: beginneZweiteStufe(nutzer.id, email) };
+        /*
+         * Der Wunsch wandert an der Marke mit in die zweite Stufe.
+         *
+         * Er darf nicht aus dem Rumpf von /anmelden/code kommen: Dort weist sich der
+         * Anfragende mit der Marke aus, und alles, was er daneben schickt, ist seine
+         * Behauptung. Der Wunsch gehört zu dem Schritt, in dem das Kennwort gezeigt
+         * wurde - dort steht er fest.
+         */
+        return {
+          zweiFaktor: true as const,
+          marke: beginneZweiteStufe(nutzer.id, email, bleiben),
+        };
       }
 
       merkeErfolg(request.ip, email);
-      setzeKeks(reply, request, eroeffneSitzung(nutzer.id));
+      setzeKeks(reply, request, eroeffneSitzung(nutzer.id, bleiben), bleiben);
       protokolliere('info', 'anmeldung', `${nutzer.id} angemeldet.`);
       return { nutzer: oeffentlich(nutzer) };
     },
@@ -253,7 +306,8 @@ export function registriereAnmeldung(
       markeEinloesen(marke);
       const nutzer = findeNutzer(offen.nutzerId);
       if (!nutzer) return reply.code(401).send({ error: t('Nicht angemeldet.') });
-      setzeKeks(reply, request, eroeffneSitzung(nutzer.id));
+      const bleiben = offen.angemeldetBleiben === true;
+      setzeKeks(reply, request, eroeffneSitzung(nutzer.id, bleiben), bleiben);
       protokolliere(
         'info',
         'anmeldung',
@@ -320,6 +374,19 @@ export function registriereAnmeldung(
        * hat nichts verboten.
        */
       verwalter: istVerwalter(nutzerId),
+      /**
+       * Wie viele Anträge auf eine Entscheidung warten - nur für einen Verwalter.
+       *
+       * Es ist die Antwort auf die Frage, die bei jeder Freigabefunktion als erste
+       * schiefgeht: Woher weiß der Verwalter, dass jemand wartet? Eine Mail an ihn wäre
+       * der naheliegende Weg und wäre zugleich ein Werkzeug, mit dem sich sein Postfach
+       * von außen fluten lässt - jeder Antrag löste eine aus. Eine Zahl, die er sieht,
+       * wenn er ohnehin im Programm ist, kann niemand gegen ihn richten.
+       *
+       * Für alle anderen steht hier 0, und zwar ohne nachzusehen: Wie viele Menschen an
+       * diesem Dienst anklopfen, geht einen gewöhnlichen Nutzer nichts an.
+       */
+      wartendeAntraege: istVerwalter(nutzerId) ? wartendeAntraege() : 0,
       /** Ob ein zweiter Faktor eingerichtet ist - das Konto zeigt danach Ein oder Aus. */
       zweiFaktor: hatZweiFaktor(nutzerId),
       /**
@@ -459,6 +526,15 @@ export function registriereAnmeldung(
       } catch (err) {
         return reply.code(400).send({ error: (err as Error).message });
       }
+
+      /*
+       * Was an Zuruecksetzungen offensteht, gilt ab jetzt nicht mehr.
+       *
+       * Sonst uebersteht eine Marke, die vor dem Wechsel angefordert wurde, genau diesen
+       * Wechsel - und setzt das frische Kennwort wieder ausser Kraft. Die Begruendung
+       * steht ausfuehrlich bei entwerteKennwortmarken().
+       */
+      entwerteKennwortmarken(nutzerId);
 
       const abgemeldet = beendeAlleSitzungen(nutzerId);
       reply.clearCookie(KEKS_NAME, { path: '/' });

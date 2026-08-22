@@ -1,7 +1,22 @@
 # Datenschutz
 
-Energy Mail ist ein Programm, das auf Ihrem Rechner läuft. Es gibt keinen Dienst dahinter,
-kein Konto beim Hersteller und keine Stelle, an der Ihre Post durchgereicht würde.
+Energy Mail gibt es in zwei Betriebsarten, und für den Datenschutz ist der Unterschied
+zwischen ihnen der wichtigste Satz dieses Dokuments.
+
+**Als Programm auf Ihrem Rechner (die Fassungen bis 0.4.0):** Es läuft vollständig bei
+Ihnen. Es gibt keinen Dienst dahinter, kein Konto beim Hersteller und keine Stelle, an der
+Ihre Post durchgereicht würde. Die Abschnitte bis „Wenn mehrere Menschen denselben Server
+benutzen" beschreiben diesen Fall.
+
+**Als Fenster auf einen Server (ab dieser Fassung):** Die Desktop-Anwendung bringt keinen
+eigenen Server mehr mit. Sie meldet sich an einem Server an, und dort liegt alles – Konten,
+Zugangsdaten, Adressbuch, die zwischengespeicherte Post. Auf Ihrem Rechner bleiben nur das
+Protokoll der Hülle und ihre eigenen Einstellungen. **Verantwortlich ist dann der, der den
+Server betreibt**, und für Sie gilt derselbe Abschnitt wie für die Browser-Fassung: „Wenn
+mehrere Menschen denselben Server benutzen".
+
+Wer wissen will, welchen Fall er vor sich hat: Fragt das Programm beim ersten Start nach
+einer Serveradresse, ist es der zweite.
 
 Dieses Dokument sagt, was das im Einzelnen bedeutet – auch dort, wo die Antwort
 unbequem ist.
@@ -96,6 +111,21 @@ Die lokale Suche findet deshalb Betreff, Absender und Empfänger; im Nachrichten
 der **Anbieter**. Das steht unter jedem Suchergebnis als Knopf und reicht ohnehin weiter –
 die Serversuche erreicht auch die Nachrichten, deren Text nie auf Ihrem Rechner lag, und
 das sind die allermeisten.
+
+---
+
+## Die Sprachwahl im Anmeldefenster
+
+Die Sprache lässt sich umstellen, bevor man angemeldet ist. Dabei wird **ein einziger
+Eintrag im Browserspeicher** abgelegt: die gewählte Sprache, mehr nicht. Keine Kennung,
+kein Zeitstempel, nichts, woran sich jemand wiedererkennen ließe – und nichts davon geht an
+den Server. Ihre Sprachwahl gehört zu Ihrem Gerät und nicht zu Ihrem Postfach; wer im Büro
+einen englischen und zu Hause einen deutschen Rechner hat, meint auch beides so.
+
+Eine Einwilligung wird dafür nicht abgefragt, und das ist kein Versehen: Ein Eintrag, der
+genau die Einstellung festhält, die Sie in diesem Augenblick selbst verlangt haben, ist das,
+was § 25 Abs. 2 TDDDG ohne Einwilligung erlaubt. Eine Rückfrage dazu wäre eine Rückfrage zu
+einer Rückfrage.
 
 ---
 
@@ -231,6 +261,79 @@ BETRIEB.md). Dann gilt zusätzlich:
 - Der **Betreiber des Servers** kann technisch an die Ordner aller Nutzer. Er ist damit
   für deren Daten verantwortlich, im Rechtssinn wie im praktischen. Wer einen solchen
   Dienst für andere betreibt, sollte das wissen, bevor er anfängt.
+
+- Kann sich jeder **selbst anmelden**, kommt eine zweite Sorte Daten hinzu – siehe den
+  nächsten Abschnitt.
+- **„Angemeldet bleiben"** im Anmeldefenster hält Ihr Gerät ein Jahr lang angemeldet und
+  schaltet für diese Sitzung zugleich die Bildschirmsperre nach Untätigkeit ab. Was
+  gespeichert wird, ist dasselbe wie sonst – eine Sitzung mit einem Vermerk, mehr nicht;
+  was sich ändert, ist der Schutz gegen den, der an Ihren unverschlossenen Rechner tritt.
+  Ohne den Haken ist die Anmeldung an das Fenster gebunden und verschwindet mit ihm.
+  Beides steht so auch neben dem Häkchen.
+
+---
+
+## Wenn man sich selbst anmelden kann
+
+Der Betreiber kann die Selbstanmeldung einschalten (ab Werk ist sie aus). Dann entsteht
+zwischen dem ausgefüllten Formular und dem fertigen Konto ein Zwischenzustand, der eigene
+Daten hält – und deshalb steht hier, welche das sind.
+
+**Gespeichert wird:** Ihre Mailadresse, der Zeitpunkt, die **Prüfsumme** Ihres Kennworts,
+der Vermerk, dass Ihnen die Datenschutzhinweise angezeigt wurden, und – falls Sie eines
+ausgefüllt haben – Ihr freiwilliges Bemerkungsfeld.
+
+**Nicht gespeichert wird:** Ihr Kennwort im Klartext, zu keinem Zeitpunkt. Ihre
+Netzadresse. Ihr Browser oder Ihr Betriebssystem. Die Bremse gegen Massenanträge zählt
+zwar am Anschluss mit, aber gesalzen und als Prüfsumme; die Adresse selbst steht in keiner
+Datei.
+
+**Wie lange:** Ohne Bestätigung sieben Tage, dann wird der Antrag gelöscht. Mit Bestätigung
+und ohne Entscheidung dreißig Tage. Wer abgelehnt wird, dessen Antrag wird gelöscht und
+nicht vermerkt – eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.
+
+**Die Bestätigungsmail.** Sie ist reiner Text, ohne Bild und ohne Zählpixel: Niemand
+erfährt, ob und wann Sie sie geöffnet haben. Der Link darin meldet Sie *nicht* an – er
+weist nur nach, dass Sie diese Adresse abrufen können. Zum Hineinkommen brauchen Sie
+weiterhin Ihr Kennwort.
+
+> **Sie bekommen eine Mail, obwohl Sie sich nicht angemeldet haben?** Dann hat jemand Ihre
+> Adresse in das Formular eingetragen. Tun Sie nichts, und es entsteht nichts. Haben Sie
+> hier bereits ein Konto, ändert der Vorgang daran ebenfalls nichts – Ihr Kennwort ist
+> davon unberührt. Dass es diese zweite Mail überhaupt gibt, hat einen Grund: Das Formular
+> selbst sagt nie, ob eine Adresse schon vergeben ist. Sonst ließe sich damit
+> durchprobieren, wer an diesem Dienst ein Konto hat.
+
+---
+
+## Wenn Sie Ihr Kennwort vergessen haben
+
+Steht am Dienst ein Systemversand, gibt es im Anmeldefenster den Weg dorthin. Was dabei
+geschieht:
+
+**Gespeichert wird** eine Prüfsumme des Links, Ihre Nutzerkennung und ein Ablaufzeitpunkt –
+eine Stunde. Nicht gespeichert wird der Link selbst, nicht Ihre Netzadresse und nichts über
+Ihr Gerät. Nach dem Einlösen ist der Eintrag weg; wird er nicht eingelöst, verfällt er von
+selbst.
+
+**Die Antwort im Formular ist immer dieselbe**, gleich ob es Ihre Adresse hier gibt. Das ist
+kein Ausweichen, sondern Absicht: Ein Formular, das „diese Adresse kennen wir nicht"
+antwortet, ist ein Werkzeug, mit dem sich durchprobieren lässt, wer an diesem Dienst ein
+Konto hat.
+
+**Deshalb bekommen Sie in jedem Fall eine Mail** – auch dann, wenn es zu Ihrer Adresse hier
+gar keinen Zugang gibt. Dort steht es dann ausdrücklich, und Sie wissen, dass Sie es mit
+einer anderen Adresse versuchen müssen. Wer eine fremde Adresse einträgt, löst damit genau
+eine kurze Nachricht aus; mehr als ein paar je Stunde lässt der Dienst von einem Anschluss
+nicht zu.
+
+> **Sie bekommen eine solche Mail, ohne etwas angefordert zu haben?** Dann hat jemand Ihre
+> Adresse eingetragen. An Ihrem Kennwort ändert sich dadurch nichts – solange Sie den Link
+> nicht anklicken, passiert gar nichts, und er verfällt nach einer Stunde.
+
+**Ihr zweiter Faktor bleibt bestehen.** Ein neues Kennwort über diesen Weg hebt ihn nicht
+auf; beim Anmelden werden Sie weiterhin nach Ihrem Code gefragt. Wenn Sie Ihr Telefon
+verloren haben, hilft nur der Betreiber – und das ist der Sinn der Sache.
 
 ---
 

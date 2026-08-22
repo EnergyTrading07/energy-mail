@@ -1,5 +1,5 @@
 import { BrowserWindow, Notification } from 'electron';
-import { POSTEINGANG, subscribe, type MailEvent } from '@energy-mail/server/events';
+import { POSTEINGANG, type MailEvent } from '@energy-mail/server/events';
 import { t, tp } from '@energy-mail/mail-core/sprache';
 import { protokolliere } from '@energy-mail/server/protokoll';
 import { einstellungen } from './einstellungen.js';
@@ -67,22 +67,49 @@ function zeigeNachricht(fenster: BrowserWindow, accountId: string, folder: strin
   );
 }
 
+/** Woher die Meldungen kommen - gesetzt von richteBenachrichtigungenEin(). */
+let fensterQuelle: (() => BrowserWindow | null) | null = null;
+
 /**
- * @param nutzerId Wessen Eingänge gemeldet werden. In der Hülle immer der
- *   Einplatznutzer - der Ereignisstrom ist seit der Trennung je Nutzer geführt, und wer
- *   zuhören will, muss sagen, wem er zuhört.
+ * Richtet die Meldungen ein und sagt, ob das System sie überhaupt annimmt.
+ *
+ * ## Warum das hier kein Ereignis mehr abonniert
+ *
+ * Weil es nichts mehr zu abonnieren gibt. Der Ereignisstrom (`subscribe`) gehörte zum
+ * eingebetteten Server, den die Hülle mitbrachte; sie bringt keinen mehr mit. Die
+ * Ereignisse entstehen jetzt auf dem Server, und wer sie empfängt, ist die OBERFLÄCHE -
+ * sie hält ohnehin eine WebSocket-Verbindung dorthin offen, damit die Nachrichtenliste
+ * nachwächst.
+ *
+ * Also meldet die Oberfläche, was ankommt, und diese Datei entscheidet weiterhin, ob
+ * daraus eine Meldung des Betriebssystems wird. Die Entscheidung bleibt damit dort, wo
+ * sie hingehört: Ob das Fenster im Vordergrund steht, ob eine Vorschau erlaubt ist und
+ * wie Windows die Meldung anzeigt, weiß nur der Hauptprozess.
  */
-export function starteBenachrichtigungen(
-  nutzerId: string,
-  fensterHolen: () => BrowserWindow | null,
-): () => void {
+export function richteBenachrichtigungenEin(fensterHolen: () => BrowserWindow | null): boolean {
   if (!Notification.isSupported()) {
     protokolliere('warnung', 'benachrichtigung', 'Vom System nicht unterstützt.');
-    return () => {};
+    return false;
   }
+  fensterQuelle = fensterHolen;
   protokolliere('info', 'benachrichtigung', 'Benachrichtigungen sind aktiv.');
+  return true;
+}
 
-  return subscribe(nutzerId, (event: MailEvent) => {
+/**
+ * Neue Post - gemeldet von der Oberfläche über die Brücke.
+ *
+ * Der Aufbau des Ereignisses ist derselbe wie der, den der Server über den WebSocket
+ * schickt; die Oberfläche reicht ihn unverändert weiter. Was hier ankommt, ist damit
+ * NICHT vertrauenswürdiger als die geladene Seite - und das ist in Ordnung: Aus einem
+ * Ereignis wird eine Textmeldung mit einer Zahl darin, mehr nicht. Wer die Oberfläche
+ * ausliefert, könnte ohnehin alles andere auch.
+ */
+export function meldeNeuePost(event: MailEvent, fensterHolen?: () => BrowserWindow | null): void {
+  const holen = fensterHolen ?? fensterQuelle;
+  if (!holen) return;
+  {
+    const fensterHolen = holen;
     if (event.type !== 'new-mail') return;
     // Seit auch angesehene Ordner überwacht werden, treffen hier Eingänge aus Gesendet
     // oder Entwürfe ein. Eine Meldung über die eigene, gerade abgeschickte Nachricht
@@ -185,5 +212,5 @@ export function starteBenachrichtigungen(
         icon: SYMBOL,
       }).show();
     }
-  });
+  }
 }

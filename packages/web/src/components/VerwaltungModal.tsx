@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import * as api from '../api.js';
 import { bestaetige } from '../dialoge.js';
 import { Fenster } from './Fenster.js';
+import { DownloadVerwaltungTeil } from './DownloadVerwaltungTeil.js';
+import { RegistrierungTeil } from './RegistrierungTeil.js';
 import { VerzeichnisTeil } from './VerzeichnisTeil.js';
 import { DatenschutzTeil } from './DatenschutzTeil.js';
 import { t, datum } from '../sprache.js';
@@ -347,6 +349,8 @@ export function VerwaltungModal({ onClose }: Props) {
       <p className="hint fein">
         {t('Ein Verwalter kann Kennwörter zurücksetzen und damit an die Post der anderen. Das ist die Bauart des Servers und keine Lücke – jeder solche Vorgang steht im Protokoll.')}
       </p>
+      <RegistrierungTeil />
+      <DownloadVerwaltungTeil />
       <VerzeichnisTeil />
       <DatenschutzTeil />
     </Fenster>

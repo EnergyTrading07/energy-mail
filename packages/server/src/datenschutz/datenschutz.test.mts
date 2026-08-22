@@ -72,6 +72,9 @@ const ERHOBEN: Erhoben = {
   archivKonten: 9,
   verschluesselungBereit: true,
   sperrfristMinuten: 15,
+  selbstanmeldung: 'freigabe',
+  selbstanmeldungDomaenen: ['firma.de'],
+  offeneAntraege: 2,
 };
 
 console.log('\nWer ist hier was');

@@ -5,6 +5,11 @@ import { schreibeAtomar } from '../atomar.js';
 import { alleNutzer, verwalterAnzahl } from '../nutzer/nutzerStore.js';
 import { alleFreigaben } from '../nutzer/freigaben.js';
 import { sperrfristMinuten } from '../nutzer/sitzung.js';
+import {
+  betriebsartWirksam,
+  offeneAntraege,
+  registrierungseinstellungen,
+} from '../nutzer/registrierungSpeicher.js';
 import { verzeichnisFuerAnzeige } from '../verzeichnis.js';
 import { isEncryptionAvailable } from '../secretCrypto.js';
 import type { Umstaende } from './lage.js';
@@ -94,6 +99,24 @@ export interface Erhoben {
   archivKonten: number;
   verschluesselungBereit: boolean;
   sperrfristMinuten: number;
+  /**
+   * Ob und wie sich Menschen hier selbst anmelden koennen.
+   *
+   * Gehoert in die Bestandsaufnahme, weil es die Frage beruehrt, die ganz oben in jedem
+   * Verarbeitungsverzeichnis steht: WESSEN Daten liegen hier. Solange ein Verwalter jedes
+   * Konto anlegt, sind es die Beschaeftigten des Betriebs, und die Antwort ist einfach.
+   * Steht die Selbstanmeldung offen, kann jeder dazukommen, der eine passende Adresse hat -
+   * und dann stimmt die Angabe "unsere Nutzer sind unsere Beschaeftigten" womoeglich nicht
+   * mehr. Erhoben statt erfragt, aus demselben Grund wie alles andere hier: Der Betreiber
+   * soll in seinem Papier nicht das finden, was er glaubt, sondern das, was laeuft.
+   *
+   * Es steht der WIRKSAME Wert da, nicht der eingestellte - siehe betriebsartWirksam().
+   */
+  selbstanmeldung: 'aus' | 'freigabe' | 'offen';
+  /** Auf diese Domaenen ist sie begrenzt. Leer heisst: auf keine. */
+  selbstanmeldungDomaenen: string[];
+  /** Wie viele Antraege gerade offenstehen - auch das sind gespeicherte Adressen. */
+  offeneAntraege: number;
 }
 
 /**
@@ -174,6 +197,9 @@ export function erhebe(
     archivKonten,
     verschluesselungBereit: isEncryptionAvailable(),
     sperrfristMinuten: sperrfristMinuten(),
+    selbstanmeldung: betriebsartWirksam(),
+    selbstanmeldungDomaenen: registrierungseinstellungen().domaenen,
+    offeneAntraege: offeneAntraege().length,
   };
 }
 

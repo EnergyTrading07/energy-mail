@@ -14,6 +14,18 @@ import { brauchtErneuerung, kennwortStimmt, verschluesselKennwort } from './kenn
  * nimmt und nicht getNutzerDir() - es läuft, bevor überhaupt feststeht, wer da ist.
  */
 
+/**
+ * Wie kurz ein Anmeldekennwort höchstens sein darf.
+ *
+ * Stand dreimal als nackte `10` im Quelltext - beim Anlegen, beim Ändern und im Text der
+ * Fehlermeldung daneben. Seit sich auch Menschen selbst registrieren, kommt eine vierte
+ * Stelle hinzu, und die liegt in der OBERFLÄCHE: Sie sagt beim Tippen, wie viele Zeichen
+ * noch fehlen. Ein Formular, das zehn verlangt, während der Server zwölf fordert, ist eine
+ * Sackgasse ohne erkennbaren Grund - deshalb geht der Wert von hier aus über /registrierung
+ * an den Browser, statt dort ein zweites Mal zu stehen.
+ */
+export const KENNWORT_MINDESTLAENGE = 10;
+
 export interface Nutzer {
   id: string;
   /** Die Anmeldeadresse. Kleingeschrieben abgelegt, damit die Anmeldung nicht daran scheitert. */
@@ -279,7 +291,21 @@ function kennungAus(email: string, vergeben: readonly string[]): string {
 
 export interface NeuerNutzer {
   email: string;
-  kennwort: string;
+  kennwort?: string;
+  /**
+   * Statt eines Klartextkennworts eine fertige Prüfsumme.
+   *
+   * Für die Selbstregistrierung, und dort ist es keine Bequemlichkeit, sondern der Punkt:
+   * Zwischen dem Ausfüllen des Formulars und dem Anlegen des Kontos liegt eine
+   * Mailbestätigung oder die Freigabe durch einen Verwalter - also Stunden bis Tage. Das
+   * Kennwort so lange irgendwo aufzubewahren, hieße, es im Klartext (oder umkehrbar
+   * verschlüsselt) in einer Datei liegen zu haben, die nur darauf wartet, gelesen zu
+   * werden. Der Antrag hält deshalb von Anfang an nur die Prüfsumme, und die wandert hier
+   * unverändert in den Nutzereintrag - siehe registrierungSpeicher.ts.
+   *
+   * Genau eines von beiden muss gesetzt sein.
+   */
+  kennwortPruefsumme?: string;
   /** Nur für den Einplatzbetrieb: dort heißt der Nutzer fest "lokal". */
   id?: string;
 }
@@ -299,7 +325,7 @@ export function legeNutzerAn(
   if (!email.includes('@') || email.length < 3) {
     throw new NutzerFehler('Das ist keine brauchbare Mailadresse.');
   }
-  if (typeof eingabe.kennwort !== 'string' || eingabe.kennwort.length < 10) {
+  if (!eingabe.kennwortPruefsumme && (typeof eingabe.kennwort !== 'string' || eingabe.kennwort.length < KENNWORT_MINDESTLAENGE)) {
     /*
      * Zehn Zeichen als Untergrenze, keine Regeln über Sonderzeichen.
      *
@@ -328,7 +354,7 @@ export function legeNutzerAn(
   const neu: Nutzer = {
     id,
     email,
-    kennwort: verschluesselKennwort(eingabe.kennwort),
+    kennwort: eingabe.kennwortPruefsumme ?? verschluesselKennwort(eingabe.kennwort!),
     angelegt: new Date().toISOString(),
     schluessel: { '1': verpackeSchluessel(crypto.randomBytes(32)) },
     aktuelleGeneration: '1',
@@ -375,7 +401,7 @@ export function pruefeAnmeldung(email: string, kennwort: string): Nutzer | null 
 }
 
 export function setzeKennwort(id: string, neuesKennwort: string): void {
-  if (typeof neuesKennwort !== 'string' || neuesKennwort.length < 10) {
+  if (typeof neuesKennwort !== 'string' || neuesKennwort.length < KENNWORT_MINDESTLAENGE) {
     throw new NutzerFehler('Das Kennwort muss mindestens zehn Zeichen haben.');
   }
   const ablage = lesen();

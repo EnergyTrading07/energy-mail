@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import App from './App.js';
 import * as api from './api.js';
 import { Anmeldung } from './components/Anmeldung.js';
+import { Bestaetigung, Registrierung } from './components/Registrierung.js';
+import { KennwortNeu, KennwortVergessen } from './components/KennwortVergessen.js';
 import { Sperrschirm } from './components/Sperrschirm.js';
 import { Auffangnetz } from './components/Auffangnetz.js';
 import { Dialoge } from './dialoge.js';
@@ -99,6 +101,52 @@ const knopf: React.CSSProperties = {
 };
 
 /**
+ * Holt die Bestätigungsmarke aus dem Fragment und nimmt sie sofort wieder heraus.
+ *
+ * ## Warum aus dem Fragment und nicht aus der Abfrage
+ *
+ * Weil ein Fragment nie über die Leitung geht. Ein `?bestaetigung=…` stünde in jedem
+ * Zugriffsprotokoll auf dem Weg - im Vorbau, im Dienst, in jeder Zwischenstelle - und
+ * ginge obendrein in der Referrer-Kopfzeile mit, sobald die Seite irgendetwas nachlädt.
+ * Eine Marke, die ein Konto eröffnen kann, gehört in keine dieser Dateien. Der Server
+ * baut den Link deshalb mit `#`; die Begründung steht dort noch einmal.
+ *
+ * ## Und warum sie trotzdem sofort verschwindet
+ *
+ * Weil sie im Verlauf des Browsers bleibt und in jedem Lesezeichen, das jemand in diesem
+ * Augenblick setzt. Genommen wird sie EINMAL beim Laden, nicht bei jedem Zeichnen -
+ * deshalb steht der Aufruf außerhalb der Komponente.
+ *
+ * `replaceState` und nicht `pushState`: Der Schritt "zurück" soll nicht in eine Adresse
+ * führen, die die Marke wieder enthält.
+ */
+type Markenfund = { art: 'bestaetigung' | 'kennwort'; marke: string } | null;
+
+function markeAusAdresse(): Markenfund {
+  try {
+    const roh = window.location.hash.replace(/^#/, '');
+    if (!roh) return null;
+    const parameter = new URLSearchParams(roh);
+    const bestaetigung = parameter.get('bestaetigung');
+    const kennwort = parameter.get('kennwort');
+    if (!bestaetigung && !kennwort) return null;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    /*
+     * Stehen wider Erwarten beide da, gilt die Bestätigung. Der Fall entsteht nur, wenn
+     * jemand von Hand zusammensetzt - und dann soll der harmlosere Weg gewinnen: Eine
+     * Bestätigung legt ein Konto an, ein Kennwortlink ändert ein bestehendes.
+     */
+    if (bestaetigung) return { art: 'bestaetigung', marke: bestaetigung };
+    return { art: 'kennwort', marke: kennwort! };
+  } catch {
+    // Ein Browser ohne History-API ist kein Grund, die Anwendung nicht zu starten.
+    return null;
+  }
+}
+
+const MARKENFUND = markeAusAdresse();
+
+/**
  * Die Weiche: Anwendung oder Anmeldung.
  *
  * Gefragt wird, bevor irgendetwas anderes losläuft. Ohne das würde die Anwendung starten,
@@ -115,6 +163,21 @@ function Weiche() {
   const [grund, setGrund] = React.useState('');
   const [ich, setIch] = React.useState<api.IchAuskunft>();
   const [gesperrt, setGesperrt] = React.useState(false);
+  const [marke, setMarke] = React.useState(MARKENFUND);
+  /**
+   * Ob sich hier jemand selbst anmelden kann - und wenn ja, wie.
+   *
+   * Gefragt wird erst, wenn feststeht, dass NIEMAND angemeldet ist. In der Desktop-Hülle
+   * und bei einer bestehenden Sitzung wäre die Frage sinnlos, und ein Abruf, der bei
+   * jedem Start mitläuft, ohne je gebraucht zu werden, ist einer zu viel.
+   *
+   * `undefined` heißt "noch nicht gefragt", `null` heißt "gefragt, geht nicht" - der
+   * Unterschied entscheidet, ob das Anmeldefenster den Knopf zeigt oder ihn nachträglich
+   * einblendet und dabei springt.
+   */
+  const [lage, setLage] = React.useState<api.Registrierungslage | null>();
+  /** Welche der drei Zugangsansichten gerade dasteht. */
+  const [zugang, setZugang] = React.useState<'anmelden' | 'registrieren' | 'kennwort'>('anmelden');
 
   const nachsehen = React.useCallback(() => {
     setStand('faellt');
@@ -137,6 +200,29 @@ function Weiche() {
   }, []);
 
   React.useEffect(nachsehen, [nachsehen]);
+
+  /*
+   * Die Lage der Registrierung - erst dann, wenn das Anmeldefenster tatsächlich kommt.
+   *
+   * Scheitert der Abruf, bleibt es bei `null`: kein Knopf. Das ist die richtige Richtung -
+   * ein Weg, den die Oberfläche anbietet, ohne zu wissen, ob es ihn gibt, endet in einer
+   * Fehlermeldung, die niemand einordnen kann.
+   */
+  React.useEffect(() => {
+    if (stand !== 'offen' || lage !== undefined) return;
+    let abgebrochen = false;
+    api
+      .registrierungslage()
+      .then((befund) => {
+        if (!abgebrochen) setLage(befund.moeglich ? befund : null);
+      })
+      .catch(() => {
+        if (!abgebrochen) setLage(null);
+      });
+    return () => {
+      abgebrochen = true;
+    };
+  }, [stand, lage]);
 
   /*
    * Jede Antwort mit 423 macht den Schirm zu - gleich, wer den Abruf ausgelöst hat.
@@ -182,6 +268,27 @@ function Weiche() {
     };
   }, [stand, gesperrt, minuten, ich?.abmeldbar]);
 
+  /*
+   * Ein Bestätigungslink geht allem voran - auch der Frage, wer angemeldet ist.
+   *
+   * Er kommt aus einer Mail, und wer ihn anklickt, hat genau eine Absicht. Ihn hinter
+   * einem Anmeldefenster zu verstecken hieße: Der Mensch meldet sich erst an (womöglich
+   * als jemand anderes, der an diesem Rechner zuletzt gearbeitet hat) und findet den Link
+   * danach nicht wieder - die Marke ist aus der Adresszeile längst entfernt.
+   */
+  if (marke) {
+    const fertig = () => {
+      setMarke(null);
+      setZugang('anmelden');
+      nachsehen();
+    };
+    return marke.art === 'bestaetigung' ? (
+      <Bestaetigung marke={marke.marke} onFertig={fertig} />
+    ) : (
+      <KennwortNeu marke={marke.marke} onFertig={fertig} />
+    );
+  }
+
   if (stand === 'faellt') {
     /*
      * Bewusst leer statt eines Ladebalkens: die Abfrage geht an den eigenen Rechner und
@@ -190,7 +297,15 @@ function Weiche() {
     return null;
   }
   if (stand === 'fehler') return Absturzseite(new Error(grund), nachsehen);
-  if (stand === 'offen') return <Anmeldung onAngemeldet={nachsehen} />;
+  if (stand === 'offen') {
+    if (zugang === 'registrieren' && lage) {
+      return <Registrierung lage={lage} onZurueck={() => setZugang('anmelden')} />;
+    }
+    if (zugang === 'kennwort') {
+      return <KennwortVergessen onZurueck={() => setZugang('anmelden')} />;
+    }
+    return <Anmeldung onAngemeldet={nachsehen} lage={lage ?? null} onWechsel={setZugang} />;
+  }
 
   /*
    * Die Anwendung bleibt eingehängt, der Schirm liegt darüber.

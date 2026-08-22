@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { starteAnwendung, type Gestartet } from './huelle.js';
 
@@ -47,7 +46,16 @@ test('React zeichnet, das Startbild ist ersetzt', async () => {
    * angelaufen - und genau so sähe ein Bündel aus, das sich nicht ausführen lässt.
    */
   await expect(fenster.locator('.startbild')).toHaveCount(0);
-  await expect(fenster.locator('nav.sidebar')).toBeVisible();
+
+  /*
+   * Erwartet wird die ANMELDEKARTE und nicht mehr die Seitenleiste.
+   *
+   * Seit die Hülle keinen eigenen Server mehr mitbringt, ist der erste Start eines: Sie
+   * verbindet sich mit einem Server, an dem sie niemanden kennt. Was dann dasteht, ist
+   * das Anmeldefenster - und dass es dasteht, ist genau die Zusicherung, um die es geht:
+   * Die Oberfläche kommt vom Server, sie läuft an, und der Anmeldezwang greift.
+   */
+  await expect(fenster.locator('.anmeldung-karte')).toBeVisible();
 });
 
 test('die Absturzseite erscheint nicht', async () => {
@@ -62,15 +70,32 @@ test('die Absturzseite erscheint nicht', async () => {
   await expect(fenster.getByText('Hier ist etwas schiefgegangen')).toHaveCount(0);
 });
 
-test('ohne Konto steht das Formular zum Einrichten offen', async () => {
+test('ohne Anmeldung kommt niemand an ein Postfach', async () => {
   const { fenster } = gestartet;
 
   /*
-   * Beim allerersten Start klappt das Formular von selbst auf (siehe Sidebar.tsx) - ein
-   * Knopf "Konto hinzufügen" in einer sonst leeren Anwendung wäre eine Sackgasse mit
-   * einem zusätzlichen Klick davor.
+   * Der Kern des Umbaus, und deshalb steht er als eigene Zusicherung da: Die
+   * Desktop-Fassung meldet sich an wie jeder andere auch. Vorher wies sich das Fenster
+   * mit dem Zugangsgeheimnis des Prozesses aus und war damit immer "der eine Nutzer" -
+   * es gab nichts zu prüfen und nichts zu trennen.
+   *
+   * Geprüft wird beides: dass das Anmeldeformular dasteht UND dass die Anwendung
+   * dahinter nicht schon gezeichnet ist.
    */
-  await expect(fenster.locator('.add-account')).toBeVisible();
+  await expect(fenster.locator('#anmeldung-email')).toBeVisible();
+  await expect(fenster.locator('#anmeldung-kennwort')).toBeVisible();
+  await expect(fenster.locator('nav.sidebar')).toHaveCount(0);
+});
+
+test('die Sprachwahl steht schon vor der Anmeldung bereit', async () => {
+  const { fenster } = gestartet;
+
+  /*
+   * Wer vor einem Fenster sitzt, dessen Sprache er nicht liest, kommt an die
+   * Einstellungen dahinter nicht heran - dort lag die Wahl bis dahin. Sie muss also
+   * hier stehen, und zwar in der Fassung, die der Server ausliefert.
+   */
+  await expect(fenster.locator('#zugang-sprache')).toBeVisible();
 });
 
 test('die Brücke zur Hülle antwortet', async () => {
@@ -102,16 +127,18 @@ test('die eigene Titelleiste ist da', async () => {
   await expect(fenster.getByText('Energy', { exact: false }).first()).toBeVisible();
 });
 
-test('der eingebettete Server liefert die Oberfläche über http aus', async () => {
-  const { fenster } = gestartet;
+test('die Oberfläche kommt vom Server und nicht aus dem Paket', async () => {
+  const { fenster, serverAdresse } = gestartet;
 
   /*
-   * Über http und nicht über file:// - der Bau von Vite verweist absolut auf /assets,
-   * und über file:// fände der Browser davon nichts. Der Port steht bewusst nicht in
-   * dieser Zusicherung: Er wird gesucht (sucheFreienPort), und dass er es tut, ist der
-   * Sinn der Sache.
+   * Die Zusicherung, die den ganzen Umbau trägt: Was im Fenster steht, wurde vom SERVER
+   * geladen. Vorher stand hier "vom eingebetteten Server über http" - dieselbe Prüfung
+   * mit einer anderen Bedeutung, denn der Server lief im selben Prozess.
+   *
+   * Damit ist auch gesagt, warum Desktop und Browser dieselben Postfächer sehen: Es ist
+   * dieselbe Oberfläche, aus derselben Quelle, mit derselben Anmeldung.
    */
-  expect(fenster.url()).toMatch(/^http:\/\/127\.0\.0\.1:\d+\//);
+  expect(fenster.url().startsWith(serverAdresse)).toBe(true);
 });
 
 test('der Datenordner der Prüfung wird benutzt - nicht der des Menschen', async () => {
@@ -124,8 +151,13 @@ test('der Datenordner der Prüfung wird benutzt - nicht der des Menschen', async
    */
   const inhalt = fs.readdirSync(datenordner);
   expect(inhalt.length, 'Der Datenordner der Prüfung blieb leer').toBeGreaterThan(0);
+  /*
+   * Was dort liegt, ist wenig geworden - und das ist das Ergebnis des Umbaus: Konten,
+   * Schlüssel und Ablage liegen auf dem Server. Übrig bleibt, was der Hülle gehört: ihr
+   * Protokoll und ihre eigenen Einstellungen.
+   */
   expect(
-    fs.existsSync(path.join(datenordner, 'nutzer')) || inhalt.includes('protokoll'),
+    inhalt.includes('protokoll') || inhalt.includes('huelle.json'),
     `Im Datenordner der Prüfung liegt nichts von Energy Mail: ${inhalt.join(', ')}`,
   ).toBe(true);
 });

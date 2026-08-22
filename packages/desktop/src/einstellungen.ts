@@ -83,9 +83,24 @@ export interface HuellenEinstellungen {
    * Taskleiste und findet es nicht.
    */
   hinweisGezeigt: boolean;
+
+  /**
+   * Der Server, mit dem dieses Programm arbeitet - leer heisst: noch nicht eingerichtet.
+   *
+   * Die wichtigste Angabe dieser Datei, seit die Huelle keinen eigenen Server mehr
+   * mitbringt. Sie steht HIER und nicht im Browserspeicher der Oberflaeche, und das ist
+   * keine Geschmacksfrage: Der Hauptprozess muss sie kennen, bevor ueberhaupt eine
+   * Oberflaeche geladen ist - er entscheidet daran, WAS er laedt. Im Browserspeicher
+   * waere sie erst lesbar, wenn die Seite schon steht, und die kaeme nie.
+   *
+   * Gespeichert wird die Herkunft (Schema, Rechner, Port) und nichts weiter; alles
+   * andere schneidet normalisiereServer() ab.
+   */
+  serverAdresse: string;
 }
 
 const VORGABE: HuellenEinstellungen = {
+  serverAdresse: '',
   imInfobereich: true,
   mitWindowsStarten: false,
   rechtschreibung: true,
@@ -111,6 +126,7 @@ export function einstellungen(): HuellenEinstellungen {
       meldungsvorschau: roh.meldungsvorschau !== false,
       sprache: typeof roh.sprache === 'string' ? roh.sprache : 'automatisch',
       hinweisGezeigt: roh.hinweisGezeigt === true,
+      serverAdresse: typeof roh.serverAdresse === 'string' ? roh.serverAdresse : '',
     };
   } catch {
     // Erster Start oder unlesbar - dann die Vorgaben.

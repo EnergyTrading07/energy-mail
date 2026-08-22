@@ -1,6 +1,5 @@
-import net from 'node:net';
 import { fileURLToPath } from 'node:url';
-import { BrowserWindow, app, dialog, ipcMain, nativeImage, powerMonitor, session, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, session, shell } from 'electron';
 import {
   beschreibeProxy,
   beschreibeZertifikate,
@@ -8,14 +7,7 @@ import {
   nutzeSystemZertifikate,
   richteHttpProxyEin,
 } from '@energy-mail/mail-core';
-import { EINPLATZ_NUTZER, alsEinplatznutzer, buildServer } from '@energy-mail/server/app';
-import { erzeugeZugangsgeheimnis, setzeZugangsgeheimnis } from '@energy-mail/server/zugang';
-import { listAccounts } from '@energy-mail/server/konten';
-import { restartWatcher } from '@energy-mail/server/events';
-import { getWurzelDir, setDataDir } from '@energy-mail/server/paths';
-import { setKeyProvider } from '@energy-mail/server/secrets';
-import { speichereKontakteSofort } from '@energy-mail/server/kontakte';
-import { sendeAusstehendeSofort } from '@energy-mail/server/sendqueue';
+import { setDataDir } from '@energy-mail/server/paths';
 import { gespeicherteAnsicht, merkeAnsicht, type Ansicht } from './ansicht.js';
 import {
   MINDEST_BREITE,
@@ -31,57 +23,48 @@ import {
 } from './autoUpdate.js';
 import { FARBEN, LEISTE_HOEHE } from './fensterFarben.js';
 import { zeigeStartbild, zeigeStartfehler, zeigeUeber } from './kleineFenster.js';
-import { sendeBefehl, setzeMenue } from './menu.js';
+import { sendeBefehl, setzeMenue, setzeMenueServer, setzeServerwechsel } from './menu.js';
 import { einstellungen, setzeEinstellung, wendeAutostartAn } from './einstellungen.js';
 import {
   raeumeInfobereichAb,
   richteInfobereichEin,
   setzeUngelesenImInfobereich,
 } from './infobereich.js';
-import { starteBenachrichtigungen } from './notifications.js';
+import { meldeNeuePost, richteBenachrichtigungenEin } from './notifications.js';
+import { frageServer } from './serverFenster.js';
+import { normalisiereServer } from './serverwahl.js';
 import { richteNetzhygieneEin } from './netzhygiene.js';
 import { beschreibeRichtlinien, richtlinien } from './richtlinien.js';
 import { quellenFuer, richteProxyEin } from './proxyQuellen.js';
 import { beschreibeSprache, wendeSpracheAn } from './spracheWaehlen.js';
 import { SPRACHWAHL, sprache, t } from '@energy-mail/mail-core/sprache';
-import { setzeOAuthVorgabe } from '@energy-mail/server/oauth';
 import { richteRechtschreibungEin, wendeRechtschreibungAn } from './rechtschreibung.js';
-import { createSafeStorageKeyProvider } from './safeStorageKey.js';
 import { horcheAufFensterfehler, richteAbsturzbehandlungEin } from './diagnose.js';
 import { protokolliere } from '@energy-mail/server/protokoll';
 
 /**
- * Der Port, auf dem der eingebettete Server am liebsten horcht.
+ * Die Adresse des Servers, mit dem dieses Programm arbeitet.
  *
- * Derselbe wie beim Standalone-Server (siehe packages/server), damit der ohne
- * zusätzliche Konfiguration gebaute Web-Client (Default VITE_API_URL) auch hier passt.
+ * ## Was hier vorher stand: ein eigener Server
  *
- * "Am liebsten" und nicht "immer": Er ist nur ein Wunsch. Ist er belegt, wird
- * ausgewichen - siehe sucheFreienPort().
+ * Die Huelle startete bis hierher einen Fastify auf 127.0.0.1, legte die Daten in den
+ * Benutzerordner und meldete niemanden an - ein Rechner, ein Mensch. Das war richtig,
+ * solange dieses Programm ein Einzelplatzprogramm war.
+ *
+ * Es ist keines mehr. Wer im Browser arbeitet und wer das Programm benutzt, sollen
+ * dieselben Postfaecher sehen; dafuer gibt es genau einen Weg, und der heisst: derselbe
+ * Server. Damit entfaellt hier alles, was mit dem eigenen zu tun hatte - die Portsuche,
+ * das Zugangsgeheimnis, der Schluesselanbieter, die Ueberwachung der Postfaecher und die
+ * Sendewarteschlange. All das tut jetzt der Server, und er tut es fuer alle.
+ *
+ * Was die Huelle weiterhin selbst tut, ist das, was ein Browser nicht kann:
+ * Benachrichtigungen des Betriebssystems, der Infobereich, Autostart, ein Fenster ohne
+ * Adressleiste, die Selbstaktualisierung, der Zertifikatsspeicher von Windows und der Weg
+ * durch den Firmenproxy.
+ *
+ * Leer heisst: noch nicht eingerichtet - dann kommt das Fenster aus serverFenster.ts.
  */
-const BEVORZUGTER_PORT = 4000;
-
-/**
- * Der Port, auf dem tatsächlich gehorcht wird - steht erst nach startLocalServer() fest.
- *
- * ## Warum das nicht mehr fest verdrahtet ist
- *
- * Vorher stand hier eine Konstante, und ein belegter Port 4000 bedeutete: Die Anwendung
- * startet nicht. Sie zeigte ein Fehlerfenster und war damit fertig - kein Ausweg, keine
- * Einstellung, nichts. Die 4000 ist ein ausgesprochen gebräuchlicher Port für
- * Entwicklungsserver; wer einen laufen hat, bekam ein Mailprogramm, das sich nicht mehr
- * öffnen ließ, mit einer Meldung, die nach einem Fehler im Programm aussieht.
- *
- * Der Doppelstart war dabei nie das Problem - den fängt das Instanzschloss weiter unten
- * ab, und zwar bevor überhaupt ein Server hochgefahren wird. Übrig blieb genau der Fall,
- * in dem ein FREMDES Programm den Port hält, und für den ist Ausweichen die richtige
- * Antwort: Auf welchem Port die Anwendung mit sich selbst spricht, geht niemanden etwas
- * an - am wenigsten den Nutzer.
- */
-let localPort = BEVORZUGTER_PORT;
-
-/** Die Adresse des eingebetteten Servers. Erst nach startLocalServer() verlässlich. */
-const localUrl = () => `http://127.0.0.1:${localPort}`;
+let serverAdresse = '';
 
 /**
  * Name, unter dem Electron seinen Benutzerordner anlegt.
@@ -102,22 +85,10 @@ const USER_DATA_NAME = '@energy-mail/desktop';
 const VORSCHALTSKRIPT = fileURLToPath(new URL('preload.cjs', import.meta.url));
 
 /**
- * Das Zugangsgeheimnis dieses Laufs.
- *
- * Bei jedem Start neu und nirgends gespeichert. Es geht nur an zwei Stellen: an den
- * Server (der es verlangt) und an das eigene Fenster (das es mitschickt). Damit ist der
- * lokale Server fuer alles andere auf dem Rechner verschlossen - siehe zugang.ts.
- */
-const ZUGANG = erzeugeZugangsgeheimnis();
-
-/** Das laufende Serverobjekt - beim Beenden wird es geordnet geschlossen. */
-let laufenderServer: Awaited<ReturnType<typeof buildServer>> | null = null;
-
-/**
  * Die Anzeigeprozesse, die diese Anwendung selbst gebaut hat.
  *
- * Nur sie bekommen das Zugangsgeheimnis über 'zugang:holen'. Eingetragen wird beim Bauen
- * des Fensters und damit VOR dem Laden - das Vorschaltskript fragt früh, und eine
+ * Sie unterscheiden das eigene Fenster von jedem anderen, das sich über die Brücke
+ * meldet. Eingetragen wird beim Bauen des Fensters und damit VOR dem Laden - eine
  * Prüfung, die zu diesem Zeitpunkt noch nichts weiß, wiese das eigene Fenster ab.
  */
 const eigeneAnzeigeprozesse = new Set<number>();
@@ -133,7 +104,68 @@ const eigeneAnzeigeprozesse = new Set<number>();
 let beendenGewollt = false;
 
 /** Die Adresse der Oberfläche - das Infobereichsmenü braucht sie, um neu zu öffnen. */
-let oberflaechenAdresse = localUrl();
+let oberflaechenAdresse = '';
+
+/**
+ * Den Server wechseln - aus dem Menue heraus.
+ *
+ * Fragt nach einer neuen Adresse und laedt das Fenster damit neu. Abbrechen aendert
+ * nichts; wer nur nachsehen wollte, wo er eigentlich angemeldet ist, kommt so wieder
+ * heraus.
+ *
+ * ## Warum die Sitzung dabei bleibt, wie sie ist
+ *
+ * Angemeldet ist man beim SERVER, nicht bei diesem Programm - und der Keks gehoert zu
+ * seiner Herkunft. Wer zu einem anderen Server wechselt, ist dort folgerichtig nicht
+ * angemeldet und bekommt dessen Anmeldefenster; wer zum selben zurueckkehrt, ist es noch.
+ * Hier etwas zu loeschen waere ein Eingriff in fremde Buchfuehrung.
+ */
+async function serverWechseln(): Promise<void> {
+  const gewaehlt = await frageServer(serverAdresse);
+  if (!gewaehlt || gewaehlt === serverAdresse) return;
+
+  serverAdresse = gewaehlt;
+  oberflaechenAdresse = gewaehlt;
+  setzeEinstellung('serverAdresse', gewaehlt);
+  setzeMenueServer(gewaehlt);
+  protokolliere('info', 'start', `Server gewechselt: ${gewaehlt}`);
+
+  const fenster = hauptfenster;
+  if (fenster && !fenster.isDestroyed()) {
+    void fenster.loadURL(gewaehlt);
+    fenster.show();
+    fenster.focus();
+  }
+}
+
+/**
+ * Die gespeicherte Serveradresse - oder leer, wenn sie nicht (mehr) taugt.
+ *
+ * Durch normalisiereServer() und nicht roh übernommen, und das ist kein Zierrat: In der
+ * Datei steht, was beim letzten Mal hineingeschrieben wurde, und sie liegt im
+ * Benutzerordner - jedes Programm desselben Benutzers kann sie ändern. Eine Adresse, die
+ * dort steht, ist deshalb ein Vorschlag und keine Tatsache. Wäre sie es doch, ließe sich
+ * dieses Programm durch das Ändern einer Zeile auf einen fremden Server umleiten, auf
+ * dem dann jemand ein Anmeldefenster zeichnet.
+ *
+ * Die Prüfung fängt zugleich den Fall ab, den der harte Schnitt hinterlässt: In einer
+ * Aufstellung von vor diesem Umbau steht dort gar nichts - dann kommt das
+ * Einrichtungsfenster, und zwar mit einer leeren Zeile statt mit einer kaputten.
+ */
+function gespeicherteServerAdresse(): string {
+  const roh = einstellungen().serverAdresse;
+  if (!roh) return '';
+  try {
+    return normalisiereServer(roh);
+  } catch (err) {
+    protokolliere(
+      'warnung',
+      'start',
+      `Gespeicherte Serveradresse unbrauchbar (${(err as Error).message}) - es wird neu gefragt.`,
+    );
+    return '';
+  }
+}
 
 /**
  * Holt die Anwendung nach vorn - aus dem Infobereich, aus der Taskleiste, von überall.
@@ -229,60 +261,6 @@ function zeigeInfobereichHinweis(): void {
     setzeEinstellung('imInfobereich', false);
     app.quit();
   }
-}
-
-/**
- * Sucht einen Port, auf dem sich horchen lässt - bevorzugt den gewünschten.
- *
- * Probiert wird mit einem nackten Netz-Server und nicht mit dem fertigen: Der Port muss
- * VOR buildServer() feststehen. Der Zugangsriegel bekommt ihn mit (siehe zugang.ts) und
- * baut daraus die erlaubte Herkunft - stimmte er nicht mit dem überein, auf dem später
- * wirklich gehorcht wird, wiese der Riegel die eigene Oberfläche mit 403 ab. Der Dienst
- * liefe dann, wäre aber unbedienbar.
- *
- * Port 0 heißt: das Betriebssystem sucht einen freien aus.
- *
- * Zwischen dieser Probe und dem endgültigen Horchen liegt ein Augenblick, in dem sich
- * ein anderes Programm den Port nehmen könnte. Das bleibt so - dagegen hilft nur, den
- * Port nie wieder loszulassen, und dann wäre die Probe der Server. Geht es doch schief,
- * greift der Weg, den es vorher schon gab: das Startfehlerfenster.
- */
-async function sucheFreienPort(bevorzugt: number): Promise<number> {
-  const probiere = (port: number) =>
-    new Promise<number | null>((fertig) => {
-      const probe = net.createServer();
-      probe.once('error', () => fertig(null));
-      probe.listen({ port, host: '127.0.0.1' }, () => {
-        const adresse = probe.address();
-        const gefunden = typeof adresse === 'object' && adresse ? adresse.port : null;
-        probe.close(() => fertig(gefunden));
-      });
-    });
-
-  const gewuenscht = await probiere(bevorzugt);
-  if (gewuenscht !== null) return gewuenscht;
-
-  const ersatz = await probiere(0);
-  if (ersatz === null) {
-    throw new Error(
-      `Port ${bevorzugt} ist belegt, und das Betriebssystem gab auch keinen anderen her.`,
-    );
-  }
-  protokolliere(
-    'warnung',
-    'start',
-    `Port ${bevorzugt} ist belegt - der eingebettete Server horcht stattdessen auf ${ersatz}.`,
-  );
-  return ersatz;
-}
-
-async function startLocalServer() {
-  setzeZugangsgeheimnis(ZUGANG);
-  localPort = await sucheFreienPort(BEVORZUGTER_PORT);
-  const server = await buildServer({ port: localPort });
-  await server.listen({ port: localPort, host: '127.0.0.1' });
-  laufenderServer = server;
-  return server;
 }
 
 /**
@@ -580,20 +558,44 @@ function richteBrueckeEin(): void {
    * bekommen (nodeIntegrationInSubFrames: false): das ist der Riegel für den Fall, dass
    * daran einmal jemand etwas ändert.
    */
+  /**
+   * Neue Post, gemeldet von der Oberflaeche.
+   *
+   * Nur aus einem EIGENEN Fenster - dieselbe Pruefung wie ueberall auf dieser Bruecke.
+   * Was ankommt, wird nicht weiter geprueft, und das ist vertretbar: Daraus wird eine
+   * Textmeldung mit einer Zahl darin. Wer die Oberflaeche ausliefert, koennte ohnehin
+   * alles andere auch - er liefert ja das Programm, das dieses Fenster zeichnet.
+   */
+  ipcMain.on('post:neu', (e, ereignis) => {
+    if (!eigeneAnzeigeprozesse.has(e.sender.id)) return;
+    try {
+      meldeNeuePost(ereignis as Parameters<typeof meldeNeuePost>[0], () => hauptfenster);
+    } catch (err) {
+      // Eine unbrauchbare Meldung ist ein Grund fuer eine Protokollzeile und nicht dafuer,
+      // dass der Hauptprozess stirbt.
+      protokolliere('warnung', 'benachrichtigung', `Verworfen: ${(err as Error).message}`);
+    }
+  });
+
   ipcMain.on('zugang:holen', (e) => {
     const ausEigenemFenster = eigeneAnzeigeprozesse.has(e.sender.id);
     const vomHauptrahmen = e.senderFrame !== null && e.senderFrame.parent === null;
 
-    if (!ausEigenemFenster || !vomHauptrahmen) {
-      protokolliere(
-        'warnung',
-        'zugang',
-        'Zugangsgeheimnis nicht herausgegeben - die Anfrage kam nicht aus dem eigenen Fenster.',
-      );
-      e.returnValue = '';
-      return;
-    }
-    e.returnValue = ZUGANG;
+    /*
+     * Es gibt nichts mehr herauszugeben - und die Rueckfrage bleibt trotzdem stehen.
+     *
+     * Das Zugangsgeheimnis gehoerte zum eingebetteten Server: Es verschloss ihn gegen
+     * alles andere auf dem Rechner. Mit ihm ist es entfallen; wer sich beim Server
+     * ausweist, tut das jetzt mit einer Anmeldung. Die Antwort ist deshalb immer leer.
+     *
+     * Warum der Weg dennoch bleibt: Das Vorschaltskript fragt beim Laden danach, und
+     * das laeuft in einer Fassung, die aelter sein kann als diese Huelle - der Server
+     * liefert die Oberflaeche aus, nicht das Installationspaket. Ein fehlender Kanal
+     * ergaebe dort eine Ausnahme beim Start, und zwar bevor irgendetwas zu sehen ist.
+     */
+    void ausEigenemFenster;
+    void vomHauptrahmen;
+    e.returnValue = '';
   });
 
   /*
@@ -853,22 +855,18 @@ app.whenReady().then(async () => {
    */
   richteProxyEin();
   /*
-   * Die von der IT registrierte Anwendung, falls es eine gibt.
+   * Die von der IT registrierte OAuth-Anwendung wird jetzt am SERVER hinterlegt.
    *
-   * Damit entfällt für den Mitarbeiter die gesamte Einrichtung: keine Cloud Console, kein
-   * Azure-Portal, kein Client-Geheimnis - er klickt auf „Anmelden". Ohne Richtlinie
-   * bleibt alles wie bisher, und der Privatnutzer registriert weiterhin selbst.
+   * Hier stand setzeOAuthVorgabe(): Die Huelle las die Richtliniendatei unter
+   * %PROGRAMDATA% und reichte Client-Kennung und Geheimnis an ihren eingebetteten Server
+   * weiter. Ohne den gibt es nichts mehr weiterzureichen - der Markentausch laeuft dort,
+   * wo die Postfaecher liegen, und die Vorgabe gehoert entsprechend in die Einrichtung
+   * des Servers.
+   *
+   * Die Richtliniendatei bleibt fuer alles andere, was sie regelt (Proxy, Sprache), und
+   * steht weiterhin im Fehlerbericht.
    */
-  setzeOAuthVorgabe((anbieter) => {
-    const eintrag = richtlinien().oauth?.[anbieter];
-    return eintrag
-      ? {
-          clientId: eintrag.clientId,
-          clientSecret: eintrag.clientSecret,
-          mandant: eintrag.mandant,
-        }
-      : null;
-  });
+
   protokolliere(
     'info',
     'start',
@@ -879,41 +877,39 @@ app.whenReady().then(async () => {
   // drei Sekunden, und in dieser Zeit soll etwas zu sehen sein.
   const startbild = zeigeStartbild();
 
-  // Muss vor buildServer() stehen: der Server liest beim Start die Konten (für die
-  // Postfach-Watcher) und braucht dafür bereits den Entschlüsselungsschlüssel.
-  // Die Schlüsseldatei gehört in die Wurzel, nicht in den Ordner eines Nutzers: mit ihr
-  // werden die Geheimnisse ALLER Nutzer verschlüsselt. Auf diesem Rechner ist das
-  // derzeit genau einer, aber der Ort entscheidet sich hier und nicht später.
-  setKeyProvider(createSafeStorageKeyProvider(getWurzelDir()));
-
-  try {
-    await startLocalServer();
-  } catch (err) {
-    startbild.destroy();
-    zeigeStartfehler(
-      (err as Error).message,
-      t(
-        'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.',
-        { port: localPort },
-      ),
-    );
-    return;
+  /*
+   * Wohin? - die Frage, die vor allem anderen steht.
+   *
+   * Gespeichert ist sie in den Huelleneinstellungen; fehlt sie oder ist sie unbrauchbar
+   * geworden, kommt das Einrichtungsfenster. Wer dort abbricht, hat keinen Server - und
+   * ohne Server gibt es nichts zu zeigen, also endet die Anwendung. Das ist kein Fehler,
+   * sondern eine Entscheidung des Menschen davor, und deshalb ohne Fehlerfenster.
+   *
+   * ENERGY_MAIL_WEB_URL geht vor: Damit zeigt der Entwicklungsbetrieb auf den
+   * Vite-Server, ohne dass jemand seine gespeicherte Adresse dafuer aendern muss.
+   */
+  const ausUmgebung = process.env.ENERGY_MAIL_WEB_URL?.trim();
+  if (ausUmgebung) {
+    serverAdresse = ausUmgebung;
+  } else {
+    serverAdresse = gespeicherteServerAdresse();
+    if (!serverAdresse) {
+      startbild.destroy();
+      const gewaehlt = await frageServer();
+      if (!gewaehlt) {
+        protokolliere('info', 'start', 'Kein Server gewaehlt - die Anwendung endet.');
+        app.quit();
+        return;
+      }
+      serverAdresse = gewaehlt;
+      setzeEinstellung('serverAdresse', gewaehlt);
+      protokolliere('info', 'start', `Server eingerichtet: ${gewaehlt}`);
+    }
   }
 
-  /*
-   * Die Adresse der Oberfläche - erst hier, und das ist der Grund für die Verschiebung.
-   *
-   * Der lokale Server liefert auch das gebaute Frontend aus, daher wird die UI über
-   * http:// geladen (nicht file://) - der Vite-Build referenziert /assets absolut.
-   * ENERGY_MAIL_WEB_URL zeigt bei Bedarf stattdessen auf den Vite-Dev-Server.
-   *
-   * Vorher stand das ein paar Dutzend Zeilen weiter oben, VOR dem Serverstart. Das ging,
-   * solange der Port eine Konstante war; seit er gesucht wird, steht er zu diesem
-   * Zeitpunkt noch gar nicht fest, und das Fenster lüde eine Adresse, an der niemand
-   * horcht.
-   */
-  const url = process.env.ENERGY_MAIL_WEB_URL ?? localUrl();
+  const url = serverAdresse;
   oberflaechenAdresse = url;
+  protokolliere('info', 'start', `Oberflaeche kommt von ${url}`);
 
   /*
    * Die Sprache VOR dem Menü.
@@ -923,6 +919,16 @@ app.whenReady().then(async () => {
    * einmal richtig. Sichtbar wäre das als kurzes Flackern in der Menüleiste.
    */
   protokolliere('info', 'start', beschreibeSprache());
+
+  /*
+   * Der Server im Menue - vor dem Menue selbst.
+   *
+   * "Einstellungen sichern" und "Sicherung einlesen" laufen ueber Routen des Servers.
+   * Ohne diese Zeile zeigten sie ins Leere, und die Meldung waere eine
+   * Verbindungsstoerung, die niemand einordnen kann.
+   */
+  setzeMenueServer(url);
+  setzeServerwechsel(() => void serverWechseln());
 
   // Vor dem Fenster: sonst blitzt kurz Electrons englisches Standardmenü auf.
   setzeMenue();
@@ -979,7 +985,7 @@ app.whenReady().then(async () => {
     },
   );
 
-  starteBenachrichtigungen(EINPLATZ_NUTZER, () => hauptfenster);
+  richteBenachrichtigungenEin(() => hauptfenster);
 
   /*
    * Das Symbol im Infobereich.
@@ -1028,74 +1034,36 @@ app.whenReady().then(async () => {
   behandleMailto(process.argv);
 
   /*
-   * Nach Standby und Netzwechsel die Überwachung neu aufsetzen.
+   * Nach Standby und Netzwechsel die Ueberwachung neu aufsetzen - das tut jetzt der
+   * Server.
    *
-   * Der Watcher verlässt sich darauf, dass ein Verbindungsabbruch als 'close' oder
-   * 'error' gemeldet wird. Nach dem Zuklappen des Notebooks oder einem WLAN-Wechsel ist
-   * die IMAP-IDLE-Verbindung aber typischerweise "halb offen": das Betriebssystem meldet
-   * nichts, der Socket ist tot, es kommt kein Ereignis. Folge war, dass neue Post nach
-   * dem Aufklappen unbemerkt und unbegrenzt lange nicht mehr gemeldet wurde -
-   * ausgerechnet die eine Sache, für die eine Dauerverbindung überhaupt offen bleibt.
+   * Hier stand ein Behandler auf powerMonitor, der nach dem Aufklappen des Notebooks die
+   * IMAP-Verbindungen neu aufbaute: Sie sind dann typischerweise "halb offen", das
+   * Betriebssystem meldet nichts, und neue Post kam unbemerkt nicht mehr an. Das Problem
+   * gibt es weiterhin - nur liegen die Verbindungen jetzt auf dem Server, und dort steht
+   * auch die Abhilfe. Ein Behandler in der Huelle koennte an ihnen ohnehin nichts mehr
+   * ausrichten.
    *
-   * Verschärfend kam hinzu, dass die Wartezeit zwischen den Versuchen bis auf fünf
-   * Minuten anwächst und nur bei einem geglückten Aufbau zurückgesetzt wird - selbst im
-   * Gutfall verging also viel Zeit, bevor überhaupt der erste neue Versuch lief.
+   * Was die Huelle nach dem Aufwachen tut, steht in netzhygiene.ts: Sie sorgt dafuer,
+   * dass die Oberflaeche ihre Verbindung zum Server wieder aufnimmt.
    */
-  const watcherNeuStarten = (grund: string) => {
-    protokolliere('info', 'ueberwachung', `${grund} - Überwachung wird neu aufgebaut.`);
-    /*
-     * Im Nutzerkontext, und mit eigener Fehlerbehandlung.
-     *
-     * Beides fehlte. listAccounts() greift auf den Ordner eines Nutzers zu und wirft
-     * ohne Kontext - hier lief es aus einem powerMonitor-Behandler, also außerhalb jeder
-     * Anfrage. Die Ausnahme landete in uncaughtException und damit im Absturzfenster:
-     * die Anwendung beendete sich bei JEDEM Aufwachen aus dem Ruhezustand und bei jedem
-     * Entsperren des Bildschirms. Ausgerechnet der Weg, der die Überwachung retten soll,
-     * war der, der das Programm umbrachte.
-     *
-     * Das try/catch ist der zweite Riegel: eine Störung beim Wiederaufsetzen der
-     * Überwachung ist ein Grund für eine Protokollzeile, nicht für ein Programmende.
-     */
-    try {
-      alsEinplatznutzer(() => {
-        for (const konto of listAccounts()) restartWatcher(konto.id);
-      });
-    } catch (err) {
-      protokolliere(
-        'warnung',
-        'ueberwachung',
-        `Überwachung nicht neu aufgebaut: ${(err as Error).message}`,
-      );
-    }
-  };
-  powerMonitor.on('resume', () => watcherNeuStarten('Rechner aus dem Ruhezustand'));
-  powerMonitor.on('unlock-screen', () => watcherNeuStarten('Bildschirm entsperrt'));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(url).show();
   });
 });
 
-/**
- * Beim Beenden noch abschicken, was in der Bedenkzeit steht.
+/*
+ * Hier stand eine Frist von acht Sekunden, in der das Beenden auf ausstehende Sendungen
+ * wartete, und die Hilfsfunktion dazu.
  *
- * Wer auf "Senden" gedrückt und nichts widerrufen hat, will die Nachricht draußen haben -
- * sie beim Schließen verfallen zu lassen wäre die schlechteste aller Möglichkeiten. Weit
- * in der Zukunft geplante Nachrichten bleiben dagegen liegen und gehen beim nächsten
- * Start hinaus.
+ * Beides ist entfallen, weil es nichts mehr zu erwarten gibt: Wartende Post liegt auf dem
+ * Server und geht von dort hinaus, auch wenn dieses Programm laengst zu ist. Das ist die
+ * bessere Antwort auf dasselbe Problem - vorher entschied die Frist, ob eine abgeschickte
+ * Nachricht das Zuklappen des Notebooks ueberlebte.
  */
-/** Wie lange das Beenden höchstens auf ausstehende Sendungen wartet. */
-const BEENDEN_FRIST_MS = 8_000;
 
 let beendenLaeuft = false;
-
-/** Läuft eine bestimmte Arbeit nicht rechtzeitig, geht es ohne sie weiter. */
-function mitFrist<T>(arbeit: Promise<T>, ms: number): Promise<T | 'zeitueberschreitung'> {
-  return Promise.race([
-    arbeit,
-    new Promise<'zeitueberschreitung'>((auf) => setTimeout(() => auf('zeitueberschreitung'), ms)),
-  ]);
-}
 
 /**
  * Alles geordnet zumachen.
@@ -1126,50 +1094,21 @@ async function fahreHerunter(): Promise<void> {
   protokolliere('info', 'beenden', 'Beenden angefordert - Ablage und Verbindungen werden geschlossen.');
 
   /*
-   * Kontakte und Warteschlange gehören einem Nutzer - also im Kontext.
+   * Was hier stand und jetzt der Server tut.
    *
-   * Ohne ihn warf schon die erste Zeile, und zwar mitten im Beenden: die Ausnahme riss
-   * den ganzen Rest dieser Funktion mit, sodass weder ausstehende Post hinausging noch
-   * der Server geordnet schloss. Übrig blieb genau der Zustand, den die Erklärung unter
-   * fahreHerunter() als behoben beschreibt - eine liegengebliebene SQLite-Ablage samt
-   * -wal, und IMAP-Verbindungen ohne LOGOUT.
+   * Vorher wurden an dieser Stelle die zuletzt aufgelesenen Adressen weggeschrieben und
+   * die wartende Post noch schnell hinausgeschickt - beides im Nutzerkontext, beides mit
+   * einer Frist, damit ein haengender Sendeserver das Beenden nicht aufhaelt. Danach
+   * schloss der eingebettete Server geordnet: Ueberwachung, Verbindungspool, die
+   * SQLite-Ablage.
    *
-   * Eingeklammert wird nur, was einen Nutzer braucht. Der Server, das Infobereichssymbol
-   * und das Protokoll darunter gehören keinem.
+   * Nichts davon liegt noch hier. Wartende Post geht vom Server hinaus, auch wenn dieses
+   * Programm laengst zu ist - und das ist die bessere Antwort auf dasselbe Problem: Wer
+   * eine Nachricht abschickt und den Rechner zuklappt, hatte bisher Glueck oder Pech, je
+   * nachdem, ob die Frist reichte.
+   *
+   * Uebrig bleibt, was der Huelle gehoert: das Symbol im Infobereich und ihr Protokoll.
    */
-  const gesendet = await alsEinplatznutzer(async () => {
-    // Adressen werden gebündelt geschrieben - die letzten Sekunden sonst verloren.
-    try {
-      speichereKontakteSofort();
-    } catch (err) {
-      protokolliere('warnung', 'beenden', `Adressen nicht gesichert: ${(err as Error).message}`);
-    }
-
-    return mitFrist(sendeAusstehendeSofort(), BEENDEN_FRIST_MS).catch((err: unknown) => {
-      protokolliere('warnung', 'beenden', `Nicht versendet: ${(err as Error).message}`);
-      return 0 as const;
-    });
-  });
-  if (gesendet === 'zeitueberschreitung') {
-    protokolliere(
-      'warnung',
-      'beenden',
-      `Ausstehende Nachrichten waren nach ${BEENDEN_FRIST_MS / 1000} s nicht abgeschickt - ` +
-        'sie gehen beim nächsten Start hinaus.',
-    );
-  } else if (typeof gesendet === 'number' && gesendet > 0) {
-    protokolliere('info', 'beenden', `${gesendet} wartende Nachricht(en) vor dem Beenden versendet.`);
-  }
-
-  // Fastify schließt über seinen onClose-Haken zugleich Überwachung, Verbindungspool
-  // und die lokale Ablage - siehe buildServer().
-  if (laufenderServer) {
-    const ergebnis = await mitFrist(laufenderServer.close(), BEENDEN_FRIST_MS).catch(() => null);
-    if (ergebnis === 'zeitueberschreitung') {
-      protokolliere('warnung', 'beenden', 'Der Server ließ sich nicht rechtzeitig schließen.');
-    }
-    laufenderServer = null;
-  }
 
   // Sonst bleibt ein totes Symbol im Infobereich stehen, bis Windows von selbst
   // aufräumt - was es erst tut, wenn jemand mit der Maus darüberfährt.

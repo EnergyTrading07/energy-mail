@@ -245,7 +245,10 @@ export const KATALOG: Katalog = {
   'Zurück': 'Назад',
   'Adresse': 'Адрес',
   'Kennwort': 'Пароль',
+  'Angemeldet bleiben': 'Оставаться в системе',
   'Anmelden': 'Войти',
+  'Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.': 'Это устройство остаётся в системе целый год, в том числе после перезапуска, — и экран больше не блокируется сам. Только на устройстве, к которому больше ни у кого нет доступа.',
+  'Kennwort vergessen?': 'Забыли пароль?',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.': 'Это пароль от Energy Mail — не пароль от вашего почтового ящика.',
 
   // --- packages/web/src/components/ArchivModal.tsx ---
@@ -433,6 +436,32 @@ export const KATALOG: Katalog = {
   'Unterlagen erzeugen': 'Создать документы',
   'Kein Rechtsrat. Die Regelfälle sind abgedeckt; bei Beschäftigtendaten, einem Betriebsrat und Übermittlungen in Drittländer gehört ein Mensch darüber, bevor etwas unterschrieben wird.': 'Это не юридическая консультация. Обычные случаи охвачены; при данных работников, наличии совета трудового коллектива и передаче в третьи страны документ должен просмотреть человек, прежде чем что-то будет подписано.',
 
+  // --- packages/web/src/components/DownloadTeil.tsx ---
+  'Windows': 'Windows',
+  'macOS': 'macOS',
+  'Linux': 'Linux',
+  'Unbekanntes System': 'Неизвестная система',
+  'Energy Mail auf dem Rechner': 'Energy Mail на компьютере',
+  'Dieselbe Anwendung als Programm für Ihren Rechner: Sie meldet sich an diesem Server an und zeigt dieselben Postfächer. Benachrichtigungen und der Infobereich kommen dazu.': 'То же приложение в виде программы для вашего компьютера: оно входит на этот сервер и показывает те же почтовые ящики. Плюс уведомления и область уведомлений.',
+  'Der Betreiber dieses Dienstes hat noch keine Fassung hinterlegt. Fragen Sie ihn danach.': 'Тот, кто обслуживает эту службу, ещё не выложил ни одной версии. Спросите у него.',
+  'Stand': 'Состояние',
+  'Herunterladen': 'Скачать',
+
+  // --- packages/web/src/components/DownloadVerwaltungTeil.tsx ---
+  'Desktop-Fassung bereitstellen': 'Выкладка настольной версии',
+  'Legen Sie die Installationsdatei in diesen Ordner. Ihre Nutzer finden sie danach unter Einstellungen → Für den Rechner und laden sie von hier statt aus dem Netz.': 'Положите установочный файл в эту папку. Ваши пользователи найдут его затем в разделе Настройки → Для компьютера и скачают отсюда, а не из интернета.',
+  'Dieser Server nennt keinen Ordner – vermutlich ist er älter als diese Oberfläche.': 'Этот сервер не называет папку — вероятно, он старше этого интерфейса.',
+  'Kopiert': 'Скопировано',
+  'Pfad kopieren': 'Скопировать путь',
+  'Diesen Ordner gibt es noch nicht – legen Sie ihn an und kopieren Sie die Datei hinein.': 'Этой папки ещё нет — создайте её и скопируйте туда файл.',
+  'Ausgeliefert wird nur, was auf eine dieser Endungen lautet: {endungen}': 'Выдаётся только то, что оканчивается на одно из этих расширений: {endungen}',
+  'Datei': 'Файл',
+  'System': 'Система',
+  'Größe': 'Размер',
+  'Der Ordner ist leer – es wird nichts angeboten.': 'Папка пуста — ничего не предлагается.',
+  'Neu einlesen': 'Прочитать заново',
+  'Hochladen geht hier bewusst nicht: Ein Weg, über den sich ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes Programm zu verteilen.': 'Загрузка здесь сознательно невозможна: путь, позволяющий записывать исполняемые файлы на сервер, из захваченной учётной записи администратора означал бы разрешение разослать чужую программу на все рабочие места.',
+
   // --- packages/web/src/components/Einladung.tsx ---
   '{tag}, {tage} Tage (ganztägig)': '{tag}, {tage} дн. (весь день)',
   '{tag} (ganztägig)': '{tag} (весь день)',
@@ -499,6 +528,7 @@ export const KATALOG: Katalog = {
   'Programm': 'Программа',
   'Nutzer': 'Пользователи',
   'Anmeldung': 'Вход',
+  'Für den Rechner': 'Для компьютера',
   'Noch kein Postfach eingerichtet – es kommt über die Seitenleiste hinzu.': 'Ни одного почтового ящика ещё не настроено — он добавляется через боковую панель.',
   'Einstellungen': 'Настройки',
   'Bereiche der Einstellungen': 'Разделы настроек',
@@ -527,6 +557,34 @@ export const KATALOG: Katalog = {
   'Rechte': 'Права',
   'Es geht nur um dieses Postfach – nicht um Ihre anderen Konten, Ihr Adressbuch oder Ihre Einstellungen. Jede Freigabe steht im Protokoll.': 'Речь только об этом ящике — не о других учётных записях, адресной книге или настройках. Каждое открытие доступа попадает в журнал.',
 
+  // --- packages/web/src/components/KennwortVergessen.tsx ---
+  'Noch ein Zeichen.': 'Ещё один символ.',
+  'Noch {anzahl} Zeichen.': {
+    one: 'Ещё {anzahl} символ.',
+    few: 'Ещё {anzahl} символа.',
+    many: 'Ещё {anzahl} символов.',
+  },
+  'Sehen Sie in Ihr Postfach': 'Загляните в свой почтовый ящик',
+  'Besteht zu dieser Adresse ein Zugang, ist eine Nachricht unterwegs. Der Link darin gilt eine Stunde.': 'Если для этого адреса есть доступ, письмо уже в пути. Ссылка в нём действует один час.',
+  'Kommt nichts an, sehen Sie im Spam-Ordner nach oder wenden Sie sich an den Betreiber.': 'Если ничего не пришло, проверьте папку со спамом или обратитесь к тому, кто обслуживает эту службу.',
+  'Zur Anmeldung': 'К входу',
+  'Kennwort vergessen': 'Забытый пароль',
+  'Geben Sie Ihre Adresse ein. Sie bekommen einen Link, mit dem Sie ein neues Kennwort vergeben.': 'Укажите свой адрес. Вы получите ссылку, по которой зададите новый пароль.',
+  'Wird gesendet…': 'Отправка…',
+  'Link anfordern': 'Запросить ссылку',
+  'Ein zweiter Faktor bleibt davon unberührt. Ist Ihr Telefon abhandengekommen, hilft nur der Betreiber.': 'Второй фактор это не затрагивает. Если вы потеряли телефон, поможет только тот, кто обслуживает службу.',
+  'Zurück zur Anmeldung': 'Назад ко входу',
+  'Die beiden Kennwörter stimmen nicht überein.': 'Пароли не совпадают.',
+  'Das Kennwort steht': 'Пароль задан',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem neuen Kennwort an. Alle offenen Sitzungen wurden dabei beendet.': 'Войдите теперь со своим адресом и новым паролем. Все открытые сеансы при этом завершены.',
+  'Ihr zweiter Faktor gilt unverändert weiter – halten Sie Ihre App bereit.': 'Ваш второй фактор действует без изменений — держите приложение под рукой.',
+  'Neues Kennwort': 'Новый пароль',
+  'Mindestens {anzahl} Zeichen. Länge zählt mehr als Sonderzeichen.': 'Минимум {anzahl} символов. Длина важнее специальных символов.',
+  'Kennwort wiederholen': 'Повторите пароль',
+  'Die beiden Kennwörter stimmen noch nicht überein.': 'Пароли пока не совпадают.',
+  'Wird gesetzt…': 'Задаётся…',
+  'Kennwort setzen': 'Задать пароль',
+
   // --- packages/web/src/components/KontoModal.tsx ---
   '{anzahl} Wiederherstellungscode übrig': 'Остался {anzahl} код восстановления',
   '{anzahl} Wiederherstellungscodes übrig': {
@@ -537,7 +595,6 @@ export const KATALOG: Katalog = {
   },
   'Ihre Wiederherstellungscodes': 'Ваши коды восстановления',
   'Drucken Sie sie aus oder legen Sie sie an einen sicheren Ort. Jeder Code lässt sich genau einmal benutzen – und ersetzt Ihr Telefon, wenn es einmal nicht zur Hand ist.': 'Распечатайте их или положите в надёжное место. Каждый код действует ровно один раз — и заменяет телефон, когда его нет под рукой.',
-  'Kopiert': 'Скопировано',
   'Kopieren': 'Копировать',
   'Ich habe sie notiert': 'Коды записаны',
   'Die beiden neuen Kennwörter stimmen nicht überein.': 'Два новых пароля не совпадают.',
@@ -551,7 +608,6 @@ export const KATALOG: Katalog = {
   'Kennwort ändern': 'Сменить пароль',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs. Nach der Änderung müssen Sie sich überall neu anmelden.': 'Это пароль от Energy Mail — не от вашего почтового ящика. После смены придётся войти заново на всех устройствах.',
   'Bisheriges Kennwort': 'Прежний пароль',
-  'Neues Kennwort': 'Новый пароль',
   'Noch einmal': 'Ещё раз',
   'Mindestens zehn Zeichen. Ein Satz ist besser als ein Wort.': 'Не меньше десяти знаков. Фраза лучше одного слова.',
   'Zwei-Faktor-Anmeldung': 'Двухфакторный вход',
@@ -723,6 +779,70 @@ export const KATALOG: Katalog = {
   'Wird geholt…': 'Загрузка…',
   'Kopfzeilen': 'Заголовки',
   'Als Datei sichern': 'Сохранить в файл',
+
+  // --- packages/web/src/components/Registrierung.tsx ---
+  'Das Kennwort muss mindestens {anzahl} Zeichen haben.': 'Пароль должен состоять минимум из {anzahl} символов.',
+  'Ihr Antrag ist da': 'Ваша заявка получена',
+  'Wir haben Ihnen eine Nachricht geschickt. Klicken Sie auf den Link darin – erst dann geht es weiter. Der Link gilt 24 Stunden.': 'Мы отправили вам письмо. Перейдите по ссылке в нём — только после этого можно продолжить. Ссылка действует 24 часа.',
+  'Ein Verwalter sieht sich Ihren Antrag an und schaltet den Zugang frei. Sobald das geschehen ist, können Sie sich hier anmelden.': 'Администратор рассмотрит вашу заявку и откроет доступ. Как только это произойдёт, вы сможете войти здесь.',
+  'Legen Sie hier Ihren Zugang an. Freigeschaltet wird er von einem Verwalter.': 'Создайте здесь свой доступ. Его откроет администратор.',
+  'Legen Sie hier Ihren Zugang an.': 'Создайте здесь свой доступ.',
+  'Möglich sind nur Adressen dieser Domänen: {domaenen}': 'Допускаются только адреса этих доменов: {domaenen}',
+  'Bemerkung (freiwillig)': 'Примечание (необязательно)',
+  'z. B. Ihre Abteilung': 'напр. ваш отдел',
+  'Ich habe die Hinweise zum Datenschutz gelesen.': 'Я прочитал сведения о защите данных.',
+  'Zugang beantragen': 'Запросить доступ',
+  'Das Kennwort gilt für Energy Mail – nicht für Ihr Postfach. Das tragen Sie später ein.': 'Этот пароль — для Energy Mail, а не для вашего почтового ящика. Тот вы укажете позже.',
+  'Ihr Zugang steht': 'Ваш доступ готов',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem Kennwort an, das Sie gewählt haben.': 'Войдите теперь со своим адресом и выбранным паролем.',
+  'Danke – Adresse bestätigt': 'Спасибо — адрес подтверждён',
+  'Ein Verwalter schaltet Ihren Zugang frei. Sobald das geschehen ist, können Sie sich anmelden.': 'Администратор откроет ваш доступ. Как только это произойдёт, вы сможете войти.',
+
+  // --- packages/web/src/components/RegistrierungTeil.tsx ---
+  'Konten legt allein ein Verwalter an. Im Anmeldefenster steht kein Weg zur Anmeldung.': 'Учётные записи создаёт только администратор. В окне входа нет пути к регистрации.',
+  'Wer will, stellt einen Antrag. Hereinkommen tut er erst, wenn Sie ihn freigeben.': 'Желающий подаёт заявку. Внутрь он попадает только после вашего одобрения.',
+  'Wer seine Mailadresse über den Bestätigungslink nachweist, ist damit angemeldet. Sie erfahren davon nur über die Nutzerliste.': 'Кто подтвердит свой адрес по ссылке, тем самым зарегистрирован. Вы узнаете об этом только из списка пользователей.',
+  'Selbstanmeldung': 'Самостоятельная регистрация',
+  'Ob sich Menschen hier selbst ein Konto anlegen können – und unter welchen Bedingungen.': 'Могут ли люди сами создать здесь учётную запись — и на каких условиях.',
+  'Aus': 'Выключена',
+  'Antrag mit Freigabe': 'Заявка с одобрением',
+  'Offen mit Mailbestätigung': 'Открытая с подтверждением по почте',
+  'Eingestellt ist „offen“, es gilt aber „Antrag mit Freigabe“: Ohne Systemversand gibt es keine Bestätigungsmail. Richten Sie ihn weiter unten ein.': 'Настроено «открытая», но действует «заявка с одобрением»: без системной отправки нет письма с подтверждением. Настройте её ниже.',
+  '„Offen“ verlangt einen Systemversand – ohne Bestätigungsmail könnte sich jeder ein Konto auf eine fremde Adresse anlegen.': '«Открытая» требует системной отправки — без письма с подтверждением любой мог бы завести учётную запись на чужой адрес.',
+  'Nur diese Mail-Domänen': 'Только эти почтовые домены',
+  'firma.de, tochter.de': 'firma.ru, dochka.ru',
+  'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Пусто означает: любой адрес. Для предприятия это сама по себе самая действенная настройка — посторонний не доходит даже до заявки.',
+  'Datenschutzhinweis auf dem Formular': 'Сведения о защите данных в форме',
+  'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Они стоят над кнопкой отправки, и их нужно отметить галочкой. Укажите, кто обрабатывает данные и как их удалить; дайте ссылку на свою политику конфиденциальности, если она есть.',
+  'Wird gesichert…': 'Сохранение…',
+  'Gesichert.': 'Сохранено.',
+  'Offene Anträge': 'Ожидающие заявки',
+  'Gestellt': 'Подана',
+  'Adresse bestätigt': 'Адрес подтверждён',
+  'noch nicht': 'ещё нет',
+  'Antrag von {name} annehmen?': 'Принять заявку от {name}?',
+  'Das Konto entsteht sofort. Das Kennwort hat dieser Mensch selbst gewählt – Sie bekommen es nicht zu sehen und brauchen es nicht.': 'Учётная запись создаётся сразу. Пароль этот человек выбрал сам — вы его не увидите, и он вам не нужен.',
+  'Diese Adresse ist NICHT bestätigt: Es ist nicht nachgewiesen, dass sie dem Antragsteller gehört. Geben Sie nur frei, wenn Sie wissen, wer das ist.': 'Этот адрес НЕ подтверждён: не доказано, что он принадлежит заявителю. Одобряйте, только если знаете, кто это.',
+  'Annehmen': 'Принять',
+  'Antrag von {name} ablehnen?': 'Отклонить заявку от {name}?',
+  'Der Antrag wird gelöscht – nicht vermerkt. Eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.': 'Заявка удаляется, а не помечается. Эта служба сознательно не ведёт списка отклонённых заявителей.',
+  'Ablehnen': 'Отклонить',
+  'Ablehnung mitteilen?': 'Сообщить об отказе?',
+  'Der Antragsteller bekommt eine kurze Nachricht ohne Begründung. Bei einem Antrag, den offensichtlich niemand gestellt hat, lassen Sie es besser.': 'Заявитель получит короткое письмо без обоснования. Если заявку явно никто не подавал, лучше этого не делать.',
+  'Mitteilen': 'Сообщить',
+  'Ohne Nachricht': 'Без письма',
+  'Die Verbindung steht und die Anmeldung wird angenommen.': 'Соединение установлено, учётные данные принимаются.',
+  'Absender des Dienstes': 'Отправитель службы',
+  'Über dieses Postfach verschickt der Dienst seine eigenen Nachrichten – den Bestätigungslink vor allem. Nehmen Sie ein eigenes Postfach dafür, kein persönliches.': 'Через этот ящик служба отправляет собственные письма — прежде всего ссылку для подтверждения. Возьмите для этого отдельный ящик, а не личный.',
+  'Systemversand benutzen': 'Использовать системную отправку',
+  'Sendeserver (SMTP)': 'Сервер отправки (SMTP)',
+  'Port': 'Порт',
+  'Verschlüsselt ab Verbindungsaufbau (Port 465)': 'Шифрование с момента установления соединения (порт 465)',
+  'Aus heißt STARTTLS auf Port 587 – ebenfalls verschlüsselt. Unverschlüsselt versendet dieser Dienst nicht.': 'Выключено означает STARTTLS на порту 587 — тоже с шифрованием. Без шифрования эта служба не отправляет.',
+  'Benutzername': 'Имя пользователя',
+  'Kennwort (hinterlegt)': 'Пароль (сохранён)',
+  'Absenderadresse': 'Адрес отправителя',
+  'Verbindung prüfen': 'Проверить соединение',
 
   // --- packages/web/src/components/RichTextEditor.tsx ---
   'Link einfügen': 'Вставить ссылку',
@@ -978,7 +1098,6 @@ export const KATALOG: Katalog = {
   'Adresse des neuen Nutzers': 'Адрес нового пользователя',
   'Darf verwalten': 'Может управлять',
   'Angelegt': 'Создан',
-  'Stand': 'Состояние',
   'Verwalter': 'Администратор',
   'Zwei-Faktor-Anmeldung eingeschaltet': 'Двухфакторный вход включён',
   '2 Faktoren': '2 фактора',
@@ -1011,7 +1130,6 @@ export const KATALOG: Katalog = {
   'Vorlage:': 'Шаблон:',
   'Active Directory': 'Active Directory',
   'OpenLDAP': 'OpenLDAP',
-  'Port': 'Порт',
   'Verschlüsselung': 'Шифрование',
   'LDAPS (verschlüsselt ab Verbindungsaufbau)': 'LDAPS (шифруется с самого начала)',
   'StartTLS (schaltet um)': 'StartTLS (переключается)',
@@ -1019,7 +1137,6 @@ export const KATALOG: Katalog = {
   'Ohne Verschlüsselung geht das Kennwort des Dienstkontos im Klartext über die Leitung. Nur vertretbar, wenn diese Leitung den Rechner nie verlässt.': 'Без шифрования пароль служебной учётной записи идёт по линии открытым текстом. Оправданно лишь тогда, когда эта линия не покидает машину.',
   'Zertifikat prüfen': 'Проверять сертификат',
   'Anmelde-DN des Dienstkontos': 'DN входа служебной учётной записи',
-  'Kennwort (hinterlegt)': 'Пароль (сохранён)',
   'Ein Konto, das im Verzeichnis nur lesen darf – kein Administratorkonto. Es steht verschlüsselt auf dem Server und geht nie wieder heraus.': 'Учётная запись, которой в каталоге разрешено только чтение, — не администратор. Она хранится на сервере в зашифрованном виде и больше оттуда не выходит.',
   'Suchbereich (Basis-DN)': 'Область поиска (базовый DN)',
   'Grundfilter': 'Основной фильтр',
@@ -1028,7 +1145,6 @@ export const KATALOG: Katalog = {
   'Anzeigename': 'Отображаемое имя',
   'Mobil': 'Мобильный',
   'Abteilung': 'Отдел',
-  'Verbindung prüfen': 'Проверить соединение',
 
   // --- packages/web/src/components/WartendModal.tsx ---
   'Nichts geplant und nichts zurückgestellt.': 'Ничего не запланировано и ничего не отложено.',
@@ -1073,6 +1189,10 @@ export const KATALOG: Katalog = {
   'Noch keine. Sie erscheinen von selbst, sobald Ihnen jemand unterschrieben schreibt.': 'Пока ни одного. Они появятся сами, как только вам напишут с подписью.',
   'Eigene Schlüsseldatei einlesen (.p12)': 'Загрузить свой файл ключа (.p12)',
   'Fremdes Zertifikat aufnehmen': 'Добавить чужой сертификат',
+
+  // --- packages/web/src/components/Zugangsteile.tsx ---
+  'Anmelden oder Konto anlegen': 'Войти или создать учётную запись',
+  'Konto anlegen': 'Создать учётную запись',
 
   // --- packages/web/src/composeHelpers.ts ---
   'Nachfrage': 'Напоминание',
@@ -1220,7 +1340,6 @@ export const KATALOG: Katalog = {
   'Jetzt abrufen': 'Загрузить сейчас',
 
   // --- packages/desktop/src/kennwortFenster.ts ---
-  'Kennwort wiederholen': 'Повторите пароль',
   'Bitte mindestens acht Zeichen.': 'Не менее восьми знаков.',
   'Die beiden Eingaben stimmen nicht überein.': 'Введённые значения не совпадают.',
   'Kennwort für die Sicherung': 'Пароль для резервной копии',
@@ -1245,7 +1364,6 @@ export const KATALOG: Katalog = {
   'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.': 'Если так не нужно, это выключается в Сервис → «При закрытии сворачивать в область уведомлений».',
   'Lieber beenden': 'Лучше выйти',
   'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.': 'Не удалось загрузить интерфейс. Обычно локальный сервер стал недоступен — перезапуск программы это исправляет.',
-  'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.': 'Не удалось запустить локальный сервер на порту {port}. Обычно уже работает вторая копия Energy Mail — или "npm run dev:server" из дерева исходников.',
 
   // --- packages/desktop/src/menu.ts ---
   '&Nachricht': '&Письмо',
@@ -1270,6 +1388,7 @@ export const KATALOG: Katalog = {
   'Einstellungen…': 'Настройки…',
   'Einstellungen sichern…': 'Сохранить копию настроек…',
   'Sicherung einlesen…': 'Загрузить резервную копию…',
+  'Server wechseln…': 'Сменить сервер…',
   '&Hilfe': 'Спр&авка',
   'Projektseite öffnen': 'Открыть страницу проекта',
   'Fehlerbericht erzeugen…': 'Создать отчёт об ошибке…',
@@ -1294,7 +1413,25 @@ export const KATALOG: Katalog = {
   'Keine Vorschläge': 'Нет подсказок',
 
   // --- packages/desktop/src/safeStorageKey.ts ---
-  'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.': 'Операционная система сейчас не предоставляет шифрование (safeStorage недоступен). Учётные данные сохранены не будут.',
+
+  // --- packages/desktop/src/serverFenster.ts ---
+  'Energy Mail einrichten': 'Настройка Energy Mail',
+  'Mit welchem Server arbeiten Sie?': 'С каким сервером вы работаете?',
+  'Energy Mail holt Ihre Postfächer von einem Server. Fragen Sie die Adresse bei dem, der ihn betreibt – es ist dieselbe, unter der Sie im Browser arbeiten.': 'Energy Mail получает ваши почтовые ящики с сервера. Адрес спросите у того, кто его обслуживает, — он тот же, что и в браузере.',
+  'Adresse des Servers': 'Адрес сервера',
+  'Verbinden': 'Подключиться',
+  'Verbunden – Energy Mail {fassung}': 'Подключено — Energy Mail {fassung}',
+  'Ohne Adresse geht es nicht.': 'Без адреса никак.',
+
+  // --- packages/desktop/src/serverwahl.ts ---
+  '„{eingabe}“ ist keine brauchbare Adresse. Erwartet wird etwas wie https://mail.firma.de': '«{eingabe}» — непригодный адрес. Ожидается что-то вроде https://mail.firma.ru',
+  'Nur http und https sind hier vorgesehen.': 'Здесь предусмотрены только http и https.',
+  'Ohne Verschlüsselung (http://) geht das nur zu einem Server auf diesem Rechner. Über eine Leitung ginge Ihr Kennwort im Klartext – tragen Sie https:// ein.': 'Без шифрования (http://) это возможно только с сервером на этом компьютере. По линии ваш пароль пошёл бы открытым текстом — укажите https://.',
+  'Der Server antwortet nicht. Stimmt die Adresse, und ist der Rechner erreichbar?': 'Сервер не отвечает. Верен ли адрес и доступен ли компьютер?',
+  'Dort antwortet etwas, aber kein Energy Mail (Status {status}).': 'Там что-то отвечает, но это не Energy Mail (статус {status}).',
+  'Der Server meldet, dass er gerade nicht arbeiten kann.': 'Сервер сообщает, что сейчас не может работать.',
+  'Dort antwortet etwas, aber kein Energy Mail.': 'Там что-то отвечает, но это не Energy Mail.',
+  'Keine Verbindung: {grund}': 'Нет соединения: {grund}',
 
   // --- packages/desktop/src/updateSignatur.ts ---
   'Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.': 'Выпуск относится к версии {freigegeben}, а загружена {geladen}.',
@@ -1368,6 +1505,9 @@ export const KATALOG: Katalog = {
   'Zu dieser Nummer gibt es keinen Eintrag.': 'Под этим номером записи нет.',
   'Diese Nachricht stimmt nicht mehr mit ihrem Abdruck überein - sie wurde verändert.': 'Это письмо больше не соответствует своему отпечатку — оно было изменено.',
 
+  // --- packages/server/src/download.ts ---
+  'Diese Datei gibt es hier nicht.': 'Такого файла здесь нет.',
+
   // --- packages/server/src/etikettenStore.ts ---
   'Dieses Etikett gibt es nicht mehr.': 'Этой метки больше нет.',
 
@@ -1393,6 +1533,41 @@ export const KATALOG: Katalog = {
 
   // --- packages/server/src/nutzer/haken.ts ---
   'Kein Nutzer zugeordnet': 'Пользователь не назначен',
+
+  // --- packages/server/src/nutzer/kennwortVergessen.ts ---
+  'Neues Kennwort für Energy Mail': 'Новый пароль для Energy Mail',
+  'Guten Tag,': 'Здравствуйте,',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Mit diesem Link vergeben Sie eines:': 'для этой учётной записи запрошен новый пароль. Задайте его по этой ссылке:',
+  'Der Link gilt eine Stunde und lässt sich nur einmal verwenden.': 'Ссылка действует один час и может быть использована только один раз.',
+  'Ihr zweiter Faktor bleibt unverändert - Sie werden beim Anmelden weiterhin nach Ihrem Code gefragt.': 'Ваш второй фактор остаётся без изменений — при входе у вас по-прежнему спросят код.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne diesen Link ändert sich an Ihrem Kennwort nichts, und der Link verfällt von selbst.': 'Это были не вы? Тогда ничего не делайте. Без этой ссылки с вашим паролем ничего не произойдёт, а сама ссылка истечёт.',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Der Zugang ist allerdings gesperrt - ein neues Kennwort würde daran nichts ändern.': 'для этой учётной записи запрошен новый пароль. Однако доступ заблокирован — новый пароль ничего бы не изменил.',
+  'Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Обратитесь к тому, кто обслуживает эту службу.',
+  'für diese Adresse wurde ein neues Kennwort angefordert. Zu ihr besteht hier allerdings kein Zugang - möglicherweise haben Sie eine andere Adresse verwendet.': 'для этого адреса запрошен новый пароль. Однако доступа для него здесь нет — возможно, вы использовали другой адрес.',
+  'Waren Sie das nicht, brauchen Sie nichts zu tun. Es wurde nichts angelegt und nichts gespeichert.': 'Если это были не вы, делать ничего не нужно. Ничего не создано и ничего не сохранено.',
+  'An diesem Dienst lässt sich das Kennwort nicht selbst zurücksetzen. Bitte wenden Sie sich an den Betreiber.': 'В этой службе пароль нельзя сбросить самостоятельно. Обратитесь к тому, кто её обслуживает.',
+  'Das ist keine brauchbare Mailadresse.': 'Это непригодный почтовый адрес.',
+  'Die Nachricht konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Отправить письмо не удалось. Обратитесь к тому, кто обслуживает эту службу.',
+  'Dieser Link gilt nicht mehr. Fordern Sie bitte einen neuen an.': 'Эта ссылка больше не действует. Запросите новую.',
+
+  // --- packages/server/src/nutzer/registrierung.ts ---
+  'Ihre Anmeldung bei Energy Mail bestätigen': 'Подтвердите свою регистрацию в Energy Mail',
+  'für diese Adresse wurde ein Zugang zu Energy Mail beantragt. Bestätigen Sie mit diesem Link, dass die Adresse Ihnen gehört:': 'для этого адреса запрошен доступ к Energy Mail. Подтвердите по этой ссылке, что адрес принадлежит вам:',
+  'Der Link gilt 24 Stunden.': 'Ссылка действует 24 часа.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne Bestätigung entsteht kein Zugang, und der Antrag wird nach einer Woche von selbst gelöscht.': 'Это были не вы? Тогда ничего не делайте. Без подтверждения доступ не создаётся, а заявка через неделю удалится сама.',
+  'Zu dieser Adresse besteht bereits ein Zugang': 'Для этого адреса доступ уже есть',
+  'für diese Adresse wurde eben ein Zugang zu Energy Mail beantragt. Es besteht allerdings schon einer - melden Sie sich einfach wie gewohnt an.': 'для этого адреса только что запросили доступ к Energy Mail. Однако доступ уже существует — просто войдите как обычно.',
+  'Kennwort vergessen? Wenden Sie sich an den Betreiber dieses Dienstes; er kann es zurücksetzen.': 'Забыли пароль? Обратитесь к тому, кто обслуживает эту службу; он может его сбросить.',
+  'Waren Sie das nicht, dann hat jemand Ihre Adresse eingetragen. An Ihrem Zugang ändert das nichts - Ihr Kennwort ist davon unberührt.': 'Если это были не вы, кто-то ввёл ваш адрес. На вашем доступе это никак не сказывается — ваш пароль не затронут.',
+  'An diesem Dienst kann man sich nicht selbst anmelden.': 'В этой службе самостоятельная регистрация невозможна.',
+  'Bitte bestätigen Sie, dass Sie die Datenschutzhinweise gelesen haben.': 'Подтвердите, что вы прочитали сведения о защите данных.',
+  'Die Bestätigungsmail konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Письмо с подтверждением отправить не удалось. Обратитесь к тому, кто обслуживает эту службу.',
+  'Dieser Link gilt nicht mehr. Bitte melden Sie sich noch einmal an.': 'Эта ссылка больше не действует. Подайте заявку ещё раз.',
+  'Diesen Antrag gibt es nicht.': 'Такой заявки нет.',
+  'Ihr Zugang zu Energy Mail ist eingerichtet': 'Ваш доступ к Energy Mail готов',
+  'Ihr Zugang ist jetzt freigeschaltet. Sie können sich mit Ihrer Adresse und dem Kennwort anmelden, das Sie bei der Anmeldung gewählt haben.': 'Ваш доступ открыт. Вы можете войти со своим адресом и паролем, выбранным при подаче заявки.',
+  'Ihr Antrag auf einen Zugang': 'Ваша заявка на доступ',
+  'Ihr Antrag auf einen Zugang zu Energy Mail wurde nicht bewilligt. Bei Rückfragen wenden Sie sich bitte an den Betreiber dieses Dienstes.': 'Ваша заявка на доступ к Energy Mail не удовлетворена. По вопросам обращайтесь к тому, кто обслуживает эту службу.',
 
   // --- packages/server/src/nutzer/verwaltung.ts ---
   'Dafür fehlt Ihnen die Berechtigung.': 'У вас нет прав для этого.',

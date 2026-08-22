@@ -223,6 +223,18 @@ await pruefe('/ich nennt den angemeldeten Nutzer', async () => {
      */
     verwalter: true,
     /*
+     * Wie viele Anmeldeantraege auf eine Entscheidung warten.
+     *
+     * Auch diese Zeile ist beim Hinzufuegen des Feldes durchgefallen - und auch hier ist
+     * das der Zweck des Vergleichs. Die Auskunft darf hinaus, aber nur an einen
+     * Verwalter: Wie viele Menschen an diesem Dienst anklopfen, geht einen gewoehnlichen
+     * Nutzer nichts an. Der Server setzt sie fuer alle anderen auf 0, ohne ueberhaupt
+     * nachzusehen - siehe anmelden.ts.
+     *
+     * Hier 0, weil diese Aufstellung keine Selbstanmeldung eingeschaltet hat.
+     */
+    wartendeAntraege: 0,
+    /*
      * Ob ein zweiter Faktor eingerichtet ist - und wie viele Wiederherstellungscodes noch
      * daliegen. Beides ist kein Geheimnis: Es sagt, DASS es einen Faktor gibt, nicht
      * welchen. Das Konto braucht es, um "Ein" oder "Aus" anzuzeigen, und die Zahl, um zu

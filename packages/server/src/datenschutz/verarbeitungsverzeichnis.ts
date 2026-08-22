@@ -68,7 +68,16 @@ ${e.archiv ? '- Erfüllung handels- und steuerrechtlicher Aufbewahrungspflichten
 
 > Die zweite Gruppe ist die größere und die, an die niemand denkt: Wer einem Betrieb
 > schreibt, wird zur betroffenen Person, ohne je gefragt worden zu sein.
-
+${
+  e.selbstanmeldung === 'aus'
+    ? ''
+    : `
+> **Achtung, die Nutzer sind hier nicht abschließend die Beschäftigten.** An diesem Dienst
+> ist die Selbstanmeldung eingeschaltet (${e.selbstanmeldung === 'offen' ? 'offen, mit Bestätigung über die Mailadresse' : 'Antrag mit Freigabe durch einen Verwalter'}${e.selbstanmeldungDomaenen.length > 0 ? `, begrenzt auf ${e.selbstanmeldungDomaenen.join(', ')}` : ', ohne Begrenzung auf bestimmte Domänen'}). Wer
+> dazukommt, entscheidet damit nicht mehr allein die Personalstelle. Prüfen Sie, ob die
+> Angabe „unsere Nutzer sind unsere Beschäftigten" oben noch stimmt.
+`
+}
 ## 4. Kategorien personenbezogener Daten
 
 - Stammdaten: Name, Mailadresse, Anschrift, Telefonnummer, Funktion, Firma
@@ -100,6 +109,12 @@ Drittländern zu Supportzwecken kommen hinzu und stehen in den Unterlagen des An
 ${e.archiv ? '| Archivierte Geschäftsbriefe | 6 Jahre ab Schluss des Kalenderjahres (§ 147 Abs. 3 AO) |\n| Archivierte Buchungsbelege | 8 Jahre ab Schluss des Kalenderjahres |\n' : ''}| Nebenbei aufgelesene Adressen im Adressbuch | Ab 2.000 Einträgen fallen die ältesten und seltensten heraus; selbst angelegte nie. |
 | Protokoll des Servers | Zwei Dateien im Wechsel, danach überschrieben. |
 | Angemeldete Sitzungen | Ruhefrist 14 Tage, Höchstdauer 90 Tage. |
+${
+  e.selbstanmeldung === 'aus'
+    ? ''
+    : `| Offene Anmeldeanträge (zurzeit ${e.offeneAntraege}) | Ohne Bestätigung 7 Tage, danach gelöscht; bestätigt und unbeschieden 30 Tage. Gespeichert werden Adresse, Zeitpunkt und die Prüfsumme des Kennworts — keine Netzadresse. |
+`
+}
 
 ## 8. Technische und organisatorische Maßnahmen
 

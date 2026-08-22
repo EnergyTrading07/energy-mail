@@ -203,7 +203,10 @@ export const KATALOG: Katalog = {
   'Zurück': 'Geri',
   'Adresse': 'Adres',
   'Kennwort': 'Parola',
+  'Angemeldet bleiben': 'Oturumu açık tut',
   'Anmelden': 'Oturum aç',
+  'Dieses Gerät bleibt ein Jahr lang angemeldet, auch nach einem Neustart – und der Bildschirm sperrt sich nicht mehr von selbst. Nur auf einem Gerät, zu dem sonst niemand Zugang hat.': 'Bu cihazın oturumu bir yıl boyunca açık kalır, yeniden başlatmadan sonra da – ve ekran artık kendiliğinden kilitlenmez. Yalnızca başka kimsenin erişemediği bir cihazda.',
+  'Kennwort vergessen?': 'Parolanızı mı unuttunuz?',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs.': 'Bu, Energy Mail parolasıdır; posta kutunuzunki değil.',
 
   // --- packages/web/src/components/ArchivModal.tsx ---
@@ -379,6 +382,32 @@ export const KATALOG: Katalog = {
   'Unterlagen erzeugen': 'Belgeleri oluştur',
   'Kein Rechtsrat. Die Regelfälle sind abgedeckt; bei Beschäftigtendaten, einem Betriebsrat und Übermittlungen in Drittländer gehört ein Mensch darüber, bevor etwas unterschrieben wird.': 'Hukuki danışmanlık değildir. Olağan durumlar kapsanmıştır; çalışan verileri, işyeri kurulu ve üçüncü ülkelere aktarım söz konusuysa, bir şey imzalanmadan önce bir insanın gözden geçirmesi gerekir.',
 
+  // --- packages/web/src/components/DownloadTeil.tsx ---
+  'Windows': 'Windows',
+  'macOS': 'macOS',
+  'Linux': 'Linux',
+  'Unbekanntes System': 'Bilinmeyen sistem',
+  'Energy Mail auf dem Rechner': 'Bilgisayarınızda Energy Mail',
+  'Dieselbe Anwendung als Programm für Ihren Rechner: Sie meldet sich an diesem Server an und zeigt dieselben Postfächer. Benachrichtigungen und der Infobereich kommen dazu.': 'Aynı uygulama, bilgisayarınız için bir program olarak: bu sunucuda oturum açar ve aynı posta kutularını gösterir. Bildirimler ve bildirim alanı da cabası.',
+  'Der Betreiber dieses Dienstes hat noch keine Fassung hinterlegt. Fragen Sie ihn danach.': 'Bu hizmeti işleten henüz bir sürüm koymadı. Kendisinden isteyin.',
+  'Stand': 'Durum',
+  'Herunterladen': 'İndir',
+
+  // --- packages/web/src/components/DownloadVerwaltungTeil.tsx ---
+  'Desktop-Fassung bereitstellen': 'Masaüstü sürümünü sağlama',
+  'Legen Sie die Installationsdatei in diesen Ordner. Ihre Nutzer finden sie danach unter Einstellungen → Für den Rechner und laden sie von hier statt aus dem Netz.': 'Kurulum dosyasını bu klasöre koyun. Kullanıcılarınız onu ardından Ayarlar → Bilgisayar için altında bulur ve internet yerine buradan indirir.',
+  'Dieser Server nennt keinen Ordner – vermutlich ist er älter als diese Oberfläche.': 'Bu sunucu bir klasör bildirmiyor – muhtemelen bu arayüzden daha eski.',
+  'Kopiert': 'Kopyalandı',
+  'Pfad kopieren': 'Yolu kopyala',
+  'Diesen Ordner gibt es noch nicht – legen Sie ihn an und kopieren Sie die Datei hinein.': 'Bu klasör henüz yok – oluşturun ve dosyayı içine kopyalayın.',
+  'Ausgeliefert wird nur, was auf eine dieser Endungen lautet: {endungen}': 'Yalnızca şu uzantılardan biriyle biten dosyalar sunulur: {endungen}',
+  'Datei': 'Dosya',
+  'System': 'Sistem',
+  'Größe': 'Boyut',
+  'Der Ordner ist leer – es wird nichts angeboten.': 'Klasör boş – hiçbir şey sunulmuyor.',
+  'Neu einlesen': 'Yeniden oku',
+  'Hochladen geht hier bewusst nicht: Ein Weg, über den sich ausführbare Dateien auf den Server schreiben lassen, wäre aus einem übernommenen Verwalterkonto heraus die Erlaubnis, an alle Arbeitsplätze ein fremdes Programm zu verteilen.': 'Buradan yükleme bilinçli olarak mümkün değil: Sunucuya çalıştırılabilir dosya yazmaya izin veren bir yol, ele geçirilmiş bir yönetici hesabından tüm çalışma istasyonlarına yabancı bir program dağıtma izni olurdu.',
+
   // --- packages/web/src/components/Einladung.tsx ---
   '{tag}, {tage} Tage (ganztägig)': '{tag}, {tage} gün (tüm gün)',
   '{tag} (ganztägig)': '{tag} (tüm gün)',
@@ -445,6 +474,7 @@ export const KATALOG: Katalog = {
   'Programm': 'Program',
   'Nutzer': 'Kullanıcılar',
   'Anmeldung': 'Oturum',
+  'Für den Rechner': 'Bilgisayar için',
   'Noch kein Postfach eingerichtet – es kommt über die Seitenleiste hinzu.': 'Henüz posta kutusu kurulmadı – kenar çubuğundan eklenir.',
   'Einstellungen': 'Ayarlar',
   'Bereiche der Einstellungen': 'Ayar bölümleri',
@@ -473,12 +503,38 @@ export const KATALOG: Katalog = {
   'Rechte': 'Yetkiler',
   'Es geht nur um dieses Postfach – nicht um Ihre anderen Konten, Ihr Adressbuch oder Ihre Einstellungen. Jede Freigabe steht im Protokoll.': 'Söz konusu yalnızca bu posta kutusu – diğer hesaplarınız, adres defteriniz ya da ayarlarınız değil. Her paylaşım günlüğe yazılır.',
 
+  // --- packages/web/src/components/KennwortVergessen.tsx ---
+  'Noch ein Zeichen.': 'Bir karakter daha.',
+  'Noch {anzahl} Zeichen.': {
+    one: '{anzahl} karakter daha.',
+    other: '{anzahl} karakter daha.',
+  },
+  'Sehen Sie in Ihr Postfach': 'Posta kutunuza bakın',
+  'Besteht zu dieser Adresse ein Zugang, ist eine Nachricht unterwegs. Der Link darin gilt eine Stunde.': 'Bu adres için bir erişim varsa, bir ileti yola çıktı. İçindeki bağlantı bir saat geçerlidir.',
+  'Kommt nichts an, sehen Sie im Spam-Ordner nach oder wenden Sie sich an den Betreiber.': 'Hiçbir şey gelmezse istenmeyen posta klasörüne bakın ya da bu hizmeti işletene başvurun.',
+  'Zur Anmeldung': 'Oturum açmaya git',
+  'Kennwort vergessen': 'Parola unutuldu',
+  'Geben Sie Ihre Adresse ein. Sie bekommen einen Link, mit dem Sie ein neues Kennwort vergeben.': 'Adresinizi girin. Yeni bir parola belirleyebileceğiniz bir bağlantı alacaksınız.',
+  'Wird gesendet…': 'Gönderiliyor…',
+  'Link anfordern': 'Bağlantı iste',
+  'Ein zweiter Faktor bleibt davon unberührt. Ist Ihr Telefon abhandengekommen, hilft nur der Betreiber.': 'İkinci faktör bundan etkilenmez. Telefonunuzu kaybettiyseniz yalnızca hizmeti işleten yardımcı olabilir.',
+  'Zurück zur Anmeldung': 'Oturum açmaya dön',
+  'Die beiden Kennwörter stimmen nicht überein.': 'İki parola birbiriyle uyuşmuyor.',
+  'Das Kennwort steht': 'Parola hazır',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem neuen Kennwort an. Alle offenen Sitzungen wurden dabei beendet.': 'Şimdi adresiniz ve yeni parolanızla oturum açın. Açık olan tüm oturumlar sonlandırıldı.',
+  'Ihr zweiter Faktor gilt unverändert weiter – halten Sie Ihre App bereit.': 'İkinci faktörünüz değişmeden geçerli kalır – uygulamanızı hazır bulundurun.',
+  'Neues Kennwort': 'Yeni parola',
+  'Mindestens {anzahl} Zeichen. Länge zählt mehr als Sonderzeichen.': 'En az {anzahl} karakter. Uzunluk, özel karakterlerden daha önemlidir.',
+  'Kennwort wiederholen': 'Parolayı yineleyin',
+  'Die beiden Kennwörter stimmen noch nicht überein.': 'İki parola henüz uyuşmuyor.',
+  'Wird gesetzt…': 'Ayarlanıyor…',
+  'Kennwort setzen': 'Parolayı ayarla',
+
   // --- packages/web/src/components/KontoModal.tsx ---
   '{anzahl} Wiederherstellungscode übrig': '{anzahl} kurtarma kodu kaldı',
   '{anzahl} Wiederherstellungscodes übrig': '{anzahl} kurtarma kodu kaldı',
   'Ihre Wiederherstellungscodes': 'Kurtarma kodlarınız',
   'Drucken Sie sie aus oder legen Sie sie an einen sicheren Ort. Jeder Code lässt sich genau einmal benutzen – und ersetzt Ihr Telefon, wenn es einmal nicht zur Hand ist.': 'Yazdırın ya da güvenli bir yerde saklayın. Her kod tam olarak bir kez kullanılabilir – ve telefonunuz yanınızda olmadığında onun yerini tutar.',
-  'Kopiert': 'Kopyalandı',
   'Kopieren': 'Kopyala',
   'Ich habe sie notiert': 'Not aldım',
   'Die beiden neuen Kennwörter stimmen nicht überein.': 'İki yeni parola birbiriyle uyuşmuyor.',
@@ -492,7 +548,6 @@ export const KATALOG: Katalog = {
   'Kennwort ändern': 'Parolayı değiştir',
   'Das ist das Kennwort für Energy Mail – nicht das Ihres Postfachs. Nach der Änderung müssen Sie sich überall neu anmelden.': 'Bu, Energy Mail parolasıdır – posta kutunuzunki değil. Değişiklikten sonra her yerde yeniden oturum açmanız gerekir.',
   'Bisheriges Kennwort': 'Mevcut parola',
-  'Neues Kennwort': 'Yeni parola',
   'Noch einmal': 'Bir kez daha',
   'Mindestens zehn Zeichen. Ein Satz ist besser als ein Wort.': 'En az on karakter. Bir cümle, bir kelimeden iyidir.',
   'Zwei-Faktor-Anmeldung': 'İki adımlı giriş',
@@ -656,6 +711,70 @@ export const KATALOG: Katalog = {
   'Wird geholt…': 'Alınıyor…',
   'Kopfzeilen': 'Başlıklar',
   'Als Datei sichern': 'Dosyaya kaydet',
+
+  // --- packages/web/src/components/Registrierung.tsx ---
+  'Das Kennwort muss mindestens {anzahl} Zeichen haben.': 'Parola en az {anzahl} karakter olmalıdır.',
+  'Ihr Antrag ist da': 'Başvurunuz bize ulaştı',
+  'Wir haben Ihnen eine Nachricht geschickt. Klicken Sie auf den Link darin – erst dann geht es weiter. Der Link gilt 24 Stunden.': 'Size bir ileti gönderdik. İçindeki bağlantıya tıklayın – ancak o zaman devam eder. Bağlantı 24 saat geçerlidir.',
+  'Ein Verwalter sieht sich Ihren Antrag an und schaltet den Zugang frei. Sobald das geschehen ist, können Sie sich hier anmelden.': 'Bir yönetici başvurunuzu inceleyip erişimi açacak. Bu gerçekleşir gerçekleşmez buradan oturum açabilirsiniz.',
+  'Legen Sie hier Ihren Zugang an. Freigeschaltet wird er von einem Verwalter.': 'Erişiminizi buradan oluşturun. Bir yönetici tarafından açılacaktır.',
+  'Legen Sie hier Ihren Zugang an.': 'Erişiminizi buradan oluşturun.',
+  'Möglich sind nur Adressen dieser Domänen: {domaenen}': 'Yalnızca şu alan adlarındaki adresler kabul edilir: {domaenen}',
+  'Bemerkung (freiwillig)': 'Not (isteğe bağlı)',
+  'z. B. Ihre Abteilung': 'örn. bölümünüz',
+  'Ich habe die Hinweise zum Datenschutz gelesen.': 'Veri koruma bilgilendirmesini okudum.',
+  'Zugang beantragen': 'Erişim talep et',
+  'Das Kennwort gilt für Energy Mail – nicht für Ihr Postfach. Das tragen Sie später ein.': 'Bu parola Energy Mail içindir – posta kutunuz için değil. Onu daha sonra gireceksiniz.',
+  'Ihr Zugang steht': 'Erişiminiz hazır',
+  'Melden Sie sich jetzt mit Ihrer Adresse und dem Kennwort an, das Sie gewählt haben.': 'Şimdi adresiniz ve seçtiğiniz parolayla oturum açın.',
+  'Danke – Adresse bestätigt': 'Teşekkürler – adres doğrulandı',
+  'Ein Verwalter schaltet Ihren Zugang frei. Sobald das geschehen ist, können Sie sich anmelden.': 'Bir yönetici erişiminizi açacak. Bu gerçekleşir gerçekleşmez oturum açabilirsiniz.',
+
+  // --- packages/web/src/components/RegistrierungTeil.tsx ---
+  'Konten legt allein ein Verwalter an. Im Anmeldefenster steht kein Weg zur Anmeldung.': 'Hesapları yalnızca bir yönetici oluşturur. Oturum açma penceresinde kayıt yolu bulunmaz.',
+  'Wer will, stellt einen Antrag. Hereinkommen tut er erst, wenn Sie ihn freigeben.': 'İsteyen başvuru yapar. Ancak siz onayladığınızda içeri girer.',
+  'Wer seine Mailadresse über den Bestätigungslink nachweist, ist damit angemeldet. Sie erfahren davon nur über die Nutzerliste.': 'Posta adresini doğrulama bağlantısıyla kanıtlayan kaydolmuş olur. Bunu yalnızca kullanıcı listesinden öğrenirsiniz.',
+  'Selbstanmeldung': 'Kendi kendine kayıt',
+  'Ob sich Menschen hier selbst ein Konto anlegen können – und unter welchen Bedingungen.': 'İnsanların burada kendilerine hesap açıp açamayacağı – ve hangi koşullarda.',
+  'Aus': 'Kapalı',
+  'Antrag mit Freigabe': 'Onaylı başvuru',
+  'Offen mit Mailbestätigung': 'Posta doğrulamasıyla açık',
+  'Eingestellt ist „offen“, es gilt aber „Antrag mit Freigabe“: Ohne Systemversand gibt es keine Bestätigungsmail. Richten Sie ihn weiter unten ein.': '«Açık» ayarlanmış ancak «onaylı başvuru» geçerli: sistem gönderimi olmadan doğrulama iletisi olmaz. Aşağıdan yapılandırın.',
+  '„Offen“ verlangt einen Systemversand – ohne Bestätigungsmail könnte sich jeder ein Konto auf eine fremde Adresse anlegen.': '«Açık» bir sistem gönderimi gerektirir – doğrulama iletisi olmadan herkes başkasının adresine hesap açabilirdi.',
+  'Nur diese Mail-Domänen': 'Yalnızca bu posta alan adları',
+  'firma.de, tochter.de': 'sirket.com.tr, istirak.com.tr',
+  'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Boş bırakmak: her adres demektir. Bir işletme için tek başına en etkili ayar budur – kuruma ait olmayan başvuru aşamasına bile gelemez.',
+  'Datenschutzhinweis auf dem Formular': 'Formdaki veri koruma bilgilendirmesi',
+  'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Gönder düğmesinin üzerinde yer alır ve işaretlenmesi gerekir. Verileri kimin işlediğini ve nasıl sildirilebileceğini burada belirtin; varsa gizlilik politikanıza bağlantı verin.',
+  'Wird gesichert…': 'Kaydediliyor…',
+  'Gesichert.': 'Kaydedildi.',
+  'Offene Anträge': 'Bekleyen başvurular',
+  'Gestellt': 'Yapıldı',
+  'Adresse bestätigt': 'Adres doğrulandı',
+  'noch nicht': 'henüz değil',
+  'Antrag von {name} annehmen?': '{name} adlı kişinin başvurusu kabul edilsin mi?',
+  'Das Konto entsteht sofort. Das Kennwort hat dieser Mensch selbst gewählt – Sie bekommen es nicht zu sehen und brauchen es nicht.': 'Hesap hemen oluşur. Parolayı bu kişi kendisi seçti – siz onu görmezsiniz ve size gerekmez.',
+  'Diese Adresse ist NICHT bestätigt: Es ist nicht nachgewiesen, dass sie dem Antragsteller gehört. Geben Sie nur frei, wenn Sie wissen, wer das ist.': 'Bu adres doğrulanmış DEĞİL: başvurana ait olduğu kanıtlanmadı. Yalnızca kim olduğunu biliyorsanız onaylayın.',
+  'Annehmen': 'Kabul et',
+  'Antrag von {name} ablehnen?': '{name} adlı kişinin başvurusu reddedilsin mi?',
+  'Der Antrag wird gelöscht – nicht vermerkt. Eine Liste abgelehnter Bewerber führt dieser Dienst bewusst nicht.': 'Başvuru silinir, kaydedilmez. Bu hizmet reddedilen başvuruların listesini bilinçli olarak tutmaz.',
+  'Ablehnen': 'Reddet',
+  'Ablehnung mitteilen?': 'Ret bildirilsin mi?',
+  'Der Antragsteller bekommt eine kurze Nachricht ohne Begründung. Bei einem Antrag, den offensichtlich niemand gestellt hat, lassen Sie es besser.': 'Başvuran, gerekçesiz kısa bir ileti alır. Açıkça kimsenin yapmadığı bir başvuruda bunu yapmamak daha iyidir.',
+  'Mitteilen': 'Bildir',
+  'Ohne Nachricht': 'İletisiz',
+  'Die Verbindung steht und die Anmeldung wird angenommen.': 'Bağlantı kuruldu ve kimlik bilgileri kabul ediliyor.',
+  'Absender des Dienstes': 'Hizmetin gönderen adresi',
+  'Über dieses Postfach verschickt der Dienst seine eigenen Nachrichten – den Bestätigungslink vor allem. Nehmen Sie ein eigenes Postfach dafür, kein persönliches.': 'Hizmet kendi iletilerini – özellikle doğrulama bağlantısını – bu posta kutusu üzerinden gönderir. Bunun için kişisel değil, ayrı bir posta kutusu kullanın.',
+  'Systemversand benutzen': 'Sistem gönderimini kullan',
+  'Sendeserver (SMTP)': 'Giden sunucu (SMTP)',
+  'Port': 'Bağlantı noktası',
+  'Verschlüsselt ab Verbindungsaufbau (Port 465)': 'Bağlantı kurulumundan itibaren şifreli (bağlantı noktası 465)',
+  'Aus heißt STARTTLS auf Port 587 – ebenfalls verschlüsselt. Unverschlüsselt versendet dieser Dienst nicht.': 'Kapalı, 587 numaralı bağlantı noktasında STARTTLS demektir – o da şifrelidir. Bu hizmet şifresiz göndermez.',
+  'Benutzername': 'Kullanıcı adı',
+  'Kennwort (hinterlegt)': 'Parola (kayıtlı)',
+  'Absenderadresse': 'Gönderen adresi',
+  'Verbindung prüfen': 'Bağlantıyı sına',
 
   // --- packages/web/src/components/RichTextEditor.tsx ---
   'Link einfügen': 'Bağlantı ekle',
@@ -899,7 +1018,6 @@ export const KATALOG: Katalog = {
   'Adresse des neuen Nutzers': 'Yeni kullanıcının adresi',
   'Darf verwalten': 'Yönetebilir',
   'Angelegt': 'Oluşturuldu',
-  'Stand': 'Durum',
   'Verwalter': 'Yönetici',
   'Zwei-Faktor-Anmeldung eingeschaltet': 'İki adımlı giriş açık',
   '2 Faktoren': '2 adım',
@@ -932,7 +1050,6 @@ export const KATALOG: Katalog = {
   'Vorlage:': 'Şablon:',
   'Active Directory': 'Active Directory',
   'OpenLDAP': 'OpenLDAP',
-  'Port': 'Bağlantı noktası',
   'Verschlüsselung': 'Şifreleme',
   'LDAPS (verschlüsselt ab Verbindungsaufbau)': 'LDAPS (baştan itibaren şifreli)',
   'StartTLS (schaltet um)': 'StartTLS (sonradan geçer)',
@@ -940,7 +1057,6 @@ export const KATALOG: Katalog = {
   'Ohne Verschlüsselung geht das Kennwort des Dienstkontos im Klartext über die Leitung. Nur vertretbar, wenn diese Leitung den Rechner nie verlässt.': 'Şifreleme olmadan hizmet hesabının parolası hat üzerinden açık gider. Yalnızca bu hat makineden hiç çıkmıyorsa savunulabilir.',
   'Zertifikat prüfen': 'Sertifikayı doğrula',
   'Anmelde-DN des Dienstkontos': 'Hizmet hesabının bağlanma DN\'si',
-  'Kennwort (hinterlegt)': 'Parola (kayıtlı)',
   'Ein Konto, das im Verzeichnis nur lesen darf – kein Administratorkonto. Es steht verschlüsselt auf dem Server und geht nie wieder heraus.': 'Dizinde yalnızca okuma yetkisi olan bir hesap – yönetici hesabı değil. Sunucuda şifreli durur ve bir daha dışarı çıkmaz.',
   'Suchbereich (Basis-DN)': 'Arama alanı (temel DN)',
   'Grundfilter': 'Temel süzgeç',
@@ -949,7 +1065,6 @@ export const KATALOG: Katalog = {
   'Anzeigename': 'Görünen ad',
   'Mobil': 'Cep',
   'Abteilung': 'Departman',
-  'Verbindung prüfen': 'Bağlantıyı sına',
 
   // --- packages/web/src/components/WartendModal.tsx ---
   'Nichts geplant und nichts zurückgestellt.': 'Ne zamanlanmış ne ertelenmiş bir şey var.',
@@ -994,6 +1109,10 @@ export const KATALOG: Katalog = {
   'Noch keine. Sie erscheinen von selbst, sobald Ihnen jemand unterschrieben schreibt.': 'Henüz yok. Biri size imzalı yazar yazmaz kendiliğinden görünürler.',
   'Eigene Schlüsseldatei einlesen (.p12)': 'Kendi anahtar dosyanızı okut (.p12)',
   'Fremdes Zertifikat aufnehmen': 'Başkasının sertifikasını ekle',
+
+  // --- packages/web/src/components/Zugangsteile.tsx ---
+  'Anmelden oder Konto anlegen': 'Oturum aç veya hesap oluştur',
+  'Konto anlegen': 'Hesap oluştur',
 
   // --- packages/web/src/composeHelpers.ts ---
   'Nachfrage': 'Hatırlatma',
@@ -1137,7 +1256,6 @@ export const KATALOG: Katalog = {
   'Jetzt abrufen': 'Şimdi al',
 
   // --- packages/desktop/src/kennwortFenster.ts ---
-  'Kennwort wiederholen': 'Parolayı yineleyin',
   'Bitte mindestens acht Zeichen.': 'En az sekiz karakter.',
   'Die beiden Eingaben stimmen nicht überein.': 'İki giriş birbirini tutmuyor.',
   'Kennwort für die Sicherung': 'Yedek için parola',
@@ -1162,7 +1280,6 @@ export const KATALOG: Katalog = {
   'Wenn Sie das nicht möchten, lässt es sich unter Extras → „Beim Schließen in den Infobereich" abschalten.': 'Bunu istemiyorsanız Araçlar → “Kapatınca bildirim alanına küçült” altından kapatabilirsiniz.',
   'Lieber beenden': 'Çıkmayı yeğlerim',
   'Die Oberfläche ließ sich nicht laden. Meist ist der lokale Server nicht mehr erreichbar – ein Neustart der Anwendung behebt das.': 'Arayüz yüklenemedi. Çoğunlukla yerel sunucuya artık erişilemiyordur; uygulamayı yeniden başlatmak bunu giderir.',
-  'Der lokale Server auf Port {port} ließ sich nicht starten. Meist läuft bereits eine zweite Instanz von Energy Mail – oder ein "npm run dev:server" aus dem Quellbaum.': '{port} kapısındaki yerel sunucu başlatılamadı. Çoğunlukla ikinci bir Energy Mail örneği çalışıyordur – ya da kaynak ağacından bir “npm run dev:server”.',
 
   // --- packages/desktop/src/menu.ts ---
   '&Nachricht': '&İleti',
@@ -1187,6 +1304,7 @@ export const KATALOG: Katalog = {
   'Einstellungen…': 'Ayarlar…',
   'Einstellungen sichern…': 'Ayarların yedeğini al…',
   'Sicherung einlesen…': 'Yedeği geri yükle…',
+  'Server wechseln…': 'Sunucuyu değiştir…',
   '&Hilfe': '&Yardım',
   'Projektseite öffnen': 'Proje sayfasını aç',
   'Fehlerbericht erzeugen…': 'Hata raporu oluştur…',
@@ -1203,7 +1321,25 @@ export const KATALOG: Katalog = {
   'Keine Vorschläge': 'Öneri yok',
 
   // --- packages/desktop/src/safeStorageKey.ts ---
-  'Das Betriebssystem stellt gerade keine Verschlüsselung bereit (safeStorage nicht verfügbar). Zugangsdaten werden nicht gespeichert.': 'İşletim sistemi şu anda şifreleme sunmuyor (safeStorage kullanılamıyor). Kimlik bilgileri saklanmayacak.',
+
+  // --- packages/desktop/src/serverFenster.ts ---
+  'Energy Mail einrichten': 'Energy Mail kurulumu',
+  'Mit welchem Server arbeiten Sie?': 'Hangi sunucuyla çalışıyorsunuz?',
+  'Energy Mail holt Ihre Postfächer von einem Server. Fragen Sie die Adresse bei dem, der ihn betreibt – es ist dieselbe, unter der Sie im Browser arbeiten.': 'Energy Mail posta kutularınızı bir sunucudan alır. Adresi işletene sorun – tarayıcıda çalıştığınız adresin aynısıdır.',
+  'Adresse des Servers': 'Sunucunun adresi',
+  'Verbinden': 'Bağlan',
+  'Verbunden – Energy Mail {fassung}': 'Bağlandı – Energy Mail {fassung}',
+  'Ohne Adresse geht es nicht.': 'Adres olmadan olmaz.',
+
+  // --- packages/desktop/src/serverwahl.ts ---
+  '„{eingabe}“ ist keine brauchbare Adresse. Erwartet wird etwas wie https://mail.firma.de': '«{eingabe}» kullanılabilir bir adres değil. https://mail.sirket.com.tr gibi bir şey bekleniyor',
+  'Nur http und https sind hier vorgesehen.': 'Burada yalnızca http ve https öngörülmüştür.',
+  'Ohne Verschlüsselung (http://) geht das nur zu einem Server auf diesem Rechner. Über eine Leitung ginge Ihr Kennwort im Klartext – tragen Sie https:// ein.': 'Şifreleme olmadan (http://) bu yalnızca bu bilgisayardaki bir sunucuyla olur. Bir hat üzerinden parolanız düz metin olarak giderdi – https:// yazın.',
+  'Der Server antwortet nicht. Stimmt die Adresse, und ist der Rechner erreichbar?': 'Sunucu yanıt vermiyor. Adres doğru mu ve bilgisayara erişilebiliyor mu?',
+  'Dort antwortet etwas, aber kein Energy Mail (Status {status}).': 'Orada bir şey yanıt veriyor ama Energy Mail değil (durum {status}).',
+  'Der Server meldet, dass er gerade nicht arbeiten kann.': 'Sunucu şu anda çalışamadığını bildiriyor.',
+  'Dort antwortet etwas, aber kein Energy Mail.': 'Orada bir şey yanıt veriyor ama Energy Mail değil.',
+  'Keine Verbindung: {grund}': 'Bağlantı yok: {grund}',
 
   // --- packages/desktop/src/updateSignatur.ts ---
   'Die Freigabe gilt für Fassung {freigegeben}, geladen wurde {geladen}.': 'Yayım {freigegeben} sürümü içindir, ancak {geladen} indirildi.',
@@ -1277,6 +1413,9 @@ export const KATALOG: Katalog = {
   'Zu dieser Nummer gibt es keinen Eintrag.': 'Bu numaraya ait bir kayıt yok.',
   'Diese Nachricht stimmt nicht mehr mit ihrem Abdruck überein - sie wurde verändert.': 'Bu ileti artık kendi özetiyle uyuşmuyor – değiştirilmiş.',
 
+  // --- packages/server/src/download.ts ---
+  'Diese Datei gibt es hier nicht.': 'Böyle bir dosya burada yok.',
+
   // --- packages/server/src/etikettenStore.ts ---
   'Dieses Etikett gibt es nicht mehr.': 'Bu etiket artık yok.',
 
@@ -1302,6 +1441,41 @@ export const KATALOG: Katalog = {
 
   // --- packages/server/src/nutzer/haken.ts ---
   'Kein Nutzer zugeordnet': 'Hiçbir kullanıcı atanmadı',
+
+  // --- packages/server/src/nutzer/kennwortVergessen.ts ---
+  'Neues Kennwort für Energy Mail': 'Energy Mail için yeni parola',
+  'Guten Tag,': 'Merhaba,',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Mit diesem Link vergeben Sie eines:': 'bu hesap için yeni bir parola istendi. Bu bağlantıyla bir parola belirleyin:',
+  'Der Link gilt eine Stunde und lässt sich nur einmal verwenden.': 'Bağlantı bir saat geçerlidir ve yalnızca bir kez kullanılabilir.',
+  'Ihr zweiter Faktor bleibt unverändert - Sie werden beim Anmelden weiterhin nach Ihrem Code gefragt.': 'İkinci faktörünüz değişmez - oturum açarken kodunuz yine sorulacaktır.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne diesen Link ändert sich an Ihrem Kennwort nichts, und der Link verfällt von selbst.': 'Bu siz değil miydiniz? O halde hiçbir şey yapmayın. Bu bağlantı olmadan parolanızda hiçbir şey değişmez ve bağlantı kendiliğinden geçersiz olur.',
+  'für dieses Konto wurde ein neues Kennwort angefordert. Der Zugang ist allerdings gesperrt - ein neues Kennwort würde daran nichts ändern.': 'bu hesap için yeni bir parola istendi. Ancak erişim engellenmiş durumda - yeni bir parola bunu değiştirmez.',
+  'Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Lütfen bu hizmeti işletene başvurun.',
+  'für diese Adresse wurde ein neues Kennwort angefordert. Zu ihr besteht hier allerdings kein Zugang - möglicherweise haben Sie eine andere Adresse verwendet.': 'bu adres için yeni bir parola istendi. Ancak burada bu adrese ait bir erişim yok - başka bir adres kullanmış olabilirsiniz.',
+  'Waren Sie das nicht, brauchen Sie nichts zu tun. Es wurde nichts angelegt und nichts gespeichert.': 'Siz değilseniz yapmanız gereken bir şey yok. Hiçbir şey oluşturulmadı ve hiçbir şey kaydedilmedi.',
+  'An diesem Dienst lässt sich das Kennwort nicht selbst zurücksetzen. Bitte wenden Sie sich an den Betreiber.': 'Bu hizmette parola kendiliğinden sıfırlanamaz. Lütfen işletene başvurun.',
+  'Das ist keine brauchbare Mailadresse.': 'Bu kullanılabilir bir posta adresi değil.',
+  'Die Nachricht konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'İleti gönderilemedi. Lütfen bu hizmeti işletene başvurun.',
+  'Dieser Link gilt nicht mehr. Fordern Sie bitte einen neuen an.': 'Bu bağlantı artık geçerli değil. Lütfen yenisini isteyin.',
+
+  // --- packages/server/src/nutzer/registrierung.ts ---
+  'Ihre Anmeldung bei Energy Mail bestätigen': 'Energy Mail kaydınızı doğrulayın',
+  'für diese Adresse wurde ein Zugang zu Energy Mail beantragt. Bestätigen Sie mit diesem Link, dass die Adresse Ihnen gehört:': 'bu adres için Energy Mail erişimi talep edildi. Adresin size ait olduğunu bu bağlantıyla doğrulayın:',
+  'Der Link gilt 24 Stunden.': 'Bağlantı 24 saat geçerlidir.',
+  'Waren Sie das nicht? Dann tun Sie bitte nichts. Ohne Bestätigung entsteht kein Zugang, und der Antrag wird nach einer Woche von selbst gelöscht.': 'Bu siz değil miydiniz? O halde hiçbir şey yapmayın. Doğrulama olmadan erişim oluşmaz ve başvuru bir hafta sonra kendiliğinden silinir.',
+  'Zu dieser Adresse besteht bereits ein Zugang': 'Bu adres için zaten bir erişim var',
+  'für diese Adresse wurde eben ein Zugang zu Energy Mail beantragt. Es besteht allerdings schon einer - melden Sie sich einfach wie gewohnt an.': 'bu adres için az önce Energy Mail erişimi talep edildi. Ancak zaten bir erişim var - her zamanki gibi oturum açmanız yeterli.',
+  'Kennwort vergessen? Wenden Sie sich an den Betreiber dieses Dienstes; er kann es zurücksetzen.': 'Parolanızı mı unuttunuz? Bu hizmeti işletene başvurun; sıfırlayabilir.',
+  'Waren Sie das nicht, dann hat jemand Ihre Adresse eingetragen. An Ihrem Zugang ändert das nichts - Ihr Kennwort ist davon unberührt.': 'Siz değilseniz, birisi adresinizi girmiş demektir. Bu, erişiminizde hiçbir şeyi değiştirmez - parolanız etkilenmez.',
+  'An diesem Dienst kann man sich nicht selbst anmelden.': 'Bu hizmette kendi kendine kayıt yapılamaz.',
+  'Bitte bestätigen Sie, dass Sie die Datenschutzhinweise gelesen haben.': 'Lütfen veri koruma bilgilendirmesini okuduğunuzu onaylayın.',
+  'Die Bestätigungsmail konnte nicht verschickt werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.': 'Doğrulama iletisi gönderilemedi. Lütfen bu hizmeti işletene başvurun.',
+  'Dieser Link gilt nicht mehr. Bitte melden Sie sich noch einmal an.': 'Bu bağlantı artık geçerli değil. Lütfen yeniden başvurun.',
+  'Diesen Antrag gibt es nicht.': 'Böyle bir başvuru yok.',
+  'Ihr Zugang zu Energy Mail ist eingerichtet': 'Energy Mail erişiminiz hazır',
+  'Ihr Zugang ist jetzt freigeschaltet. Sie können sich mit Ihrer Adresse und dem Kennwort anmelden, das Sie bei der Anmeldung gewählt haben.': 'Erişiminiz artık açıldı. Adresiniz ve başvuru sırasında seçtiğiniz parolayla oturum açabilirsiniz.',
+  'Ihr Antrag auf einen Zugang': 'Erişim başvurunuz',
+  'Ihr Antrag auf einen Zugang zu Energy Mail wurde nicht bewilligt. Bei Rückfragen wenden Sie sich bitte an den Betreiber dieses Dienstes.': 'Energy Mail erişimi başvurunuz kabul edilmedi. Sorularınız için lütfen bu hizmeti işletene başvurun.',
 
   // --- packages/server/src/nutzer/verwaltung.ts ---
   'Dafür fehlt Ihnen die Berechtigung.': 'Bunun için yetkiniz yok.',

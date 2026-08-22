@@ -400,6 +400,214 @@ export interface IchAuskunft {
    * (siehe /ich); die Oberfläche blendet danach nur ein oder aus.
    */
   oauthMoeglich?: boolean;
+  /**
+   * Wie viele Registrierungsanträge auf eine Entscheidung warten - nur für Verwalter.
+   *
+   * Der Server setzt sie für alle anderen auf 0, ohne überhaupt nachzusehen. Die
+   * Oberfläche zeigt damit eine Zahl am Verwaltungsknopf: Ohne sie merkte niemand, dass
+   * jemand wartet, und ein Antrag bliebe liegen, bis der Mensch aufgibt.
+   */
+  wartendeAntraege?: number;
+}
+
+// --- Die Desktop-Fassung zum Herunterladen ---
+
+export interface Downloaddatei {
+  name: string;
+  groesse: number;
+  /** ISO-Zeitpunkt der letzten Änderung. */
+  stand: string;
+  system: 'windows' | 'mac' | 'linux' | 'unbekannt';
+}
+
+/** Was der Betreiber bereitgestellt hat. Leere Liste heißt: nichts. */
+export function downloads(): Promise<{ dateien: Downloaddatei[] }> {
+  return request('/download');
+}
+
+/**
+ * Die Adresse, unter der eine Datei liegt.
+ *
+ * Der Browser lädt sie selbst - über ein `<a download>` und nicht über `request()`. Bei
+ * einer Datei von hundert Megabyte wäre der Umweg über den Speicher der Anwendung
+ * sinnlos: Der Browser kann das besser, zeigt einen Fortschritt und legt sie dorthin, wo
+ * der Mensch seine Dateien erwartet.
+ *
+ * `mitZugang` hängt das Geheimnis an, wo es eines gibt - in der Hülle. Dort wird dieser
+ * Weg zwar nicht gebraucht, aber eine Adresse, die je nach Betriebsart anders gebaut
+ * werden müsste, ist eine Adresse, die irgendwann falsch gebaut wird.
+ */
+export function downloadAdresse(name: string): string {
+  return mitZugang(`${API_BASE}/download/${encodeURIComponent(name)}`);
+}
+
+export interface Downloadverwaltung {
+  /** Wohin die Datei gehört - ein Pfad auf dem Rechner, auf dem der Dienst läuft. */
+  ordner: string;
+  vorhanden: boolean;
+  endungen: string[];
+  dateien: Downloaddatei[];
+}
+
+export function verwaltungDownload(): Promise<Downloadverwaltung> {
+  return request('/verwaltung/download');
+}
+
+// --- Selbstregistrierung ---
+
+/** Wie sich jemand an diesem Dienst selbst anmelden kann - oder eben nicht. */
+export interface Registrierungslage {
+  moeglich: boolean;
+  /** `aus`, `freigabe` (ein Verwalter entscheidet) oder `offen` (Mailbestätigung genügt). */
+  betriebsart: 'aus' | 'freigabe' | 'offen';
+  /** Auf diese Mail-Domänen ist die Anmeldung begrenzt. Leer heißt: keine Grenze. */
+  domaenen: string[];
+  /** Der Datenschutzhinweis, den der Betreiber hinterlegt hat. */
+  hinweis: string;
+  kennwortMindestlaenge: number;
+  /** Ob eine Bestätigungsmail kommt - danach richtet sich, was hinterher dasteht. */
+  mitBestaetigung: boolean;
+  /**
+   * Ob sich ein vergessenes Kennwort selbst zurücksetzen lässt.
+   *
+   * Hängt am Systemversand: Ohne Mail gibt es keinen Nachweis, und dann bleibt es beim
+   * Verwalter. Die Oberfläche zeigt den Link nur, wenn er auch irgendwohin führt.
+   */
+  kennwortZuruecksetzbar: boolean;
+}
+
+/**
+ * Ein neues Kennwort anfordern.
+ *
+ * Die Antwort ist immer dieselbe, gleich ob es die Adresse gibt - wer sie besitzt, bekommt
+ * eine Mail. Alles andere wäre ein Weg, mit dem sich durchprobieren lässt, wer hier ein
+ * Konto hat.
+ */
+export function kennwortVergessen(email: string): Promise<{ ok: true }> {
+  return request('/kennwort/vergessen', { method: 'POST', body: JSON.stringify({ email }) });
+}
+
+/**
+ * Das neue Kennwort setzen - mit der Marke aus der Mail.
+ *
+ * `zweiFaktor` sagt, ob an diesem Konto einer eingerichtet ist. Er bleibt bestehen, und
+ * das gehört danebengeschrieben: Wer sein Kennwort zurückgesetzt hat und dann unerwartet
+ * nach einem Code gefragt wird, hält es für einen Fehler.
+ */
+export function kennwortNeu(
+  marke: string,
+  kennwort: string,
+): Promise<{ ok: true; zweiFaktor: boolean }> {
+  return request('/kennwort/neu', { method: 'POST', body: JSON.stringify({ marke, kennwort }) });
+}
+
+/**
+ * Ohne Anmeldung abrufbar - und das muss so sein: Diese Auskunft entscheidet, ob das
+ * Anmeldefenster überhaupt einen Weg zur Registrierung anbietet.
+ */
+export function registrierungslage(): Promise<Registrierungslage> {
+  return request('/registrierung');
+}
+
+export function registrieren(eingabe: {
+  email: string;
+  kennwort: string;
+  bemerkung?: string;
+  hinweisGelesen: boolean;
+}): Promise<{ ok: true; art: 'bestaetigen' | 'wartet' }> {
+  return request('/registrierung', { method: 'POST', body: JSON.stringify(eingabe) });
+}
+
+/**
+ * Den Bestätigungslink einlösen.
+ *
+ * `fertig` heißt: Das Konto steht, jetzt anmelden. `wartet` heißt: Die Adresse ist
+ * nachgewiesen, es fehlt die Freigabe durch einen Verwalter.
+ */
+export function registrierungBestaetigen(
+  marke: string,
+): Promise<{ bestaetigt: true; art: 'fertig' | 'wartet'; email: string }> {
+  return request('/registrierung/bestaetigen', {
+    method: 'POST',
+    body: JSON.stringify({ marke }),
+  });
+}
+
+/** Ein Antrag, wie ihn ein Verwalter zu sehen bekommt - ohne Kennwort, ohne Marke. */
+export interface Antrag {
+  id: string;
+  email: string;
+  angelegt: string;
+  /** Wann die Adresse nachgewiesen wurde. Fehlt: noch nicht bestätigt. */
+  bestaetigt?: string;
+  bemerkung?: string;
+}
+
+export interface Systemmail {
+  aktiv: boolean;
+  host: string;
+  port: number;
+  /** Von der ersten Sekunde an verschlüsselt (465) statt STARTTLS (587). */
+  secure: boolean;
+  benutzer: string;
+  absender: string;
+  absenderName: string;
+  /** Ob ein Kennwort hinterlegt ist - das Kennwort selbst geht nie hinaus. */
+  kennwortHinterlegt?: boolean;
+}
+
+export interface Registrierungsverwaltung {
+  einstellungen: {
+    betriebsart: 'aus' | 'freigabe' | 'offen';
+    domaenen: string[];
+    hinweis: string;
+  };
+  /** Was tatsächlich gilt - ohne Systemversand fällt „offen" auf „freigabe" zurück. */
+  wirksam: 'aus' | 'freigabe' | 'offen';
+  systemmail: Systemmail;
+  antraege: Antrag[];
+}
+
+export function verwaltungRegistrierung(): Promise<Registrierungsverwaltung> {
+  return request('/verwaltung/registrierung');
+}
+
+export function verwaltungRegistrierungSetzen(
+  wert: Partial<Registrierungsverwaltung['einstellungen']>,
+): Promise<{ einstellungen: Registrierungsverwaltung['einstellungen']; wirksam: string }> {
+  return request('/verwaltung/registrierung', { method: 'PUT', body: JSON.stringify(wert) });
+}
+
+export function verwaltungAntragFreigeben(id: string): Promise<{ nutzer: VerwalteterNutzer }> {
+  return request(`/verwaltung/registrierung/antraege/${encodeURIComponent(id)}/freigeben`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function verwaltungAntragAblehnen(
+  id: string,
+  melden: boolean,
+): Promise<{ entfernt: boolean }> {
+  return request(
+    `/verwaltung/registrierung/antraege/${encodeURIComponent(id)}?melden=${melden ? 'true' : 'false'}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function verwaltungSystemmailSetzen(
+  wert: Partial<Systemmail> & { kennwort?: string | null },
+): Promise<Systemmail> {
+  return request('/verwaltung/systemmail', { method: 'PUT', body: JSON.stringify(wert) });
+}
+
+export function verwaltungSystemmailPruefen(
+  wert: Partial<Systemmail> & { kennwort?: string },
+): Promise<{ ok: true } | { ok: false; fehler: string }> {
+  return request('/verwaltung/systemmail/pruefen', {
+    method: 'POST',
+    body: JSON.stringify(wert),
+  });
 }
 
 /**
@@ -492,8 +700,22 @@ export interface Anmeldebefund {
   marke?: string;
 }
 
-export function anmelden(email: string, kennwort: string): Promise<Anmeldebefund> {
-  return request('/anmelden', { method: 'POST', body: JSON.stringify({ email, kennwort }) });
+/**
+ * @param angemeldetBleiben Ob die Anmeldung einen Neustart überleben soll.
+ *
+ * Ohne das ist der Keks ein Sitzungskeks: Der Browser wirft ihn weg, sobald er schließt.
+ * Mit gilt er ein Jahr, und die Sitzung kennt weder Ruhefrist noch Untätigkeitssperre -
+ * beides zusammen, sonst stünde beim nächsten Start doch wieder die Kennwortabfrage da.
+ */
+export function anmelden(
+  email: string,
+  kennwort: string,
+  angemeldetBleiben = false,
+): Promise<Anmeldebefund> {
+  return request('/anmelden', {
+    method: 'POST',
+    body: JSON.stringify({ email, kennwort, angemeldetBleiben }),
+  });
 }
 
 /** Die zweite Stufe: das Einmalkennwort oder ein Wiederherstellungscode. */
@@ -933,6 +1155,10 @@ export interface DatenschutzErhoben {
   archivKonten: number;
   verschluesselungBereit: boolean;
   sperrfristMinuten: number;
+  /** Was bei der Selbstanmeldung tatsächlich gilt - nicht, was eingestellt ist. */
+  selbstanmeldung: 'aus' | 'freigabe' | 'offen';
+  selbstanmeldungDomaenen: string[];
+  offeneAntraege: number;
 }
 
 export interface DatenschutzBefund {

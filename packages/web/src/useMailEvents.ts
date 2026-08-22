@@ -100,6 +100,27 @@ function verbinde(): void {
       // Unlesbare Nachricht ignorieren statt die Verbindung abzureißen.
       return;
     }
+    /*
+     * Die Hülle bekommt neue Post gemeldet, bevor irgendjemand hier zuhört.
+     *
+     * Seit sie keinen eigenen Server mehr mitbringt, kommen die Ereignisse hier an und
+     * nicht mehr in ihrem Hauptprozess - ohne diese Zeile gäbe es in der Desktop-Fassung
+     * keine Meldungen des Betriebssystems mehr. Ob daraus tatsächlich eine wird,
+     * entscheidet drüben notifications.ts: Bei einem Fenster im Vordergrund unterbleibt
+     * sie, denn dort sieht man die Post ohnehin in der Liste.
+     *
+     * Vor der Verteilung an die Zuhörer und in einem eigenen try: Ein Fehler auf der
+     * Brücke - eine ältere Hülle, die diesen Weg noch nicht kennt - darf die
+     * Nachrichtenliste nicht mitnehmen.
+     */
+    if (ereignis.type === 'new-mail') {
+      try {
+        window.energyMail?.neuePost?.(ereignis);
+      } catch {
+        // Im Browser gibt es die Brücke nicht, und das ist der Regelfall.
+      }
+    }
+
     // Über eine Kopie: ein Zuhörer, der sich währenddessen abmeldet, dürfte sonst die
     // Schleife durcheinanderbringen.
     for (const hoere of [...zuhoerer]) hoere(ereignis);

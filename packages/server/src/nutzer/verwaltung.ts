@@ -19,6 +19,7 @@ import {
 } from './nutzerStore.js';
 import { verpackeNutzerschluessel } from './schluesselHuelle.js';
 import { beendeAlleSitzungen, sperreAlleSitzungen } from './sitzung.js';
+import { entwerteKennwortmarken } from './kennwortVergessen.js';
 import { entferneNutzerdaten } from './umzug.js';
 import { freigabenZuNutzer } from './freigaben.js';
 import {
@@ -283,6 +284,13 @@ export function registriereVerwaltung(app: FastifyInstance): void {
       if (request.body?.kennwortZuruecksetzen) {
         neuesKennwort = frischesKennwort();
         setzeKennwort(ziel, neuesKennwort);
+        /*
+         * Und was der Nutzer sich selbst an Zuruecksetzungen bestellt hat, gilt nicht
+         * mehr. Sonst kann eine Marke aus seinem Postfach das Kennwort ueberschreiben,
+         * das der Verwalter gerade vergeben hat - und das waere ausgerechnet in dem Fall
+         * fatal, in dem hier zurueckgesetzt wird, weil ein Konto uebernommen wurde.
+         */
+        entwerteKennwortmarken(ziel);
         /*
          * Und überall abmelden - aus demselben Grund wie beim selbst geänderten Kennwort:
          * Ein Wechsel, nach dem eine fremde Sitzung offen bleibt, ist wirkungslos.
