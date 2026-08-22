@@ -77,6 +77,26 @@ const ANTRAEGE_MAX = 5;
 const ANTRAEGE_FENSTER_MS = 60 * 60 * 1000;
 
 /**
+ * Und wie oft das Formular ueberhaupt abgeschickt werden darf: dreissigmal in der Stunde.
+ *
+ * ## Warum es zwei Zaehler braucht und nicht einen
+ *
+ * Weil "Antrag" und "Anfrage" nicht dasselbe sind. Der strenge Zaehler oben gilt dem, was
+ * WIRKUNG hat: ein angelegter Antrag, eine Mail an eine Adresse, die der Anfragende
+ * bestimmt. Fuenf je Stunde sind dafuer reichlich.
+ *
+ * Nur wurde bis hierher schon das blosse Abschicken gezaehlt - auch dann, wenn das
+ * Formular gar nicht durchkam. Wer den Datenschutzhaken vergisst, sich beim Kennwort
+ * vertippt und dann merkt, dass seine Wunschadresse eine Wegwerfadresse ist, hat drei
+ * Versuche verbraucht, ohne dass irgendetwas passiert waere. Beim vierten sperrt ihn der
+ * Dienst fuer eine Stunde aus - und das trifft genau den, der es ehrlich versucht.
+ *
+ * Gegen die blosse Last steht deshalb ein eigener, weiter Zaehler. Er faengt den, der das
+ * Formular in einer Schleife anwirft, und laesst den in Ruhe, der sich dreimal vertippt.
+ */
+const ANFRAGEN_MAX = 30;
+
+/**
  * Und wie oft ein Bestätigungslink probiert werden darf: zwanzigmal in der Stunde.
  *
  * Die Marke ist 32 zufällige Bytes; sie zu erraten ist aussichtslos, und diese Bremse
@@ -238,11 +258,18 @@ export function registriereSelbstregistrierung(app: FastifyInstance): void {
           .send({ error: t('An diesem Dienst kann man sich nicht selbst anmelden.') });
       }
 
-      if (!ipVersuch(request, 'registrierung', ANTRAEGE_MAX, ANTRAEGE_FENSTER_MS)) {
+      /*
+       * Der weite Zaehler zuerst - er gilt dem blossen Abschicken.
+       *
+       * Der strenge steht weiter unten und zaehlt erst, wenn tatsaechlich etwas entsteht.
+       * Die Reihenfolge ist der Punkt: Wer hier haengenbleibt, hat das Formular dreissigmal
+       * in einer Stunde abgeschickt; das tut kein Mensch.
+       */
+      if (!ipVersuch(request, 'registrierung-anfragen', ANFRAGEN_MAX, ANTRAEGE_FENSTER_MS)) {
         protokolliere(
           'warnung',
           'registrierung',
-          `Zu viele Anmeldeversuche aus ${kuerzeIpAdresse(request.ip)}.`,
+          `Zu viele Aufrufe des Anmeldeformulars aus ${kuerzeIpAdresse(request.ip)}.`,
         );
         return reply.code(429).send({
           error: t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.'),
@@ -275,6 +302,31 @@ export function registriereSelbstregistrierung(app: FastifyInstance): void {
           return reply.code(400).send({ error: err.message });
         }
         throw err;
+      }
+
+      /*
+       * Jetzt erst der strenge Zaehler - hier steht fest, dass etwas hinausgeht.
+       *
+       * Alles davor (Haken, Kennwortlaenge, Wegwerfadresse, Hoechstzahl, gesperrte
+       * Domaene) hat abgewiesen, ohne dass eine Mail entstand. Das darf nicht dasselbe
+       * kosten wie ein Antrag, der wirklich eine fremde Adresse anschreibt - sonst
+       * sperrt sich der aus, der es ehrlich versucht und sich dreimal vertippt.
+       *
+       * Greift die Bremse hier doch, muss ein eben angelegter Antrag wieder weg: Sonst
+       * staende er im Weg, ohne dass je eine Mail dazu hinausging.
+       */
+      if (!ipVersuch(request, 'registrierung', ANTRAEGE_MAX, ANTRAEGE_FENSTER_MS)) {
+        if (aufnahme.art === 'bestaetigen' || aufnahme.art === 'wartet') {
+          entferneAntrag(aufnahme.antrag.id);
+        }
+        protokolliere(
+          'warnung',
+          'registrierung',
+          `Zu viele Anmeldeversuche aus ${kuerzeIpAdresse(request.ip)}.`,
+        );
+        return reply.code(429).send({
+          error: t('Zu viele Versuche von dieser Verbindung. Bitte in einer Stunde noch einmal probieren.'),
+        });
       }
 
       /*
