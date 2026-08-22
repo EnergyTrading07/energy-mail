@@ -521,7 +521,7 @@ nach dem dritten Mal ab.
 2. Auf dem Server selbst:
 
 ```bash
-docker compose exec dienst node dist/nutzerWerkzeug.js zweifaktor-aus anna@beispiel.de
+docker compose exec dienst node packages/server/dist/nutzerWerkzeug.js zweifaktor-aus anna@beispiel.de
 ```
 
 Der zweite Weg ist der letzte Ausweg und wird gebraucht: Wenn der **einzige** Verwalter

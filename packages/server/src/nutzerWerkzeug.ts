@@ -35,8 +35,8 @@ import { EINPLATZ_NUTZER } from './nutzer/kontext.js';
  * Ein Werkzeug, das auf dem Server läuft, hat dagegen die einzige Berechtigung, auf die
  * es ankommt: wer es aufrufen kann, sitzt ohnehin schon am Rechner.
  *
- *   docker compose exec dienst node dist/nutzerWerkzeug.js liste
- *   docker compose exec dienst node dist/nutzerWerkzeug.js anlegen anna@beispiel.de
+ *   docker compose exec dienst node packages/server/dist/nutzerWerkzeug.js liste
+ *   docker compose exec dienst node packages/server/dist/nutzerWerkzeug.js anlegen anna@beispiel.de
  *
  * Der Masterschlüssel wird gebraucht: ein Nutzer entsteht mit seinem Schlüssel, und der
  * liegt verpackt (siehe nutzer/schluesselHuelle.ts).
