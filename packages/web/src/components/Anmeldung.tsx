@@ -194,7 +194,15 @@ export function Anmeldung({ onAngemeldet, lage, onWechsel }: Props) {
       <form className="anmeldung-karte" onSubmit={abschicken}>
         <Zugangsmarke />
 
-        {lage && <Zugangsumschalter aktiv="anmelden" onWechsel={(w) => w === 'registrieren' && onWechsel(w)} />}
+        {/*
+          Der Umschalter haengt an `moeglich`, der Weg zum Kennwort weiter unten an
+          `kennwortZuruecksetzbar` - zwei Fragen, zwei Antworten. Vorher hing beides an
+          derselben Bedingung, und wo der Verwalter die Konten anlegt, fehlte damit auch
+          der Weg bei einem vergessenen Kennwort.
+        */}
+        {lage?.moeglich && (
+          <Zugangsumschalter aktiv="anmelden" onWechsel={(w) => w === 'registrieren' && onWechsel(w)} />
+        )}
 
         <label htmlFor="anmeldung-email">{t('Adresse')}</label>
         <input

@@ -154,6 +154,23 @@ await pruefe('der Weg zum vergessenen Kennwort steht da und meldet sich', async 
   assert.deepEqual(gerufen, ['kennwort']);
 });
 
+await pruefe('ohne Selbstanmeldung, aber mit Systemversand: nur der Kennwortweg', async () => {
+  /*
+   * Der Regelfall eines Betriebs - und der Fall, in dem es zuerst schiefging.
+   *
+   * Wo der Verwalter die Konten anlegt, ist die Selbstanmeldung aus. Der Weg bei einem
+   * vergessenen Kennwort haengt aber nicht daran, sondern allein am Systemversand: Wer
+   * sein Kennwort vergisst, hat ja ein Konto. Beides an dieselbe Bedingung zu haengen
+   * hiess, dass ausgerechnet dort nichts dastand - aufgefallen erst am laufenden Dienst.
+   */
+  await zeichne({ lage: { ...LAGE, moeglich: false, betriebsart: 'aus', kennwortZuruecksetzbar: true } });
+  assert.equal(reiter().length, 0, 'Der Umschalter steht da, obwohl es nichts anzulegen gibt.');
+  assert.ok(
+    knoepfe().some((b) => b.textContent === 'Kennwort vergessen?'),
+    'Der Weg zum vergessenen Kennwort fehlt, obwohl der Server ihn anbietet.',
+  );
+});
+
 await pruefe('ohne Systemversand fehlt er wieder', async () => {
   // Ohne Mail gibt es keinen Nachweis - dann bleibt es beim Verwalter, der zuruecksetzt.
   await zeichne({ lage: { ...LAGE, kennwortZuruecksetzbar: false } });

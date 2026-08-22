@@ -214,7 +214,21 @@ function Weiche() {
     api
       .registrierungslage()
       .then((befund) => {
-        if (!abgebrochen) setLage(befund.moeglich ? befund : null);
+        /*
+         * Die ganze Auskunft behalten - auch wenn die Selbstanmeldung aus ist.
+         *
+         * Hier stand `befund.moeglich ? befund : null`, und das war ein Fehler mit
+         * Ansage: In der Auskunft stecken ZWEI voneinander unabhaengige Dinge. Ob sich
+         * jemand selbst anmelden darf, entscheidet der Verwalter; ob sich ein vergessenes
+         * Kennwort zuruecksetzen laesst, haengt allein am Systemversand. Wer das erste
+         * verneint und deshalb alles wegwirft, nimmt dem zweiten die Grundlage - und auf
+         * einem Dienst, bei dem der Verwalter die Konten anlegt (also dem Regelfall),
+         * fehlte "Kennwort vergessen?" damit immer.
+         *
+         * Aufgefallen am laufenden energymail.net: Systemversand eingerichtet, Server
+         * meldete kennwortZuruecksetzbar: true - und im Anmeldefenster stand nichts.
+         */
+        if (!abgebrochen) setLage(befund);
       })
       .catch(() => {
         if (!abgebrochen) setLage(null);
@@ -298,7 +312,8 @@ function Weiche() {
   }
   if (stand === 'fehler') return Absturzseite(new Error(grund), nachsehen);
   if (stand === 'offen') {
-    if (zugang === 'registrieren' && lage) {
+    // Anlegen nur, wo es der Server auch zulaesst - `lage` allein genuegt nicht mehr.
+    if (zugang === 'registrieren' && lage?.moeglich) {
       return <Registrierung lage={lage} onZurueck={() => setZugang('anmelden')} />;
     }
     if (zugang === 'kennwort') {
