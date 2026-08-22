@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import * as socks from 'socks';
 import { beschreibeProxy, proxyFuer } from './proxy.js';
+import { pruefeZiel } from './netzziele.js';
 import { resolveAccessToken } from './oauth/tokenAccess.js';
 import { baueSigniertenTeil } from './pgpErkennung.js';
 import { baueSigniertePost, baueVerschluesseltePost } from './smime/nachricht.js';
@@ -29,6 +30,10 @@ async function createTransport(config: AccountConfig) {
    * verschiedene Rechner, und sowohl die Ausnahmeliste als auch ein PAC-Skript können für
    * sie Verschiedenes vorsehen.
    */
+  // Derselbe Riegel wie beim Abrufen - siehe netzziele.ts. Ein Sendeserver, der ins
+  // interne Netz zeigt, ist dieselbe Portabtastung mit einem anderen Protokoll.
+  await pruefeZiel(config.smtpHost);
+
   const proxy = await proxyFuer(config.smtpHost, config.proxy);
   if (proxy.beanstandet) {
     console.warn(`[energy-mail] ${beschreibeProxy(proxy)}`);

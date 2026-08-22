@@ -42,10 +42,10 @@ const {
   wartendeAntraege,
   RegistrierungsFehler,
 } = speicher;
+const { netzzielRegelGilt, setzeNetzzielRegel } = await import('@energy-mail/mail-core');
 const { setzeSystemmail, systemmailEingerichtet } = await import('../systemmail.js');
-const { legeNutzerAn, pruefeAnmeldung, entferneNutzer, findeNutzerNachEmail } = await import(
-  './nutzerStore.js'
-);
+const { alleNutzer, legeNutzerAn, pruefeAnmeldung, entferneNutzer, findeNutzerNachEmail } =
+  await import('./nutzerStore.js');
 const { verpackeNutzerschluessel } = await import('./schluesselHuelle.js');
 const { zaehleVersuch, vergissBremse } = await import('./anmeldebremse.js');
 
@@ -366,6 +366,97 @@ await pruefe('der Datenschutzhinweis wird begrenzt', () => {
   assert.equal(neu.hinweis.length, 4000);
 });
 
+console.log('\nFilter gegen Missbrauch:');
+
+await pruefe('Wegwerfadressen kommen nicht durch', () => {
+  /*
+   * Der Grund, warum eine offene Registrierung ohne diesen Filter nicht traegt: Eine
+   * Adresse, die zehn Minuten lebt, macht die Mailbestaetigung wertlos - nachgewiesen ist
+   * dann nur, dass jemand eine Wegwerfseite aufrufen kann.
+   */
+  versand(true);
+  leere();
+  setzeRegistrierung({ betriebsart: 'freigabe', domaenen: [], wegwerfSperren: true });
+  for (const adresse of ['weg@mailinator.com', 'weg@yopmail.com', 'weg@trashmail.de']) {
+    assert.throws(
+      () => nimmAntragAn({ email: adresse, kennwort: KENNWORT }),
+      RegistrierungsFehler,
+      `${adresse} kam durch`,
+    );
+  }
+});
+
+await pruefe('auch ueber eine Unterdomaene nicht', () => {
+  // Wegwerfanbieter bieten Dutzende Unterdomaenen an; ohne diese Regel waere die Liste
+  // mit einem Punkt zu umgehen.
+  assert.throws(
+    () => nimmAntragAn({ email: 'weg@post.mailinator.com', kennwort: KENNWORT }),
+    RegistrierungsFehler,
+  );
+});
+
+await pruefe('eine gewoehnliche Adresse kommt weiterhin durch', () => {
+  assert.equal(nimmAntragAn({ email: 'echt@gmail.com', kennwort: KENNWORT }).art, 'bestaetigen');
+});
+
+await pruefe('die eigene Sperrliste des Betreibers gilt zusaetzlich', () => {
+  leere();
+  setzeRegistrierung({ gesperrteDomaenen: ['aerger.example'] });
+  assert.throws(
+    () => nimmAntragAn({ email: 'wer@aerger.example', kennwort: KENNWORT }),
+    RegistrierungsFehler,
+  );
+  setzeRegistrierung({ gesperrteDomaenen: [] });
+  assert.equal(nimmAntragAn({ email: 'wer@aerger.example', kennwort: KENNWORT }).art, 'bestaetigen');
+});
+
+await pruefe('abgeschaltet gilt die eingebaute Liste nicht mehr', () => {
+  // Es gibt Menschen, die eine Wegwerfadresse als Hauptadresse benutzen. Wer das
+  // zulassen will, soll es koennen.
+  leere();
+  setzeRegistrierung({ wegwerfSperren: false });
+  assert.equal(nimmAntragAn({ email: 'weg@mailinator.com', kennwort: KENNWORT }).art, 'bestaetigen');
+  setzeRegistrierung({ wegwerfSperren: true });
+});
+
+await pruefe('die Hoechstzahl haelt', () => {
+  /*
+   * Bei offener Registrierung die wichtigste Zahl: Jeder Nutzer kostet Speicher und bis zu
+   * drei dauerhafte IMAP-Verbindungen. Ohne Grenze entscheidet ueber die Belastung des
+   * Servers, wer sich zuerst anmeldet.
+   */
+  leere();
+  const vorhanden = alleNutzer().length;
+  setzeRegistrierung({ hoechstzahl: vorhanden });
+  assert.throws(
+    () => nimmAntragAn({ email: 'zuviel@gmail.com', kennwort: KENNWORT }),
+    RegistrierungsFehler,
+  );
+  setzeRegistrierung({ hoechstzahl: 0 });
+  assert.equal(nimmAntragAn({ email: 'zuviel@gmail.com', kennwort: KENNWORT }).art, 'bestaetigen');
+});
+
+await pruefe('eine unsinnige Hoechstzahl wird abgewiesen', () => {
+  assert.throws(() => setzeRegistrierung({ hoechstzahl: -1 }), RegistrierungsFehler);
+});
+
+await pruefe('"offen" schaltet den Netzriegel zwingend mit ein', () => {
+  /*
+   * Der Riegel wird GESETZT und nicht empfohlen. Wer ein Konto anlegt, bestimmt, wohin
+   * dieser Server Verbindungen aufbaut - bei offener Anmeldung ist das ein Fremder, und
+   * der Server steht in einem Netz, in das er sonst nicht hineinkommt.
+   */
+  setzeRegistrierung({ betriebsart: 'freigabe', nurOeffentlicheMailserver: false });
+  assert.equal(registrierungseinstellungen().nurOeffentlicheMailserver, false);
+
+  const offen = setzeRegistrierung({ betriebsart: 'offen' });
+  assert.equal(offen.nurOeffentlicheMailserver, true, 'Der Riegel blieb aus.');
+  assert.equal(netzzielRegelGilt(), true, 'Die Regel kam nicht im Kern an.');
+
+  const versuch = setzeRegistrierung({ nurOeffentlicheMailserver: false });
+  assert.equal(versuch.nurOeffentlicheMailserver, true, 'Der Riegel liess sich abschalten.');
+});
+
 console.log('\nAus einem Antrag wird ein Konto:');
 
 await pruefe('das selbst gewaehlte Kennwort gilt nach der Freigabe', () => {
@@ -388,6 +479,8 @@ await pruefe('das selbst gewaehlte Kennwort gilt nach der Freigabe', () => {
   assert.ok(findeNutzerNachEmail('frisch@firma.de'));
   entferneNutzer('frisch');
 });
+
+setzeNetzzielRegel(false);
 
 console.log(`\n${ok} von ${gesamt} Pruefungen bestanden`);
 if (ok !== gesamt) process.exit(1);

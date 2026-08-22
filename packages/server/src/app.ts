@@ -40,6 +40,7 @@ import {
 import { registriereNutzerkontext, type NutzerErmitteln } from './nutzer/haken.js';
 import { registriereVerwaltung } from './nutzer/verwaltung.js';
 import { registriereSelbstregistrierung } from './nutzer/registrierung.js';
+import { wendeNetzzielRegelAn } from './nutzer/registrierungSpeicher.js';
 import { registriereKennwortVergessen } from './nutzer/kennwortVergessen.js';
 import { registriereDownload, registriereDownloadVerwaltung } from './download.js';
 import { registriereZweiFaktor } from './nutzer/zweiFaktor.js';
@@ -703,6 +704,16 @@ export async function buildServer(optionen: ServerOptionen = {}) {
    * ihrerseits in OFFENE_PFADE - ohne diesen Eintrag käme niemand daran vorbei, der noch
    * kein Konto hat, also genau die Menschen, für die sie da sind.
    */
+  /*
+   * Die Netzzielregel gilt ab dem Start - nicht erst nach der ersten Aenderung.
+   *
+   * Sonst haette ein Neustart den Riegel geloest: Die Einstellung staende weiter in der
+   * Datei, aber der Kern wuesste nichts davon, und die erste IMAP-Verbindung ginge
+   * wieder ueberallhin. Ein Schutz, der einen Neustart nicht ueberlebt, ist bei einem
+   * Dienst, der woechentlich aktualisiert wird, keiner.
+   */
+  wendeNetzzielRegelAn();
+
   registriereSelbstregistrierung(app);
 
   /*

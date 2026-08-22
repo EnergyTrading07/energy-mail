@@ -744,6 +744,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Solo questi domini di posta',
   'firma.de, tochter.de': 'azienda.it, controllata.it',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Vuoto significa: qualsiasi indirizzo. Per un\'azienda è da solo l\'impostazione più efficace: chi non fa parte dell\'organizzazione non arriva nemmeno alla richiesta.',
+  'Gesperrte Mail-Domänen': 'Domini di posta bloccati',
+  'aerger.example, noch-eine.example': 'fastidio.example, un-altro.example',
+  'Höchstens Nutzer': 'Utenti max.',
+  'Bekannte Wegwerfadressen abweisen': 'Rifiuta gli indirizzi usa e getta noti',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'Un indirizzo che vive dieci minuti rende la conferma priva di valore: dimostra soltanto che qualcuno sa aprire un sito di indirizzi usa e getta. Ciò che l\'elenco integrato non conosce, lo inserisca sopra.',
+  'Postfachserver nur im offenen Netz': 'Server di posta solo sulla rete pubblica',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Sempre attivo con la registrazione aperta. Chi crea un account decide dove questo server si collega: con estranei sarebbe una scansione della sua rete interna, eseguita dal server stesso.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Impedisce che qualcuno indichi come server di posta un indirizzo della sua rete interna. Per un server di posta interno questo deve restare disattivato.',
   'Datenschutzhinweis auf dem Formular': 'Informativa sulla privacy nel modulo',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Compare sopra il pulsante di invio e deve essere spuntata. Indichi chi tratta i dati e come farli cancellare; colleghi la sua informativa sulla privacy, se ne ha una.',
   'Wird gesichert…': 'Salvataggio…',
@@ -1320,8 +1328,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Nessun suggerimento',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Configurare Energy Mail',
   'Mit welchem Server arbeiten Sie?': 'Con quale server lavora?',
@@ -1587,6 +1593,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Raggruppamento delle conversazioni',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Questo server di posta non conosce UIDPLUS. Un\'eliminazione definitiva colpirebbe anche messaggi che un altro programma ha soltanto contrassegnato per l\'eliminazione. Sposti invece il messaggio nel cestino.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Questo provider non sa cercare gli allegati: IMAP non ha un criterio per farlo e solo Gmail offre una ricerca propria.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'Senza l\'indirizzo del server non si può.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '«{rechner}» non è stato risolto: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» punta a {adresse}, un indirizzo della rete interna. Questo servizio si collega solo a server di posta sulla rete pubblica.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» non è un indirizzo della rete pubblica. Questo servizio si collega solo a server di posta sulla rete pubblica.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'L\'accesso memorizzato non è più valido: acceda di nuovo all\'account. (Il provider segnala: {meldung})',

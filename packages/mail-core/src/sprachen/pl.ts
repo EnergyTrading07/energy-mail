@@ -808,6 +808,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Tylko te domeny pocztowe',
   'firma.de, tochter.de': 'firma.pl, spolka.pl',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Puste znaczy: dowolny adres. Dla firmy jest to samo w sobie najskuteczniejsze ustawienie – kto nie należy do organizacji, nie dochodzi nawet do wniosku.',
+  'Gesperrte Mail-Domänen': 'Zablokowane domeny pocztowe',
+  'aerger.example, noch-eine.example': 'klopot.example, kolejna.example',
+  'Höchstens Nutzer': 'Maks. użytkowników',
+  'Bekannte Wegwerfadressen abweisen': 'Odrzucaj znane adresy jednorazowe',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'Adres, który żyje dziesięć minut, czyni potwierdzenie bezwartościowym – dowodzi tylko, że ktoś potrafi otworzyć stronę z adresami jednorazowymi. Czego wbudowana lista nie zna, wpisz powyżej.',
+  'Postfachserver nur im offenen Netz': 'Serwery skrzynek tylko w otwartej sieci',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Przy otwartej rejestracji włączone na stałe. Kto zakłada konto, decyduje, dokąd ten serwer nawiązuje połączenia – w przypadku obcych byłoby to skanowanie Twojej sieci wewnętrznej, wykonane przez sam serwer.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Zapobiega wpisaniu jako serwera skrzynki adresu z Twojej sieci wewnętrznej. Dla własnego serwera pocztowego w firmie musi to pozostać wyłączone.',
   'Datenschutzhinweis auf dem Formular': 'Informacja o ochronie danych na formularzu',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Znajduje się nad przyciskiem wysyłania i musi zostać zaznaczona. Podaj, kto przetwarza dane i jak można je usunąć; odsyłaj do swojej polityki prywatności, jeśli ją masz.',
   'Wird gesichert…': 'Zapisywanie…',
@@ -1408,8 +1416,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Brak podpowiedzi',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Konfiguracja Energy Mail',
   'Mit welchem Server arbeiten Sie?': 'Z jakim serwerem pracujesz?',
@@ -1675,6 +1681,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Łączenie wątków',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Ten serwer pocztowy nie zna UIDPLUS. Trwałe usuwanie objęłoby tam także wiadomości, które inny program jedynie zaznaczył do usunięcia. Przenieś wiadomość zamiast tego do kosza.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Ten dostawca nie potrafi szukać po załącznikach – IMAP nie zna takiego kryterium, a własne wyszukiwanie oferuje tylko Gmail.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'Bez adresu serwera się nie da.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '„{rechner}” nie dało się rozwiązać: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '„{rechner}” wskazuje na {adresse} – adres w sieci wewnętrznej. Ta usługa łączy się tylko z serwerami skrzynek w otwartej sieci.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '„{rechner}” nie jest adresem w otwartej sieci. Ta usługa łączy się tylko z serwerami skrzynek w otwartej sieci.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'Zapisane logowanie straciło ważność – zaloguj konto ponownie. (Dostawca zgłasza: {meldung})',

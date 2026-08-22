@@ -744,6 +744,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Yalnızca bu posta alan adları',
   'firma.de, tochter.de': 'sirket.com.tr, istirak.com.tr',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Boş bırakmak: her adres demektir. Bir işletme için tek başına en etkili ayar budur – kuruma ait olmayan başvuru aşamasına bile gelemez.',
+  'Gesperrte Mail-Domänen': 'Engellenen posta alan adları',
+  'aerger.example, noch-eine.example': 'sorun.example, bir-digeri.example',
+  'Höchstens Nutzer': 'En fazla kullanıcı',
+  'Bekannte Wegwerfadressen abweisen': 'Bilinen tek kullanımlık adresleri reddet',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'On dakika yaşayan bir adres doğrulamayı değersiz kılar – yalnızca birinin tek kullanımlık bir siteyi açabildiğini kanıtlar. Yerleşik listenin bilmediklerini yukarıya girin.',
+  'Postfachserver nur im offenen Netz': 'Posta kutusu sunucuları yalnızca açık ağda',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Açık kayıtta kalıcı olarak etkindir. Hesap açan kişi, bu sunucunun nereye bağlanacağını belirler – yabancılarda bu, sunucunun kendisi tarafından yürütülen bir iç ağ taraması olurdu.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Birinin posta kutusu sunucusu olarak iç ağınızdan bir adres girmesini engeller. Evdeki kendi posta sunucunuz için bu kapalı kalmalıdır.',
   'Datenschutzhinweis auf dem Formular': 'Formdaki veri koruma bilgilendirmesi',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Gönder düğmesinin üzerinde yer alır ve işaretlenmesi gerekir. Verileri kimin işlediğini ve nasıl sildirilebileceğini burada belirtin; varsa gizlilik politikanıza bağlantı verin.',
   'Wird gesichert…': 'Kaydediliyor…',
@@ -1320,8 +1328,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Öneri yok',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Energy Mail kurulumu',
   'Mit welchem Server arbeiten Sie?': 'Hangi sunucuyla çalışıyorsunuz?',
@@ -1587,6 +1593,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Konuşmalar birleştiriliyor',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Bu posta sunucusu UIDPLUS bilmiyor. Kalıcı silme, başka bir programın yalnızca silinmek üzere işaretlediği iletileri de etkilerdi. Bunun yerine iletiyi çöp kutusuna taşıyın.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Bu sağlayıcı ek araması yapamıyor: IMAP\'te bunun için bir ölçüt yok ve yalnızca Gmail kendi aramasını sunuyor.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'Sunucu adresi olmadan olmaz.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '«{rechner}» çözümlenemedi: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» {adresse} adresine işaret ediyor – iç ağda bir adres. Bu hizmet yalnızca açık ağdaki posta kutusu sunucularına bağlanır.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» açık ağda bir adres değil. Bu hizmet yalnızca açık ağdaki posta kutusu sunucularına bağlanır.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'Kayıtlı oturum artık geçerli değil; hesapta yeniden oturum açın. (Sağlayıcının bildirdiği: {meldung})',

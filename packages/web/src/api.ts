@@ -561,6 +561,14 @@ export interface Registrierungsverwaltung {
     betriebsart: 'aus' | 'freigabe' | 'offen';
     domaenen: string[];
     hinweis: string;
+    /** Ausdrücklich gesperrte Mail-Domänen - zusätzlich zur eingebauten Wegwerfliste. */
+    gesperrteDomaenen: string[];
+    /** Ob die eingebaute Liste bekannter Wegwerfanbieter gilt. */
+    wegwerfSperren: boolean;
+    /** Obergrenze für die Nutzerzahl. 0 heißt: keine Grenze. */
+    hoechstzahl: number;
+    /** Ob Postfachserver nur im offenen Netz liegen dürfen - bei „offen" zwingend. */
+    nurOeffentlicheMailserver: boolean;
   };
   /** Was tatsächlich gilt - ohne Systemversand fällt „offen" auf „freigabe" zurück. */
   wirksam: 'aus' | 'freigabe' | 'offen';

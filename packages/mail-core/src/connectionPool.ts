@@ -1,6 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { buildImapAuth } from './imapAuth.js';
 import { beschreibeProxy, proxyFuer } from './proxy.js';
+import { pruefeZiel } from './netzziele.js';
 import type { AccountConfig } from './types.js';
 
 /**
@@ -49,6 +50,15 @@ async function erzeuge(
    * beantwortet die Frage für jeden Zielrechner anders, und ein Rechner wechselt zwischen
    * Büro und Heimarbeit das Netz, ohne dass das Programm neu startet.
    */
+  /*
+   * Zeigt dieser Server ins interne Netz? - vor allem anderen.
+   *
+   * Steht vor dem Proxy und vor dem Verbindungsaufbau: Wo der Riegel gilt, soll gar nichts
+   * hinausgehen. Ist er aus (der Regelfall bei einem Betrieb, dessen Konten ein Verwalter
+   * anlegt), kostet die Zeile einen Vergleich. Die Begruendung steht in netzziele.ts.
+   */
+  await pruefeZiel(config.imapHost);
+
   const proxy = await proxyFuer(config.imapHost, config.proxy);
   if (proxy.beanstandet) {
     console.warn(`[energy-mail] ${beschreibeProxy(proxy)}`);

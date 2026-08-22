@@ -24,6 +24,14 @@ import { t, datum } from '../sprache.js';
  * zwar bevor jemand vergeblich speichert.
  */
 
+/** Komma, Leerzeichen oder Semikolon trennen - der Mensch soll nicht raten muessen. */
+function zerlege(text: string): string[] {
+  return text
+    .split(/[,\s;]+/)
+    .map((d) => d.trim())
+    .filter(Boolean);
+}
+
 /** Was die drei Betriebsarten bedeuten - einmal geschrieben, zweimal gebraucht. */
 function beschreibung(art: 'aus' | 'freigabe' | 'offen'): string {
   if (art === 'aus') {
@@ -43,6 +51,7 @@ export function RegistrierungTeil() {
   const [busy, setBusy] = useState<string | null>(null);
   /** Die Domänen als Text, wie sie im Feld stehen - erst beim Sichern zerlegt. */
   const [domaenenText, setDomaenenText] = useState('');
+  const [gesperrtText, setGesperrtText] = useState('');
 
   /**
    * Bringt die Antwort des Servers auf eine Form, mit der sich zeichnen laesst.
@@ -58,6 +67,10 @@ export function RegistrierungTeil() {
       betriebsart: 'aus',
       domaenen: [],
       hinweis: '',
+      gesperrteDomaenen: [],
+      wegwerfSperren: true,
+      hoechstzahl: 50,
+      nurOeffentlicheMailserver: false,
       ...(a.einstellungen ?? {}),
     },
     wirksam: a.wirksam ?? a.einstellungen?.betriebsart ?? 'aus',
@@ -81,6 +94,7 @@ export function RegistrierungTeil() {
         const sicher = zurechtlegen(antwort ?? {});
         setStand(sicher);
         setDomaenenText(sicher.einstellungen.domaenen.join(', '));
+        setGesperrtText(sicher.einstellungen.gesperrteDomaenen.join(', '));
         setFehler(null);
       })
       .catch((err) => setFehler((err as Error).message));
@@ -113,10 +127,8 @@ export function RegistrierungTeil() {
     try {
       await api.verwaltungRegistrierungSetzen({
         ...einstellungen,
-        domaenen: domaenenText
-          .split(/[,\s;]+/)
-          .map((d) => d.trim())
-          .filter(Boolean),
+        domaenen: zerlege(domaenenText),
+        gesperrteDomaenen: zerlege(gesperrtText),
       });
       setGesichert(true);
       laden();
@@ -207,6 +219,63 @@ export function RegistrierungTeil() {
           </div>
           <p className="hint">
             {t('Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.')}
+          </p>
+
+          <div className="anmeldeverwaltung-zeile">
+            <div>
+              <label htmlFor="reg-gesperrt">{t('Gesperrte Mail-Domänen')}</label>
+              <input
+                id="reg-gesperrt"
+                value={gesperrtText}
+                placeholder={t('aerger.example, noch-eine.example')}
+                onChange={(e) => {
+                  setGesperrtText(e.target.value);
+                  setGesichert(false);
+                }}
+              />
+            </div>
+            <div className="schmal">
+              <label htmlFor="reg-hoechstzahl">{t('Höchstens Nutzer')}</label>
+              <input
+                id="reg-hoechstzahl"
+                type="number"
+                min={0}
+                value={einstellungen.hoechstzahl}
+                onChange={(e) => aendere({ hoechstzahl: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          <label className="anmeldeverwaltung-schalter">
+            <input
+              type="checkbox"
+              checked={einstellungen.wegwerfSperren}
+              onChange={(e) => aendere({ wegwerfSperren: e.target.checked })}
+            />
+            <span>{t('Bekannte Wegwerfadressen abweisen')}</span>
+          </label>
+          <p className="hint">
+            {t('Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.')}
+          </p>
+
+          <label className="anmeldeverwaltung-schalter">
+            <input
+              type="checkbox"
+              checked={einstellungen.nurOeffentlicheMailserver}
+              /*
+               * Bei "offen" nicht abwaehlbar - der Server setzt ihn ohnehin wieder. Ein
+               * Haken, der nach dem Sichern von selbst zurueckspringt, sieht nach einem
+               * Fehler aus; gesperrt mit Begruendung daneben sagt, was Sache ist.
+               */
+              disabled={einstellungen.betriebsart === 'offen'}
+              onChange={(e) => aendere({ nurOeffentlicheMailserver: e.target.checked })}
+            />
+            <span>{t('Postfachserver nur im offenen Netz')}</span>
+          </label>
+          <p className="hint">
+            {einstellungen.betriebsart === 'offen'
+              ? t('Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.')
+              : t('Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.')}
           </p>
 
           <label htmlFor="reg-hinweis">{t('Datenschutzhinweis auf dem Formular')}</label>

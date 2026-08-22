@@ -3,9 +3,10 @@ import path from 'node:path';
 import { liesJson, schreibeAtomar } from '../atomar.js';
 import { getWurzelDir } from '../paths.js';
 import { protokolliere } from '../protokollDatei.js';
+import { setzeNetzzielRegel } from '@energy-mail/mail-core';
 import { systemmailEingerichtet } from '../systemmail.js';
 import { verschluesselKennwort } from './kennwort.js';
-import { KENNWORT_MINDESTLAENGE, findeNutzerNachEmail } from './nutzerStore.js';
+import { KENNWORT_MINDESTLAENGE, findeNutzerNachEmail, nutzerAnzahl } from './nutzerStore.js';
 
 /**
  * Wer sich selbst ein Konto anlegen darf - und was dabei aufbewahrt wird.
@@ -66,7 +67,98 @@ export interface Registrierungseinstellungen {
    * verlinkt sie; wer einen Datenschutzbeauftragten hat, nennt ihn.
    */
   hinweis: string;
+  /**
+   * Mail-Domaenen, die ausdruecklich NICHT duerfen - zusaetzlich zur Erlaubnisliste.
+   *
+   * Gedacht fuer Wegwerfadressen. Sie sind der Grund, warum eine offene Registrierung im
+   * offenen Netz ohne Filter nicht traegt: Eine Adresse, die zehn Minuten lebt, macht die
+   * Mailbestaetigung wertlos - der Nachweis "diese Adresse gehoert mir" ist dann der
+   * Nachweis, dass jemand eine Wegwerfseite aufrufen kann.
+   *
+   * Was hier steht, gilt ZUSAETZLICH zu WEGWERF_DOMAENEN weiter unten. Die eingebaute
+   * Liste deckt die bekannten ab; diese hier ist fuer das, was danach kommt.
+   */
+  gesperrteDomaenen: string[];
+  /**
+   * Ob die eingebaute Liste bekannter Wegwerfanbieter gilt.
+   *
+   * Abschaltbar, weil eine solche Liste immer auch jemanden trifft, der sie nicht meint -
+   * es gibt Menschen, die eine Wegwerfadresse als Hauptadresse benutzen. Wer das erlauben
+   * will, schaltet sie aus und traegt selbst ein, was er sperren moechte.
+   */
+  wegwerfSperren: boolean;
+  /**
+   * Wie viele Nutzer es insgesamt hoechstens geben darf. 0 heisst: keine Grenze.
+   *
+   * Bei offener Registrierung die wichtigste Zahl ueberhaupt. Jeder Nutzer bekommt einen
+   * Ordner, einen Schluessel, eine Ablage und - sobald er ein Postfach einrichtet - bis zu
+   * drei dauerhafte IMAP-Verbindungen. Ein Server mit anderthalb Gigabyte Speichergrenze
+   * traegt keine tausend davon; ohne Grenze entscheidet darueber, wer sich zuerst
+   * anmeldet, und der Dienst faellt fuer alle aus.
+   */
+  hoechstzahl: number;
+  /**
+   * Ob sich Postfachserver nur im offenen Netz befinden duerfen.
+   *
+   * Der Riegel gegen die Abtastung des internen Netzes - die Begruendung steht
+   * ausfuehrlich in mail-core/netzziele.ts. Kurz: Wer ein Konto anlegt, bestimmt, wohin
+   * dieser Server Verbindungen aufbaut. Bei offener Anmeldung ist das ein Fremder, und
+   * der Server steht in einem Netz, in das er sonst nicht hineinkommt.
+   *
+   * Vorgabe aus, damit ein Betrieb mit eigenem Mailserver im Haus nichts verliert. Wird
+   * die Betriebsart auf "offen" gestellt, schaltet setzeRegistrierung() den Riegel
+   * ausdruecklich mit ein - dort ist er nicht verhandelbar.
+   */
+  nurOeffentlicheMailserver: boolean;
 }
+
+/**
+ * Bekannte Wegwerfanbieter.
+ *
+ * Bewusst kurz und ohne Anspruch auf Vollstaendigkeit: Eine Liste mit zehntausend
+ * Eintraegen waere zu pflegen, und wer sie nicht pflegt, hat eine Liste von gestern. Hier
+ * stehen die, die tatsaechlich in Massen auftauchen. Der Rest gehoert in
+ * `gesperrteDomaenen`, wo der Betreiber ergaenzt, was bei IHM ankommt - das ist die
+ * Auskunft, die keine allgemeine Liste haben kann.
+ */
+const WEGWERF_DOMAENEN = [
+  '10minutemail.com',
+  '10minutemail.net',
+  'burnermail.io',
+  'dispostable.com',
+  'fakeinbox.com',
+  'getairmail.com',
+  'getnada.com',
+  'guerrillamail.com',
+  'guerrillamail.de',
+  'guerrillamail.net',
+  'guerrillamailblock.com',
+  'inboxkitten.com',
+  'mail-temporaire.fr',
+  'mail7.io',
+  'mailcatch.com',
+  'maildrop.cc',
+  'mailinator.com',
+  'mailnesia.com',
+  'mintemail.com',
+  'moakt.com',
+  'mohmal.com',
+  'mytemp.email',
+  'sharklasers.com',
+  'spam4.me',
+  'temp-mail.org',
+  'tempail.com',
+  'tempmail.dev',
+  'tempmailo.com',
+  'tempr.email',
+  'throwawaymail.com',
+  'trashmail.com',
+  'trashmail.de',
+  'wegwerfemail.de',
+  'yopmail.com',
+  'yopmail.fr',
+  'yopmail.net',
+];
 
 /**
  * Ein Antrag - der Zustand zwischen "Formular abgeschickt" und "Konto vorhanden".
@@ -114,6 +206,17 @@ const VORGABE: Registrierungseinstellungen = {
    */
   betriebsart: 'aus',
   domaenen: [],
+  gesperrteDomaenen: [],
+  wegwerfSperren: true,
+  /*
+   * Fuenfzig als Vorgabe.
+   *
+   * Eine Zahl, bei der ein gewoehnlicher Betrieb nie anstoesst und ein Missbrauch sofort.
+   * Wer mehr braucht, hebt sie an - und tut das dann in dem Bewusstsein, dass jeder
+   * Nutzer Arbeitsspeicher und offene Verbindungen kostet.
+   */
+  hoechstzahl: 50,
+  nurOeffentlicheMailserver: false,
   hinweis:
     'Für die Anmeldung werden Ihre Mailadresse und ein von Ihnen gewähltes Kennwort ' +
     'gespeichert. Beides wird ausschließlich für den Zugang zu diesem Dienst verwendet ' +
@@ -199,10 +302,24 @@ export function registrierungseinstellungen(): Registrierungseinstellungen {
     ...VORGABE,
     ...gespeichert,
     domaenen: Array.isArray(gespeichert.domaenen) ? gespeichert.domaenen : VORGABE.domaenen,
+    gesperrteDomaenen: Array.isArray(gespeichert.gesperrteDomaenen)
+      ? gespeichert.gesperrteDomaenen
+      : VORGABE.gesperrteDomaenen,
   };
 }
 
 export class RegistrierungsFehler extends Error {}
+
+/**
+ * Traegt die eingestellte Netzzielregel in den Kern ein.
+ *
+ * Wird beim Start gerufen (app.ts) und bei jeder Aenderung. Ueber einen Setter und nicht
+ * ueber einen Import in mail-core: Der Kern soll nichts ueber Nutzer und Einstellungen
+ * wissen muessen - dasselbe Muster wie beim Umschlag der Verschluesselung.
+ */
+export function wendeNetzzielRegelAn(): void {
+  setzeNetzzielRegel(registrierungseinstellungen().nurOeffentlicheMailserver);
+}
 
 /**
  * Bringt eine Domäneneingabe auf eine vergleichbare Form.
@@ -237,6 +354,15 @@ export function setzeRegistrierung(
    */
   neu.hinweis = (eingabe.hinweis ?? bisher.hinweis).slice(0, HINWEIS_MAX);
 
+  neu.gesperrteDomaenen = (eingabe.gesperrteDomaenen ?? bisher.gesperrteDomaenen)
+    .map(normalisiereDomaene)
+    .filter(Boolean)
+    .filter((d) => d.includes('.'));
+
+  if (!Number.isInteger(neu.hoechstzahl) || neu.hoechstzahl < 0) {
+    throw new RegistrierungsFehler('Die Höchstzahl muss eine Zahl ab 0 sein (0 = keine Grenze).');
+  }
+
   neu.domaenen = (eingabe.domaenen ?? bisher.domaenen)
     .map(normalisiereDomaene)
     .filter(Boolean)
@@ -263,9 +389,23 @@ export function setzeRegistrierung(
     );
   }
 
+  /*
+   * Bei "offen" ist der Netzriegel nicht verhandelbar.
+   *
+   * Er wird hier GESETZT und nicht bloss empfohlen. Der Grund steht in netzziele.ts: Wer
+   * ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut - und bei offener
+   * Anmeldung ist das ein Fremder. Ein Schalter, den man dabei vergessen kann, waere der
+   * Unterschied zwischen einem Mailserver und einer Portabtastung des Heimnetzes.
+   *
+   * Wieder abschalten laesst er sich nur, indem die Betriebsart zurueckgenommen wird. Das
+   * ist Absicht.
+   */
+  if (neu.betriebsart === 'offen') neu.nurOeffentlicheMailserver = true;
+
   const ablage = lesen();
   ablage.einstellungen = neu;
   schreiben();
+  wendeNetzzielRegelAn();
   protokolliere(
     'info',
     'registrierung',
@@ -295,6 +435,22 @@ export function domaeneErlaubt(email: string): boolean {
   if (erlaubt.length === 0) return true;
   const domaene = email.trim().toLowerCase().split('@')[1] ?? '';
   return erlaubt.includes(domaene);
+}
+
+/**
+ * Ob die Adresse auf einer Sperrliste steht - eingebaut oder selbst gepflegt.
+ *
+ * Geprüft wird auch die übergeordnete Domäne: Wer `trashmail.com` sperrt, meint auch
+ * `sub.trashmail.com`. Ohne diese Zeile wäre die Liste mit einem Punkt zu umgehen, und
+ * genau das tun Wegwerfanbieter - sie bieten Dutzende Unterdomänen an.
+ */
+export function domaeneGesperrt(email: string): boolean {
+  const e = registrierungseinstellungen();
+  const domaene = email.trim().toLowerCase().split('@')[1] ?? '';
+  if (!domaene) return true;
+
+  const listen = [...e.gesperrteDomaenen, ...(e.wegwerfSperren ? WEGWERF_DOMAENEN : [])];
+  return listen.some((gesperrt) => domaene === gesperrt || domaene.endsWith(`.${gesperrt}`));
 }
 
 // --- Anträge ---
@@ -429,6 +585,39 @@ export function nimmAntragAn(eingabe: Antragseingabe): Aufnahme {
       `Das Kennwort muss mindestens ${KENNWORT_MINDESTLAENGE} Zeichen haben.`,
     );
   }
+  if (domaeneGesperrt(email)) {
+    /*
+     * Auch hier wird der Grund GENANNT, so wie bei der Domänengrenze - und aus demselben
+     * Überlegen heraus: Es ist eine Auskunft über diesen Dienst und nicht über einen
+     * Menschen. Wer es verschwiege, ließe jemanden auf eine Bestätigungsmail warten, die
+     * nie kommt.
+     *
+     * Dass ein Angreifer damit erfährt, welche Wegwerfanbieter gesperrt sind, ist kein
+     * Verlust: Er merkt es ohnehin beim ersten Versuch, und die Liste schützt nicht durch
+     * Geheimhaltung, sondern dadurch, dass er sich eine echte Adresse besorgen muss.
+     */
+    throw new RegistrierungsFehler(
+      'Mit einer Wegwerfadresse geht es hier nicht. Bitte nehmen Sie eine Adresse, die Sie behalten.',
+    );
+  }
+
+  const grenze = registrierungseinstellungen().hoechstzahl;
+  if (grenze > 0 && nutzerAnzahl() >= grenze) {
+    /*
+     * Die Obergrenze ist erreicht - und das ist eine Auskunft für den BETREIBER, nicht
+     * für den Antragsteller. Er bekommt nur, dass es gerade nicht geht; im Protokoll
+     * steht, warum.
+     */
+    protokolliere(
+      'warnung',
+      'registrierung',
+      `Die Höchstzahl von ${grenze} Nutzern ist erreicht - der Antrag von ${email} wurde abgewiesen.`,
+    );
+    throw new RegistrierungsFehler(
+      'Zurzeit können keine weiteren Anmeldungen aufgenommen werden. Bitte wenden Sie sich an den Betreiber dieses Dienstes.',
+    );
+  }
+
   if (!domaeneErlaubt(email)) {
     /*
      * Die Domänengrenze DARF gesagt werden, und sie muss sogar.

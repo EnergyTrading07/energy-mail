@@ -34,6 +34,27 @@ hieße „offen" schlicht: jeder, der ein Formular ausfüllt – und der könnte
 auf die Adresse eines anderen anlegen. Wird der Sendeserver später abgeschaltet, fällt der
 Dienst hörbar auf „Antrag mit Freigabe" zurück statt stillschweigend offen zu bleiben.
 
+### Drei Riegel für die offene Selbstanmeldung
+
+Wer die Registrierung im offenen Netz öffnet, lässt Fremde auf seinen Server — und ein
+Konto heißt dort, dass jemand bestimmt, wohin dieser Server Verbindungen aufbaut. Das war
+unbedenklich, solange ein Verwalter jedes Konto anlegte; offen ist es das Gegenteil.
+
+**Postfachserver nur im offenen Netz.** Ein Fremder trug bisher `192.168.2.1:80` als
+IMAP-Server ein und las an der Fehlermeldung ab, ob dort etwas horcht — eine Abtastung des
+fremden Netzes, ausgeführt vom Server selbst und aus dessen Sicht von innen. Geprüft wird
+jetzt die aufgelöste IP-Adresse und nicht der Name (sonst genügte ein A-Eintrag auf
+`192.168.2.1`), und zwar **jede** zurückgegebene, samt IPv4-in-IPv6-Schreibweise. Bei
+Betriebsart „offen" ist der Riegel fest an und nicht abwählbar; sonst bleibt er aus, damit
+ein Betrieb mit eigenem Mailserver im Haus nichts verliert.
+
+**Bekannte Wegwerfadressen werden abgewiesen**, samt Unterdomänen — sonst wäre die Liste
+mit einem Punkt zu umgehen. Eine Adresse, die zehn Minuten lebt, macht die Mailbestätigung
+wertlos. Dazu eine eigene Sperrliste für das, was die eingebaute nicht kennt.
+
+**Eine Höchstzahl für Nutzer** (Vorgabe 50). Jeder Nutzer kostet Speicher und bis zu drei
+dauerhafte IMAP-Verbindungen; ohne Grenze entscheidet darüber, wer sich zuerst anmeldet.
+
 ### Die Desktop-Fassung arbeitet jetzt mit einem Server
 
 **Das ist die größte Änderung dieser Fassung, und sie ändert etwas Grundsätzliches.** Bis

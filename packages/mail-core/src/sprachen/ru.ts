@@ -812,6 +812,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Только эти почтовые домены',
   'firma.de, tochter.de': 'firma.ru, dochka.ru',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Пусто означает: любой адрес. Для предприятия это сама по себе самая действенная настройка — посторонний не доходит даже до заявки.',
+  'Gesperrte Mail-Domänen': 'Заблокированные почтовые домены',
+  'aerger.example, noch-eine.example': 'problema.example, esche-odin.example',
+  'Höchstens Nutzer': 'Не более пользователей',
+  'Bekannte Wegwerfadressen abweisen': 'Отклонять известные одноразовые адреса',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'Адрес, который живёт десять минут, обесценивает подтверждение — оно доказывает лишь то, что кто-то умеет открыть сайт одноразовой почты. Чего встроенный список не знает, впишите выше.',
+  'Postfachserver nur im offenen Netz': 'Серверы почтовых ящиков только в открытой сети',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'При открытой регистрации включено постоянно. Кто создаёт учётную запись, определяет, куда этот сервер устанавливает соединения, — у посторонних это было бы сканирование вашей внутренней сети, выполненное самим сервером.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Не позволяет указать в качестве сервера почтового ящика адрес из вашей внутренней сети. Для собственного почтового сервера это должно оставаться выключенным.',
   'Datenschutzhinweis auf dem Formular': 'Сведения о защите данных в форме',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Они стоят над кнопкой отправки, и их нужно отметить галочкой. Укажите, кто обрабатывает данные и как их удалить; дайте ссылку на свою политику конфиденциальности, если она есть.',
   'Wird gesichert…': 'Сохранение…',
@@ -1412,8 +1420,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Нет подсказок',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Настройка Energy Mail',
   'Mit welchem Server arbeiten Sie?': 'С каким сервером вы работаете?',
@@ -1679,6 +1685,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Объединение переписок',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Этот почтовый сервер не знает UIDPLUS. Удаление навсегда затронуло бы там и письма, которые другая программа лишь пометила к удалению. Переместите письмо вместо этого в корзину.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Этот провайдер не умеет искать по вложениям — в IMAP нет такого критерия, а собственный поиск предлагает только Gmail.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'Без адреса сервера никак.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '«{rechner}» не удалось разрешить: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» указывает на {adresse} — адрес во внутренней сети. Эта служба подключается только к серверам почтовых ящиков в открытой сети.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» не является адресом в открытой сети. Эта служба подключается только к серверам почтовых ящиков в открытой сети.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'Сохранённый вход больше не действует — войдите в аккаунт заново. (Провайдер сообщает: {meldung})',

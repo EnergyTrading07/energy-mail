@@ -744,6 +744,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Alleen deze maildomeinen',
   'firma.de, tochter.de': 'bedrijf.nl, dochter.nl',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Leeg betekent: elk adres. Voor een bedrijf is dit op zichzelf de doeltreffendste instelling – wie er niet bij hoort, komt niet eens tot de aanvraag.',
+  'Gesperrte Mail-Domänen': 'Geblokkeerde maildomeinen',
+  'aerger.example, noch-eine.example': 'hinder.example, nog-een.example',
+  'Höchstens Nutzer': 'Max. gebruikers',
+  'Bekannte Wegwerfadressen abweisen': 'Bekende wegwerpadressen weigeren',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'Een adres dat tien minuten leeft maakt de bevestiging waardeloos – het bewijst alleen dat iemand een wegwerpsite kan openen. Wat de ingebouwde lijst niet kent, voert u hierboven in.',
+  'Postfachserver nur im offenen Netz': 'Postvakservers alleen op het open net',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Bij open aanmelding vast ingeschakeld. Wie een account aanmaakt, bepaalt waarheen deze server verbindingen opbouwt – bij vreemden zou dat een aftasten van uw interne netwerk zijn, uitgevoerd door de server zelf.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Voorkomt dat iemand een adres uit uw interne netwerk als postvakserver invoert. Voor een eigen mailserver in huis moet dit uit blijven.',
   'Datenschutzhinweis auf dem Formular': 'Privacyverklaring op het formulier',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Ze staat boven de verzendknop en moet worden aangevinkt. Vermeld wie de gegevens verwerkt en hoe men ze weer kwijtraakt; verwijs naar uw privacyverklaring als u er een hebt.',
   'Wird gesichert…': 'Bezig met opslaan…',
@@ -1320,8 +1328,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Geen suggesties',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Energy Mail instellen',
   'Mit welchem Server arbeiten Sie?': 'Met welke server werkt u?',
@@ -1587,6 +1593,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Gesprekken worden samengevoegd',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Deze mailserver kent UIDPLUS niet. Definitief verwijderen zou daar ook berichten treffen die een ander programma alleen voor verwijdering heeft aangemerkt. Verplaats het bericht in plaats daarvan naar de prullenbak.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Deze provider kan niet op bijlagen zoeken: IMAP kent daar geen criterium voor en alleen Gmail biedt er een eigen zoekfunctie voor.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'Zonder adres van de server gaat het niet.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '„{rechner}” kon niet worden omgezet: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '„{rechner}” wijst naar {adresse} – een adres in het interne netwerk. Deze dienst verbindt alleen met postvakservers op het open net.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '„{rechner}” is geen adres op het open net. Deze dienst verbindt alleen met postvakservers op het open net.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'De opgeslagen aanmelding geldt niet meer; meld u opnieuw aan bij het account. (De provider meldt: {meldung})',

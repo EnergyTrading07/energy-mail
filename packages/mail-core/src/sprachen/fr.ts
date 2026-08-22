@@ -744,6 +744,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Uniquement ces domaines de messagerie',
   'firma.de, tochter.de': 'societe.fr, filiale.fr',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Vide signifie : toute adresse. Pour une entreprise, c\'est le réglage le plus efficace à lui seul – les personnes extérieures n\'atteignent même pas l\'étape de la demande.',
+  'Gesperrte Mail-Domänen': 'Domaines de messagerie bloqués',
+  'aerger.example, noch-eine.example': 'genant.example, un-autre.example',
+  'Höchstens Nutzer': 'Utilisateurs max.',
+  'Bekannte Wegwerfadressen abweisen': 'Refuser les adresses jetables connues',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'Une adresse qui vit dix minutes rend la confirmation sans valeur – elle prouve seulement que quelqu\'un sait ouvrir un site d\'adresses jetables. Ce que la liste intégrée ignore, saisissez-le ci-dessus.',
+  'Postfachserver nur im offenen Netz': 'Serveurs de messagerie sur l\'internet public uniquement',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Activé en permanence avec l\'inscription ouverte. Celui qui crée un compte décide où ce serveur se connecte – avec des inconnus, ce serait un balayage de votre réseau interne, exécuté par le serveur lui-même.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Empêche quiconque d\'indiquer une adresse de votre réseau interne comme serveur de messagerie. Pour un serveur de messagerie dans vos murs, cela doit rester désactivé.',
   'Datenschutzhinweis auf dem Formular': 'Mention de protection des données sur le formulaire',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Elle figure au-dessus du bouton d\'envoi et doit être cochée. Indiquez qui traite les données et comment les faire supprimer ; renvoyez à votre politique de confidentialité si vous en avez une.',
   'Wird gesichert…': 'Enregistrement…',
@@ -1320,8 +1328,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Aucune suggestion',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Configurer Energy Mail',
   'Mit welchem Server arbeiten Sie?': 'Avec quel serveur travaillez-vous ?',
@@ -1587,6 +1593,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Regroupement des conversations',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Ce serveur de messagerie ne connaît pas UIDPLUS. Une suppression définitive toucherait aussi des messages qu\'un autre programme a seulement marqués pour suppression. Mettez plutôt le message à la corbeille.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Ce fournisseur ne sait pas rechercher les pièces jointes : IMAP n\'a pas de critère pour cela, et seul Gmail propose une recherche dédiée.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'L\'adresse du serveur est indispensable.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '« {rechner} » n\'a pas pu être résolu : {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '« {rechner} » pointe vers {adresse}, une adresse du réseau interne. Ce service ne se connecte qu\'à des serveurs de messagerie sur l\'internet public.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '« {rechner} » n\'est pas une adresse de l\'internet public. Ce service ne se connecte qu\'à des serveurs de messagerie sur l\'internet public.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'La connexion enregistrée n\'est plus valable ; reconnectez le compte. (Le fournisseur indique : {meldung})',

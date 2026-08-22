@@ -744,6 +744,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Apenas estes domínios de correio',
   'firma.de, tochter.de': 'empresa.pt, filial.pt',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Vazio significa: qualquer endereço. Para uma empresa esta é, só por si, a definição mais eficaz – quem não pertence nem chega ao pedido.',
+  'Gesperrte Mail-Domänen': 'Domínios de correio bloqueados',
+  'aerger.example, noch-eine.example': 'incomodo.example, outro.example',
+  'Höchstens Nutzer': 'Utilizadores máx.',
+  'Bekannte Wegwerfadressen abweisen': 'Recusar endereços descartáveis conhecidos',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'Um endereço que vive dez minutos torna a confirmação inútil – prova apenas que alguém sabe abrir um site de correio descartável. O que a lista integrada não conhecer, indique acima.',
+  'Postfachserver nur im offenen Netz': 'Servidores de correio apenas na rede pública',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Sempre ligado com o registo aberto. Quem cria uma conta decide para onde este servidor estabelece ligações – com estranhos seria um varrimento da sua rede interna, executado pelo próprio servidor.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Impede que alguém indique como servidor de correio um endereço da sua rede interna. Para um servidor de correio próprio, isto tem de ficar desligado.',
   'Datenschutzhinweis auf dem Formular': 'Aviso de proteção de dados no formulário',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'Aparece por cima do botão de envio e tem de ser assinalado. Indique quem trata os dados e como se podem eliminar; ligue à sua política de privacidade, se tiver uma.',
   'Wird gesichert…': 'A guardar…',
@@ -1320,8 +1328,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'Sem sugestões',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Configurar o Energy Mail',
   'Mit welchem Server arbeiten Sie?': 'Com que servidor trabalha?',
@@ -1587,6 +1593,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'A agrupar as conversas',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'Este servidor de correio não conhece o UIDPLUS. Uma eliminação definitiva atingiria também mensagens que outro programa apenas marcou para eliminação. Mova antes a mensagem para a reciclagem.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'Este fornecedor não sabe procurar anexos: o IMAP não tem critério para isso e só o Gmail oferece uma pesquisa própria.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'Sem o endereço do servidor não é possível.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '«{rechner}» não foi possível resolver: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» aponta para {adresse}, um endereço da rede interna. Este serviço liga-se apenas a servidores de correio na rede pública.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '«{rechner}» não é um endereço da rede pública. Este serviço liga-se apenas a servidores de correio na rede pública.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'O início de sessão guardado já não é válido; inicie sessão de novo na conta. (O fornecedor indica: {meldung})',

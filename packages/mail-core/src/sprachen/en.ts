@@ -743,6 +743,14 @@ export const KATALOG: Katalog = {
   'Nur diese Mail-Domänen': 'Only these mail domains',
   'firma.de, tochter.de': 'example.com, subsidiary.com',
   'Leer heißt: jede Adresse. Für einen Betrieb ist das die wirksamste einzelne Einstellung – wer nicht dazugehört, kommt gar nicht erst bis zum Antrag.': 'Empty means: any address. For a company this is the single most effective setting – outsiders never even reach the request stage.',
+  'Gesperrte Mail-Domänen': 'Blocked mail domains',
+  'aerger.example, noch-eine.example': 'nuisance.example, another.example',
+  'Höchstens Nutzer': 'Max. users',
+  'Bekannte Wegwerfadressen abweisen': 'Reject known disposable addresses',
+  'Eine Adresse, die zehn Minuten lebt, macht die Bestätigung wertlos – nachgewiesen ist dann nur, dass jemand eine Wegwerfseite aufrufen kann. Was die eingebaute Liste nicht kennt, tragen Sie oben ein.': 'An address that lives ten minutes makes the confirmation worthless – all it proves is that someone can open a disposable-mail site. Whatever the built-in list does not know, add above.',
+  'Postfachserver nur im offenen Netz': 'Mailbox servers on the public internet only',
+  'Bei offener Anmeldung fest eingeschaltet. Wer ein Konto anlegt, bestimmt, wohin dieser Server Verbindungen aufbaut – bei Fremden wäre das eine Abtastung Ihres internen Netzes, ausgeführt vom Server selbst.': 'Permanently on with open registration. Whoever creates an account decides where this server connects to – with strangers that would be a scan of your internal network, carried out by the server itself.',
+  'Verhindert, dass jemand als Postfachserver eine Adresse aus Ihrem internen Netz einträgt. Für einen eigenen Mailserver im Haus muss das aus bleiben.': 'Prevents anyone from entering an address from your internal network as a mailbox server. For your own in-house mail server this has to stay off.',
   'Datenschutzhinweis auf dem Formular': 'Privacy notice on the form',
   'Er steht über dem Absendeknopf und muss angehakt werden. Nennen Sie hier, wer die Daten verarbeitet und wie man sie wieder loswird; verlinken Sie Ihre Datenschutzerklärung, wenn Sie eine haben.': 'It appears above the submit button and has to be ticked. State who processes the data and how to have it removed; link your privacy policy if you have one.',
   'Wird gesichert…': 'Saving…',
@@ -1319,8 +1327,6 @@ export const KATALOG: Katalog = {
   // --- packages/desktop/src/rechtschreibung.ts ---
   'Keine Vorschläge': 'No suggestions',
 
-  // --- packages/desktop/src/safeStorageKey.ts ---
-
   // --- packages/desktop/src/serverFenster.ts ---
   'Energy Mail einrichten': 'Set up Energy Mail',
   'Mit welchem Server arbeiten Sie?': 'Which server do you work with?',
@@ -1586,6 +1592,12 @@ export const KATALOG: Katalog = {
   'Gespräche werden zusammengeführt': 'Bringing conversations together',
   'Dieser Mailserver kennt UIDPLUS nicht. Endgültiges Löschen würde dort auch Nachrichten treffen, die ein anderes Programm nur zum Löschen vorgemerkt hat. Verschieben Sie die Nachricht stattdessen in den Papierkorb.': 'This mail server does not support UIDPLUS. Deleting permanently would also hit messages that another program has merely marked for deletion. Move the message to the trash instead.',
   'Dieser Anbieter kann nicht nach Anhängen suchen - IMAP kennt dafür kein Kriterium, und nur Gmail bietet eine eigene Suche dafür.': 'This provider cannot search for attachments – IMAP has no criterion for it, and only Gmail offers a search of its own.',
+
+  // --- packages/mail-core/src/netzziele.ts ---
+  'Ohne Adresse des Servers geht es nicht.': 'The server address is required.',
+  '„{rechner}“ ließ sich nicht auflösen: {grund}': '„{rechner}“ could not be resolved: {grund}',
+  '„{rechner}“ zeigt auf {adresse} - eine Adresse im internen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '„{rechner}“ points to {adresse} – an address on the internal network. This service only connects to mailbox servers on the public internet.',
+  '„{rechner}“ ist keine Adresse im offenen Netz. Dieser Dienst verbindet sich nur zu Postfachservern im offenen Netz.': '„{rechner}“ is not an address on the public internet. This service only connects to mailbox servers on the public internet.',
 
   // --- packages/mail-core/src/oauth/provider.ts ---
   'Die gespeicherte Anmeldung gilt nicht mehr – bitte das Konto neu anmelden. (Der Anbieter meldet: {meldung})': 'The stored sign-in is no longer valid – please sign in to the account again. (The provider says: {meldung})',

@@ -310,6 +310,26 @@ Einzurichten unter **Nutzer → Selbstanmeldung**. Drei Betriebsarten:
 | **Antrag mit Freigabe** | Wer einen Antrag stellt und von Ihnen freigegeben wird | Sie behalten die Entscheidung, sparen aber die Tipparbeit |
 | **Offen mit Mailbestätigung** | Wer seine Adresse über den Bestätigungslink nachweist | Größere Aufstellungen, meist zusammen mit dem Domänenfilter |
 
+### Was Sie vor dem Einschalten von „offen" wissen müssen
+
+Eine offene Anmeldung im offenen Netz heißt: **Jeder Fremde bekommt ein Konto auf Ihrem
+Server** — und ein Konto heißt, dass er bestimmt, wohin dieser Server Verbindungen
+aufbaut. Dafür gibt es drei Riegel, die alle unter **Nutzer → Selbstanmeldung** stehen:
+
+| Riegel | Was er verhindert |
+| --- | --- |
+| **Postfachserver nur im offenen Netz** | Dass jemand `192.168.2.1` als IMAP-Server einträgt und an den Fehlermeldungen abliest, was in Ihrem Netz horcht. Bei „offen" **zwingend an**, nicht abwählbar. |
+| **Bekannte Wegwerfadressen abweisen** | Dass die Mailbestätigung wertlos wird. Eine Adresse, die zehn Minuten lebt, weist nichts nach. Eigene Ergänzungen unter „Gesperrte Mail-Domänen". |
+| **Höchstzahl** | Dass Ihnen der Speicher ausgeht. Jeder Nutzer kostet einen Ordner, einen Schlüssel, eine Ablage und — sobald er ein Postfach einrichtet — bis zu drei dauerhafte IMAP-Verbindungen. Vorgabe 50. |
+
+Dazu kommt, was ohnehin gilt: fünf Anträge je Stunde und Anschluss, höchstens 500 offene
+Anträge, und die Bestätigung über die Mailadresse.
+
+> **Der Netzriegel gilt für ALLE Konten, nicht nur für neue.** Ist er an und hatte jemand
+> vorher einen internen Mailserver eingetragen, bricht dessen Abruf mit einer klaren
+> Meldung ab. Das ist gewollt — aber wenn Sie einen eigenen Mailserver im Haus haben,
+> können Sie „offen" und ihn nicht gleichzeitig haben.
+
 **Der Domänenfilter ist die wirksamste einzelne Einstellung.** Tragen Sie dort `firma.de`
 ein, kommt niemand von außen bis zum Antrag — auch bei offener Betriebsart nicht. Für einen
 Betrieb ist das fast immer die richtige Antwort; leer heißt: jede Adresse der Welt.
